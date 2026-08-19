@@ -1,0 +1,12 @@
+name = "wherewepraying"
+compatibility_date = "2026-08-01"
+pages_build_output_dir = "."
+
+# Created via the Cloudflare dashboard (Workers & Pages > D1 > Create
+# database) or `wrangler d1 create wherewepraying-db`. After creating it,
+# replace database_id below with the real ID Cloudflare gives you — this
+# placeholder is only used for local `wrangler d1 execute --local` testing.
+[[d1_databases]]
+binding = "DB"
+database_name = "wherewepraying-db"
+database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
