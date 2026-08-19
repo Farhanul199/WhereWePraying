@@ -310,6 +310,8 @@ body #page-quran{
   padding:20px;border-radius:14px;background:var(--surface-alt);border:1px dashed var(--border);
   color:var(--text-dim);font-size:13.5px;display:flex;align-items:center;gap:10px;
 }
+#page-quran .ayah-placeholder .spin{animation:qSpin 1s linear infinite;}
+@keyframes qSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 #page-quran .ayah-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 26px;border-top:1px solid var(--border);}
 #page-quran .nav-btn{
   display:flex;align-items:center;gap:8px;background:var(--surface-alt);border:1px solid var(--border);
@@ -1710,6 +1712,89 @@ const SEED = {
 };
 
 /* ============================================================
+   LIVE QUR'AN SOURCE :: api.alquran.cloud (free, no key, CORS-open)
+   Fetches Arabic (quran-uthmani) + Saheeh International translation
+   + Latin transliteration for a whole surah in one request, then
+   caches the result in localStorage so re-opening a surah — or
+   using the app offline afterwards — is instant.
+   ============================================================ */
+const QURAN_API_BASE = 'https://api.alquran.cloud/v1';
+const QURAN_CACHE_VERSION = 'v2';
+const surahCache = {};        // in-memory: surahNum -> {ayahs:{n:{ar,tr,tl}}, source}
+const surahLoadPromises = {}; // in-flight fetches, keyed by surahNum
+
+function quranStorageKey(num){ return 'wwp:quran:'+QURAN_CACHE_VERSION+':surah:'+num; }
+
+function seedFallbackForSurah(num){
+  const ayahs = {};
+  Object.keys(SEED).forEach(k=>{
+    const [s,a] = k.split(':').map(Number);
+    if(s===num) ayahs[a] = SEED[k];
+  });
+  return {ayahs, source:'seed'};
+}
+
+async function fetchEdition(num, edition){
+  const res = await fetch(`${QURAN_API_BASE}/surah/${num}/${edition}`);
+  if(!res.ok) throw new Error(`Qur'an API request failed for ${edition}: ${res.status}`);
+  const json = await res.json();
+  if(!json || !json.data || !Array.isArray(json.data.ayahs)){
+    throw new Error(`Unexpected Qur'an API response shape for ${edition}`);
+  }
+  return json.data;
+}
+
+async function loadSurahData(num){
+  if(surahCache[num]) return surahCache[num];
+  if(surahLoadPromises[num]) return surahLoadPromises[num];
+
+  surahLoadPromises[num] = (async ()=>{
+    // 1) local cache — the Qur'an text never changes, so once fetched
+    //    we never need to hit the network for this surah again.
+    try{
+      const raw = localStorage.getItem(quranStorageKey(num));
+      if(raw){
+        const parsed = JSON.parse(raw);
+        surahCache[num] = parsed;
+        return parsed;
+      }
+    }catch(e){ /* localStorage unavailable — fall through to network */ }
+
+    // 2) live fetch — three separate single-edition requests (the
+    //    documented, guaranteed response shape) run in parallel,
+    //    rather than relying on the combined multi-edition format.
+    try{
+      const [arabicEd, transEd, translitEd] = await Promise.all([
+        fetchEdition(num, 'quran-uthmani'),
+        fetchEdition(num, 'en.sahih'),
+        fetchEdition(num, 'en.transliteration')
+      ]);
+      const ayahs = {};
+      arabicEd.ayahs.forEach((a, i)=>{
+        ayahs[a.numberInSurah] = {
+          ar: a.text,
+          tr: (transEd.ayahs[i]) ? transEd.ayahs[i].text : '',
+          tl: (translitEd.ayahs[i]) ? translitEd.ayahs[i].text : ''
+        };
+      });
+      const result = {ayahs, source:'live'};
+      surahCache[num] = result;
+      try{ localStorage.setItem(quranStorageKey(num), JSON.stringify(result)); }catch(e){ /* storage full/unavailable — still usable in-memory */ }
+      return result;
+    } catch(err){
+      console.error('Qur\'an fetch failed for surah', num, err);
+      // 3) offline / network failure fallback — seed text where we have it
+      const fallback = seedFallbackForSurah(num);
+      fallback.error = true;
+      surahCache[num] = fallback;
+      return fallback;
+    }
+  })();
+
+  return surahLoadPromises[num];
+}
+
+/* ============================================================
    UTIL
    ============================================================ */
 const TOTAL_AYAHS = SURAHS.reduce((s,x)=>s+x.ayahs,0); // 6236
@@ -1771,7 +1856,15 @@ const state = {
    ============================================================ */
 const Services = {
   fetchAyahText(surah, ayah){
+    // Live/cached data first (whole-surah cache from loadSurahData),
+    // falling back to the small offline seed set if nothing has loaded yet.
+    const cached = surahCache[surah];
+    if(cached && cached.ayahs[ayah]) return cached.ayahs[ayah];
     return SEED[surah+':'+ayah] || null;
+  },
+  surahStatus(surah){
+    if(surahCache[surah]) return surahCache[surah].error ? 'error' : 'ready';
+    return surahLoadPromises[surah] ? 'loading' : 'idle';
   },
   logHistory(surah, ayah){
     state.history.unshift({surah,ayah,ts:Date.now()});
@@ -1841,16 +1934,23 @@ function renderAyah(){
   const isBm = state.bookmarks.has(key);
 
   let body;
+  const status = Services.surahStatus(state.currentSurah);
   if(seed){
     body = `
       <div class="ayah-ar">${seed.ar} <span style="font-size:.5em;vertical-align:middle;">﴿${state.currentAyah}﴾</span></div>
       <div class="ayah-trans">${seed.tr}</div>
       ${state.showTranslit ? `<div class="ayah-translit">${seed.tl}</div>` : ''}
     `;
-  } else {
+  } else if(status==='error'){
     body = `<div class="ayah-placeholder">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
-        This ayah's Arabic text and translation will load here once the Qur'an data source is connected.
+        Couldn't load this ayah — check your connection.
+        <button id="ayahRetryBtn" class="mini-btn" style="margin-left:8px;">Retry</button>
+      </div>`;
+  } else {
+    body = `<div class="ayah-placeholder">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" class="spin"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>
+        Loading this ayah…
       </div>`;
   }
 
@@ -1876,6 +1976,12 @@ function renderAyah(){
   $('#ayahBmBtn').addEventListener('click', toggleCurrentBookmark);
   $('#ayahCopyBtn').addEventListener('click', copyCurrentAyah);
   $('#ayahShareBtn').addEventListener('click', shareCurrentAyah);
+  const retryBtn = $('#ayahRetryBtn');
+  if(retryBtn) retryBtn.addEventListener('click', ()=>{
+    delete surahCache[state.currentSurah];
+    delete surahLoadPromises[state.currentSurah];
+    ensureSurahLoaded(state.currentSurah);
+  });
 
   // nav labels
   const prevA = state.currentAyah>1 ? state.currentAyah-1 : null;
@@ -1957,12 +2063,21 @@ function renderAll(){
 /* ============================================================
    Actions
    ============================================================ */
+function ensureSurahLoaded(num){
+  loadSurahData(num).then(()=>{
+    // Only re-render if the user hasn't navigated away from this surah
+    // while the fetch was in flight.
+    if(state.currentSurah===num) renderAyah();
+  });
+}
+
 function selectSurah(num, ayah){
   state.currentSurah = num;
   state.currentAyah = ayah || 1;
   Services.logHistory(num, state.currentAyah);
   Services.saveLastRead(num, state.currentAyah);
   renderAll();
+  ensureSurahLoaded(num);
   if(window.innerWidth<=1100) closeSidebar();
   $('.reader-pane') && $('.reader-pane').scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -1986,6 +2101,7 @@ function navigateAyah(dir){
   Services.saveLastRead(state.currentSurah, state.currentAyah);
   state.todayProgress = Math.min(state.dailyGoal.amount, state.todayProgress + 0); // no auto-increment; kept explicit
   renderAll();
+  ensureSurahLoaded(state.currentSurah);
 }
 
 function toggleCurrentBookmark(){
@@ -2046,6 +2162,7 @@ function init(){
 
   Services.logHistory(state.currentSurah, state.currentAyah);
   renderAll();
+  ensureSurahLoaded(state.currentSurah);
 
   // Sidebar filter
   $('#globalSearch').addEventListener('input', e=> renderSurahList(e.target.value));
