@@ -9,4 +9,4 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "wherewepraying-db"
-database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+database_id = "d38751de-0d94-4ccb-9c15-e3b1f94de6ee"
