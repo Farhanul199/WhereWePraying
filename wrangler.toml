@@ -10,3 +10,7 @@ pages_build_output_dir = "."
 binding = "DB"
 database_name = "wherewepraying-db"
 database_id = "d38751de-0d94-4ccb-9c15-e3b1f94de6ee"
+
+[[kv_namespaces]]
+binding = "TAFSIR_KV"
+id = "4945c6a85835456881bdcf45bfdf09dc"
