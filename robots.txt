@@ -1,0 +1,7 @@
+# WhereWePraying? — robots.txt
+# Everything is open to crawl for now; nothing sensitive is public-facing.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://wherewepraying.com/sitemap.xml
