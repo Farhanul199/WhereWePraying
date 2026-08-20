@@ -97,7 +97,7 @@ svg{display:block;}
 
 
 /* ---------- Qur'an page (scoped) ---------- */
-#page-quran{--sidebar-w:272px;}
+#page-quran{--sidebar-w:300px;--audio-w:320px;}
 #page-quran *{box-sizing:border-box;margin:0;padding:0;}
 #page-quran html{-webkit-text-size-adjust:100%;}
 body #page-quran{
@@ -131,7 +131,7 @@ body #page-quran{
   color:var(--text-dim);cursor:pointer;flex:none;
 }
 #page-quran .icon-btn:hover{border-color:var(--coral);color:var(--coral);}
-#page-quran .page{max-width:1360px;margin:0 auto;padding:28px 32px 56px;}
+#page-quran .page{max-width:1900px;margin:0 auto;padding:28px clamp(20px,3vw,56px) 56px;}
 #page-quran .page-head{margin-bottom:20px;}
 #page-quran .qh-hero{display:flex;gap:22px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
 #page-quran .qh-hero-art{flex:none;}
@@ -182,7 +182,7 @@ body #page-quran{
 #page-quran .popover-row{padding:10px 8px;border-radius:10px;font-size:13.5px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;}
 #page-quran .popover-row:hover{background:var(--active-bg);}
 #page-quran .popover-empty{padding:16px 8px;color:var(--text-faint);font-size:13px;text-align:center;}
-#page-quran .reader-layout{display:grid;grid-template-columns:var(--sidebar-w) 1fr;gap:20px;align-items:start;}
+#page-quran .reader-layout{display:grid;grid-template-columns:var(--sidebar-w) 1fr var(--audio-w);gap:20px;align-items:start;}
 #page-quran .surah-sidebar{
   position:sticky;top:78px;
   background:var(--surface);border:1px solid var(--border);border-radius:18px;
@@ -259,11 +259,11 @@ body #page-quran{
 #page-quran .pill-btn.active-state{background:var(--coral);border-color:var(--coral);color:#fff;}
 #page-quran .pill-btn.icon-only{padding:8px;}
 #page-quran .reader-toolbar{
-  display:none;flex-wrap:wrap;align-items:center;gap:10px 18px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;
   padding:12px 26px;border-bottom:1px solid var(--border);background:var(--surface-alt);
   font-size:12.5px;
 }
-#page-quran .reader-toolbar.open{display:flex;}
+#page-quran .reader-toolbar.closed{display:none;}
 #page-quran #toolbarToggle.active-state{background:var(--coral);border-color:var(--coral);color:#fff;}
 #page-quran .tool-group{display:flex;align-items:center;gap:8px;}
 #page-quran .tool-label{color:var(--text-dim);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;}
@@ -301,6 +301,7 @@ body #page-quran{
 }
 #page-quran .mini-btn:hover{border-color:var(--coral);color:var(--coral);}
 #page-quran .mini-btn.bookmarked{background:var(--coral);border-color:var(--coral);color:#fff;}
+#page-quran .mini-btn.active-state{border-color:var(--coral);color:var(--coral);background:var(--active-bg);}
 #page-quran .ayah-ar{
   font-family:var(--arabic-font,'Amiri',serif);direction:rtl;text-align:right;
   font-size:var(--arabic-size,30px);line-height:2.05;color:var(--arabic-color);margin-bottom:16px;
@@ -309,8 +310,23 @@ body #page-quran{
   font-size:.44em;color:var(--coral);vertical-align:middle;font-family:'Amiri',serif;
   display:inline-flex;margin:0 2px;
 }
-#page-quran .ayah-trans{font-size:var(--trans-size,15px);line-height:1.75;color:var(--text);margin-bottom:10px;}
-#page-quran .ayah-translit{font-size:var(--trans-size,15px);line-height:1.7;color:var(--text-dim);font-style:italic;}
+#page-quran .ayah-translit{font-size:var(--trans-size,15px);line-height:1.7;color:var(--text-dim);font-style:italic;margin-bottom:8px;}
+#page-quran .ayah-trans{font-size:var(--trans-size,15px);line-height:1.75;color:var(--text);}
+#page-quran .ayah-note{display:none;margin-top:14px;}
+#page-quran .ayah-note.open{display:block;}
+#page-quran .ayah-note-inner{
+  background:var(--surface-alt);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;font-size:13px;line-height:1.7;color:var(--text-dim);
+}
+#page-quran .ayah-note-label{
+  display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--coral);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;
+}
+#page-quran .ayah-note-body p{margin-bottom:8px;}
+#page-quran .ayah-note-body p:last-child{margin-bottom:0;}
+#page-quran .ayah-note-src{margin-top:10px;font-size:10.5px;color:var(--text-faint);font-style:italic;}
+#page-quran .ayah-note-loading{display:flex;align-items:center;gap:8px;color:var(--text-faint);}
+#page-quran .ayah-note-loading .spin{animation:qSpin 1s linear infinite;}
 #page-quran .ayah-placeholder{
   padding:20px;border-radius:14px;background:var(--surface-alt);border:1px dashed var(--border);
   color:var(--text-dim);font-size:13.5px;display:flex;align-items:center;gap:10px;
@@ -328,6 +344,89 @@ body #page-quran{
 #page-quran .nav-btn.prev{justify-content:flex-start;}
 #page-quran .nav-btn.next{justify-content:flex-end;text-align:right;}
 #page-quran .nav-btn.mid{flex:none;justify-content:center;font-weight:700;color:var(--text);}
+
+/* Audio & Tools pane */
+#page-quran .audio-tools-pane{
+  position:sticky;top:78px;display:flex;flex-direction:column;gap:16px;
+}
+#page-quran .atp-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  box-shadow:var(--shadow);padding:18px;
+}
+#page-quran .atp-head{font-size:13px;font-weight:800;margin-bottom:12px;}
+#page-quran .atp-reciter{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;position:relative;}
+#page-quran .reciter-picker{position:relative;}
+#page-quran .reciter-current{
+  width:100%;display:flex;align-items:center;gap:10px;background:var(--surface-alt);
+  border:1px solid var(--border);border-radius:13px;padding:9px 12px;cursor:pointer;text-align:left;
+}
+#page-quran .reciter-current:hover{border-color:var(--coral);}
+#page-quran .reciter-avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--coral);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:none;letter-spacing:.02em;
+}
+#page-quran .reciter-current-name{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#page-quran .reciter-chev{color:var(--text-faint);flex:none;transition:transform .2s ease;}
+#page-quran .reciter-picker.open .reciter-chev{transform:rotate(180deg);}
+#page-quran .reciter-dropdown{
+  display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);
+  padding:6px;z-index:30;max-height:240px;overflow-y:auto;
+}
+#page-quran .reciter-picker.open .reciter-dropdown{display:block;}
+#page-quran .reciter-option{
+  width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;
+  padding:8px;border-radius:11px;cursor:pointer;text-align:left;font-size:13px;font-weight:700;color:var(--text);
+}
+#page-quran .reciter-option:hover{background:var(--surface-alt);}
+#page-quran .reciter-option.active{background:var(--active-bg);color:var(--coral);}
+#page-quran .reciter-option .reciter-avatar{width:30px;height:30px;font-size:10.5px;}
+#page-quran .audio-controls{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;}
+#page-quran .audio-ic{
+  width:38px;height:38px;border-radius:50%;background:var(--surface-alt);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;
+}
+#page-quran .audio-ic:hover{border-color:var(--coral);color:var(--coral);}
+#page-quran .audio-ic.play{width:52px;height:52px;background:var(--coral);border-color:var(--coral);color:#fff;}
+#page-quran .audio-ic.play:hover{background:var(--coral-dark);color:#fff;}
+#page-quran .audio-ic.muted{border-color:var(--coral);color:var(--coral);}
+#page-quran .audio-progress-row{display:flex;align-items:center;gap:8px;}
+#page-quran .audio-time{font-size:10.5px;color:var(--text-faint);font-weight:700;flex:none;min-width:32px;}
+#page-quran .audio-time:last-child{text-align:right;}
+#page-quran .audio-progress-row input[type="range"]{
+  flex:1;appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer;
+}
+#page-quran .audio-progress-row input[type="range"]::-webkit-slider-thumb{
+  appearance:none;width:12px;height:12px;border-radius:50%;background:var(--coral);cursor:pointer;
+}
+#page-quran .audio-progress-row input[type="range"]::-moz-range-thumb{
+  width:12px;height:12px;border-radius:50%;background:var(--coral);border:none;cursor:pointer;
+}
+#page-quran .tool-list{display:flex;flex-direction:column;gap:4px;}
+#page-quran .tool-row{
+  display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  padding:9px 6px;border-radius:10px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;text-align:left;
+}
+#page-quran .tool-row:hover{background:var(--surface-alt);}
+#page-quran .tool-row svg{flex:none;color:var(--text-dim);}
+#page-quran .tool-row span:not(.tool-soon){flex:1;}
+#page-quran .tool-soon{
+  font-size:9.5px;font-weight:800;color:var(--text-faint);background:var(--surface-alt);
+  border:1px solid var(--border);border-radius:6px;padding:2px 6px;flex:none;text-transform:uppercase;letter-spacing:.03em;
+}
+#page-quran .tool-tag{
+  font-size:9.5px;font-weight:800;color:var(--coral);background:var(--coral-soft);
+  border:1px solid var(--coral-soft);border-radius:6px;padding:2px 6px;flex:none;text-transform:uppercase;letter-spacing:.03em;
+}
+#page-quran .atp-estimate{text-align:center;padding:18px;}
+#page-quran .est-head{
+  display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;
+  font-size:12px;font-weight:700;color:var(--text-dim);
+}
+#page-quran .est-head svg{color:var(--coral);flex:none;}
+#page-quran .est-date{font-size:21px;font-weight:800;color:var(--text);margin-bottom:4px;}
+#page-quran .est-sub{font-size:12px;color:var(--text-faint);font-weight:600;}
+
 #page-quran .progress-footer{display:grid;grid-template-columns:var(--sidebar-w) repeat(3,1fr);gap:20px;margin-top:24px;align-items:stretch;}
 #page-quran .foot-card{
   background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;
@@ -383,10 +482,17 @@ body #page-quran{
   font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
 }
 #page-quran .continue-btn:hover{background:var(--coral-dark);}
+@media (min-width:1600px){
+#page-quran .page{max-width:2200px;}
+#page-quran{--sidebar-w:330px;--audio-w:350px;}
+}
 @media (max-width:1100px){
 #page-quran{--sidebar-w:220px;}
 #page-quran .progress-footer{grid-template-columns:repeat(2,1fr);}
 #page-quran .s-meaning{display:none;}
+#page-quran .reader-layout{grid-template-columns:var(--sidebar-w) 1fr;}
+#page-quran .audio-tools-pane{position:static;grid-column:1 / -1;flex-direction:row;}
+#page-quran .audio-tools-pane .atp-card{flex:1;}
 }
 @media (max-width:760px){
 #page-quran .page{padding:14px 10px 40px;}
@@ -409,6 +515,8 @@ body #page-quran{
 #page-quran .s-right{display:block;}
 #page-quran .s-meaning{display:block;}
 #page-quran .ayah-list{padding:16px;}
+#page-quran .audio-tools-pane{flex-direction:column;}
+#page-quran .atp-card{padding:14px;}
 /* Collapsible surah list: header + tabs stay visible; the scrollable
    list itself is swapped for a compact "currently reading" row until
    the user taps it (or a tab) to expand. */
@@ -905,7 +1013,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
           <div class="surah-meta" id="rHeaderMeta">Juz 3 · Page 40 · Madani · 286 Ayahs</div>
         </div>
         <div class="surah-actions">
-          <button class="pill-btn icon-only" id="toolbarToggle" title="Reading settings">
+          <button class="pill-btn icon-only active-state" id="toolbarToggle" title="Reading settings">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
           </button>
           <button class="pill-btn" id="bookmarkBtn">
@@ -923,7 +1031,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         </div>
       </div>
 
-      <!-- Reading settings — collapsed by default, opened via the gear icon above -->
+      <!-- Reading settings — shown by default; toggled via the gear icon above -->
       <div class="reader-toolbar" id="readerToolbar">
         <div class="tool-group">
           <span class="tool-label">Translation</span>
@@ -951,6 +1059,10 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         <label class="translit-toggle">
           <span class="tool-label">Transliteration</span>
           <span class="switch on" id="translitSwitch"></span>
+        </label>
+        <label class="translit-toggle">
+          <span class="tool-label">Explanatory Notes</span>
+          <span class="switch on" id="notesSwitch"></span>
         </label>
         <div class="mode-pills" id="modePills" style="margin-left:auto;">
           <button data-mode="light" class="active">
@@ -989,6 +1101,111 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         </button>
       </div>
     </section>
+
+    <!-- Audio & Tools pane -->
+    <aside class="audio-tools-pane" id="audioToolsPane">
+      <div class="atp-card">
+        <div class="atp-head">Audio</div>
+        <div class="atp-reciter">
+          <span class="tool-label">Reciter</span>
+          <div class="reciter-picker" id="reciterPicker">
+            <button class="reciter-current" id="reciterCurrentBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="reciter-avatar" id="reciterCurrentAvatar">MA</span>
+              <span class="reciter-current-name" id="reciterCurrentName">Mishary Rashid Alafasy</span>
+              <svg class="reciter-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="reciter-dropdown" id="reciterDropdown"></div>
+          </div>
+        </div>
+        <div class="audio-controls">
+          <button class="audio-ic" id="audioRestart" title="Restart">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+          <button class="audio-ic" id="audioBack10" title="Back 10 seconds">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6 4 12l5 6"/><path d="M20 12a8 8 0 1 0-8 8"/></svg>
+          </button>
+          <button class="audio-ic play" id="audioPlayBtn" title="Play">
+            <svg id="audioPlayIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="audio-ic" id="audioFwd10" title="Forward 10 seconds">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l5 6-5 6"/><path d="M4 12a8 8 0 1 1 8 8"/></svg>
+          </button>
+          <button class="audio-ic" id="audioMuteBtn" title="Mute">
+            <svg id="audioMuteIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
+        </div>
+        <div class="audio-progress-row">
+          <span class="audio-time" id="audioCurTime">00:00</span>
+          <input type="range" id="audioSeek" min="0" max="100" value="0" step="0.1">
+          <span class="audio-time" id="audioDurTime">00:00</span>
+        </div>
+        <audio id="surahAudio" preload="none"></audio>
+      </div>
+
+      <div class="atp-card atp-estimate">
+        <div class="est-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Estimated Completion
+        </div>
+        <div class="est-date" id="estDate">—</div>
+        <div class="est-sub" id="estSub">Set a reading plan to see this</div>
+      </div>
+
+      <div class="atp-card">
+        <div class="atp-head">Tools</div>
+        <div class="tool-list">
+          <button class="tool-row" id="toolTafsir" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+            <span>Tafsir (Ibn Kathir)</span>
+          </button>
+          <button class="tool-row" id="toolWbw" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+            <span>Word by word</span>
+            <span class="tool-soon">Soon</span>
+          </button>
+          <button class="tool-row" id="toolBookmarksPane" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>
+            <span>Bookmarks</span>
+          </button>
+          <button class="tool-row" id="toolNotes" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <span>Notes</span>
+            <span class="tool-soon">Soon</span>
+          </button>
+          <button class="tool-row" id="toolHighlights" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-3.2-3.2a2 2 0 0 1 0-2.8L16 6"/></svg>
+            <span>Highlights</span>
+            <span class="tool-soon">Soon</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="atp-card">
+        <div class="atp-head">Explore More</div>
+        <div class="tool-list">
+          <button class="tool-row" id="exploreDua1" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22c-4-2-7-6-7-11a7 7 0 0 1 14 0c0 5-3 9-7 11Z"/></svg>
+            <span>Ayat al-Kursi</span>
+            <span class="tool-tag">Du'a</span>
+          </button>
+          <button class="tool-row" id="exploreDua2" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 2.6 6.6L21 11l-6.4 2.4L12 20l-2.6-6.6L3 11l6.4-2.4Z"/></svg>
+            <span>The Three Quls</span>
+            <span class="tool-tag">Du'a</span>
+          </button>
+          <button class="tool-row" id="exploreGuide1" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c3.5 3 5 6 5 10H7c0-4 1.5-7 5-10Z"/><path d="M7 13h10v7H7z"/></svg>
+            <span>How to pray Salah</span>
+            <span class="tool-tag">Guide</span>
+          </button>
+          <button class="tool-row" id="exploreGuide2" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.7S6 9 6 13.5a6 6 0 0 0 12 0C18 9 12 2.7 12 2.7Z"/></svg>
+            <span>Wudu (Ablution)</span>
+            <span class="tool-tag">Guide</span>
+          </button>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <!-- ============================================================
@@ -1906,6 +2123,104 @@ async function loadTranslation(surahNum, key){
   return translationLoadPromises[cacheKey];
 }
 
+/* ============================================================
+   EXPLANATORY NOTES (Tafsir) — Tafsir Ibn Kathir (abridged, English),
+   fetched lazily per-ayah only when the person opens/auto-loads the
+   note panel.
+
+   // ==> CONNECT: source #1 below is this site's own backend endpoint
+   // (/api/tafsir/:surah/:ayah — see functions/api/tafsir/[surah]/[ayah].js).
+   // Until that's deployed with a KV binding, it 404s harmlessly and the
+   // code falls through to the public sources below. Once deployed, it's
+   // same-origin (no CORS exposure at all) and serves from cache after
+   // the first request, so every visitor after the first gets an
+   // instant, reliable note with zero dependency on third-party CDNs.
+   ============================================================ */
+const TAFSIR_SOURCES = [
+  {
+    url: (s,a)=> `/api/tafsir/${s}/${a}`,
+    extract: json => json && json.text
+  },
+  {
+    url: (s,a)=> `https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/en-tafisr-ibn-kathir/${s}/${a}.json`,
+    extract: json => json && (json.text || json.tafsir || json.content)
+  },
+  {
+    url: (s,a)=> `https://cdn.jsdelivr.net/gh/fauwadwali-oss/nwv-islamic-data@main/tafsir/en-tafisr-ibn-kathir/${s}/${a}.json`,
+    extract: json => json && (json.text || json.tafsir || json.content)
+  },
+  {
+    url: (s,a)=> `https://ummahapi.com/api/tafsir/ibn_kathir/surah/${s}/ayah/${a}`,
+    extract: json => json && json.data && json.data.tafsir
+  }
+];
+const tafsirCache = {};        // `${surah}:${ayah}` -> paragraph array (or null if failed)
+const tafsirLoadPromises = {};
+const tafsirLastError = {};    // `${surah}:${ayah}` -> human-readable error, for the retry panel
+
+function tafsirStorageKey(surah, ayah){ return 'wwp:quran:'+QURAN_CACHE_VERSION+':tafsir:ibnkathir:v3:'+surah+':'+ayah; }
+
+// Tafsir text comes back as plain text with single line breaks between
+// sections/hadith (occasionally with light HTML in some editions) —
+// strip any tags, then split on line breaks for readable paragraphs.
+function tafsirHtmlToParagraphs(raw){
+  if(!raw) return [];
+  const withBreaks = String(raw).replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
+  const div = document.createElement('div');
+  div.innerHTML = withBreaks;
+  return div.textContent.split(/\n+/).map(p=> p.trim()).filter(Boolean);
+}
+
+async function fetchTafsirFromSources(surah, ayah){
+  const errors = [];
+  for(const source of TAFSIR_SOURCES){
+    try{
+      const res = await fetch(source.url(surah, ayah));
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const rawText = source.extract(json) || '';
+      const paragraphs = tafsirHtmlToParagraphs(rawText);
+      if(paragraphs.length) return paragraphs;
+      throw new Error('empty response');
+    } catch(err){
+      errors.push(err.message || String(err));
+      // try the next source
+    }
+  }
+  throw new Error(errors.join(' · ') || 'All tafsir sources failed');
+}
+
+async function loadTafsir(surah, ayah){
+  const cacheKey = surah+':'+ayah;
+  if(tafsirCache[cacheKey]) return tafsirCache[cacheKey];
+  if(tafsirLoadPromises[cacheKey]) return tafsirLoadPromises[cacheKey];
+
+  tafsirLoadPromises[cacheKey] = (async ()=>{
+    try{
+      const raw = localStorage.getItem(tafsirStorageKey(surah, ayah));
+      if(raw){
+        const parsed = JSON.parse(raw);
+        tafsirCache[cacheKey] = parsed;
+        return parsed;
+      }
+    }catch(e){ /* fall through to network */ }
+
+    try{
+      const paragraphs = await fetchTafsirFromSources(surah, ayah);
+      tafsirCache[cacheKey] = paragraphs;
+      try{ localStorage.setItem(tafsirStorageKey(surah, ayah), JSON.stringify(paragraphs)); }catch(e){}
+      return paragraphs;
+    } catch(err){
+      console.error('Tafsir fetch failed for', surah, ayah, err);
+      tafsirLastError[cacheKey] = err.message || String(err);
+      tafsirCache[cacheKey] = null; // null (not []) signals "failed", so it isn't cached as "no note"
+      return null;
+    }
+  })();
+
+  return tafsirLoadPromises[cacheKey];
+}
+
 async function loadSurahData(num){
   if(surahCache[num]) return surahCache[num];
   if(surahLoadPromises[num]) return surahLoadPromises[num];
@@ -2004,6 +2319,7 @@ const state = {
   arabicSize:30,
   transSize:15,
   showTranslit:true,
+  showNotes:true,
   arabicFont:"'Amiri',serif",
   currentSurah:1,
   currentAyah:1,
@@ -2239,11 +2555,15 @@ function ayahCardHTML(surahNum, ayahNum, data, isBm){
           <button class="mini-btn" data-action="share" title="Share">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6 15.4 6.4M8.6 13.4l6.8 4.2"/></svg>
           </button>
+          <button class="mini-btn${state.showNotes?' active-state':''}" data-action="note" title="Explanatory note">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+          </button>
         </div>
       </div>
       <div class="ayah-ar">${data.ar} ${endMark}</div>
-      <div class="ayah-trans">${data.tr}</div>
       ${state.showTranslit ? `<div class="ayah-translit">${data.tl}</div>` : ''}
+      <div class="ayah-trans">${data.tr}</div>
+      <div class="ayah-note${state.showNotes?' open':''}" id="note-${surahNum}-${ayahNum}"></div>
     </div>`;
 }
 
@@ -2313,6 +2633,7 @@ function renderReader(){
   $('#nextSurahLbl').textContent = nextS ? nextS.en : 'End of Qur\'an';
   $('#prevSurahBtn').style.opacity = prevS ? 1 : .45;
   $('#nextSurahBtn').style.opacity = nextS ? 1 : .45;
+  initNotesAutoLoad();
 }
 
 function renderProgressRing(){
@@ -2359,6 +2680,42 @@ function renderProgressStats(){
   $('#statTime').textContent = state.progress.timeSpent;
 }
 
+// Estimated Completion card (audio-tools pane): projects a finish date
+// from the person's daily reading goal and current progress, converting
+// whatever unit/frequency they picked into an average pages-per-day pace.
+const QURAN_TOTAL_PAGES = 604;
+const QURAN_TOTAL_AYAHS = 6236;
+const QURAN_TOTAL_SURAHS = 114;
+function renderEstimatedCompletion(){
+  const dateEl = $('#estDate'), subEl = $('#estSub');
+  if(!dateEl || !subEl) return;
+  const pagesRemaining = QURAN_TOTAL_PAGES - state.progress.pagesRead;
+  if(pagesRemaining<=0){
+    dateEl.textContent = "Complete!";
+    subEl.textContent = "You've finished the whole Qur'an";
+    return;
+  }
+  const goal = state.dailyGoal;
+  let pagesPerOccurrence;
+  if(goal.unit==='page(s)') pagesPerOccurrence = goal.amount;
+  else if(goal.unit==='ayah(s)') pagesPerOccurrence = goal.amount * (QURAN_TOTAL_PAGES/QURAN_TOTAL_AYAHS);
+  else pagesPerOccurrence = goal.amount * (QURAN_TOTAL_PAGES/QURAN_TOTAL_SURAHS); // surah(s)
+
+  const occurrencesPerWeek = goal.freq==='Weekdays only' ? 5 : goal.freq==='Weekly' ? 1 : 7;
+  const pagesPerDay = (pagesPerOccurrence * occurrencesPerWeek) / 7;
+
+  if(!pagesPerDay || pagesPerDay<=0){
+    dateEl.textContent = "—";
+    subEl.textContent = "Set a reading plan to see this";
+    return;
+  }
+  const daysLeft = Math.max(1, Math.ceil(pagesRemaining / pagesPerDay));
+  const completion = new Date();
+  completion.setDate(completion.getDate() + daysLeft);
+  dateEl.textContent = completion.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+  subEl.textContent = `${daysLeft} day${daysLeft===1?'':'s'} left`;
+}
+
 function renderAll(){
   renderSidebarContent();
   renderReaderHeader();
@@ -2369,6 +2726,7 @@ function renderAll(){
   renderContinueCard();
   renderProgressStats();
   renderSidebarCurrentToggle();
+  renderEstimatedCompletion();
   if($('#bookmarksPopover').classList.contains('open')) renderBookmarksPopover();
 }
 
@@ -2416,10 +2774,88 @@ function selectSurah(num, ayah){
   Services.persist();
   renderAll();
   ensureSurahLoaded(num);
+  updateAudioForSurah();
   // Mobile: once a surah is picked, collapse the list back down to the
   // compact "currently reading" row (no-op on desktop).
   $('#sidebar')?.classList.remove('expanded');
   $('.reader-pane') && $('.reader-pane').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ============================================================
+   Surah audio player — full-surah recitation streamed from the
+   Islamic Network CDN (cdn.islamic.network), same source used by
+   alquran.cloud. Default reciter is Mishary Rashid Alafasy (ar.alafasy).
+   Avatars are initials, not real photos — we don't have licensed
+   photos of the reciters to use here.
+   ============================================================ */
+const RECITERS = [
+  {code:'ar.alafasy', name:'Mishary Rashid Alafasy', initials:'MA'},
+  {code:'ar.husary', name:'Mahmoud Al-Husary', initials:'MH'},
+  {code:'ar.abdulbasitmurattal', name:'Abdul Basit (Murattal)', initials:'AB'},
+  {code:'ar.minshawi', name:'Mohamed Al-Minshawi', initials:'MM'},
+];
+let currentReciter = RECITERS[0].code;
+
+function audioSrcFor(surahNum, reciter){
+  const n = String(surahNum);
+  return `https://cdn.islamic.network/quran/audio-surah/128/${reciter}/${n}.mp3`;
+}
+function formatAudioTime(sec){
+  if(!isFinite(sec) || sec<0) sec = 0;
+  const m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+// Called whenever the current surah changes: swap the audio source
+// and reset the transport UI. Does not autoplay.
+function updateAudioForSurah(){
+  const audio = $('#surahAudio');
+  if(!audio) return;
+  audio.pause();
+  audio.src = audioSrcFor(state.currentSurah, currentReciter);
+  audio.currentTime = 0;
+  setAudioPlayingUI(false);
+  $('#audioSeek').value = 0;
+  $('#audioCurTime').textContent = '00:00';
+  $('#audioDurTime').textContent = '00:00';
+}
+// Renders the reciter dropdown options and the current-selection button.
+function renderReciterPicker(){
+  const dd = $('#reciterDropdown');
+  if(!dd) return;
+  dd.innerHTML = RECITERS.map(r=>`
+    <button class="reciter-option${r.code===currentReciter?' active':''}" data-reciter="${r.code}" type="button">
+      <span class="reciter-avatar">${r.initials}</span>${r.name}
+    </button>`).join('');
+  $$('.reciter-option', dd).forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      setReciter(btn.dataset.reciter);
+      $('#reciterPicker').classList.remove('open');
+    });
+  });
+  const cur = RECITERS.find(r=>r.code===currentReciter);
+  $('#reciterCurrentAvatar').textContent = cur.initials;
+  $('#reciterCurrentName').textContent = cur.name;
+}
+// Switches reciter, keeping playback position/state where possible.
+function setReciter(code){
+  const audio = $('#surahAudio');
+  const wasPlaying = !audio.paused;
+  const t = audio.currentTime;
+  currentReciter = code;
+  audio.src = audioSrcFor(state.currentSurah, currentReciter);
+  audio.currentTime = t;
+  if(wasPlaying) audio.play().catch(()=>{});
+  renderReciterPicker();
+  showToast(`Reciter set to ${RECITERS.find(r=>r.code===code).name}`);
+}
+function setAudioPlayingUI(isPlaying){
+  const icon = $('#audioPlayIcon');
+  const btn = $('#audioPlayBtn');
+  if(!icon || !btn) return;
+  btn.title = isPlaying ? 'Pause' : 'Play';
+  icon.innerHTML = isPlaying
+    ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
+    : '<path d="M8 5v14l11-7z"/>';
 }
 
 function goPrevSurah(){
@@ -2466,6 +2902,98 @@ function shareAyah(surah, ayah){
     navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others'))
       .catch(()=>showToast('Sharing is not available on this device'));
   }
+}
+
+// Fetches and renders the tafsir into a given note-wrap element. Shared
+// by the manual toggle click and the auto-load IntersectionObserver
+// (see initNotesAutoLoad) so both paths render identically.
+async function loadNoteInto(wrap, surah, ayah){
+  if(wrap.dataset.loaded) return;
+
+  wrap.innerHTML = `<div class="ayah-note-inner">
+    <div class="ayah-note-loading">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>
+      Loading explanation…
+    </div>
+  </div>`;
+
+  const paragraphs = await loadTafsir(surah, ayah);
+  // Bail out quietly if this note panel was closed or removed while the
+  // fetch was in flight (surah scroll, next-surah, toggled off, etc.).
+  if(!document.body.contains(wrap) || !wrap.classList.contains('open')) return;
+
+  if(paragraphs === null){
+    const cacheKey = surah+':'+ayah;
+    const detail = tafsirLastError[cacheKey] || '';
+    const fileHint = location.protocol==='file:'
+      ? `<div class="ayah-note-src" style="margin-top:8px;">This page is open as a local file — some browsers block this kind of request unless the site is hosted on a real web server (e.g. Cloudflare Pages) or a local dev server.</div>`
+      : '';
+    wrap.innerHTML = `<div class="ayah-note-inner">
+      Couldn't load the explanatory note — check your connection.
+      <button class="mini-btn" data-action="retry-note" style="margin-left:8px;width:auto;padding:0 10px;">Retry</button>
+      ${detail ? `<div class="ayah-note-src" style="margin-top:8px;">Details: ${detail}</div>` : ''}
+      ${fileHint}
+    </div>`;
+    $('[data-action="retry-note"]', wrap)?.addEventListener('click', ()=>{
+      delete tafsirCache[cacheKey];
+      delete tafsirLoadPromises[cacheKey];
+      delete tafsirLastError[cacheKey];
+      wrap.dataset.loaded = '';
+      loadNoteInto(wrap, surah, ayah);
+    });
+    return;
+  }
+  if(paragraphs.length===0){
+    wrap.innerHTML = `<div class="ayah-note-inner">No explanatory note available for this ayah yet.</div>`;
+    wrap.dataset.loaded = '1';
+    return;
+  }
+  wrap.innerHTML = `<div class="ayah-note-inner">
+    <div class="ayah-note-label">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+      Explanatory note
+    </div>
+    <div class="ayah-note-body">${paragraphs.map(p=>`<p>${p}</p>`).join('')}</div>
+    <div class="ayah-note-src">Source: Tafsir Ibn Kathir (abridged)</div>
+  </div>`;
+  wrap.dataset.loaded = '1';
+}
+
+// Toggles the explanatory-note panel for one ayah open/closed, fetching
+// the tafsir on first open only (subsequent toggles just show/hide it).
+function toggleAyahNote(surah, ayah, btn){
+  const wrap = $(`#note-${surah}-${ayah}`);
+  if(!wrap) return;
+  const willOpen = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', willOpen);
+  btn.classList.toggle('active-state', willOpen);
+  if(willOpen) loadNoteInto(wrap, surah, ayah);
+}
+
+// Auto-loads notes for every open-by-default panel as it scrolls into
+// view (Explanatory Notes toggle) — one fetch per ayah, only when the
+// person actually reaches it, rather than firing every request in a
+// long surah at once. Called after every reader re-render.
+let notesObserver = null;
+function initNotesAutoLoad(){
+  if(notesObserver){ notesObserver.disconnect(); notesObserver = null; }
+  if(!state.showNotes) return;
+  const list = $('#ayahList');
+  if(!list) return;
+  notesObserver = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      const wrap = entry.target;
+      if(!entry.isIntersecting) return;
+      notesObserver.unobserve(wrap);
+      if(wrap.dataset.loaded) return;
+      const card = wrap.closest('.ayah-card');
+      if(!card) return;
+      loadNoteInto(wrap, +card.dataset.surah, +card.dataset.ayah);
+    });
+  }, {rootMargin:'500px 0px', threshold:0.01});
+  $$('.ayah-note.open', list).forEach(wrap=>{
+    if(!wrap.dataset.loaded) notesObserver.observe(wrap);
+  });
 }
 
 function shareSurah(){
@@ -2548,8 +3076,8 @@ async function init(){
 
   // Surah header actions
   $('#toolbarToggle').addEventListener('click', function(){
-    $('#readerToolbar').classList.toggle('open');
-    this.classList.toggle('active-state', $('#readerToolbar').classList.contains('open'));
+    $('#readerToolbar').classList.toggle('closed');
+    this.classList.toggle('active-state', !$('#readerToolbar').classList.contains('closed'));
   });
   $('#bookmarkBtn').addEventListener('click', ()=>{
     const pop = $('#bookmarksPopover');
@@ -2565,6 +3093,81 @@ async function init(){
   });
   $('#shareBtn').addEventListener('click', shareSurah);
 
+  // ---------- Audio player ----------
+  const audioEl = $('#surahAudio');
+  renderReciterPicker();
+  updateAudioForSurah(); // set initial src for whatever surah loads first
+
+  $('#reciterCurrentBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    const picker = $('#reciterPicker');
+    const willOpen = !picker.classList.contains('open');
+    picker.classList.toggle('open', willOpen);
+    this.setAttribute('aria-expanded', willOpen);
+  });
+  document.addEventListener('click', e=>{
+    const picker = $('#reciterPicker');
+    if(picker.classList.contains('open') && !picker.contains(e.target)){
+      picker.classList.remove('open');
+      $('#reciterCurrentBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  $('#audioPlayBtn').addEventListener('click', ()=>{
+    if(audioEl.paused){
+      audioEl.play().catch(()=> showToast("Couldn't play audio — check your connection"));
+    } else {
+      audioEl.pause();
+    }
+  });
+  audioEl.addEventListener('play', ()=> setAudioPlayingUI(true));
+  audioEl.addEventListener('pause', ()=> setAudioPlayingUI(false));
+  audioEl.addEventListener('ended', ()=> setAudioPlayingUI(false));
+  audioEl.addEventListener('loadedmetadata', ()=>{
+    $('#audioDurTime').textContent = formatAudioTime(audioEl.duration);
+  });
+  audioEl.addEventListener('timeupdate', ()=>{
+    $('#audioCurTime').textContent = formatAudioTime(audioEl.currentTime);
+    if(audioEl.duration){
+      $('#audioSeek').value = (audioEl.currentTime/audioEl.duration)*100;
+    }
+  });
+  $('#audioSeek').addEventListener('input', ()=>{
+    if(audioEl.duration){
+      audioEl.currentTime = (Number($('#audioSeek').value)/100)*audioEl.duration;
+    }
+  });
+  $('#audioRestart').addEventListener('click', ()=>{ audioEl.currentTime = 0; });
+  $('#audioBack10').addEventListener('click', ()=>{ audioEl.currentTime = Math.max(0, audioEl.currentTime-10); });
+  $('#audioFwd10').addEventListener('click', ()=>{
+    audioEl.currentTime = Math.min(audioEl.duration||audioEl.currentTime+10, audioEl.currentTime+10);
+  });
+  $('#audioMuteBtn').addEventListener('click', function(){
+    audioEl.muted = !audioEl.muted;
+    this.classList.toggle('muted', audioEl.muted);
+  });
+
+  // ---------- Tools pane ----------
+  $('#toolBookmarksPane').addEventListener('click', ()=> $('#bookmarkBtn').click());
+  $('#toolTafsir').addEventListener('click', ()=> showToast('Tap the notes icon on any ayah to read its Tafsir Ibn Kathir explanation'));
+  $('#toolWbw').addEventListener('click', ()=> showToast('Word by word is coming soon'));
+  $('#toolNotes').addEventListener('click', ()=> showToast('Notes are coming soon'));
+  $('#toolHighlights').addEventListener('click', ()=> showToast('Highlights are coming soon'));
+
+  // ---------- Explore More (cross-links into Du'a & Guides) ----------
+  $('#exploreDua1').addEventListener('click', ()=>{
+    if(window.WWP_openDua) window.WWP_openDua('sleep','ayat-al-kursi');
+  });
+  $('#exploreDua2').addEventListener('click', ()=>{
+    if(window.WWP_openDua) window.WWP_openDua('sleep','three-quls');
+  });
+  $('#exploreGuide1').addEventListener('click', ()=>{
+    if(window.WWP_openGuide) window.WWP_openGuide('salah');
+  });
+  $('#exploreGuide2').addEventListener('click', ()=>{
+    if(window.WWP_openGuide) window.WWP_openGuide('wudu');
+  });
+
   // Toolbar (collapsed by default — see #toolbarToggle above)
   $('#arabicFontSelect').addEventListener('change', e=>{
     document.documentElement.style.setProperty('--arabic-font', e.target.value);
@@ -2574,6 +3177,11 @@ async function init(){
   $('#translitSwitch').addEventListener('click', function(){
     state.showTranslit = !state.showTranslit;
     this.classList.toggle('on', state.showTranslit);
+    renderReader();
+  });
+  $('#notesSwitch').addEventListener('click', function(){
+    state.showNotes = !state.showNotes;
+    this.classList.toggle('on', state.showNotes);
     renderReader();
   });
   $$('#modePills button').forEach(b=> b.addEventListener('click', ()=> setTheme(b.dataset.mode)));
@@ -2594,6 +3202,7 @@ async function init(){
     if(btn.dataset.action==='bookmark') toggleAyahBookmark(surah, ayah);
     else if(btn.dataset.action==='copy') copyAyah(surah, ayah);
     else if(btn.dataset.action==='share') shareAyah(surah, ayah);
+    else if(btn.dataset.action==='note') toggleAyahNote(surah, ayah, btn);
   });
 
   // Surah nav
@@ -2613,6 +3222,7 @@ async function init(){
     $('#planEdit').classList.remove('open');
     Services.persist();
     renderPlan();
+    renderEstimatedCompletion();
     showToast('Reading plan updated');
   });
 
@@ -3787,6 +4397,14 @@ async function init(){
   // section once both are part of the same app shell.
 }
 
+// Cross-page deep link: lets other pages (e.g. the Qur'an page's
+// "Explore more" shortcuts) jump straight to a specific category/item.
+window.WWP_openDua = function(categoryId, itemId){
+  if(categoryId) selectCategory(categoryId);
+  if(itemId) selectItem(itemId);
+  window.switchPage('dua');
+};
+
 init();
 
 })();
@@ -4115,6 +4733,12 @@ async function init(){
   // WWP above. GUIDES content itself is still placeholder text pending
   // a scholar-reviewed source — separate from storage.
 }
+
+// Cross-page deep link: lets other pages jump straight to a specific guide.
+window.WWP_openGuide = function(guideId){
+  if(guideId) selectGuide(guideId);
+  window.switchPage('guides');
+};
 
 init();
 
