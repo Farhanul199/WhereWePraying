@@ -201,6 +201,21 @@ body #page-quran{
 #page-quran .sidebar-tab:hover{border-color:var(--coral);color:var(--coral);}
 #page-quran .sidebar-tab.active{background:var(--coral);border-color:var(--coral);color:#fff;}
 #page-quran .surah-list{overflow-y:auto;flex:1;padding:0 8px 12px;}
+#page-quran .sidebar-current-toggle{
+  display:none;width:calc(100% - 24px);align-items:center;gap:10px;margin:0 12px 10px;
+  padding:9px 10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:12px;
+  cursor:pointer;text-align:left;
+}
+#page-quran .sidebar-current-toggle:hover{border-color:var(--coral);}
+#page-quran .sct-num{
+  width:26px;height:26px;border-radius:8px;background:var(--coral-soft);color:var(--coral);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none;
+}
+#page-quran .sct-info{flex:1;min-width:0;display:flex;flex-direction:column;}
+#page-quran .sct-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+#page-quran .sct-name{font-size:13.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#page-quran .sct-chev{color:var(--text-faint);flex:none;transition:transform .2s ease;}
+#page-quran .surah-sidebar.expanded .sct-chev{transform:rotate(180deg);}
 #page-quran .surah-row{
   display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:12px;cursor:pointer;
 }
@@ -374,7 +389,6 @@ body #page-quran{
 #page-quran .s-meaning{display:none;}
 }
 @media (max-width:760px){
-#page-quran{--sidebar-w:104px;}
 #page-quran .page{padding:14px 10px 40px;}
 #page-quran .topbar{padding:12px 16px;gap:14px;}
 #page-quran .nav{display:none;}
@@ -385,19 +399,23 @@ body #page-quran{
 #page-quran .ayah-ar{font-size:calc(var(--arabic-size, 30px) - 4px);}
 #page-quran .ayah-nav{flex-wrap:wrap;}
 #page-quran .nav-btn.mid{order:3;flex:1 0 100%;}
-#page-quran .reader-layout{gap:10px;}
+#page-quran .reader-layout{grid-template-columns:1fr;gap:14px;}
 #page-quran .search-row{gap:10px;}
-#page-quran .sidebar-head{padding:10px 8px 4px;}
-#page-quran .sidebar-head h3{font-size:12px;}
-#page-quran .sidebar-count{display:none;}
-#page-quran .sidebar-tabs{padding:0 6px 6px;}
-#page-quran .sidebar-tab{font-size:10px;padding:6px 3px;}
-#page-quran .surah-row{flex-direction:column;align-items:flex-start;gap:2px;padding:8px 6px;}
-#page-quran .s-num{width:20px;height:20px;font-size:10px;}
-#page-quran .s-right,#page-quran .s-meaning{display:none;}
-#page-quran .s-en{font-size:11px;white-space:normal;line-height:1.25;}
-#page-quran .surah-title-ar{font-size:19px;}
+#page-quran .surah-sidebar{position:static;height:auto;}
+#page-quran .sidebar-head{padding:12px 12px 6px;}
+#page-quran .sidebar-head h3{font-size:13px;}
+#page-quran .sidebar-tabs{padding:0 10px 8px;}
+#page-quran .surah-row{padding:9px 8px;}
+#page-quran .s-right{display:block;}
+#page-quran .s-meaning{display:block;}
 #page-quran .ayah-list{padding:16px;}
+/* Collapsible surah list: header + tabs stay visible; the scrollable
+   list itself is swapped for a compact "currently reading" row until
+   the user taps it (or a tab) to expand. */
+#page-quran .sidebar-current-toggle{display:flex;}
+#page-quran .surah-list{display:none;max-height:min(52vh,420px);}
+#page-quran .surah-sidebar.expanded .surah-list{display:block;}
+#page-quran .surah-sidebar.expanded .sidebar-current-toggle{display:none;}
 }
 
 /* ---------- Journal page (scoped) ---------- */
@@ -860,6 +878,16 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         <button class="sidebar-tab" data-tab="juz">Juz</button>
         <button class="sidebar-tab" data-tab="bookmarks">Bookmarks</button>
       </div>
+      <!-- Mobile-only: compact summary shown when the list is collapsed;
+           tapping it expands the full scrollable list below. -->
+      <button class="sidebar-current-toggle" id="sidebarCurrentToggle" type="button">
+        <span class="sct-num" id="sctNum">1</span>
+        <span class="sct-info">
+        <span class="sct-label" id="sctLabel">Currently reading</span>
+          <span class="sct-name" id="sctName">Al-Fatihah</span>
+        </span>
+        <svg class="sct-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
       <ul class="surah-list" id="surahList"></ul>
     </aside>
 
@@ -2340,7 +2368,32 @@ function renderAll(){
   renderPlan();
   renderContinueCard();
   renderProgressStats();
+  renderSidebarCurrentToggle();
   if($('#bookmarksPopover').classList.contains('open')) renderBookmarksPopover();
+}
+
+// Mobile-only compact "currently reading" row shown while the surah
+// list is collapsed (see .sidebar-current-toggle CSS, scoped to
+// max-width:760px). Content adapts to whichever tab is active.
+// Harmless no-op visually on larger screens.
+function renderSidebarCurrentToggle(){
+  const s = getSurah(state.currentSurah);
+  if(!s) return;
+  if(state.sidebarTab==='juz'){
+    const j = getJuz(state.currentSurah, state.currentAyah);
+    $('#sctNum').textContent = j;
+    $('#sctLabel').textContent = 'Currently in';
+    $('#sctName').textContent = `Juz ${j}`;
+  } else if(state.sidebarTab==='bookmarks'){
+    const count = state.bookmarks.size;
+    $('#sctNum').textContent = count;
+    $('#sctLabel').textContent = 'Bookmarks saved';
+    $('#sctName').textContent = count===1 ? '1 ayah bookmarked' : `${count} ayahs bookmarked`;
+  } else {
+    $('#sctNum').textContent = s.num;
+    $('#sctLabel').textContent = 'Currently reading';
+    $('#sctName').textContent = s.en;
+  }
 }
 
 /* ============================================================
@@ -2363,6 +2416,9 @@ function selectSurah(num, ayah){
   Services.persist();
   renderAll();
   ensureSurahLoaded(num);
+  // Mobile: once a surah is picked, collapse the list back down to the
+  // compact "currently reading" row (no-op on desktop).
+  $('#sidebar')?.classList.remove('expanded');
   $('.reader-pane') && $('.reader-pane').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -2385,6 +2441,7 @@ function toggleAyahBookmark(surah, ayah){
   const btn = $(`#ayah-${surah}-${ayah} [data-action="bookmark"]`);
   if(btn) btn.classList.toggle('bookmarked', isNowBm);
   if(state.sidebarTab==='bookmarks') renderSidebarContent();
+  renderSidebarCurrentToggle();
   if($('#bookmarksPopover').classList.contains('open')) renderBookmarksPopover();
 }
 
@@ -2452,13 +2509,25 @@ async function init(){
   renderAll();
   ensureSurahLoaded(state.currentSurah);
 
-  // Sidebar tabs (Surah / Juz / Bookmarks)
+  // Sidebar tabs (Surah / Juz / Bookmarks) — tapping the active tab
+  // toggles the list open/closed; tapping a different tab switches
+  // to it and expands the list.
   $$('#sidebarTabs .sidebar-tab').forEach(tab=>{
     tab.addEventListener('click', ()=>{
+      const wasActive = state.sidebarTab === tab.dataset.tab;
       state.sidebarTab = tab.dataset.tab;
       $$('#sidebarTabs .sidebar-tab').forEach(t=> t.classList.toggle('active', t===tab));
       renderSidebarContent();
+      renderSidebarCurrentToggle();
+      if(wasActive) $('#sidebar').classList.toggle('expanded');
+      else $('#sidebar').classList.add('expanded');
     });
+  });
+
+  // Mobile-only: tapping the compact "currently reading" row expands
+  // the full list; no effect on desktop where it's never shown.
+  $('#sidebarCurrentToggle').addEventListener('click', ()=>{
+    $('#sidebar').classList.toggle('expanded');
   });
 
   // Sidebar search — collapsed behind the search icon until tapped
@@ -2466,7 +2535,7 @@ async function init(){
     const box = $('#sidebarSearch');
     const willOpen = !box.classList.contains('open');
     box.classList.toggle('open', willOpen);
-    if(willOpen) $('#globalSearch').focus();
+    if(willOpen){ $('#globalSearch').focus(); $('#sidebar').classList.add('expanded'); }
     else { $('#globalSearch').value=''; renderSurahList(''); }
   });
   $('#globalSearch').addEventListener('input', e=>{
