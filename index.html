@@ -846,6 +846,11 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
   background:var(--coral-soft);color:var(--coral-dark);
 }
 #page-dua .item-list{padding:0 16px 8px;display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;}
+#page-dua .item-subheader{
+  font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);
+  padding:14px 2px 2px;border-top:1px solid var(--border);margin-top:4px;
+}
+#page-dua .item-subheader:first-child{border-top:none;margin-top:0;padding-top:2px;}
 #page-dua .item-row{
   display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;border:1px solid var(--border);
   background:var(--surface-alt);cursor:pointer;
@@ -3883,7 +3888,8 @@ const DUA_TILE_IMAGES = {
   qurandua: "assets/dua/tile/qurandua.webp",
   istighfar: "assets/dua/tile/istighfar.webp",
   ummah: "assets/dua/tile/ummah.webp",
-  names: "assets/dua/tile/names.webp"
+  names: "assets/dua/tile/names.webp",
+  other: "assets/dua/tile/other.webp"
 };
 const DUA_BANNER_IMAGES = {
   morning: "assets/dua/banner/morning.webp",
@@ -3894,7 +3900,8 @@ const DUA_BANNER_IMAGES = {
   qurandua: "assets/dua/banner/qurandua.webp",
   istighfar: "assets/dua/banner/istighfar.webp",
   ummah: "assets/dua/banner/ummah.webp",
-  names: "assets/dua/banner/names.webp"
+  names: "assets/dua/banner/names.webp",
+  other: "assets/dua/banner/other.webp"
 };
 
 /* ============================================================
@@ -4543,7 +4550,141 @@ const ITEMS = {
   'name-as-sabur':{ title:"As-Sabur", subtitle:"The Most Patient", icon:'star', arabic:"الصَّبُور", translit:"Aṣ-Ṣabūr", translation:"The Most Patient, who does not hasten in punishing.", reference:"Traditional enumeration (At-Tirmidhi)" },
   'name-malik-ul-mulk':{ title:"Malik-ul-Mulk", subtitle:"The Owner of All Sovereignty", icon:'star', arabic:"مَالِكُ الْمُلْك", translit:"Mālik-ul-Mulk", translation:"The Owner of all sovereignty, giving dominion to whom He wills.", reference:"Qur'an 3:26" },
   'name-dhul-jalal':{ title:"Dhul-Jalali wal-Ikram", subtitle:"Lord of Glory and Honour", icon:'star', arabic:"ذُو الْجَلَالِ وَالْإِكْرَام", translit:"Dhul-Jalāli wal-Ikrām", translation:"The Lord of Majesty and Generosity.", reference:"Qur'an 55:27" },
-  'name-al-muhsin':{ title:"Al-Muhsin", subtitle:"The Doer of Good", icon:'star', arabic:"الْمُحْسِن", translit:"Al-Muḥsin", translation:"The Doer of Good, perfect in every action toward His creation.", reference:"Traditional enumeration" }
+  'name-al-muhsin':{ title:"Al-Muhsin", subtitle:"The Doer of Good", icon:'star', arabic:"الْمُحْسِن", translit:"Al-Muḥsin", translation:"The Doer of Good, perfect in every action toward His creation.", reference:"Traditional enumeration" },
+
+  // ============ OTHER BENEFICIAL SUPPLICATIONS — Protection & Ruqyah ============
+  'other-expel-devil':{ title:"Seeking Refuge from Satan", subtitle:"To expel the devil and his whisperings", icon:'shield',
+    arabic:"أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ",
+    translit:"A'ūdhu billāhi minash-shayṭānir-rajīm.",
+    translation:"I seek refuge in Allah from Satan, the accursed.",
+    reference:"Hisn al-Muslim 141 (Abu Dawud 1/206, At-Tirmidhi) — recited to expel whispers and distractions, especially in prayer" },
+
+  'other-fear-shirk':{ title:"Refuge from Shirk", subtitle:"For fear of associating partners with Allah, knowingly or not", icon:'shield',
+    arabic:"اللَّهُمَّ إِنِّي أَعُوذُ بِكَ أَنْ أُشْرِكَ بِكَ وَأَنَا أَعْلَمُ، وَأَسْتَغْفِرُكَ لِمَا لَا أَعْلَمُ",
+    translit:"Allāhumma innī a'ūdhu bika an ushrika bika wa anā a'lam, wa astaghfiruka limā lā a'lam.",
+    translation:"O Allah, I seek refuge in You lest I associate anything with You knowingly, and I seek Your forgiveness for what I know not.",
+    reference:"Hisn al-Muslim 203 (Ahmad 4/403) — graded good by Al-Albani" },
+
+  'other-childrens-protection':{ title:"Protection for Children", subtitle:"Placing children under Allah's protection", icon:'shield',
+    arabic:"أُعِيذُكُمَا بِكَلِمَاتِ اللَّهِ التَّامَّةِ مِنْ كُلِّ شَيْطَانٍ وَهَامَّةٍ، وَمِنْ كُلِّ عَيْنٍ لَامَّةٍ",
+    translit:"U'īdhukumā bikalimāti-llāhit-tāmmati min kulli shayṭānin wa hāmmah, wa min kulli 'aynin lāmmah.",
+    translation:"I seek protection for you both in the Perfect Words of Allah, from every devil and every beast, and from every envious, harmful eye.",
+    reference:"Hisn al-Muslim 146 (Al-Bukhari 4/119) — the Prophet ﷺ would say this over Al-Hasan and Al-Husain" },
+
+  'other-ward-off-devils':{ title:"Warding off the Rebellious Devils", subtitle:"To ward off the plot of the rebellious devils", icon:'shield',
+    arabic:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ الَّتِي لَا يُجَاوِزُهُنَّ بَرٌّ وَلَا فَاجِرٌ مِنْ شَرِّ مَا خَلَقَ، وَبَرَأَ وَذَرَأَ، وَمِنْ شَرِّ مَا يَنْزِلُ مِنَ السَّمَاءِ، وَمِنْ شَرِّ مَا يَعْرُجُ فِيهَا، وَمِنْ شَرِّ مَا ذَرَأَ فِي الْأَرْضِ، وَمِنْ شَرِّ مَا يَخْرُجُ مِنْهَا، وَمِنْ شَرِّ فِتَنِ اللَّيْلِ وَالنَّهَارِ، وَمِنْ شَرِّ كُلِّ طَارِقٍ إِلَّا طَارِقًا يَطْرُقُ بِخَيْرٍ يَا رَحْمَٰنُ",
+    translit:"A'ūdhu bikalimāti-llāhit-tāmmāti llatī lā yujāwizuhunna barrun wa lā fājirun min sharri mā khalaq, wa bara'a wa dhara', wa min sharri mā yanzilu minas-samā', wa min sharri mā ya'ruju fīhā, wa min sharri mā dhara'a fil-arḍ, wa min sharri mā yakhruju minhā, wa min sharri fitani l-layli wan-nahār, wa min sharri kulli ṭāriqin illā ṭāriqan yaṭruqu bikhayr yā Raḥmān.",
+    translation:"I seek refuge in the Perfect Words of Allah — which neither the upright nor the corrupt may overcome — from the evil of what He created, of what He made and scattered, from the evil of what descends from the sky and what rises to it, from the evil of what He scattered in the earth and what emerges from it, from the evil trials of night and day, and from the evil of every visitor by night, except the visitor who brings good. O Most Merciful.",
+    reference:"Hisn al-Muslim 247 (Ahmad 3/419, Ibn As-Sunni 637) — chain graded authentic by Al-Arna'ut" },
+
+  // ============ Distress & Difficult Times ============
+  'other-distress-1':{ title:"None Worthy of Worship but Allah", subtitle:"For one in distress", icon:'star',
+    arabic:"لَا إِلَٰهَ إِلَّا اللَّهُ الْعَظِيمُ الْحَلِيمُ، لَا إِلَٰهَ إِلَّا اللَّهُ رَبُّ الْعَرْشِ الْعَظِيمِ، لَا إِلَٰهَ إِلَّا اللَّهُ رَبُّ السَّمَاوَاتِ وَرَبُّ الْأَرْضِ وَرَبُّ الْعَرْشِ الْكَرِيمِ",
+    translit:"Lā ilāha illallāhu l-'Aẓīmu l-Ḥalīm, lā ilāha illallāhu Rabbu l-'Arshi l-'Aẓīm, lā ilāha illallāhu Rabbu s-samāwāti wa Rabbu l-arḍi wa Rabbu l-'Arshi l-Karīm.",
+    translation:"There is none worthy of worship but Allah, the Mighty, the Forbearing. There is none worthy of worship but Allah, Lord of the Magnificent Throne. There is none worthy of worship but Allah, Lord of the heavens, Lord of the earth, and Lord of the Noble Throne.",
+    reference:"Hisn al-Muslim 122 (Al-Bukhari 8/154, Muslim 4/2092)" },
+
+  'other-distress-2':{ title:"Do Not Leave Me to Myself", subtitle:"For one in distress", icon:'star',
+    arabic:"اللَّهُمَّ رَحْمَتَكَ أَرْجُو فَلَا تَكِلْنِي إِلَى نَفْسِي طَرْفَةَ عَيْنٍ، وَأَصْلِحْ لِي شَأْنِي كُلَّهُ لَا إِلَٰهَ إِلَّا أَنْتَ",
+    translit:"Allāhumma raḥmataka arjū falā takilnī ilā nafsī ṭarfata 'ayn, wa aṣliḥ lī sha'nī kullah, lā ilāha illā ant.",
+    translation:"O Allah, I hope for Your mercy. Do not leave me to myself even for the blink of an eye. Correct all of my affairs for me. There is none worthy of worship but You.",
+    reference:"Hisn al-Muslim 123 (Abu Dawud 4/324, Ahmad 5/42) — graded good by Al-Albani" },
+
+  'other-distress-3':{ title:"Glory Be to You, I Was of the Wrongdoers", subtitle:"For one in distress — the du'a of Yunus", icon:'star',
+    isPointer:true, pointerNote:"This is the same du'a of Yunus (peace be upon him) found in the Qur'anic Du'a section — recited here specifically at a moment of personal distress or hardship.",
+    reference:"Hisn al-Muslim 124 (At-Tirmidhi 5/529, Al-Hakim, graded authentic by Adh-Dhahabi)" },
+
+  'other-distress-4':{ title:"Allah is My Lord", subtitle:"For one in distress", icon:'star',
+    arabic:"اللَّهُ اللَّهُ رَبِّي لَا أُشْرِكُ بِهِ شَيْئًا",
+    translit:"Allāh, Allāhu Rabbī lā ushriku bihi shay'ā.",
+    translation:"Allah, Allah is my Lord. I do not associate anything with Him.",
+    reference:"Hisn al-Muslim 125 (Abu Dawud 2/87) — graded authentic by Al-Albani" },
+
+  'other-enemy-1':{ title:"Restrain Them by Their Necks", subtitle:"Upon encountering an enemy or authority", icon:'shield',
+    arabic:"اللَّهُمَّ إِنَّا نَجْعَلُكَ فِي نُحُورِهِمْ، وَنَعُوذُ بِكَ مِنْ شُرُورِهِمْ",
+    translit:"Allāhumma innā naj'aluka fī nuḥūrihim, wa na'ūdhu bika min shurūrihim.",
+    translation:"O Allah, we ask You to restrain them by their necks, and we seek refuge in You from their evil.",
+    reference:"Hisn al-Muslim 126 (Abu Dawud 2/89) — graded authentic by Al-Hakim and Adh-Dhahabi" },
+
+  'other-enemy-2':{ title:"You Are My Strength", subtitle:"Upon encountering an enemy or authority", icon:'shield',
+    arabic:"اللَّهُمَّ أَنْتَ عَضُدِي وَأَنْتَ نَصِيرِي، بِكَ أَجُولُ وَبِكَ أَصُولُ وَبِكَ أُقَاتِلُ",
+    translit:"Allāhumma anta 'aḍudī, wa anta naṣīrī, bika ajūlu, wa bika aṣūlu, wa bika uqātil.",
+    translation:"O Allah, You are my strength and You are my support. For Your sake I go forth, for Your sake I advance, and for Your sake I fight.",
+    reference:"Hisn al-Muslim 127 (Abu Dawud 3/42, At-Tirmidhi 5/572) — graded authentic by Al-Albani" },
+
+  'other-enemy-3':{ title:"Allah is Sufficient for Us", subtitle:"Upon encountering an enemy or authority", icon:'shield',
+    arabic:"حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ",
+    translit:"Ḥasbunallāhu wa ni'ma l-wakīl.",
+    translation:"Allah is sufficient for us, and He is the best Disposer of affairs.",
+    reference:"Hisn al-Muslim 128 (Al-Bukhari 5/172) — the words of Ibrahim (peace be upon him) when cast into the fire" },
+
+  'other-affairs-difficult':{ title:"There is No Ease Except What You Make Easy", subtitle:"When affairs become difficult", icon:'star',
+    arabic:"اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا، وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا",
+    translit:"Allāhumma lā sahla illā mā ja'altahu sahlā, wa anta taj'alu l-ḥazna idhā shi'ta sahlā.",
+    translation:"O Allah, there is no ease except in what You have made easy, and You make sorrow easy if You wish.",
+    reference:"Hisn al-Muslim 139 (Ibn Hibban 2427, Ibn As-Sunni 351) — graded authentic by Ibn Hajar" },
+
+  // ============ Travel ============
+  'other-travel':{ title:"Du'a for Travel", subtitle:"Recited when setting out, and upon returning", icon:'clouds',
+    arabic:"اللَّهُ أَكْبَرُ، اللَّهُ أَكْبَرُ، اللَّهُ أَكْبَرُ. سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ. اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى، وَمِنَ الْعَمَلِ مَا تَرْضَى. اللَّهُمَّ هَوِّنْ عَلَيْنَا سَفَرَنَا هَذَا وَاطْوِ عَنَّا بُعْدَهُ. اللَّهُمَّ أَنْتَ الصَّاحِبُ فِي السَّفَرِ، وَالْخَلِيفَةُ فِي الْأَهْلِ. اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنْ وَعْثَاءِ السَّفَرِ، وَكَآبَةِ الْمَنْظَرِ، وَسُوءِ الْمُنْقَلَبِ فِي الْمَالِ وَالْأَهْلِ",
+    translit:"Allāhu Akbar, Allāhu Akbar, Allāhu Akbar. Subḥāna lladhī sakhkhara lanā hādhā wa mā kunnā lahu muqrinīn, wa innā ilā Rabbinā lamunqalibūn. Allāhumma innā nas'aluka fī safarinā hādha l-birra wat-taqwā, wa mina l-'amali mā tarḍā. Allāhumma hawwin 'alaynā safaranā hādhā waṭwi 'annā bu'dah. Allāhumma anta ṣ-ṣāḥibu fis-safar, wal-khalīfatu fil-ahl. Allāhumma innī a'ūdhu bika min wa'thā'is-safar, wa ka'ābati l-manẓar, wa sū'il-munqalabi fil-māli wal-ahl.",
+    translation:"Allah is the Greatest, Allah is the Greatest, Allah is the Greatest. Glory to Him who has subjected this to us, for we could never have accomplished it by ourselves. Surely to our Lord we are returning. O Allah, we ask You for righteousness and piety on this journey of ours, and for deeds that please You. O Allah, lighten this journey for us and make its distance easy. O Allah, You are our Companion on the road and the Guardian of our family. O Allah, I seek refuge in You from the hardships of travel, from a distressing sight, and from finding our family and property in misfortune upon returning. (Upon returning, repeat the same, adding: We return, repentant, worshipping, and praising our Lord.)",
+    reference:"Hisn al-Muslim 207 (Muslim 2/978)" },
+
+  // ============ Daily Life & Nature ============
+  'other-thunder':{ title:"Upon Hearing Thunder", subtitle:"Glorifying Allah, Whom thunder and angels glorify", icon:'clouds',
+    arabic:"سُبْحَانَ الَّذِي يُسَبِّحُ الرَّعْدُ بِحَمْدِهِ وَالْمَلَائِكَةُ مِنْ خِيفَتِهِ",
+    translit:"Subḥāna lladhī yusabbiḥu r-ra'du biḥamdihi wal-malā'ikatu min khīfatih.",
+    translation:"Glory is to Him Whom thunder glorifies with praise, and the angels too, out of fear of Him.",
+    reference:"Al-Muwatta 2/992 — the practice of Abdullah ibn az-Zubayr (RA), who would pause his conversation upon hearing thunder to recite this" },
+
+  'other-rain-beneficial':{ title:"A Beneficial Downpour", subtitle:"When it begins to rain", icon:'clouds',
+    arabic:"اللَّهُمَّ صَيِّبًا نَافِعًا",
+    translit:"Allāhumma ṣayyiban nāfi'ā.",
+    translation:"O Allah, (let it be) a beneficial rain cloud.",
+    reference:"Hisn al-Muslim (Al-Bukhari 1/205, Muslim 1/83)" },
+
+  'other-crescent-moon':{ title:"Upon Sighting the Crescent Moon", subtitle:"At the start of a new month", icon:'moon',
+    arabic:"اللَّهُ أَكْبَرُ. اللَّهُمَّ أَهِلَّهُ عَلَيْنَا بِالْأَمْنِ وَالْإِيمَانِ، وَالسَّلَامَةِ وَالْإِسْلَامِ، وَالتَّوْفِيقِ لِمَا تُحِبُّ رَبَّنَا وَتَرْضَى. رَبُّنَا وَرَبُّكَ اللَّهُ",
+    translit:"Allāhu Akbar. Allāhumma ahillahu 'alaynā bil-amni wal-īmān, was-salāmati wal-Islām, wat-tawfīqi limā tuḥibbu Rabbanā wa tarḍā. Rabbunā wa Rabbukallāh.",
+    translation:"Allah is the Greatest. O Allah, bring this new moon upon us with security and faith, with peace and in Islam, and with guidance to that which You love and are pleased with. Our Lord and your Lord is Allah.",
+    reference:"Hisn al-Muslim 175 (At-Tirmidhi 5/504, Ad-Darimi 1/336) — graded authentic by Al-Albani" },
+
+  'other-sneezing':{ title:"Upon Sneezing", subtitle:"The exchange between the one who sneezes and those nearby", icon:'star',
+    arabic:"الْحَمْدُ لِلَّهِ ← يَرْحَمُكَ اللَّهُ ← يَهْدِيكُمُ اللَّهُ وَيُصْلِحُ بَالَكُمْ",
+    translit:"[Sneezer says:] Alḥamdulillāh. [Others reply:] Yarḥamukallāh. [Sneezer then says:] Yahdīkumullāhu wa yuṣliḥu bālakum.",
+    translation:"[Sneezer:] Praise be to Allah. [Others:] May Allah have mercy on you. [Sneezer replies:] May Allah guide you and set right your affairs.",
+    reference:"Al-Bukhari 6224, and Hisn al-Muslim Ch. 77 — an etiquette of mutual remembrance among Muslims" },
+
+  'other-anger':{ title:"When Angry", subtitle:"Seeking refuge from Satan's provocation", icon:'shield',
+    isPointer:true, pointerNote:"The same 'A'udhu billahi minash-shaytanir-rajim' found under Protection above — recited specifically to calm anger.",
+    reference:"Hisn al-Muslim 193 (Al-Bukhari 7/99, Muslim 4/2015)" },
+
+  'other-qunoot-witr':{ title:"Qunoot al-Witr", subtitle:"Recited in the third rak'ah of Witr prayer", icon:'mosque',
+    arabic:"اللَّهُمَّ اهْدِنِي فِيمَنْ هَدَيْتَ، وَعَافِنِي فِيمَنْ عَافَيْتَ، وَتَوَلَّنِي فِيمَنْ تَوَلَّيْتَ، وَبَارِكْ لِي فِيمَا أَعْطَيْتَ، وَقِنِي شَرَّ مَا قَضَيْتَ، إِنَّكَ تَقْضِي وَلَا يُقْضَى عَلَيْكَ، وَإِنَّهُ لَا يَذِلُّ مَنْ وَالَيْتَ وَلَا يَعِزُّ مَنْ عَادَيْتَ، تَبَارَكْتَ رَبَّنَا وَتَعَالَيْتَ",
+    translit:"Allāhumma-hdinī fīman hadayt, wa 'āfinī fīman 'āfayt, wa tawallanī fīman tawallayt, wa bārik lī fīmā a'ṭayt, wa qinī sharra mā qaḍayt, innaka taqḍī wa lā yuqḍā 'alayk, wa innahu lā yadhillu man wālayt, wa lā ya'izzu man 'ādayt, tabārakta Rabbanā wa ta'ālayt.",
+    translation:"O Allah, guide me among those You have guided, pardon me among those You have pardoned, take me into Your care among those You have taken into Your care, bless me in what You have granted, and protect me from the evil You have decreed. Indeed You decree, and none decrees over You. He whom You befriend is not humiliated, nor is he honoured whom You oppose. Blessed are You, our Lord, and Exalted.",
+    reference:"Hisn al-Muslim (Sunan Abi Dawud 1425) — taught by the Prophet ﷺ to his grandson Al-Hasan ibn Ali" },
+
+  // ============ Family & Life Events ============
+  'other-visiting-sick-1':{ title:"It Will Be a Purification", subtitle:"When visiting the sick", icon:'star',
+    arabic:"لَا بَأْسَ طَهُورٌ إِنْ شَاءَ اللَّهُ",
+    translit:"Lā ba'sa ṭahūrun in shā'allāh.",
+    translation:"Do not worry, it will be a purification for you, Allah willing.",
+    reference:"Hisn al-Muslim 147 (Al-Bukhari 10/118)" },
+
+  'other-visiting-sick-2':{ title:"I Ask Allah to Heal You", subtitle:"When visiting the sick — recite seven times", icon:'star',
+    arabic:"أَسْأَلُ اللَّهَ الْعَظِيمَ رَبَّ الْعَرْشِ الْعَظِيمِ أَنْ يَشْفِيَكَ",
+    translit:"As'alullāha l-'Aẓīma Rabba l-'Arshi l-'Aẓīmi an yashfiyak. (×7)",
+    translation:"I ask Almighty Allah, Lord of the Magnificent Throne, to heal you.",
+    reference:"Hisn al-Muslim 148 (At-Tirmidhi, Abu Dawud) — recite seven times, graded authentic by Al-Albani" },
+
+  'other-condolence':{ title:"Words of Condolence", subtitle:"To offer comfort after a loss", icon:'people',
+    arabic:"إِنَّ لِلَّهِ مَا أَخَذَ، وَلَهُ مَا أَعْطَى، وَكُلُّ شَيْءٍ عِنْدَهُ بِأَجَلٍ مُسَمًّى، فَلْتَصْبِرْ وَلْتَحْتَسِبْ",
+    translit:"Inna lillāhi mā akhadh, wa lahu mā a'ṭā, wa kullu shay'in 'indahu bi-ajalin musammā, faltaṣbir wal-taḥtasib.",
+    translation:"Surely to Allah belongs what He takes, and to Him belongs what He gives; everything with Him has an appointed time. So be patient and seek reward.",
+    reference:"Hisn al-Muslim 162 (Al-Bukhari 2/80, Muslim 2/636)" }
+
 };
 
 
@@ -4572,9 +4713,19 @@ const CATEGORIES = [
   {id:'ummah', title:"Du'as for the Ummah", icon:'people', theme:'theme-ummah', light:false,
     desc:"Supplications for the wellbeing and unity of the Muslim community.",
     items:['dua-ummah','dua-ibrahim-descendants','rabbana-ighfir-lana','dua-victory-islam']},
-  {id:'names', title:"The 99 Names of Allah", icon:'clouds', theme:'theme-names', light:false,
+  {id:'names', title:"The 99 Names of Allah", icon:'clouds', theme:'theme-names', light:false, wide:true,
     desc:"The complete 99 beautiful names of Allah, with meaning and reflection.",
-    items:['name-ar-rahman','name-ar-raheem','name-al-malik','name-al-quddus','name-as-salam','name-al-mumin','name-al-muhaymin','name-al-aziz','name-al-jabbar','name-al-mutakabbir','name-al-khaliq','name-al-bari','name-al-musawwir','name-al-ghaffar','name-al-qahhar','name-al-wahhab','name-ar-razzaq','name-al-fattah','name-al-alim','name-al-qabid','name-al-basit','name-al-khafid','name-ar-rafi','name-al-muizz','name-al-mudhill','name-as-sami','name-al-basir','name-al-hakam','name-al-adl','name-al-latif','name-al-khabir','name-al-halim','name-al-azim','name-al-ghafur','name-ash-shakur','name-al-aliyy','name-al-kabir','name-al-hafiz','name-al-muqit','name-al-hasib','name-al-jalil','name-al-karim','name-ar-raqib','name-al-mujib','name-al-wasi','name-al-hakim','name-al-wadud','name-al-majid','name-al-baith','name-ash-shahid','name-al-haqq','name-al-wakil','name-al-qawiyy','name-al-matin','name-al-waliyy','name-al-hamid','name-al-muhsi','name-al-mubdi','name-al-muid','name-al-muhyi','name-al-mumit','name-al-hayy','name-al-qayyum','name-al-wajid','name-al-majid-2','name-al-wahid','name-as-samad','name-al-qadir','name-al-muqtadir','name-al-muqaddim','name-al-muakhkhir','name-al-awwal','name-al-akhir','name-az-zahir','name-al-batin','name-al-wali','name-al-mutaali','name-al-barr','name-at-tawwab','name-al-muntaqim','name-al-afuw','name-ar-rauf','name-al-muqsit','name-al-jami','name-al-ghaniyy','name-al-mughni','name-al-mani','name-ad-darr','name-an-nafi','name-an-nur','name-al-hadi','name-al-badi','name-al-baqi','name-al-warith','name-ar-rashid','name-as-sabur','name-malik-ul-mulk','name-dhul-jalal','name-al-muhsin']}
+    items:['name-ar-rahman','name-ar-raheem','name-al-malik','name-al-quddus','name-as-salam','name-al-mumin','name-al-muhaymin','name-al-aziz','name-al-jabbar','name-al-mutakabbir','name-al-khaliq','name-al-bari','name-al-musawwir','name-al-ghaffar','name-al-qahhar','name-al-wahhab','name-ar-razzaq','name-al-fattah','name-al-alim','name-al-qabid','name-al-basit','name-al-khafid','name-ar-rafi','name-al-muizz','name-al-mudhill','name-as-sami','name-al-basir','name-al-hakam','name-al-adl','name-al-latif','name-al-khabir','name-al-halim','name-al-azim','name-al-ghafur','name-ash-shakur','name-al-aliyy','name-al-kabir','name-al-hafiz','name-al-muqit','name-al-hasib','name-al-jalil','name-al-karim','name-ar-raqib','name-al-mujib','name-al-wasi','name-al-hakim','name-al-wadud','name-al-majid','name-al-baith','name-ash-shahid','name-al-haqq','name-al-wakil','name-al-qawiyy','name-al-matin','name-al-waliyy','name-al-hamid','name-al-muhsi','name-al-mubdi','name-al-muid','name-al-muhyi','name-al-mumit','name-al-hayy','name-al-qayyum','name-al-wajid','name-al-majid-2','name-al-wahid','name-as-samad','name-al-qadir','name-al-muqtadir','name-al-muqaddim','name-al-muakhkhir','name-al-awwal','name-al-akhir','name-az-zahir','name-al-batin','name-al-wali','name-al-mutaali','name-al-barr','name-at-tawwab','name-al-muntaqim','name-al-afuw','name-ar-rauf','name-al-muqsit','name-al-jami','name-al-ghaniyy','name-al-mughni','name-al-mani','name-ad-darr','name-an-nafi','name-an-nur','name-al-hadi','name-al-badi','name-al-baqi','name-al-warith','name-ar-rashid','name-as-sabur','name-malik-ul-mulk','name-dhul-jalal','name-al-muhsin']},
+  {id:'other', title:"Other Beneficial Supplications", icon:'clouds', theme:'theme-other', light:false, wide:true,
+    desc:"Du'as and dhikr for situations outside the categories above — including protection, travel, and life events.",
+    items:['other-expel-devil','other-fear-shirk','other-childrens-protection','other-ward-off-devils','other-distress-1','other-distress-2','other-distress-3','other-distress-4','other-enemy-1','other-enemy-2','other-enemy-3','other-affairs-difficult','other-travel','other-thunder','other-rain-beneficial','other-crescent-moon','other-sneezing','other-anger','other-qunoot-witr','other-visiting-sick-1','other-visiting-sick-2','other-condolence'],
+    subGroups:[
+      {label:"Protection & Ruqyah", items:['other-expel-devil','other-fear-shirk','other-childrens-protection','other-ward-off-devils']},
+      {label:"Distress & Difficult Times", items:['other-distress-1','other-distress-2','other-distress-3','other-distress-4','other-enemy-1','other-enemy-2','other-enemy-3','other-affairs-difficult']},
+      {label:"Travel", items:['other-travel']},
+      {label:"Daily Life & Nature", items:['other-thunder','other-rain-beneficial','other-crescent-moon','other-sneezing','other-anger','other-qunoot-witr']},
+      {label:"Family & Life Events", items:['other-visiting-sick-1','other-visiting-sick-2','other-condolence']}
+    ]}
 ];
 
 
@@ -4622,7 +4773,7 @@ function renderCategories(){
   const grid = $('#catGrid'); grid.innerHTML='';
   CATEGORIES.forEach((cat,i)=>{
     const card = document.createElement('div');
-    const isFull = (i===CATEGORIES.length-1) && (CATEGORIES.length%2!==0);
+    const isFull = !!cat.wide;
     card.className = `cat-card cat-card-art ${state.hasUserSelectedCategory && state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
     card.innerHTML = `
       <div class="cat-scene-wrap"><img src="${DUA_TILE_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
@@ -4666,28 +4817,45 @@ function renderItemsPane(){
   if(ids.length===0){
     list.innerHTML = `<div class="empty-state">${iconSvg('heart',30)}<div>No favourites yet — tap the bookmark icon on any du'a to save it here.</div></div>`;
   }
-  ids.forEach(id=>{
-    const item = ITEMS[id]; if(!item) return;
-    const row = document.createElement('div');
-    row.className = 'item-row'+(state.selectedItem===id?' active':'');
-    const isBm = state.bookmarks.has(id);
-    row.innerHTML = `
-      <span class="item-icon">${iconSvg(item.icon,16)}</span>
-      <div class="item-body"><div class="item-title">${item.title}</div><div class="item-sub">${item.subtitle}</div></div>
-      <div class="item-actions">
-        <span class="item-bm ${isBm?'saved':''}" data-id="${id}">${iconSvg('star',0)}</span>
-        <span class="item-chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></span>
-      </div>
-    `;
-    row.querySelector('.item-bm').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${isBm?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>`;
-    row.querySelector('.item-bm').addEventListener('click', e=>{ e.stopPropagation(); toggleBookmark(id); });
-    row.addEventListener('click', ()=> selectItem(id));
-    list.appendChild(row);
-  });
+  if(!fav && cat.subGroups && cat.subGroups.length){
+    cat.subGroups.forEach(group=>{
+      const header = document.createElement('div');
+      header.className = 'item-subheader';
+      header.textContent = group.label;
+      list.appendChild(header);
+      group.items.forEach(id=>{
+        const item = ITEMS[id]; if(!item) return;
+        list.appendChild(buildItemRow(id, item));
+      });
+    });
+  } else {
+    ids.forEach(id=>{
+      const item = ITEMS[id]; if(!item) return;
+      list.appendChild(buildItemRow(id, item));
+    });
+  }
 
   const tip = $('#tipCard');
   const tipText = TIPS[fav ? 'sleep' : cat.id] || "Consistency is key.";
   tip.innerHTML = `<span class="tip-icon">${iconSvg('shield',18)}</span><div><strong>Consistency is key</strong><p>${tipText}</p></div>`;
+}
+
+function buildItemRow(id, item){
+  const row = document.createElement('div');
+  row.className = 'item-row'+(state.selectedItem===id?' active':'');
+  const isBm = state.bookmarks.has(id);
+  row.innerHTML = `
+    <span class="item-icon">${iconSvg(item.icon,16)}</span>
+    <div class="item-body"><div class="item-title">${item.title}</div><div class="item-sub">${item.subtitle}</div></div>
+    <div class="item-actions">
+      <span class="item-bm ${isBm?'saved':''}" data-id="${id}">${iconSvg('star',0)}</span>
+      <span class="item-chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></span>
+    </div>
+  `;
+  row.querySelector('.item-bm').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${isBm?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>`;
+  row.querySelector('.item-bm').addEventListener('click', e=>{ e.stopPropagation(); toggleBookmark(id); });
+  row.addEventListener('click', ()=> selectItem(id));
+  return row;
 }
 
 function renderDetailPane(){
