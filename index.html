@@ -3858,21 +3858,40 @@ const ICONS = {
 function iconSvg(name, size){ size = size||14; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[name]||ICONS.star}</svg>`; }
 
 /* ============================================================
-   DUA_IMAGES :: category card artwork (illustrated banners with
-   baked-in title text) for the Du'a & Dhikr category grid and
-   item-list banner. Served as static files from /assets/dua/ so
-   they cache independently of the page and keep index.html lean.
+   DUA_TILE_IMAGES / DUA_BANNER_IMAGES :: category card artwork
+   (illustrated scenes with baked-in title text) for the Du'a &
+   Dhikr section. Two sizes are served because the grid tile
+   (~1.22:1) and the opened-category banner (~1.62:1) have very
+   different box ratios — using one crop for both caused uneven
+   zoom/cropping across cards. Tile crops are pre-cropped to the
+   grid's own ratio (anchored to keep each image's title text and
+   arrow fully in frame) so every tile looks consistently framed;
+   banner images use the original wider artwork, which already
+   matches that box's ratio closely. Served as static files from
+   /assets/dua/ so they cache independently of the page and keep
+   index.html lean.
    ============================================================ */
-const DUA_IMAGES = {
-  morning: "assets/dua/morning.webp",
-  evening: "assets/dua/evening.webp",
-  salah: "assets/dua/salah.webp",
-  sleep: "assets/dua/sleep.webp",
-  praise: "assets/dua/praise.webp",
-  qurandua: "assets/dua/qurandua.webp",
-  istighfar: "assets/dua/istighfar.webp",
-  ummah: "assets/dua/ummah.webp",
-  names: "assets/dua/names.webp"
+const DUA_TILE_IMAGES = {
+  morning: "assets/dua/tile/morning.webp",
+  evening: "assets/dua/tile/evening.webp",
+  salah: "assets/dua/tile/salah.webp",
+  sleep: "assets/dua/tile/sleep.webp",
+  praise: "assets/dua/tile/praise.webp",
+  qurandua: "assets/dua/tile/qurandua.webp",
+  istighfar: "assets/dua/tile/istighfar.webp",
+  ummah: "assets/dua/tile/ummah.webp",
+  names: "assets/dua/tile/names.webp"
+};
+const DUA_BANNER_IMAGES = {
+  morning: "assets/dua/banner/morning.webp",
+  evening: "assets/dua/banner/evening.webp",
+  salah: "assets/dua/banner/salah.webp",
+  sleep: "assets/dua/banner/sleep.webp",
+  praise: "assets/dua/banner/praise.webp",
+  qurandua: "assets/dua/banner/qurandua.webp",
+  istighfar: "assets/dua/banner/istighfar.webp",
+  ummah: "assets/dua/banner/ummah.webp",
+  names: "assets/dua/banner/names.webp"
 };
 
 /* ============================================================
@@ -4351,7 +4370,7 @@ function renderCategories(){
     const isFull = (i===CATEGORIES.length-1) && (CATEGORIES.length%2!==0);
     card.className = `cat-card cat-card-art ${state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
     card.innerHTML = `
-      <div class="cat-scene-wrap"><img src="${DUA_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
+      <div class="cat-scene-wrap"><img src="${DUA_TILE_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
     `;
     card.addEventListener('click', ()=> selectCategory(cat.id));
     grid.appendChild(card);
@@ -4379,7 +4398,7 @@ function renderItemsPane(){
   } else {
     banner.innerHTML = `
       <div class="cat-banner cat-banner-art">
-        <div class="banner-scene"><img src="${DUA_IMAGES[cat.id]}" alt="${cat.title}"></div>
+        <div class="banner-scene"><img src="${DUA_BANNER_IMAGES[cat.id]}" alt="${cat.title}"></div>
         <div class="banner-content banner-content-art">
           <p>${cat.desc}</p>
           <span class="item-count">${cat.items.length} item${cat.items.length===1?'':'s'}</span>
