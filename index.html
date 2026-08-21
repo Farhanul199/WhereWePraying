@@ -4342,6 +4342,7 @@ const TIPS = {
 const state = {
   selectedCategory:'sleep',
   selectedItem:'ayat-al-kursi',
+  hasUserSelectedCategory:false,  // true once the user actually taps a category — used to suppress the active-border on the default pre-selected card
   favoritesMode:false,
   bookmarks:new Set(),           // fresh device starts empty; loaded from backend below
   audioPlaying:false,
@@ -4368,7 +4369,7 @@ function renderCategories(){
   CATEGORIES.forEach((cat,i)=>{
     const card = document.createElement('div');
     const isFull = (i===CATEGORIES.length-1) && (CATEGORIES.length%2!==0);
-    card.className = `cat-card cat-card-art ${state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
+    card.className = `cat-card cat-card-art ${state.hasUserSelectedCategory && state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
     card.innerHTML = `
       <div class="cat-scene-wrap"><img src="${DUA_TILE_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
     `;
@@ -4536,6 +4537,7 @@ function renderAll(){
    ============================================================ */
 function selectCategory(id){
   state.selectedCategory = id;
+  state.hasUserSelectedCategory = true;
   state.favoritesMode = false;
   const cat = getCategory(id);
   state.selectedItem = cat.items[0] || null;
