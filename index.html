@@ -4913,39 +4913,8 @@ function renderDetailPane(){
     `;
   }
 
-  audioBar.innerHTML = `
-    <div class="audio-bar">
-      <button class="audio-btn" id="prevItemBtn" title="Previous">${iconSvg('star',0)}</button>
-      <button class="audio-btn play" id="playBtn" title="Play">${iconSvg('star',0)}</button>
-      <button class="audio-btn" id="nextItemBtn" title="Next">${iconSvg('star',0)}</button>
-      <button class="audio-speed" id="speedBtn">${state.audioSpeed.toFixed(2).replace(/0$/,'').replace(/\\.$/,'.0')}x</button>
-      <span class="audio-vol" id="volBtn">${iconSvg(state.muted?'moon':'sun',0)}</span>
-    </div>
-  `;
-  $('#prevItemBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 20 9 12l10-8v16Z"/><path d="M5 19V5"/></svg>';
-  $('#playBtn').innerHTML = state.audioPlaying
-    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
-    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>';
-  $('#nextItemBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 4l10 8-10 8V4Z"/><path d="M19 5v14"/></svg>';
-  $('#volBtn').innerHTML = state.muted
-    ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>'
-    : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>';
-
-  $('#prevItemBtn').addEventListener('click', ()=> stepItem(-1));
-  $('#nextItemBtn').addEventListener('click', ()=> stepItem(1));
-  $('#playBtn').addEventListener('click', ()=>{
-    state.audioPlaying = !state.audioPlaying;
-    renderDetailPane();
-    if(state.audioPlaying) showToast('Audio recitation will connect once a reciter source is linked.');
-  });
-  $('#speedBtn').addEventListener('click', ()=>{
-    const speeds=[1.0,1.25,1.5,0.75];
-    state.audioSpeed = speeds[(speeds.indexOf(state.audioSpeed)+1)%speeds.length];
-    renderDetailPane();
-  });
-  $('#volBtn').addEventListener('click', ()=>{ state.muted=!state.muted; renderDetailPane(); });
-
-  tipCallout.innerHTML = `<span style="flex:none;">💡</span><span>Tip: memorise this ${item.parts?'set':'passage'} slowly, a line at a time — repetition with presence matters more than speed.</span>`;
+  audioBar.innerHTML = '';
+  tipCallout.innerHTML = '';
 }
 
 function renderAll(){
