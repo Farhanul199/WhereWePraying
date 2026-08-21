@@ -787,7 +787,8 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
 #page-dua .cat-card:hover{transform:translateY(-1px);}
 #page-dua .cat-card.active{border-color:var(--coral);}
 #page-dua .cat-scene-wrap{position:absolute;inset:0;}
-#page-dua .cat-scene-wrap svg{width:100%;height:100%;display:block;}
+#page-dua .cat-scene-wrap svg,#page-dua .cat-scene-wrap img{width:100%;height:100%;display:block;object-fit:cover;}
+#page-dua .cat-card-art{min-height:150px;}
 #page-dua .cat-scrim{position:absolute;inset:0;}
 #page-dua .cat-card.light-txt .cat-scrim{background:linear-gradient(to top, rgba(8,6,18,.6), rgba(8,6,18,0) 62%);}
 #page-dua .cat-card:not(.light-txt) .cat-scrim{background:linear-gradient(to top, rgba(255,252,245,.5), rgba(255,252,245,0) 58%);}
@@ -820,7 +821,7 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
 #page-dua .ph-icon.saved{background:var(--coral);border-color:var(--coral);color:#fff;}
 #page-dua .cat-banner{margin:16px;border-radius:16px;position:relative;overflow:hidden;min-height:132px;}
 #page-dua .cat-banner .banner-scene{position:absolute;inset:0;}
-#page-dua .cat-banner .banner-scene svg{width:100%;height:100%;display:block;}
+#page-dua .cat-banner .banner-scene svg,#page-dua .cat-banner .banner-scene img{width:100%;height:100%;display:block;object-fit:cover;}
 #page-dua .cat-banner .banner-scrim{position:absolute;inset:0;background:linear-gradient(to top, rgba(10,8,20,.72), rgba(10,8,20,.08) 55%, rgba(10,8,20,0) 78%);}
 #page-dua .cat-banner .banner-content{position:relative;z-index:1;padding:20px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;color:#fff;}
 #page-dua .cat-banner h2{font-size:19px;font-weight:800;line-height:1.25;text-shadow:0 1px 10px rgba(0,0,0,.3);}
@@ -828,6 +829,18 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
 #page-dua .cat-banner .item-count{
   margin-top:10px;display:inline-flex;background:rgba(255,255,255,.28);border-radius:8px;padding:4px 10px;
   font-size:11px;font-weight:700;width:fit-content;
+}
+/* Photo-banner variant: artwork already carries the title, so content
+   sits below the image (not overlaid) to avoid clashing with baked-in text. */
+#page-dua .cat-banner-art{display:flex;flex-direction:column;min-height:0;}
+#page-dua .cat-banner-art .banner-scene{position:relative;inset:auto;aspect-ratio:16/9.3;}
+#page-dua .banner-content-art{
+  position:relative;padding:14px 20px 18px;color:var(--text);background:var(--surface);
+  display:block;
+}
+#page-dua .banner-content-art p{font-size:12.5px;color:var(--text-dim);max-width:100%;margin-top:0;opacity:1;}
+#page-dua .banner-content-art .item-count{
+  background:var(--coral-soft);color:var(--coral-dark);
 }
 #page-dua .item-list{padding:0 16px 8px;display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;}
 #page-dua .item-row{
@@ -3845,10 +3858,31 @@ const ICONS = {
 function iconSvg(name, size){ size = size||14; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[name]||ICONS.star}</svg>`; }
 
 /* ============================================================
+   DUA_IMAGES :: category card artwork (illustrated banners with
+   baked-in title text) for the Du'a & Dhikr category grid and
+   item-list banner. Served as static files from /assets/dua/ so
+   they cache independently of the page and keep index.html lean.
+   ============================================================ */
+const DUA_IMAGES = {
+  morning: "assets/dua/morning.webp",
+  evening: "assets/dua/evening.webp",
+  salah: "assets/dua/salah.webp",
+  sleep: "assets/dua/sleep.webp",
+  praise: "assets/dua/praise.webp",
+  qurandua: "assets/dua/qurandua.webp",
+  istighfar: "assets/dua/istighfar.webp",
+  ummah: "assets/dua/ummah.webp",
+  names: "assets/dua/names.webp"
+};
+
+/* ============================================================
    SCENES :: high-quality vector illustrations, one per category —
    layered gradients, soft glows and fine linework for a premium
    finish while staying crisp at any size (unlike a raster crop).
+   Kept as a fallback source for views without dedicated artwork
+   (e.g. the "My Favourites" banner).
    ============================================================ */
+
 const SCENES = {
   morning: `<svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -4315,17 +4349,9 @@ function renderCategories(){
   CATEGORIES.forEach((cat,i)=>{
     const card = document.createElement('div');
     const isFull = (i===CATEGORIES.length-1) && (CATEGORIES.length%2!==0);
-    card.className = `cat-card ${cat.light?'light-txt':''} ${state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
+    card.className = `cat-card cat-card-art ${state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
     card.innerHTML = `
-      <div class="cat-scene-wrap">${sceneSvg(cat.id)}</div>
-      <div class="cat-scrim"></div>
-      <div class="cat-content">
-        <span class="cat-chip">${iconSvg(cat.icon,16)}</span>
-        <div class="cat-bottom">
-          <span class="cat-title">${cat.title}</span>
-          <span class="cat-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></span>
-        </div>
-      </div>
+      <div class="cat-scene-wrap"><img src="${DUA_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
     `;
     card.addEventListener('click', ()=> selectCategory(cat.id));
     grid.appendChild(card);
@@ -4352,11 +4378,9 @@ function renderItemsPane(){
       </div>`;
   } else {
     banner.innerHTML = `
-      <div class="cat-banner">
-        <div class="banner-scene">${sceneSvg(cat.id)}</div>
-        <div class="banner-scrim"></div>
-        <div class="banner-content">
-          <h2>${cat.title}</h2>
+      <div class="cat-banner cat-banner-art">
+        <div class="banner-scene"><img src="${DUA_IMAGES[cat.id]}" alt="${cat.title}"></div>
+        <div class="banner-content banner-content-art">
           <p>${cat.desc}</p>
           <span class="item-count">${cat.items.length} item${cat.items.length===1?'':'s'}</span>
         </div>
