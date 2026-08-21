@@ -18,6 +18,21 @@ a{color:inherit;text-decoration:none;}
 ul{list-style:none;}
 svg{display:block;}
 
+/* Themed scrollbars — follow the active theme's border/surface colours
+   instead of the browser's default grey, on every scrollable panel
+   (surah list, dropdowns, popovers, etc). Firefox + WebKit browsers. */
+*{scrollbar-width:thin; scrollbar-color:var(--border) transparent;}
+*::-webkit-scrollbar{width:9px;height:9px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;border:2px solid transparent;background-clip:padding-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--text-faint);background-clip:padding-box;}
+
+/* The top nav's own horizontal scroll (for narrow screens) should be
+   invisible rather than themed — a visible scrollbar there eats into
+   the row's height and clips the link labels. */
+.nav{scrollbar-width:none; -ms-overflow-style:none;}
+.nav::-webkit-scrollbar{display:none;}
+
 :root, [data-theme="light"]{
   --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
   --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
@@ -1084,7 +1099,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         </label>
         <label class="translit-toggle">
           <span class="tool-label">Explanatory Notes</span>
-          <span class="switch on" id="notesSwitch"></span>
+          <span class="switch" id="notesSwitch"></span>
         </label>
         <div class="mode-pills" id="modePills" style="margin-left:auto;">
           <button data-mode="light" class="active">
@@ -2346,7 +2361,7 @@ const state = {
   arabicSize:30,
   transSize:15,
   showTranslit:true,
-  showNotes:true,
+  showNotes:false,
   arabicFont:"'Amiri',serif",
   currentSurah:1,
   currentAyah:1,
