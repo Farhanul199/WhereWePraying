@@ -51,6 +51,17 @@ svg{display:block;}
   --red:#E17E63; --red-soft:#3A241D;
   --gray-soft:#241F1B;
 }
+[data-theme="amoled"]{
+  --bg:#000000; --surface:#0A0A0A; --surface-alt:#121212;
+  --coral:#F4714E; --coral-dark:#FF8B69; --coral-soft:#2B1712; --beam:#3D2015;
+  --text:#EDEAE5; --text-dim:#948A7D; --text-faint:#5E564B;
+  --border:#1E1E1E; --shadow:0 10px 30px rgba(0,0,0,.6);
+  --ring-track:#1A1A1A; --active-bg:#171717; --arabic-color:#F7EFE5;
+  --green:#5FAE7C; --green-soft:#132018;
+  --amber:#D8A84E; --amber-soft:#241C0E;
+  --red:#E17E63; --red-soft:#241511;
+  --gray-soft:#141414;
+}
 
 .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:28px;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;white-space:nowrap;}
@@ -288,6 +299,14 @@ body #page-quran{
 #page-quran .switch.on::after{left:16px;}
 #page-quran .ayah-list{padding:26px;display:flex;flex-direction:column;gap:22px;min-height:220px;}
 #page-quran .ayah-card{padding-bottom:20px;border-bottom:1px dashed var(--border);}
+#page-quran .ayah-card.playing{
+  background:var(--coral-soft);border-radius:12px;box-shadow:inset 4px 0 0 var(--coral);
+  border-bottom-color:transparent;transition:background .25s ease;
+}
+#page-quran .ayah-card.jump-highlight{
+  background:var(--coral-soft);border-radius:12px;border-bottom-color:transparent;
+  transition:background 1.4s ease;
+}
 #page-quran .ayah-card:last-child{border-bottom:none;}
 #page-quran .ayah-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 #page-quran .ayah-num{
@@ -355,6 +374,9 @@ body #page-quran{
 }
 #page-quran .atp-head{font-size:13px;font-weight:800;margin-bottom:12px;}
 #page-quran .atp-reciter{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;position:relative;}
+#page-quran .audio-ayah-label{
+  text-align:center;font-size:12px;font-weight:700;color:var(--text-dim);margin-bottom:10px;
+}
 #page-quran .reciter-picker{position:relative;}
 #page-quran .reciter-current{
   width:100%;display:flex;align-items:center;gap:10px;background:var(--surface-alt);
@@ -1077,6 +1099,10 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
             Dark
           </button>
+          <button data-mode="amoled">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
+            AMOLED
+          </button>
         </div>
       </div>
 
@@ -1117,18 +1143,19 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
             <div class="reciter-dropdown" id="reciterDropdown"></div>
           </div>
         </div>
+        <div class="audio-ayah-label" id="audioAyahLabel">Ready to play</div>
         <div class="audio-controls">
-          <button class="audio-ic" id="audioRestart" title="Restart">
+          <button class="audio-ic" id="audioRestart" title="Restart this ayah">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
           </button>
-          <button class="audio-ic" id="audioBack10" title="Back 10 seconds">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6 4 12l5 6"/><path d="M20 12a8 8 0 1 0-8 8"/></svg>
+          <button class="audio-ic" id="audioPrevAyah" title="Previous ayah">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 20 9 12l10-8v16Z"/><path d="M5 19V5"/></svg>
           </button>
           <button class="audio-ic play" id="audioPlayBtn" title="Play">
             <svg id="audioPlayIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           </button>
-          <button class="audio-ic" id="audioFwd10" title="Forward 10 seconds">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l5 6-5 6"/><path d="M4 12a8 8 0 1 1 8 8"/></svg>
+          <button class="audio-ic" id="audioNextAyah" title="Next ayah">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4l10 8-10 8V4Z"/><path d="M19 5v14"/></svg>
           </button>
           <button class="audio-ic" id="audioMuteBtn" title="Mute">
             <svg id="audioMuteIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -1809,7 +1836,7 @@ function switchPage(id){
 window.switchPage = switchPage;
 
 function cycleTheme(){
-  const order=['light','sepia','dark'];
+  const order=['light','sepia','dark','amoled'];
   const cur = document.body.getAttribute('data-theme') || 'light';
   const next = order[(order.indexOf(cur)+1)%order.length];
   document.body.setAttribute('data-theme', next);
@@ -2634,6 +2661,7 @@ function renderReader(){
   $('#prevSurahBtn').style.opacity = prevS ? 1 : .45;
   $('#nextSurahBtn').style.opacity = nextS ? 1 : .45;
   initNotesAutoLoad();
+  if(playingAyah) highlightPlayingAyah(state.currentSurah, playingAyah); // survive re-renders mid-playback
 }
 
 function renderProgressRing(){
@@ -2757,11 +2785,25 @@ function renderSidebarCurrentToggle(){
 /* ============================================================
    Actions
    ============================================================ */
-function ensureSurahLoaded(num){
+function scrollToAyahCard(surah, ayah){
+  const card = document.getElementById(`ayah-${surah}-${ayah}`);
+  if(!card) return false;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  // Brief flash so it's obvious which ayah was jumped to, distinct from
+  // the persistent highlight used during audio playback.
+  card.classList.add('jump-highlight');
+  setTimeout(()=> card.classList.remove('jump-highlight'), 1800);
+  return true;
+}
+
+function ensureSurahLoaded(num, scrollToAyah){
   loadSurahData(num).then(()=>{
     // Only re-render if the user hasn't navigated away from this surah
     // while the fetch was in flight.
-    if(state.currentSurah===num) renderReader();
+    if(state.currentSurah===num){
+      renderReader();
+      if(scrollToAyah) scrollToAyahCard(num, scrollToAyah);
+    }
   });
 }
 
@@ -2773,47 +2815,102 @@ function selectSurah(num, ayah){
   Services.markReadToday();
   Services.persist();
   renderAll();
-  ensureSurahLoaded(num);
+  ensureSurahLoaded(num, state.currentAyah);
   updateAudioForSurah();
   // Mobile: once a surah is picked, collapse the list back down to the
   // compact "currently reading" row (no-op on desktop).
   $('#sidebar')?.classList.remove('expanded');
-  $('.reader-pane') && $('.reader-pane').scrollIntoView({behavior:'smooth', block:'start'});
+  // Jump straight to the exact ayah (e.g. from a bookmark) rather than
+  // always landing at the top of the surah. If the surah's content
+  // hasn't loaded yet, ensureSurahLoaded's callback above will scroll
+  // to it the moment it's rendered — meanwhile just get the reader
+  // pane into view so the loading state is visible.
+  if(!scrollToAyahCard(num, state.currentAyah)){
+    $('.reader-pane') && $('.reader-pane').scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
 
 /* ============================================================
-   Surah audio player — full-surah recitation streamed from the
-   Islamic Network CDN (cdn.islamic.network), same source used by
-   alquran.cloud. Default reciter is Mishary Rashid Alafasy (ar.alafasy).
-   Avatars are initials, not real photos — we don't have licensed
-   photos of the reciters to use here.
+   Surah audio player — per-ayah recitation from everyayah.com (free,
+   no key, CORS-open, one MP3 per ayah: SSSAAA.mp3). Using per-ayah
+   files instead of one continuous surah file lets us know exactly
+   which ayah is playing at any moment — no timestamp/segment data
+   needed — so the currently-recited ayah can be highlighted and
+   auto-scrolled into view as playback moves through the surah.
+   Default reciter is Mishary Rashid Alafasy. Avatars are initials,
+   not real photos — we don't have licensed photos of the reciters.
    ============================================================ */
 const RECITERS = [
-  {code:'ar.alafasy', name:'Mishary Rashid Alafasy', initials:'MA'},
-  {code:'ar.husary', name:'Mahmoud Al-Husary', initials:'MH'},
-  {code:'ar.abdulbasitmurattal', name:'Abdul Basit (Murattal)', initials:'AB'},
-  {code:'ar.minshawi', name:'Mohamed Al-Minshawi', initials:'MM'},
+  {code:'Alafasy_128kbps', name:'Mishary Rashid Alafasy', initials:'MA'},
+  {code:'Husary_128kbps', name:'Mahmoud Al-Husary', initials:'MH'},
+  {code:'Abdul_Basit_Murattal_192kbps', name:'Abdul Basit (Murattal)', initials:'AB'},
+  {code:'Minshawy_Murattal_128kbps', name:'Mohamed Al-Minshawi', initials:'MM'},
+];
+// Two independent mirrors hosting the same per-ayah file structure —
+// if the primary is unreachable (hotlink protection, transient CDN
+// issues, a browser-specific block), the player automatically retries
+// on the second before giving up.
+const AUDIO_MIRRORS = [
+  'https://everyayah.com/data',
+  'https://www.versebyversequran.com/data',
 ];
 let currentReciter = RECITERS[0].code;
+let playingAyah = null;   // ayah number currently loaded/playing, or null when stopped
+let audioReady = false;   // true once #surahAudio.src matches playingAyah (avoids reload-on-resume)
+let audioMirrorIndex = 0; // which AUDIO_MIRRORS entry is currently in use
+let audioWantsPlay = false; // remembers autoplay intent across a mirror fallback retry
 
-function audioSrcFor(surahNum, reciter){
-  const n = String(surahNum);
-  return `https://cdn.islamic.network/quran/audio-surah/128/${reciter}/${n}.mp3`;
+function ayahAudioSrc(surahNum, ayahNum, reciter, mirrorIndex){
+  const s = String(surahNum).padStart(3,'0');
+  const a = String(ayahNum).padStart(3,'0');
+  return `${AUDIO_MIRRORS[mirrorIndex]}/${reciter}/${s}${a}.mp3`;
 }
 function formatAudioTime(sec){
   if(!isFinite(sec) || sec<0) sec = 0;
   const m = Math.floor(sec/60), s = Math.floor(sec%60);
   return `${m}:${String(s).padStart(2,'0')}`;
 }
-// Called whenever the current surah changes: swap the audio source
-// and reset the transport UI. Does not autoplay.
+// Highlights the ayah currently being recited and scrolls it gently
+// into view; clears the highlight entirely when ayah is null.
+function highlightPlayingAyah(surah, ayah){
+  $$('#ayahList .ayah-card.playing').forEach(el=> el.classList.remove('playing'));
+  if(ayah==null) return;
+  const card = $(`#ayah-${surah}-${ayah}`);
+  if(!card) return;
+  card.classList.add('playing');
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function updateAyahAudioLabel(){
+  const label = $('#audioAyahLabel');
+  if(!label) return;
+  label.textContent = playingAyah ? `Ayah ${playingAyah} of ${getSurah(state.currentSurah).ayahs}` : 'Ready to play';
+}
+// Loads and (optionally) plays a specific ayah's clip. Always starts
+// from the first mirror; the audio element's own 'error' event (wired
+// in init()) handles falling back to the next mirror automatically.
+function loadAndPlayAyah(surah, ayah, autoplay){
+  const audio = $('#surahAudio');
+  playingAyah = ayah;
+  audioMirrorIndex = 0;
+  audioWantsPlay = !!autoplay;
+  audio.src = ayahAudioSrc(surah, ayah, currentReciter, audioMirrorIndex);
+  audioReady = true;
+  updateAyahAudioLabel();
+  highlightPlayingAyah(surah, ayah);
+  if(autoplay) audio.play().catch(()=> showToast("Couldn't play audio — check your connection"));
+}
+// Called whenever the current surah changes: stop playback, clear the
+// highlight, and reset the transport UI. Does not autoplay.
 function updateAudioForSurah(){
   const audio = $('#surahAudio');
   if(!audio) return;
   audio.pause();
-  audio.src = audioSrcFor(state.currentSurah, currentReciter);
-  audio.currentTime = 0;
+  audio.removeAttribute('src');
+  audioReady = false;
+  playingAyah = null;
   setAudioPlayingUI(false);
+  updateAyahAudioLabel();
+  highlightPlayingAyah(state.currentSurah, null);
   $('#audioSeek').value = 0;
   $('#audioCurTime').textContent = '00:00';
   $('#audioDurTime').textContent = '00:00';
@@ -2836,15 +2933,14 @@ function renderReciterPicker(){
   $('#reciterCurrentAvatar').textContent = cur.initials;
   $('#reciterCurrentName').textContent = cur.name;
 }
-// Switches reciter, keeping playback position/state where possible.
+// Switches reciter, keeping the current ayah position and play state.
 function setReciter(code){
   const audio = $('#surahAudio');
   const wasPlaying = !audio.paused;
-  const t = audio.currentTime;
   currentReciter = code;
-  audio.src = audioSrcFor(state.currentSurah, currentReciter);
-  audio.currentTime = t;
-  if(wasPlaying) audio.play().catch(()=>{});
+  if(playingAyah){
+    loadAndPlayAyah(state.currentSurah, playingAyah, wasPlaying);
+  }
   renderReciterPicker();
   showToast(`Reciter set to ${RECITERS.find(r=>r.code===code).name}`);
 }
@@ -3113,16 +3209,42 @@ async function init(){
     }
   });
 
+  // If the current mirror fails to load this ayah's clip (hotlink
+  // protection, a transient CDN issue, a browser-specific block),
+  // automatically retry on the next mirror before surfacing an error.
+  audioEl.addEventListener('error', ()=>{
+    if(!playingAyah) return; // no real source was ever set — ignore
+    if(audioMirrorIndex < AUDIO_MIRRORS.length - 1){
+      audioMirrorIndex += 1;
+      audioEl.src = ayahAudioSrc(state.currentSurah, playingAyah, currentReciter, audioMirrorIndex);
+      if(audioWantsPlay) audioEl.play().catch(()=>{});
+    } else {
+      showToast("Couldn't load this reciter's audio — check your connection");
+    }
+  });
+
   $('#audioPlayBtn').addEventListener('click', ()=>{
-    if(audioEl.paused){
+    if(!audioEl.paused){ audioEl.pause(); return; }
+    if(audioReady && playingAyah){
       audioEl.play().catch(()=> showToast("Couldn't play audio — check your connection"));
     } else {
-      audioEl.pause();
+      loadAndPlayAyah(state.currentSurah, playingAyah || state.currentAyah || 1, true);
     }
   });
   audioEl.addEventListener('play', ()=> setAudioPlayingUI(true));
   audioEl.addEventListener('pause', ()=> setAudioPlayingUI(false));
-  audioEl.addEventListener('ended', ()=> setAudioPlayingUI(false));
+  audioEl.addEventListener('ended', ()=>{
+    const s = getSurah(state.currentSurah);
+    if(playingAyah && playingAyah < s.ayahs){
+      loadAndPlayAyah(state.currentSurah, playingAyah+1, true); // read-along: auto-advance
+    } else {
+      setAudioPlayingUI(false);
+      audioReady = false;
+      playingAyah = null;
+      updateAyahAudioLabel();
+      highlightPlayingAyah(state.currentSurah, null);
+    }
+  });
   audioEl.addEventListener('loadedmetadata', ()=>{
     $('#audioDurTime').textContent = formatAudioTime(audioEl.duration);
   });
@@ -3137,10 +3259,17 @@ async function init(){
       audioEl.currentTime = (Number($('#audioSeek').value)/100)*audioEl.duration;
     }
   });
-  $('#audioRestart').addEventListener('click', ()=>{ audioEl.currentTime = 0; });
-  $('#audioBack10').addEventListener('click', ()=>{ audioEl.currentTime = Math.max(0, audioEl.currentTime-10); });
-  $('#audioFwd10').addEventListener('click', ()=>{
-    audioEl.currentTime = Math.min(audioEl.duration||audioEl.currentTime+10, audioEl.currentTime+10);
+  $('#audioRestart').addEventListener('click', ()=>{
+    if(playingAyah) audioEl.currentTime = 0;
+  });
+  $('#audioPrevAyah').addEventListener('click', ()=>{
+    const target = Math.max(1, (playingAyah || state.currentAyah || 1) - 1);
+    loadAndPlayAyah(state.currentSurah, target, true);
+  });
+  $('#audioNextAyah').addEventListener('click', ()=>{
+    const s = getSurah(state.currentSurah);
+    const target = Math.min(s.ayahs, (playingAyah || state.currentAyah || 1) + 1);
+    loadAndPlayAyah(state.currentSurah, target, true);
   });
   $('#audioMuteBtn').addEventListener('click', function(){
     audioEl.muted = !audioEl.muted;
