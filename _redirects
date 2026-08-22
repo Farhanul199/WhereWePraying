@@ -1,0 +1,13 @@
+# Cloudflare Pages routing — serve the single-page app shell for every
+# section route so direct visits, refreshes, and shared links to
+# e.g. /quran or /prayer-times load correctly instead of 404ing.
+# The app's own router (see index.html) then shows the right section
+# based on the URL. Kept as explicit routes (not a catch-all /*) so
+# genuinely missing paths still 404 as expected.
+
+/find-a-mosque   /index.html   200
+/prayer-times    /index.html   200
+/quran           /index.html   200
+/journal         /index.html   200
+/dua-dhikr       /index.html   200
+/guides          /index.html   200
