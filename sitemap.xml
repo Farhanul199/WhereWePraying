@@ -1,23 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  WhereWePraying? — sitemap.xml
-
-  This currently lists ONE url because the whole app (Qur'an, Journal,
-  Du'a & Dhikr, Guides) lives on a single page and switches sections
-  client-side via JS (switchPage()), not real separate URLs. A sitemap
-  only helps search engines when there are distinct URLs to list, so
-  there isn't much more to add here yet.
-
-  ==> UPDATE THIS FILE once any section gets its own real route
-  (e.g. wherewepraying.com/quran, /guides/wudu, /dua/sleep) — each
-  new route should get its own <url> entry below. Ask Claude to
-  regenerate this once that routing exists.
--->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://wherewepraying.com/</loc>
-    <lastmod>2026-08-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/find-a-mosque</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/prayer-times</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/quran</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/journal</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/dua-dhikr</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://wherewepraying.com/guides</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>
