@@ -2783,33 +2783,101 @@ const ROUTES = {
                  desc: "Step-by-step guides for daily acts of worship — wudu, salah, and more — made simple." }
 };
 
+/* Per-guide sub-routes: /guides/wudu, /guides/salah, etc — one
+   indexable URL per guide instead of everything living behind
+   /guides. Kept as a plain id->meta map (rather than reading GUIDES
+   directly) because the Guides section's data lives in its own
+   scoped IIFE further down the file and isn't available yet when
+   the router first runs — see GUIDE_ROUTE_READY below. Titles/
+   descriptions here are duplicated from GUIDES on purpose, so the
+   router has something correct to show even before that section
+   has initialized (e.g. on a fast direct visit to /guides/wudu). */
+const GUIDE_ROUTES = {
+  wudu:       { title: "Wudu (Ablution) — Step-by-Step Guide — WhereWePraying?",
+                desc: "How to perform Wudu (ablution) before prayer, step by step, with the intention, sequence and duas explained simply." },
+  salah:      { title: "Salah (How to Pray) — Step-by-Step Guide — WhereWePraying?",
+                desc: "A simple, step-by-step walkthrough of how to pray Salah, covering the core structure shared by every daily prayer." },
+  tayammum:   { title: "Tayammum (Dry Ablution) — Step-by-Step Guide — WhereWePraying?",
+                desc: "How to perform Tayammum, the dry ablution used in place of Wudu when water is unavailable or unsafe to use." },
+  ghusl:      { title: "Ghusl (Ritual Bath) — Step-by-Step Guide — WhereWePraying?",
+                desc: "How to perform Ghusl, the full-body ritual purification required before certain acts of worship." },
+  adhan:      { title: "Adhan & Iqamah — Step-by-Step Guide — WhereWePraying?",
+                desc: "An explanation of the Adhan (call to prayer) and Iqamah, and how they lead into each prayer." },
+  sujoodsahw: { title: "Sujood as-Sahw — Step-by-Step Guide — WhereWePraying?",
+                desc: "How to perform Sujood as-Sahw, the prostration of forgetfulness, when a mistake happens during prayer." },
+  qibla:      { title: "Facing the Qibla — Step-by-Step Guide — WhereWePraying?",
+                desc: "How to find and face the Qibla, the direction of the Kaaba, for prayer." },
+  fasting:    { title: "A Simple Fasting Routine — Step-by-Step Guide — WhereWePraying?",
+                desc: "A simple daily routine for fasting, from the pre-dawn meal through to breaking the fast at Maghrib." }
+};
+
 function pageIdFromPath(path){
   // Normalise trailing slashes (except root) so "/quran/" and "/quran" match.
   const clean = path.length > 1 ? path.replace(/\/+$/, '') : path;
+
+  // /guides/<slug> — parsed separately from the flat ROUTES lookup
+  // below since it's the only route with a dynamic segment.
+  if(clean === '/guides' || clean.indexOf('/guides/') === 0){
+    const slug = clean === '/guides' ? null : clean.slice('/guides/'.length);
+    return { id: 'guides', guide: (slug && GUIDE_ROUTES[slug]) ? slug : null };
+  }
+
   for(const id in ROUTES){
-    if(ROUTES[id].path === clean) return id;
+    if(ROUTES[id].path === clean) return { id: id, guide: null };
   }
   return null;
 }
 
-function updateSEOTags(id){
-  const route = ROUTES[id] || ROUTES.home;
-  document.title = route.title;
+function updateSEOTags(id, guideSlug){
+  let title, desc, path;
+  if(id === 'guides' && guideSlug && GUIDE_ROUTES[guideSlug]){
+    title = GUIDE_ROUTES[guideSlug].title;
+    desc = GUIDE_ROUTES[guideSlug].desc;
+    path = '/guides/'+guideSlug;
+  }else{
+    const route = ROUTES[id] || ROUTES.home;
+    title = route.title; desc = route.desc; path = route.path;
+  }
+
+  document.title = title;
   let metaDesc = document.querySelector('meta[name="description"]');
   if(!metaDesc){
     metaDesc = document.createElement('meta');
     metaDesc.setAttribute('name', 'description');
     document.head.appendChild(metaDesc);
   }
-  metaDesc.setAttribute('content', route.desc);
+  metaDesc.setAttribute('content', desc);
   let canonical = document.querySelector('link[rel="canonical"]');
   if(!canonical){
     canonical = document.createElement('link');
     canonical.setAttribute('rel', 'canonical');
     document.head.appendChild(canonical);
   }
-  canonical.setAttribute('href', 'https://wherewepraying.com'+route.path);
+  canonical.setAttribute('href', 'https://wherewepraying.com'+path);
 }
+// Exposed so selectGuide() (Guides section, own scoped IIFE further
+// down) can update <title>/description directly when a guide is
+// selected without routing back through switchPage/WWP_openGuide.
+window.__WWP_updateGuideSEO = (slug)=> updateSEOTags('guides', slug);
+
+// The Guides section (further down this file, in its own scoped
+// IIFE) exposes window.WWP_openGuide once it has initialized. The
+// router can run before that happens on a fresh /guides/<slug> load,
+// so a requested guide is queued here and opened as soon as it's ready.
+let __pendingGuideSlug = null;
+function openGuideWhenReady(slug){
+  if(window.WWP_openGuide){
+    window.WWP_openGuide(slug, {skipRoute:true});
+  }else{
+    __pendingGuideSlug = slug;
+  }
+}
+window.__WWP_guideSectionReady = function(){
+  if(__pendingGuideSlug){
+    window.WWP_openGuide(__pendingGuideSlug, {skipRoute:true});
+    __pendingGuideSlug = null;
+  }
+};
 
 function switchPage(id, opts){
   opts = opts || {};
@@ -2822,15 +2890,26 @@ function switchPage(id, opts){
     a.classList.toggle('active', a.dataset.page===id);
   });
 
-  updateSEOTags(id);
+  const guideSlug = (id === 'guides') ? opts.guide : null;
+  updateSEOTags(id, guideSlug);
+
+  // Only ask the Guides section to select a guide if this navigation
+  // actually specifies one AND it isn't already the selected guide —
+  // selectGuide() and WWP_openGuide() both route back through here,
+  // so without this guard a guide-select would loop back into itself.
+  if(id === 'guides' && guideSlug && window.__WWP_currentGuide !== guideSlug){
+    openGuideWhenReady(guideSlug);
+  }
 
   // Update the address bar unless this call originated from a
-  // popstate event (browser back/forward), which already reflects
-  // the URL the user navigated to — pushing again would break history.
-  if(!opts.fromPopState){
-    const route = ROUTES[id] || ROUTES.home;
-    if(location.pathname !== route.path){
-      history.pushState({page:id}, '', route.path);
+  // popstate event (browser back/forward) or from the guide-select
+  // handler itself (which manages its own URL), which already
+  // reflect the URL the user navigated to — pushing again would
+  // break history or fight with that other code.
+  if(!opts.fromPopState && !opts.skipHistory){
+    const path = (id === 'guides' && guideSlug) ? '/guides/'+guideSlug : (ROUTES[id]||ROUTES.home).path;
+    if(location.pathname !== path){
+      history.pushState({page:id, guide:guideSlug||null}, '', path);
     }
   }
 
@@ -2840,8 +2919,14 @@ window.switchPage = switchPage;
 
 // Browser back/forward support.
 window.addEventListener('popstate', (e)=>{
-  const id = (e.state && e.state.page) || pageIdFromPath(location.pathname) || 'home';
-  switchPage(id, {fromPopState:true});
+  const fromState = e.state;
+  if(fromState && fromState.page){
+    switchPage(fromState.page, {fromPopState:true, guide:fromState.guide});
+  }else{
+    const parsed = pageIdFromPath(location.pathname);
+    if(parsed) switchPage(parsed.id, {fromPopState:true, guide:parsed.guide});
+    else switchPage('home', {fromPopState:true});
+  }
 });
 
 function cycleTheme(){
@@ -2861,15 +2946,17 @@ document.querySelectorAll('a[data-soon]').forEach(a=>{
 });
 document.getElementById('sharedThemeToggle').addEventListener('click', cycleTheme);
 
-// Initial route: land on whichever page matches the URL the user
-// arrived on (a direct visit/refresh to /quran, a shared link, etc),
+// Initial route: land on whichever page (and, for guides, which
+// specific guide) matches the URL the user arrived on — a direct
+// visit/refresh to /quran or /guides/wudu, a shared link, etc —
 // falling back to the home page for unrecognised paths.
 (function initialRoute(){
-  const id = pageIdFromPath(location.pathname) || 'home';
-  switchPage(id, {fromPopState:true});
+  const parsed = pageIdFromPath(location.pathname) || {id:'home', guide:null};
+  switchPage(parsed.id, {fromPopState:true, guide:parsed.guide});
   // Replace so the very first history entry has the right state
   // object for popstate to read on a subsequent back navigation.
-  history.replaceState({page:id}, '', (ROUTES[id]||ROUTES.home).path);
+  const path = (parsed.id === 'guides' && parsed.guide) ? '/guides/'+parsed.guide : (ROUTES[parsed.id]||ROUTES.home).path;
+  history.replaceState({page:parsed.id, guide:parsed.guide||null}, '', path);
 })();
 
 
@@ -6252,11 +6339,26 @@ function renderAll(){
 /* ============================================================
    Actions
    ============================================================ */
-function selectGuide(id){
+function selectGuide(id, opts){
+  opts = opts || {};
   state.selectedGuide = id;
+  window.__WWP_currentGuide = id;
   renderAll();
   const pane = document.querySelector('#page-guides .guide-pane');
   if(pane) pane.scrollIntoView({behavior:'smooth', block:'start'});
+
+  // Keep the URL in sync with the guide being read (e.g. /guides/wudu)
+  // so each guide is independently linkable and indexable. Goes
+  // straight to history.pushState (rather than back through
+  // window.switchPage/WWP_openGuide) so clicking a guide in the list
+  // can't re-trigger guide-selection and loop back into itself.
+  if(!opts.skipRoute){
+    const path = '/guides/'+id;
+    if(location.pathname !== path){
+      history.pushState({page:'guides', guide:id}, '', path);
+    }
+    if(window.__WWP_updateGuideSEO) window.__WWP_updateGuideSEO(id);
+  }
 }
 
 function toggleStep(guideId, idx){
@@ -6297,12 +6399,22 @@ async function init(){
   // ==> CONNECT (resolved): bookmarks/progress now sync per-device via
   // WWP above. GUIDES content itself is still placeholder text pending
   // a scholar-reviewed source — separate from storage.
+
+  // Tell the router this section is ready — if a direct visit landed
+  // on /guides/<slug> before this section finished initializing, the
+  // router queued the slug and opens it now.
+  if(window.__WWP_guideSectionReady) window.__WWP_guideSectionReady();
 }
 
-// Cross-page deep link: lets other pages jump straight to a specific guide.
-window.WWP_openGuide = function(guideId){
-  if(guideId) selectGuide(guideId);
-  window.switchPage('guides');
+// Cross-page deep link: lets other pages jump straight to a specific
+// guide (e.g. "Explore More" cards on other sections, or the router
+// resolving a direct visit to /guides/<slug>). `opts.skipRoute` is
+// used internally by the router on initial load / back-forward,
+// where it already owns the URL for that navigation.
+window.WWP_openGuide = function(guideId, opts){
+  opts = opts || {};
+  if(guideId) selectGuide(guideId, {skipRoute:true});
+  window.switchPage('guides', {guide: guideId||null, skipHistory: !!opts.skipRoute});
 };
 
 init();
