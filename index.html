@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhereWePraying?</title>
+<title>WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More</title>
+<meta name="description" content="WhereWePraying? is your all-in-one Islamic companion: find nearby mosques and Jama'ah times, check accurate prayer times, read the Qur'an with translation and recitation, track good deeds in your Islamic journal, and explore du'a, dhikr and worship guides.">
+<link rel="canonical" href="https://wherewepraying.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Lora:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet">
@@ -1103,7 +1105,10 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .home-cta-btn:hover{background:var(--coral-dark);}
 
 /* Footer note */
-.home-footnote{text-align:center;padding:40px 20px 56px;font-size:13px;color:var(--text-dim);display:flex;align-items:center;justify-content:center;gap:8px;}
+.home-footnote{text-align:center;padding:40px 20px 0;font-size:13px;color:var(--text-dim);display:flex;align-items:center;justify-content:center;gap:8px;}
+.home-about{max-width:760px;margin:0 auto;padding:22px 24px 56px;text-align:center;}
+.home-about p{font-size:13.5px;line-height:1.75;color:var(--text-faint);}
+.home-about p + p{margin-top:12px;}
 
 @media (max-width:980px){
   .home-hero{grid-template-columns:1fr;padding:32px 20px 0;}
@@ -1373,6 +1378,11 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   <div class="home-footnote">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--coral);"><path d="M12 21s-7.5-5-9.5-9.3C.9 8.1 3 4.5 6.6 4.5c1.9 0 3.4 1 4.4 2.5 1-1.5 2.5-2.5 4.4-2.5 3.6 0 5.7 3.6 4.1 7.2C19.5 16 12 21 12 21Z"/></svg>
     Made with sincerity for the sake of Allah ﷺ
+  </div>
+
+  <div class="home-about">
+    <p>WhereWePraying? is a free Islamic companion built to bring the everyday tools of worship into one calm, uncluttered place. Instead of switching between a mosque finder, a prayer times app, a Qur'an reader and a separate du'a collection, everything a practising Muslim needs each day lives here — together.</p>
+    <p>Find a mosque near you and see real Jama'ah (congregational prayer) times set by each mosque's own committee, not just an estimate. Check accurate, location-based prayer times for Fajr, Dhuhr, Asr, Maghrib and Isha with a live countdown to the next prayer. Read the Qur'an online with Arabic text, translation, transliteration and audio recitation. Keep an Islamic journal to track your daily prayers and good deeds, and turn to a growing library of du'a, dhikr and step-by-step worship guides whenever you need them.</p>
   </div>
 
 </main>
@@ -2744,16 +2754,95 @@ function showToast(msg){
 }
 
 const PAGES = ['home','mosque','prayertimes','quran','journal','dua','guides'];
-function switchPage(id){
+
+/* ============================================================
+   ROUTER :: maps each in-app page to a real URL path so every
+   section is independently linkable, shareable, and indexable —
+   e.g. wherewepraying.com/quran instead of everything living
+   behind one URL. Uses the History API (pushState) so navigating
+   inside the app updates the address bar and supports back/forward
+   without a full reload; a matching `_redirects` rule on Cloudflare
+   Pages serves this same index.html for direct visits/refreshes on
+   any of these paths, so search engines and shared links land on
+   the right section on first load too.
+   ============================================================ */
+const ROUTES = {
+  home:        { path: '/',              title: "WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More",
+                 desc: "WhereWePraying? is your all-in-one Islamic companion: find nearby mosques and Jama'ah times, check accurate prayer times, read the Qur'an with translation and recitation, track good deeds in your Islamic journal, and explore du'a, dhikr and worship guides." },
+  mosque:      { path: '/find-a-mosque',  title: "Find a Mosque Near You — WhereWePraying?",
+                 desc: "Locate nearby mosques and find the next available Jama'ah prayer time, wherever you are." },
+  prayertimes: { path: '/prayer-times',   title: "Prayer Times — WhereWePraying?",
+                 desc: "Accurate, location-based prayer times with a live countdown to the next prayer, Jama'ah info and your choice of calculation method." },
+  quran:       { path: '/quran',          title: "Read the Qur'an Online — WhereWePraying?",
+                 desc: "Read the Qur'an online with Arabic text, translation, transliteration and audio recitation, plus Tafsir Ibn Kathir explanatory notes." },
+  journal:     { path: '/journal',        title: "Islamic Journal & Good Deeds Tracker — WhereWePraying?",
+                 desc: "Track your daily prayers, good deeds and reflections with an Islamic journal built for consistency and growth." },
+  dua:         { path: '/dua-dhikr',      title: "Du'a & Dhikr — WhereWePraying?",
+                 desc: "Timeless du'a and adhkar for every moment of the day, drawn from the Qur'an and authentic Sunnah." },
+  guides:      { path: '/guides',         title: "Islamic Worship Guides — WhereWePraying?",
+                 desc: "Step-by-step guides for daily acts of worship — wudu, salah, and more — made simple." }
+};
+
+function pageIdFromPath(path){
+  // Normalise trailing slashes (except root) so "/quran/" and "/quran" match.
+  const clean = path.length > 1 ? path.replace(/\/+$/, '') : path;
+  for(const id in ROUTES){
+    if(ROUTES[id].path === clean) return id;
+  }
+  return null;
+}
+
+function updateSEOTags(id){
+  const route = ROUTES[id] || ROUTES.home;
+  document.title = route.title;
+  let metaDesc = document.querySelector('meta[name="description"]');
+  if(!metaDesc){
+    metaDesc = document.createElement('meta');
+    metaDesc.setAttribute('name', 'description');
+    document.head.appendChild(metaDesc);
+  }
+  metaDesc.setAttribute('content', route.desc);
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if(!canonical){
+    canonical = document.createElement('link');
+    canonical.setAttribute('rel', 'canonical');
+    document.head.appendChild(canonical);
+  }
+  canonical.setAttribute('href', 'https://wherewepraying.com'+route.path);
+}
+
+function switchPage(id, opts){
+  opts = opts || {};
+  if(!PAGES.includes(id)) id = 'home';
+
   PAGES.forEach(p=>{
     document.getElementById('page-'+p).classList.toggle('hidden', p!==id);
   });
   document.querySelectorAll('.nav a[data-page]').forEach(a=>{
     a.classList.toggle('active', a.dataset.page===id);
   });
+
+  updateSEOTags(id);
+
+  // Update the address bar unless this call originated from a
+  // popstate event (browser back/forward), which already reflects
+  // the URL the user navigated to — pushing again would break history.
+  if(!opts.fromPopState){
+    const route = ROUTES[id] || ROUTES.home;
+    if(location.pathname !== route.path){
+      history.pushState({page:id}, '', route.path);
+    }
+  }
+
   window.scrollTo({top:0, behavior:'auto'});
 }
 window.switchPage = switchPage;
+
+// Browser back/forward support.
+window.addEventListener('popstate', (e)=>{
+  const id = (e.state && e.state.page) || pageIdFromPath(location.pathname) || 'home';
+  switchPage(id, {fromPopState:true});
+});
 
 function cycleTheme(){
   const order=['light','sepia','dark','amoled'];
@@ -2764,13 +2853,25 @@ function cycleTheme(){
 
 document.addEventListener('DOMContentLoaded', ()=> {}); // no-op guard
 
-document.querySelectorAll('a[data-page]').forEach(a=>{
+document.querySelectorAll('a[data-page], [data-page].home-feature-card').forEach(a=>{
   a.addEventListener('click', ()=> switchPage(a.dataset.page));
 });
 document.querySelectorAll('a[data-soon]').forEach(a=>{
   a.addEventListener('click', ()=> showToast(a.dataset.soon));
 });
 document.getElementById('sharedThemeToggle').addEventListener('click', cycleTheme);
+
+// Initial route: land on whichever page matches the URL the user
+// arrived on (a direct visit/refresh to /quran, a shared link, etc),
+// falling back to the home page for unrecognised paths.
+(function initialRoute(){
+  const id = pageIdFromPath(location.pathname) || 'home';
+  switchPage(id, {fromPopState:true});
+  // Replace so the very first history entry has the right state
+  // object for popstate to read on a subsequent back navigation.
+  history.replaceState({page:id}, '', (ROUTES[id]||ROUTES.home).path);
+})();
+
 
 /* ============================================================
    QUR'AN SECTION
