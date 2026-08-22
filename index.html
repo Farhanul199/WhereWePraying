@@ -1120,6 +1120,51 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .home-cta{padding:0 20px;}
   .home-cta-panel{padding:24px;}
 }
+
+/* ---------- Prayer Times (live) ---------- */
+.pt-location-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-dim);font-size:12.5px;font-weight:700;cursor:pointer;padding:0;}
+.pt-location-btn:hover{color:var(--coral);}
+.pt-loading, .pt-error{font-size:12.5px;color:var(--text-faint);}
+.pt-error{color:var(--red);}
+
+.pt-popover-backdrop{position:fixed;inset:0;background:rgba(20,14,8,.32);z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;}
+.pt-popover{background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:380px;}
+.pt-popover h3{font-size:16px;font-weight:800;margin-bottom:4px;}
+.pt-popover .sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;}
+.pt-popover label{display:block;font-size:12px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.pt-popover input[type="text"], .pt-popover select{width:100%;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--text);margin-bottom:14px;}
+.pt-popover input[type="text"]:focus, .pt-popover select:focus{outline:none;border-color:var(--coral);}
+.pt-popover-actions{display:flex;gap:10px;margin-top:4px;}
+.pt-popover-actions .home-btn{flex:1;justify-content:center;}
+.pt-popover-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-faint);cursor:pointer;padding:4px;}
+.pt-popover{position:relative;}
+.pt-geo-btn{display:flex;align-items:center;gap:8px;width:100%;justify-content:center;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;margin-bottom:14px;}
+.pt-geo-btn:hover{border-color:var(--coral);color:var(--coral);}
+.pt-or-divider{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin:2px 0 14px;}
+.pt-or-divider::before, .pt-or-divider::after{content:"";flex:1;height:1px;background:var(--border);}
+
+#page-prayertimes .pt-page{max-width:760px;margin:0 auto;padding:36px 24px 56px;}
+#page-prayertimes .pt-header{text-align:center;margin-bottom:24px;}
+#page-prayertimes .pt-header h1{font-family:'Lora',serif;font-weight:600;font-size:26px;margin-bottom:6px;}
+#page-prayertimes .pt-header .pt-hijri{font-size:13px;color:var(--text-dim);}
+.pt-hero-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:30px;text-align:center;margin-bottom:22px;}
+.pt-hero-card .pt-label{font-size:12px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+.pt-hero-card .pt-name{font-family:'Lora',serif;font-size:38px;font-weight:600;color:var(--coral);margin-bottom:4px;}
+.pt-hero-card .pt-time{font-size:20px;font-weight:700;margin-bottom:6px;}
+.pt-hero-card .pt-countdown{font-size:14px;font-weight:700;color:var(--coral-dark);}
+.pt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
+.pt-grid-item{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 14px;text-align:center;}
+.pt-grid-item.active{border-color:var(--coral);background:var(--coral-soft);}
+.pt-grid-item .pt-gi-icon{width:36px;height:36px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
+.pt-grid-item.active .pt-gi-icon{background:var(--surface);color:var(--coral);}
+.pt-grid-item .pt-gi-name{font-size:13.5px;font-weight:700;margin-bottom:3px;}
+.pt-grid-item .pt-gi-time{font-size:13px;color:var(--text-dim);}
+.pt-grid-item.active .pt-gi-time{color:var(--coral-dark);font-weight:700;}
+.pt-footer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 18px;}
+.pt-footer-row .pt-method-label{font-size:12.5px;color:var(--text-dim);}
+@media (max-width:560px){
+  .pt-grid{grid-template-columns:repeat(2,1fr);}
+}
 </style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
@@ -1179,41 +1224,41 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
       <div class="home-next-prayer">
         <span class="label">Next Prayer</span>
         <div class="name-time">
-          <span class="name">Dhuhr</span>
-          <span class="time">12:45 PM</span>
+          <span class="name" id="homeNextName">—</span>
+          <span class="time" id="homeNextTime">—</span>
         </div>
-        <span class="remaining">In 1h 28m remaining</span>
+        <span class="remaining" id="homeNextRemaining">Loading…</span>
       </div>
-      <div class="home-timeline">
-        <div class="home-timeline-item">
+      <div class="home-timeline" id="homeTimeline">
+        <div class="home-timeline-item" data-prayer="Fajr">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></svg></span>
           <span class="pname">Fajr</span>
-          <span class="ptime">05:12 AM</span>
+          <span class="ptime">—</span>
         </div>
-        <div class="home-timeline-item">
+        <div class="home-timeline-item" data-prayer="Sunrise">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M5 9l2 2M19 9l-2 2M2 17h20M6 17a6 6 0 0 1 12 0"/></svg></span>
           <span class="pname">Sunrise</span>
-          <span class="ptime">06:34 AM</span>
+          <span class="ptime">—</span>
         </div>
-        <div class="home-timeline-item active">
+        <div class="home-timeline-item" data-prayer="Dhuhr">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
           <span class="pname">Dhuhr</span>
-          <span class="ptime">12:45 PM</span>
+          <span class="ptime">—</span>
         </div>
-        <div class="home-timeline-item">
+        <div class="home-timeline-item" data-prayer="Asr">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></span>
           <span class="pname">Asr</span>
-          <span class="ptime">04:15 PM</span>
+          <span class="ptime">—</span>
         </div>
-        <div class="home-timeline-item">
+        <div class="home-timeline-item" data-prayer="Maghrib">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M5 9l2 2M19 9l-2 2M2 17h20M6 17a6 6 0 0 1 12 0"/><path d="M2 21h20"/></svg></span>
           <span class="pname">Maghrib</span>
-          <span class="ptime">07:28 PM</span>
+          <span class="ptime">—</span>
         </div>
-        <div class="home-timeline-item">
+        <div class="home-timeline-item" data-prayer="Isha">
           <span class="home-timeline-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg></span>
           <span class="pname">Isha</span>
-          <span class="ptime">08:46 PM</span>
+          <span class="ptime">—</span>
         </div>
       </div>
     </div>
@@ -2108,46 +2153,39 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 
 <div id="page-prayertimes" class="app-page hidden">
 <main class="page">
-  <div class="cs-grid cs-grid-single">
+  <div class="pt-page">
 
-    <div class="cs-card">
-      <div class="cs-art">
-        <img src="assets/coming-soon/prayer-times.webp" alt="Illustrated desert oasis at dawn with a river and bridge" width="900" height="900">
+    <div class="pt-header">
+      <h1>Prayer Times</h1>
+      <div class="pt-hijri" id="ptHijriDate">—</div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:18px;">
+      <button class="pt-location-btn" id="ptLocationBtn" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span id="ptLocationLabel">Detecting location…</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div id="ptContent">
+      <div class="pt-hero-card">
+        <div class="pt-label">Next Prayer</div>
+        <div class="pt-name" id="ptNextName">—</div>
+        <div class="pt-time" id="ptNextTime">—</div>
+        <div class="pt-countdown" id="ptNextCountdown">Loading prayer times…</div>
       </div>
-      <div class="cs-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 3.5"/></svg>
+
+      <div class="pt-grid" id="ptGrid">
+        <!-- populated by JS: Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha -->
       </div>
-      <span class="cs-badge"><span class="dot"></span>Coming Soon</span>
-      <h2>Prayer Times</h2>
-      <p class="cs-desc">We're working on accurate prayer times, Jama'ah information and helpful reminders.</p>
-      <div class="cs-features">
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></span>
-          Accurate times
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M2 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M12 20c0-3.3 2.7-5.5 6-5.5s4 2 4 5.5"/></svg></span>
-          Jama'ah info
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4a8 8 0 1 0 8 8"/><path d="M12 2v4M18 6l-3 2"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg></span>
-          Smart reminders
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
-          Multiple locations
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18a4 4 0 0 1-1-7.9 5 5 0 0 1 9.6-1.9A4.5 4.5 0 0 1 17 18H7Z"/><path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/></svg></span>
-          Offline access
-        </div>
+
+      <div class="pt-footer-row">
+        <span class="pt-method-label" id="ptMethodLabel">Calculation method: Muslim World League</span>
+        <button class="pt-location-btn" id="ptChangeMethodBtn" type="button">Change <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="display:inline;vertical-align:-1px;"><path d="M6 9l6 6 6-6"/></svg></button>
       </div>
     </div>
 
-  </div>
-  <div class="cs-footnote">
-    <span aria-hidden="true">🕌</span>
-    In the meantime, explore the <a data-page="quran">Qur'an</a>, <a data-page="dua">Du'a</a>, <a data-page="journal">Journal</a> and more.
   </div>
 </main>
 </div>
@@ -2252,6 +2290,444 @@ window.WWP = (function(){
   }
 
   return { deviceId: deviceId, get: get, save: save, saveNow: saveNow };
+})();
+
+/* ============================================================
+   PRAYER TIMES :: live prayer time calculation + next-prayer
+   countdown, powering both the homepage "Next Prayer" strip and
+   the full Prayer Times page.
+   Source: api.aladhan.com (free, no key, CORS-open) — same family
+   as the Qur'an API already used elsewhere in this app. Times are
+   calculated from the user's coordinates via the `timings` endpoint,
+   cached in localStorage per (date + coords + method) so repeat
+   visits on the same day are instant and mostly offline-safe.
+   Location: browser geolocation first (with permission), falling
+   back to a manual city search (geocoded via Open-Meteo's free
+   geocoding API, also no key required) if denied or unavailable.
+   ==> CONNECT: swap PT_GEOCODE_BASE for a paid geocoder if greater
+   accuracy/coverage is needed later; the rest of this module is
+   provider-agnostic and only needs {lat, lon, label} back.
+   ============================================================ */
+const PrayerTimes = (function(){
+  const API_BASE = 'https://api.aladhan.com/v1';
+  const GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
+  const REVERSE_GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/reverse';
+  const LOC_KEY = 'wwp:prayertimes:location';
+  const METHOD_KEY = 'wwp:prayertimes:method';
+  const CACHE_PREFIX = 'wwp:prayertimes:cache:';
+
+  const METHOD_NAMES = {
+    1:'University of Islamic Sciences, Karachi', 2:'Islamic Society of North America (ISNA)',
+    3:'Muslim World League', 4:'Umm Al-Qura University, Makkah', 5:'Egyptian General Authority of Survey',
+    8:'Gulf Region', 12:'Union Organization Islamic de France', 13:'Diyanet, Turkey',
+    15:'Moonsighting Committee Worldwide', 17:'JAKIM, Malaysia'
+  };
+
+  const PRAYER_ORDER = ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha'];
+
+  let state = {
+    location: null,   // {lat, lon, label, source:'geo'|'manual'}
+    method: 3,
+    timings: null,    // {Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha}
+    hijri: null,
+    loading: false,
+    error: null
+  };
+
+  const listeners = [];
+  function subscribe(fn){ listeners.push(fn); return ()=>{ const i=listeners.indexOf(fn); if(i>-1) listeners.splice(i,1); }; }
+  function notify(){ listeners.forEach(fn=>{ try{ fn(state); }catch(e){} }); }
+
+  function loadSavedLocation(){
+    try{
+      const raw = localStorage.getItem(LOC_KEY);
+      if(raw) state.location = JSON.parse(raw);
+    }catch(e){}
+    try{
+      const m = localStorage.getItem(METHOD_KEY);
+      if(m) state.method = parseInt(m,10);
+    }catch(e){}
+  }
+
+  function saveLocation(loc){
+    state.location = loc;
+    try{ localStorage.setItem(LOC_KEY, JSON.stringify(loc)); }catch(e){}
+  }
+  function saveMethod(method){
+    state.method = method;
+    try{ localStorage.setItem(METHOD_KEY, String(method)); }catch(e){}
+  }
+
+  function todayKey(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function cacheKey(){
+    if(!state.location) return null;
+    const lat = state.location.lat.toFixed(2), lon = state.location.lon.toFixed(2);
+    return CACHE_PREFIX+todayKey()+':'+lat+','+lon+':'+state.method;
+  }
+
+  function detectGeolocation(){
+    return new Promise((resolve,reject)=>{
+      if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
+        err => reject(err),
+        {timeout:10000, maximumAge:600000}
+      );
+    });
+  }
+
+  async function reverseGeocodeLabel(lat, lon){
+    try{
+      const url = REVERSE_GEOCODE_BASE+'?latitude='+lat+'&longitude='+lon+'&count=1&language=en&format=json';
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('reverse geocode failed');
+      const data = await res.json();
+      const r = data && data.results && data.results[0];
+      if(r) return [r.name, r.admin1, r.country].filter(Boolean).join(', ');
+    }catch(e){ /* fall through to coordinate label */ }
+    return lat.toFixed(2)+', '+lon.toFixed(2);
+  }
+
+  async function geocodeCity(query){
+    const url = GEOCODE_BASE+'?name='+encodeURIComponent(query)+'&count=5&language=en&format=json';
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Location search failed');
+    const data = await res.json();
+    if(!data.results || !data.results.length) throw new Error('No matching location found');
+    const r = data.results[0];
+    return {
+      lat: r.latitude, lon: r.longitude,
+      label: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+      source: 'manual'
+    };
+  }
+
+  async function useGeolocation(){
+    const coords = await detectGeolocation();
+    const label = await reverseGeocodeLabel(coords.lat, coords.lon);
+    const loc = {lat:coords.lat, lon:coords.lon, label:label, source:'geo'};
+    saveLocation(loc);
+    await fetchTimings();
+    return loc;
+  }
+
+  async function useManualLocation(query){
+    const loc = await geocodeCity(query);
+    saveLocation(loc);
+    await fetchTimings();
+    return loc;
+  }
+
+  function setMethod(method){
+    saveMethod(method);
+    return fetchTimings();
+  }
+
+  async function fetchTimings(){
+    if(!state.location){ state.error = 'No location set'; notify(); return; }
+    const key = cacheKey();
+    state.loading = true; state.error = null; notify();
+
+    // Try cache first (same day, same coords/method) for instant paint.
+    try{
+      if(key){
+        const raw = localStorage.getItem(key);
+        if(raw){
+          const cached = JSON.parse(raw);
+          state.timings = cached.timings;
+          state.hijri = cached.hijri;
+          state.loading = false;
+          notify();
+        }
+      }
+    }catch(e){}
+
+    // ==> CONNECT (resolved): live call to api.aladhan.com — no key needed.
+    try{
+      const d = new Date();
+      const dateStr = String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+      const url = API_BASE+'/timings/'+dateStr+'?latitude='+state.location.lat+'&longitude='+state.location.lon+'&method='+state.method;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Prayer times request failed');
+      const data = await res.json();
+      if(!data.data || !data.data.timings) throw new Error('Unexpected response');
+
+      const t = data.data.timings;
+      const timings = {};
+      PRAYER_ORDER.forEach(p=>{ timings[p] = (t[p]||'').split(' ')[0]; });
+      const hijri = data.data.date && data.data.date.hijri
+        ? (data.data.date.hijri.day+' '+data.data.date.hijri.month.en+' '+data.data.date.hijri.year+' AH')
+        : null;
+
+      state.timings = timings;
+      state.hijri = hijri;
+      state.loading = false;
+      state.error = null;
+      notify();
+
+      try{
+        if(key) localStorage.setItem(key, JSON.stringify({timings:timings, hijri:hijri}));
+      }catch(e){}
+    }catch(e){
+      state.loading = false;
+      if(!state.timings) state.error = e.message || 'Could not load prayer times';
+      notify();
+    }
+  }
+
+  function parseTimeToday(hhmm){
+    if(!hhmm) return null;
+    const [h,m] = hhmm.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  // Returns {name, time, date, remainingMs, isTomorrowFajr}
+  function getNextPrayer(){
+    if(!state.timings) return null;
+    const now = new Date();
+    const order = ['Fajr','Dhuhr','Asr','Maghrib','Isha']; // Sunrise excluded from "next prayer" countdown
+    for(const name of order){
+      const t = parseTimeToday(state.timings[name]);
+      if(t && t.getTime() > now.getTime()){
+        return {name, time: state.timings[name], date: t, remainingMs: t.getTime()-now.getTime()};
+      }
+    }
+    // All of today's prayers have passed — next is tomorrow's Fajr.
+    const fajrTomorrow = parseTimeToday(state.timings['Fajr']);
+    if(fajrTomorrow){
+      fajrTomorrow.setDate(fajrTomorrow.getDate()+1);
+      return {name:'Fajr', time: state.timings['Fajr'], date: fajrTomorrow, remainingMs: fajrTomorrow.getTime()-now.getTime(), isTomorrow:true};
+    }
+    return null;
+  }
+
+  function formatRemaining(ms){
+    if(ms == null || ms < 0) return '';
+    const totalMin = Math.floor(ms/60000);
+    const h = Math.floor(totalMin/60), m = totalMin%60;
+    if(h > 0) return 'In '+h+'h '+m+'m remaining';
+    return 'In '+m+'m remaining';
+  }
+
+  function to12h(hhmm){
+    if(!hhmm) return '—';
+    const [h,m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12; if(h12 === 0) h12 = 12;
+    return h12+':'+String(m).padStart(2,'0')+' '+period;
+  }
+
+  function init(){
+    loadSavedLocation();
+    if(state.location){
+      fetchTimings();
+    }else{
+      // First visit: try geolocation silently; UI falls back to the
+      // manual popover if this fails or is denied.
+      useGeolocation().catch(()=>{ state.error = 'location-needed'; notify(); });
+    }
+  }
+
+  return {
+    subscribe, init,
+    useGeolocation, useManualLocation, setMethod, fetchTimings,
+    getNextPrayer, formatRemaining, to12h,
+    getState: ()=> state,
+    methodName: (id)=> METHOD_NAMES[id] || 'Muslim World League',
+    PRAYER_ORDER
+  };
+})();
+
+/* ============================================================
+   PRAYER TIMES UI :: renders PrayerTimes state into both the
+   homepage strip (#homeNext*, #homeTimeline) and the full Prayer
+   Times page (#pt*). Both surfaces subscribe to the same store so
+   they always agree, and a 1s tick keeps the countdown live.
+   ============================================================ */
+(function(){
+  let __ptToastTimer;
+  function showToast(msg){
+    const t = document.getElementById('toast'); if(!t) return;
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(__ptToastTimer); __ptToastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+  }
+
+  const PT_ICONS = {
+    Fajr: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/>',
+    Sunrise: '<path d="M12 2v6M5 9l2 2M19 9l-2 2M2 17h20M6 17a6 6 0 0 1 12 0"/>',
+    Dhuhr: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+    Asr: '<circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+    Maghrib: '<path d="M12 2v6M5 9l2 2M19 9l-2 2M2 17h20M6 17a6 6 0 0 1 12 0"/><path d="M2 21h20"/>',
+    Isha: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/>'
+  };
+
+  function renderHome(){
+    const state = PrayerTimes.getState();
+    const nameEl = document.getElementById('homeNextName');
+    const timeEl = document.getElementById('homeNextTime');
+    const remEl = document.getElementById('homeNextRemaining');
+    if(!nameEl) return; // homepage not mounted
+
+    if(state.error && !state.timings){
+      nameEl.textContent = '—'; timeEl.textContent = '—';
+      remEl.textContent = state.error === 'location-needed' ? 'Set your location to see prayer times' : state.error;
+      return;
+    }
+    if(!state.timings){
+      remEl.textContent = state.loading ? 'Loading…' : 'Set your location to see prayer times';
+      return;
+    }
+
+    const next = PrayerTimes.getNextPrayer();
+    if(next){
+      nameEl.textContent = next.name;
+      timeEl.textContent = PrayerTimes.to12h(next.time);
+      remEl.textContent = PrayerTimes.formatRemaining(next.remainingMs) + (next.isTomorrow ? ' (tomorrow)' : '');
+    }
+
+    PrayerTimes.PRAYER_ORDER.forEach(name=>{
+      const item = document.querySelector('#homeTimeline .home-timeline-item[data-prayer="'+name+'"]');
+      if(!item) return;
+      const timeSpan = item.querySelector('.ptime');
+      if(timeSpan) timeSpan.textContent = PrayerTimes.to12h(state.timings[name]);
+      item.classList.toggle('active', !!(next && next.name===name));
+    });
+  }
+
+  function renderLocationLabel(){
+    const state = PrayerTimes.getState();
+    const label = document.getElementById('ptLocationLabel');
+    if(label){
+      label.textContent = state.location ? state.location.label : 'Set your location';
+    }
+  }
+
+  function renderFullPage(){
+    const state = PrayerTimes.getState();
+    renderLocationLabel();
+
+    const hijriEl = document.getElementById('ptHijriDate');
+    if(hijriEl) hijriEl.textContent = state.hijri || '—';
+
+    const methodLabel = document.getElementById('ptMethodLabel');
+    if(methodLabel) methodLabel.textContent = 'Calculation method: '+PrayerTimes.methodName(state.method);
+
+    const nextName = document.getElementById('ptNextName');
+    const nextTime = document.getElementById('ptNextTime');
+    const nextCountdown = document.getElementById('ptNextCountdown');
+    const grid = document.getElementById('ptGrid');
+    if(!nextName) return; // full page not mounted
+
+    if(state.error && !state.timings){
+      nextName.textContent = '—'; nextTime.textContent = '—';
+      nextCountdown.textContent = state.error === 'location-needed' ? 'Set your location to see today\'s prayer times' : state.error;
+      if(grid) grid.innerHTML = '';
+      return;
+    }
+    if(!state.timings){
+      nextCountdown.textContent = state.loading ? 'Loading prayer times…' : 'Set your location to begin';
+      return;
+    }
+
+    const next = PrayerTimes.getNextPrayer();
+    if(next){
+      nextName.textContent = next.name;
+      nextTime.textContent = PrayerTimes.to12h(next.time);
+      nextCountdown.textContent = PrayerTimes.formatRemaining(next.remainingMs) + (next.isTomorrow ? ' (tomorrow)' : '');
+    }
+
+    if(grid){
+      grid.innerHTML = PrayerTimes.PRAYER_ORDER.map(name=>{
+        const active = next && next.name===name;
+        return '<div class="pt-grid-item'+(active?' active':'')+'">'
+          + '<div class="pt-gi-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg></div>'
+          + '<div class="pt-gi-name">'+name+'</div>'
+          + '<div class="pt-gi-time">'+PrayerTimes.to12h(state.timings[name])+'</div>'
+          + '</div>';
+      }).join('');
+    }
+  }
+
+  function renderAll(){ renderHome(); renderFullPage(); }
+
+  // ---- Location popover wiring (shared by both entry points) ----
+  const backdrop = document.getElementById('ptPopoverBackdrop');
+  function openPopover(){
+    if(!backdrop) return;
+    const state = PrayerTimes.getState();
+    const methodSelect = document.getElementById('ptMethodSelect');
+    const cityInput = document.getElementById('ptCityInput');
+    if(methodSelect) methodSelect.value = String(state.method);
+    if(cityInput) cityInput.value = state.location && state.location.source==='manual' ? state.location.label : '';
+    backdrop.style.display = 'flex';
+  }
+  function closePopover(){ if(backdrop) backdrop.style.display = 'none'; }
+
+  document.addEventListener('click', function(e){
+    const trigger = e.target.closest('#ptLocationBtn, #ptChangeMethodBtn, .home-next-prayer');
+    if(trigger){ openPopover(); }
+  });
+
+  const closeBtn = document.getElementById('ptPopoverClose');
+  const cancelBtn = document.getElementById('ptPopoverCancel');
+  if(closeBtn) closeBtn.addEventListener('click', closePopover);
+  if(cancelBtn) cancelBtn.addEventListener('click', closePopover);
+  if(backdrop) backdrop.addEventListener('click', function(e){ if(e.target === backdrop) closePopover(); });
+
+  const geoBtn = document.getElementById('ptGeoBtn');
+  if(geoBtn) geoBtn.addEventListener('click', async function(){
+    geoBtn.disabled = true;
+    const original = geoBtn.innerHTML;
+    geoBtn.innerHTML = 'Detecting…';
+    try{
+      await PrayerTimes.useGeolocation();
+      closePopover();
+    }catch(e){
+      showToast('Could not detect your location — try entering it manually.');
+    }finally{
+      geoBtn.disabled = false;
+      geoBtn.innerHTML = original;
+    }
+  });
+
+  const saveBtn = document.getElementById('ptPopoverSave');
+  if(saveBtn) saveBtn.addEventListener('click', async function(){
+    const cityInput = document.getElementById('ptCityInput');
+    const methodSelect = document.getElementById('ptMethodSelect');
+    const method = methodSelect ? parseInt(methodSelect.value,10) : 3;
+    const query = cityInput ? cityInput.value.trim() : '';
+
+    const original = saveBtn.textContent;
+    saveBtn.textContent = 'Saving…';
+    try{
+      // Method is applied first so the subsequent location fetch (or
+      // re-fetch, if only the method changed) uses the right value.
+      PrayerTimes.getState().method = method;
+      if(query){
+        await PrayerTimes.useManualLocation(query);
+      }
+      await PrayerTimes.setMethod(method);
+      closePopover();
+    }catch(e){
+      showToast(e.message || 'Could not find that location.');
+    }finally{
+      saveBtn.textContent = original;
+    }
+  });
+
+  PrayerTimes.subscribe(renderAll);
+  PrayerTimes.init();
+  renderAll();
+
+  // Live countdown tick — re-renders once a minute is enough for the
+  // "Xh Ym remaining" display, but check every 15s so it flips promptly
+  // right as a prayer time passes.
+  setInterval(renderAll, 15000);
 })();
 
 /* ============================================================
@@ -5733,5 +6209,44 @@ init();
 })();
 
 </script>
+
+<div id="ptPopoverBackdrop" class="pt-popover-backdrop" style="display:none;">
+  <div class="pt-popover">
+    <button class="pt-popover-close" id="ptPopoverClose" type="button" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h3 id="ptPopoverTitle">Set your location</h3>
+    <p class="sub" id="ptPopoverSub">Prayer times are calculated for your location.</p>
+
+    <button class="pt-geo-btn" id="ptGeoBtn" type="button">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+      Use my current location
+    </button>
+    <div class="pt-or-divider">or enter manually</div>
+
+    <label for="ptCityInput">City, country</label>
+    <input type="text" id="ptCityInput" placeholder="e.g. Ilford, UK">
+
+    <label for="ptMethodSelect">Calculation method</label>
+    <select id="ptMethodSelect">
+      <option value="3">Muslim World League</option>
+      <option value="2">Islamic Society of North America (ISNA)</option>
+      <option value="1">University of Islamic Sciences, Karachi</option>
+      <option value="4">Umm Al-Qura University, Makkah</option>
+      <option value="5">Egyptian General Authority of Survey</option>
+      <option value="8">Gulf Region</option>
+      <option value="12">Union Organization Islamic de France</option>
+      <option value="13">Diyanet, Turkey</option>
+      <option value="15">Moonsighting Committee Worldwide</option>
+      <option value="17">JAKIM, Malaysia</option>
+    </select>
+
+    <div class="pt-popover-actions">
+      <a class="home-btn home-btn-secondary" id="ptPopoverCancel">Cancel</a>
+      <a class="home-btn home-btn-primary" id="ptPopoverSave">Save</a>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
