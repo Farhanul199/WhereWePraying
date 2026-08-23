@@ -2953,7 +2953,7 @@ function cycleTheme(){
 
 document.addEventListener('DOMContentLoaded', ()=> {}); // no-op guard
 
-document.querySelectorAll('a[data-page], [data-page].home-feature-card').forEach(a=>{
+document.querySelectorAll('a[data-page], [data-page].home-feature-card, .brand[data-page]').forEach(a=>{
   a.addEventListener('click', ()=> switchPage(a.dataset.page));
 });
 document.querySelectorAll('a[data-soon]').forEach(a=>{
