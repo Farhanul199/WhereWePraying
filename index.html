@@ -1265,7 +1265,9 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-map-toggle[aria-pressed="true"] .pt-map-toggle-thumb{left:16px;}
 .pt-map-toggle[aria-pressed="true"]{color:var(--coral);}
 .pt-map-frame{position:relative;border-radius:16px;overflow:hidden;background:#cfe0e8;}
-.pt-map-svg{display:block;width:100%;height:auto;aspect-ratio:1000/300;}
+.pt-map-imgwrap{position:relative;width:100%;aspect-ratio:2/1;overflow:hidden;transform-origin:center center;transition:transform .25s ease;}
+.pt-map-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+.pt-map-img-night{clip-path:polygon(0 0,0 0);-webkit-clip-path:polygon(0 0,0 0);filter:drop-shadow(0 0 0 transparent);}
 .pt-map-zoom{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:2;}
 .pt-map-zoom button{width:28px;height:28px;border-radius:50%;background:rgba(255,251,244,.92);border:1px solid rgba(0,0,0,.08);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.15);}
 .pt-map-zoom button:hover{color:var(--coral);}
@@ -2341,7 +2343,10 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
             <div class="pmt-time">—</div>
             <div class="pmt-place">—</div>
           </div>
-          <svg id="ptMapSvg" class="pt-map-svg" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid slice"></svg>
+          <div class="pt-map-imgwrap" id="ptMapImgWrap">
+            <img class="pt-map-img pt-map-img-day" src="assets/prayertimes/map-day.webp" alt="">
+            <img class="pt-map-img pt-map-img-night" id="ptMapNightImg" src="assets/prayertimes/map-night.webp" alt="">
+          </div>
         </div>
         <div class="pt-map-slider-row">
           <button type="button" id="ptMapPlay" class="pt-map-play" title="Play">
@@ -2989,45 +2994,18 @@ const PrayerTimes = (function(){
   });
 
   /* ---- Day & Night World Map ----
-     A stylised (not survey-accurate) watercolour world map. Continents
-     are simplified polygons in [lon,lat] pairs, projected onto a
-     1000×300 equirectangular viewBox at render time. The day/night
-     terminator is computed from real solar geometry (declination +
-     equation of time) for whatever moment the slider represents, so
-     the shading is astronomically correct even though the coastlines
-     are hand-simplified for the art style. */
-  const MAP_W = 1000, MAP_H = 300;
-  const CONTINENTS = [
-    // North America
-    [[-165,68],[-140,70],[-95,72],[-80,68],[-65,60],[-55,50],[-52,46],[-60,42],[-70,42],[-75,35],[-81,25],[-97,26],[-97,18],[-90,14],[-83,9],[-77,8],[-80,25],[-95,30],[-117,32],[-122,37],[-124,48],[-130,55],[-140,60],[-165,68]],
-    // Greenland
-    [[-45,60],[-30,65],[-20,75],[-40,83],[-55,70],[-45,60]],
-    // South America
-    [[-77,8],[-70,-4],[-75,-15],[-70,-20],[-70,-30],[-72,-45],[-68,-55],[-65,-55],[-62,-50],[-58,-38],[-48,-25],[-40,-10],[-35,-8],[-42,0],[-50,5],[-60,8],[-65,10],[-77,8]],
-    // Europe
-    [[-10,36],[-9,43],[-2,43],[3,43],[8,44],[12,45],[13,55],[10,58],[5,58],[0,51],[-5,50],[-8,49],[-10,43],[-10,36]],
-    // Scandinavia
-    [[5,58],[10,60],[20,70],[30,70],[30,60],[20,55],[12,54],[5,58]],
-    // UK & Ireland
-    [[-8,52],[-6,55],[-3,58],[0,52],[-3,50],[-8,52]],
-    // Africa
-    [[-17,15],[-16,25],[-10,35],[10,37],[20,32],[32,31],[35,28],[43,12],[51,12],[45,0],[40,-15],[35,-25],[20,-35],[15,-30],[12,-18],[10,-5],[8,5],[-5,5],[-10,8],[-17,15]],
-    // Middle East + Asia
-    [[27,37],[35,37],[45,40],[50,45],[60,55],[70,55],[80,50],[90,50],[100,52],[110,52],[120,45],[130,45],[140,45],[145,43],[140,35],[130,32],[122,30],[120,23],[110,18],[105,10],[100,5],[95,15],[90,22],[85,20],[80,15],[75,10],[70,20],[65,25],[60,25],[55,25],[50,28],[44,30],[35,30],[27,37]],
-    // Japan
-    [[130,33],[132,34],[140,36],[142,40],[141,45],[139,42],[135,35],[130,33]],
-    // Indonesia / SE Asia archipelago
-    [[95,5],[105,-6],[115,-8],[120,-9],[135,-5],[140,-3],[130,0],[115,2],[100,5],[95,5]],
-    // Australia
-    [[113,-22],[120,-20],[130,-12],[137,-12],[145,-16],[150,-25],[153,-28],[150,-35],[140,-38],[130,-32],[120,-34],[113,-25],[113,-22]]
-  ];
+     Uses two real watercolour illustrations (day + night) rather than
+     code-drawn shapes. The night image sits on top of the day image,
+     clipped to a polygon that follows the actual solar terminator for
+     whatever moment the slider represents — so the art is genuinely
+     hand-painted while the day/night line itself is astronomically
+     accurate and live. Both images are standard equirectangular
+     (lon -180..180 -> x 0..100%, lat 90..-90 -> y 0..100%), matching
+     the projection the artwork was painted to. */
+  const MAP_W = 100, MAP_H = 100; // percentage-space projection
 
   function lonToX(lon){ return (lon+180)/360*MAP_W; }
   function latToY(lat){ return (90-lat)/180*MAP_H; }
-  function ringToPath(ring){
-    return ring.map((p,i)=> (i===0?'M':'L')+lonToX(p[0]).toFixed(1)+','+latToY(p[1]).toFixed(1)).join(' ')+' Z';
-  }
-  const CONTINENTS_PATH = CONTINENTS.map(ringToPath).join(' ');
 
   // ---- Solar geometry (NOAA simplified equations) ----
   function solarPosition(date){
@@ -3058,54 +3036,21 @@ const PrayerTimes = (function(){
   }
 
   function renderMapSvg(dateForMap){
-    const svg = document.getElementById('ptMapSvg');
-    if(!svg) return;
+    const nightImg = document.getElementById('ptMapNightImg');
+    if(!nightImg) return;
     const subsolar = solarPosition(dateForMap);
     const term = terminatorRing(subsolar);
     const nightBelow = subsolar.lat >= 0; // north pole in daylight => night is south of the curve
 
-    // Night polygon: terminator curve + map edge on the night side.
+    // Build the night-side clip polygon (curve + map edge), in %
+    // coordinates so it scales cleanly with the image's own size.
     const curvePts = term.map(p=>[lonToX(p[0]), latToY(p[1])]);
     const edgeY = nightBelow ? MAP_H : 0;
-    const nightPts = curvePts.slice();
-    nightPts.push([MAP_W, edgeY], [0, edgeY]);
-    const nightPathD = 'M'+nightPts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L')+' Z';
-    const dayEdgeY = nightBelow ? 0 : MAP_H;
-    const dayPts = curvePts.slice();
-    dayPts.push([MAP_W, dayEdgeY], [0, dayEdgeY]);
-    const dayPathD = 'M'+dayPts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L')+' Z';
-    const termLineD = 'M'+curvePts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L');
-
-    // Sun marker at subsolar point, moon marker at the antisolar (midnight) point.
-    const sunX = lonToX(subsolar.lon), sunY = latToY(subsolar.lat);
-    const antiLon = ((subsolar.lon+180+180)%360)-180;
-    const moonX = lonToX(antiLon), moonY = latToY(-subsolar.lat);
-
-    // A handful of soft "city light" dots scattered on the night side,
-    // decorative rather than geographically exact.
-    const lightSpots = [[-95,38],[-74,41],[-46,-23],[2,48],[13,52],[31,30],[37,55],[77,29],[121,31],[139,36],[151,-34]];
-
-    svg.innerHTML =
-      '<defs>'
-        + '<clipPath id="ptMapNightClip"><path d="'+nightPathD+'"/></clipPath>'
-        + '<clipPath id="ptMapDayClip"><path d="'+dayPathD+'"/></clipPath>'
-        + '<clipPath id="ptMapLandClip">'+CONTINENTS.map(r=>'<path d="'+ringToPath(r)+'"/>').join('')+'</clipPath>'
-        + '<linearGradient id="ptMapDayOcean" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe0ea"/><stop offset="1" stop-color="#8fbfd6"/></linearGradient>'
-        + '<linearGradient id="ptMapNightOcean" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26365c"/><stop offset="1" stop-color="#131c38"/></linearGradient>'
-      + '</defs>'
-      + '<rect width="'+MAP_W+'" height="'+MAP_H+'" fill="url(#ptMapDayOcean)"/>'
-      + '<g clip-path="url(#ptMapLandClip)"><rect width="'+MAP_W+'" height="'+MAP_H+'" fill="#e3c99a"/></g>'
-      + '<g clip-path="url(#ptMapNightClip)">'
-        + '<rect width="'+MAP_W+'" height="'+MAP_H+'" fill="url(#ptMapNightOcean)"/>'
-        + '<g clip-path="url(#ptMapLandClip)"><rect width="'+MAP_W+'" height="'+MAP_H+'" fill="#5b5a6b"/></g>'
-        + '<g clip-path="url(#ptMapLandClip)">'+lightSpots.map(s=>'<circle cx="'+lonToX(s[0]).toFixed(1)+'" cy="'+latToY(s[1]).toFixed(1)+'" r="1.6" fill="#ffe9b0" opacity="0.85"/>').join('')+'</g>'
-      + '</g>'
-      + '<path d="'+termLineD+'" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.75"/>'
-      + '<circle cx="'+sunX.toFixed(1)+'" cy="'+sunY.toFixed(1)+'" r="7" fill="var(--coral)" stroke="#fff" stroke-width="1.5"/>'
-      + '<g transform="translate('+moonX.toFixed(1)+','+moonY.toFixed(1)+')">'
-        + '<circle r="6" fill="#EAE3F5"/>'
-        + '<circle cx="2.4" cy="-1" r="5" fill="#2b2645"/>'
-      + '</g>';
+    const pts = curvePts.slice();
+    pts.push([MAP_W, edgeY], [0, edgeY]);
+    const polygon = pts.map(p=>p[0].toFixed(2)+'% '+p[1].toFixed(2)+'%').join(',');
+    nightImg.style.clipPath = 'polygon('+polygon+')';
+    nightImg.style.webkitClipPath = 'polygon('+polygon+')';
   }
 
   function formatMinutes(mins){
@@ -3205,8 +3150,8 @@ const PrayerTimes = (function(){
   const mapFrame = document.querySelector('.pt-map-frame');
   function setMapZoom(z){
     mapState.zoom = Math.max(1, Math.min(2.5, z));
-    const svg = document.getElementById('ptMapSvg');
-    if(svg) svg.style.transform = 'scale('+mapState.zoom+')';
+    const wrap = document.getElementById('ptMapImgWrap');
+    if(wrap) wrap.style.transform = 'scale('+mapState.zoom+')';
   }
   const zoomInBtn = document.getElementById('ptMapZoomIn');
   const zoomOutBtn = document.getElementById('ptMapZoomOut');
