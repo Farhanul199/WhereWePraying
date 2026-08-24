@@ -1189,17 +1189,24 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-location-pill:hover{border-color:var(--coral);color:var(--coral);}
 
 /* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha, each a start–end range */
-.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0;}
-.pt-day-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:14px 10px;text-align:center;}
-.pt-day-card.active{border-color:var(--coral);}
-.pt-day-card .pdc-icon{width:32px;height:32px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;}
-.pt-day-card.active .pdc-icon{background:var(--coral-soft);color:var(--coral);}
-.pt-day-card .pdc-name{font-family:'Lora',serif;font-size:14px;font-weight:600;margin-bottom:3px;}
+.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:22px 0;}
+.pt-day-card{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:12px;padding:8px 10px;}
+[data-theme="dark"] .pt-day-card, [data-theme="amoled"] .pt-day-card{background:rgba(255,255,255,.04);}
+.pt-day-card.active{border-color:var(--coral);background:var(--coral-soft);}
+.pt-day-card .pdc-icon{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;}
+[data-theme="dark"] .pt-day-card .pdc-icon, [data-theme="amoled"] .pt-day-card .pdc-icon{background:rgba(255,255,255,.06);}
+.pt-day-card.active .pdc-icon{background:rgba(255,255,255,.55);color:var(--coral);}
+.pt-day-card .pdc-body{min-width:0;}
+.pt-day-card .pdc-name{font-family:'Lora',serif;font-size:12.5px;font-weight:600;line-height:1.2;}
 .pt-day-card.active .pdc-name{color:var(--coral);}
-.pt-day-card .pdc-time{font-size:11px;color:var(--text-dim);font-weight:600;}
+.pt-day-card .pdc-time{font-size:10px;color:var(--text-dim);font-weight:600;white-space:nowrap;}
 .pt-day-card.active .pdc-time{color:var(--coral-dark);}
 @media (max-width:620px){
   .pt-day-row{grid-template-columns:repeat(3,1fr);}
+}
+@media (max-width:420px){
+  .pt-day-card{flex-direction:column;text-align:center;padding:10px 6px;}
+  .pt-day-card .pdc-time{white-space:normal;}
 }
 
 /* ---------- World clocks (Prayer Times page) ---------- */
@@ -1265,7 +1272,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-map-toggle[aria-pressed="true"] .pt-map-toggle-thumb{left:16px;}
 .pt-map-toggle[aria-pressed="true"]{color:var(--coral);}
 .pt-map-frame{position:relative;border-radius:16px;overflow:hidden;background:#cfe0e8;}
-.pt-map-imgwrap{position:relative;width:100%;aspect-ratio:2/1;overflow:hidden;transform-origin:center center;transition:transform .25s ease;}
+.pt-map-imgwrap{position:relative;width:100%;aspect-ratio:2.679/1;overflow:hidden;transform-origin:center center;transition:transform .25s ease;}
 .pt-map-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 .pt-map-img-night{clip-path:polygon(0 0,0 0);-webkit-clip-path:polygon(0 0,0 0);filter:drop-shadow(0 0 0 transparent);}
 .pt-map-zoom{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:2;}
@@ -3004,8 +3011,13 @@ const PrayerTimes = (function(){
      the projection the artwork was painted to. */
   const MAP_W = 100, MAP_H = 100; // percentage-space projection
 
+  // The artwork is cropped top/bottom (close to Greenland and New
+  // Zealand) rather than a full pole-to-pole equirectangular sheet,
+  // so latitude maps to y over this narrower visible range instead
+  // of the full ±90°. Longitude is unaffected (no horizontal crop).
+  const MAP_LAT_TOP = 75.79, MAP_LAT_BOTTOM = -67.27;
   function lonToX(lon){ return (lon+180)/360*MAP_W; }
-  function latToY(lat){ return (90-lat)/180*MAP_H; }
+  function latToY(lat){ return (MAP_LAT_TOP-lat)/(MAP_LAT_TOP-MAP_LAT_BOTTOM)*MAP_H; }
 
   // ---- Solar geometry (NOAA simplified equations) ----
   function solarPosition(date){
@@ -3199,9 +3211,11 @@ const PrayerTimes = (function(){
       const nextName = PT_STACK_ORDER[i+1];
       const finish = nextName ? PrayerTimes.to12h(state.timings[nextName]) : '—';
       return '<div class="pt-day-card'+(active?' active':'')+'">'
-        + '<div class="pdc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg></div>'
-        + '<div class="pdc-name">'+name+'</div>'
-        + '<div class="pdc-time">'+PrayerTimes.to12h(state.timings[name])+' – '+finish+'</div>'
+        + '<div class="pdc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg></div>'
+        + '<div class="pdc-body">'
+          + '<div class="pdc-name">'+name+'</div>'
+          + '<div class="pdc-time">'+PrayerTimes.to12h(state.timings[name])+' – '+finish+'</div>'
+        + '</div>'
       + '</div>';
     }).join('');
   }
