@@ -121,7 +121,9 @@ body{padding-top:78px;}
 
 @media (max-width:760px){
   .topbar{flex-wrap:wrap;row-gap:10px;padding:12px 16px;}
-  .nav{flex:1 1 100%;order:3;overflow-x:auto;}
+  .nav{flex:1 1 100%;order:3;overflow-x:visible;flex-wrap:nowrap;justify-content:space-between;gap:2px;}
+  .nav a{flex:1;min-width:0;text-align:center;white-space:normal;font-size:11px;line-height:1.2;padding:4px 1px;}
+  .nav a.active::after{bottom:-8px;}
 }
 
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:12px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
@@ -1161,13 +1163,21 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .home-prayer-strip{padding:0 20px;}
   .home-prayer-card{padding:20px;}
   .home-next-prayer{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:16px;width:100%;}
-  .home-timeline{justify-content:space-between;gap:12px;}
+  .home-timeline{justify-content:space-between;gap:12px;flex-wrap:nowrap;}
   .home-feature-grid{grid-template-columns:1fr;padding:24px 20px 0;}
   .home-stats{padding:0 20px;}
   .home-stats-card{grid-template-columns:1fr 1fr;gap:16px 0;}
   .home-stat{border-right:none;border-bottom:1px solid var(--border);padding-bottom:16px;}
   .home-cta{padding:0 20px;}
   .home-cta-panel{padding:24px;}
+}
+
+@media (max-width:480px){
+  .home-timeline{gap:4px;}
+  .home-timeline-item{min-width:0;flex:1;gap:3px;}
+  .home-timeline-icon{width:26px;height:26px;}
+  .home-timeline-item .pname{font-size:9.5px;}
+  .home-timeline-item .ptime{font-size:8px;}
 }
 
 /* ---------- Prayer Times (live) ---------- */
@@ -1204,6 +1214,16 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 #page-prayertimes .pt-backdrop{position:absolute;inset:0;z-index:0;pointer-events:none;}
 #page-prayertimes .pt-backdrop img{width:100%;height:100%;object-fit:cover;object-position:center;opacity:.9;}
 #page-prayertimes .page{position:relative;z-index:1;}
+/* On tall/narrow mobile screens, inset:0 forces the wide landscape
+   artwork to be cropped down to its (mostly blank) centre column,
+   hiding the mosque and hills painted at its left/right edges. Pin
+   the art to a shorter top band instead, so its full width — and
+   both edges — stay visible, then fade it into the page background. */
+@media (max-width:620px){
+  #page-prayertimes .pt-backdrop{inset:auto 0 auto 0;top:0;height:300px;}
+  #page-prayertimes .pt-backdrop img{object-position:center top;}
+  #page-prayertimes .pt-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,var(--bg) 92%);}
+}
 
 #page-prayertimes .pt-page{max-width:900px;margin:0 auto;padding:36px 24px 56px;}
 #page-prayertimes .pt-header{text-align:center;margin-bottom:10px;}
@@ -1230,10 +1250,14 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-day-card .pdc-time{font-size:10px;color:var(--text-dim);font-weight:600;white-space:nowrap;}
 .pt-day-card.active .pdc-time{color:var(--coral-dark);}
 @media (max-width:620px){
-  .pt-day-row{grid-template-columns:repeat(3,1fr);}
+  .pt-day-row{gap:5px;}
+  .pt-day-card{padding:6px 4px;gap:4px;}
+  .pt-day-card .pdc-icon{width:20px;height:20px;}
+  .pt-day-card .pdc-name{font-size:10.5px;}
+  .pt-day-card .pdc-time{font-size:8.5px;}
 }
 @media (max-width:420px){
-  .pt-day-card{flex-direction:column;text-align:center;padding:10px 6px;}
+  .pt-day-card{flex-direction:column;text-align:center;padding:8px 2px;gap:3px;}
   .pt-day-card .pdc-time{white-space:normal;}
 }
 
@@ -3079,12 +3103,18 @@ const PrayerTimes = (function(){
   // Clicking a city name opens its (hidden, absolutely-positioned)
   // native <select> right on top of it — simplest reliable cross-device
   // picker without building a custom dropdown component.
+  // The 1s clock-hand tick (setInterval(renderClocks,1000) below) rebuilds
+  // this whole innerHTML, which was destroying the native <select> the
+  // instant it opened (closing the picker after a flash). Guard the tick
+  // so it skips re-rendering while a picker is open.
+  let ptClockPickerOpen = false;
   document.addEventListener('click', function(e){
     const btn = e.target.closest('.pt-clock-edit[data-idx]');
     if(!btn) return;
     const idx = btn.dataset.idx;
     const select = btn.parentElement.querySelector('.pt-clock-select[data-idx="'+idx+'"]');
     if(select){
+      ptClockPickerOpen = true;
       select.style.position='absolute'; select.style.left='0'; select.style.top='0';
       select.style.width='100%'; select.style.height='100%'; select.style.opacity='0.01'; select.style.pointerEvents='auto';
       select.focus();
@@ -3097,8 +3127,16 @@ const PrayerTimes = (function(){
     const idx = parseInt(select.dataset.idx,10);
     ptClockLabels[idx] = select.value;
     saveClockCities(ptClockLabels);
+    ptClockPickerOpen = false;
     renderClocks();
   });
+  // Cancelled without choosing a new city (native picker dismissed) —
+  // no 'change' fires, so clear the guard on blur once focus leaves.
+  document.addEventListener('focusout', function(e){
+    if(e.target && e.target.classList && e.target.classList.contains('pt-clock-select')){
+      setTimeout(function(){ ptClockPickerOpen = false; }, 300);
+    }
+  }, true);
 
   /* ---- Day & Night World Map ----
      Uses two real watercolour illustrations (day + night) rather than
@@ -3377,7 +3415,7 @@ const PrayerTimes = (function(){
   function renderAll(){ renderHome(); renderFullPage(); }
   // Clock faces tick every second independent of the 15s prayer-time
   // refresh, so hands move smoothly while the page is open.
-  setInterval(renderClocks, 1000);
+  setInterval(function(){ if(!ptClockPickerOpen) renderClocks(); }, 1000);
 
   // ---- Location popover wiring (shared by both entry points) ----
   // Opt-in only: nothing here runs until the person explicitly clicks
