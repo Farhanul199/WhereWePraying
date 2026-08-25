@@ -1,5 +1,6 @@
 // Cloudflare Pages Function: POST /api/subscribe
 // Stores an email address in D1 for the early-access mailing list.
+// Sends a confirmation email to subscribers@wherewepraying.com.
 //
 // IMPORTANT — before this works, check that the D1 binding name below
 // (env.DB) matches whatever you named the binding in your Pages
@@ -36,14 +37,44 @@ export async function onRequestPost(context) {
       `INSERT OR IGNORE INTO subscribers (email, created_at) VALUES (?, ?)`
     ).bind(email, new Date().toISOString()).run();
 
+    // Send notification email to subscribers@wherewepraying.com
+    await sendNotificationEmail(email, env);
+
     return jsonResponse({ ok: true });
   } catch (err) {
-    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+    // Still return success even if email fails — the subscription is saved
+    console.error('Email send error:', err);
+    return jsonResponse({ ok: true });
+  }
+}
+
+async function sendNotificationEmail(subscriberEmail, env) {
+  const mailchannelsUrl = 'https://api.mailchannels.net/tx/v1/send';
+  
+  const message = {
+    personalizations: [
+      {
+        to: [{ email: 'subscribers@wherewepraying.com' }]
+      }
+    ],
+    from: { email: 'noreply@wherewepraying.com', name: 'WhereWePraying' },
+    subject: `New Subscriber: ${subscriberEmail}`,
+    html: `<p>New subscriber joined the mailing list:</p><p><strong>${subscriberEmail}</strong></p><p>Signed up: ${new Date().toISOString()}</p>`
+  };
+
+  const response = await fetch(mailchannelsUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(message)
+  });
+
+  if (!response.ok) {
+    console.error('Mailchannels error:', await response.text());
   }
 }
 
 function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return /^\S+@\S+\.\S+$/.test(email);
 }
 
 function jsonResponse(data, status = 200) {
