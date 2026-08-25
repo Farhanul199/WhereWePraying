@@ -127,6 +127,34 @@ body{padding-top:78px;}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:12px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+/* ---------- Welcome / early-access popup ---------- */
+.welcome-backdrop{position:fixed;inset:0;background:rgba(30,20,10,.38);backdrop-filter:blur(2px);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .5s ease;}
+.welcome-backdrop.show{opacity:1;}
+.welcome-card{position:relative;width:100%;max-width:440px;max-height:86vh;overflow-y:auto;background:rgba(255,251,244,.88);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:22px;box-shadow:0 25px 60px rgba(0,0,0,.3);padding:30px 28px 26px;transform:translateY(14px) scale(.98);transition:transform .5s ease;}
+[data-theme="dark"] .welcome-card, [data-theme="amoled"] .welcome-card{background:rgba(30,26,22,.88);}
+.welcome-backdrop.show .welcome-card{transform:translateY(0) scale(1);}
+.welcome-close{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.welcome-close:hover{border-color:var(--coral);color:var(--coral);}
+.welcome-pin{font-size:26px;margin-bottom:6px;}
+.welcome-card h3{font-family:'Lora',serif;font-size:21px;font-weight:600;margin-bottom:6px;line-height:1.3;}
+.welcome-lede{font-size:13.5px;font-weight:700;color:var(--coral);margin-bottom:14px;}
+.welcome-card p{font-size:13.5px;line-height:1.6;color:var(--text-dim);margin-bottom:10px;}
+.welcome-form{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.welcome-form input{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:13.5px;color:var(--text);}
+.welcome-form input:focus{outline:none;border-color:var(--coral);}
+.welcome-form button{background:var(--coral);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.welcome-form button:hover{background:var(--coral-dark);}
+.welcome-form button:disabled{opacity:.6;cursor:default;}
+.welcome-status{font-size:12.5px;font-weight:700;margin-top:8px;min-height:16px;}
+.welcome-status.ok{color:#3d8a55;}
+.welcome-status.err{color:var(--red);}
+.welcome-skip{display:block;text-align:center;margin-top:16px;font-size:12px;color:var(--text-faint);text-decoration:none;cursor:pointer;}
+.welcome-skip:hover{color:var(--coral);}
+@media (max-width:480px){
+  .welcome-card{padding:24px 20px 22px;}
+  .welcome-form{flex-direction:column;}
+}
+
 
 /* ---------- Qur'an page (scoped) ---------- */
 #page-quran{--sidebar-w:300px;--audio-w:320px;}
@@ -1179,9 +1207,9 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 
 #page-prayertimes .pt-page{max-width:900px;margin:0 auto;padding:36px 24px 56px;}
 #page-prayertimes .pt-header{text-align:center;margin-bottom:10px;}
-#page-prayertimes .pt-header h1{font-family:'Lora',serif;font-weight:600;font-size:32px;margin-bottom:8px;}
+#page-prayertimes .pt-header h1{font-family:'Lora',serif;font-weight:600;font-size:32px;margin-bottom:4px;}
 #page-prayertimes .pt-header .pt-hijri{font-size:13px;color:var(--text-dim);}
-.pt-divider{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text-faint);margin-bottom:22px;}
+.pt-divider{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text-faint);margin-bottom:10px;}
 .pt-divider::before, .pt-divider::after{content:"";width:46px;height:1px;background:var(--border);}
 .pt-divider svg{flex:none;}
 
@@ -1189,7 +1217,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-location-pill:hover{border-color:var(--coral);color:var(--coral);}
 
 /* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha, each a start–end range */
-.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:22px 0;}
+.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0;}
 .pt-day-card{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:12px;padding:8px 10px;}
 [data-theme="dark"] .pt-day-card, [data-theme="amoled"] .pt-day-card{background:rgba(255,255,255,.04);}
 .pt-day-card.active{border-color:var(--coral);background:var(--coral-soft);}
@@ -1210,21 +1238,30 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 }
 
 /* ---------- World clocks (Prayer Times page) ---------- */
-.pt-clocks-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:22px 16px;margin-bottom:0;}
+.pt-clocks-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:12px 16px;margin-bottom:0;}
 .pt-clocks{display:flex;align-items:flex-start;justify-content:center;gap:12px;flex-wrap:nowrap;}
 .pt-clock{display:flex;flex-direction:column;align-items:center;gap:8px;flex:none;width:82px;}
 .pt-gmt-badge{font-size:10.5px;font-weight:700;color:var(--text-dim);background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:3px 10px;}
 .pt-clock.pt-clock-anchor .pt-gmt-badge{background:var(--coral);border-color:var(--coral);color:#fff;}
 .pt-clock-face-wrap{position:relative;}
-.pt-clock-face{position:relative;border-radius:50%;background:var(--surface-alt);border:1px solid var(--border);}
+.pt-clock-face{position:relative;border-radius:50%;overflow:visible;}
 .pt-clock:not(.pt-clock-anchor) .pt-clock-face{width:64px;height:64px;}
-.pt-clock.pt-clock-anchor .pt-clock-face{width:82px;height:82px;border:2px solid var(--coral);}
-.pt-clock-face .hand{position:absolute;left:50%;top:50%;transform-origin:50% 100%;border-radius:2px;}
-.pt-clock-face .hand.hour{width:2.5px;height:24%;margin-left:-1.25px;margin-top:-24%;background:var(--text);}
-.pt-clock-face .hand.min{width:2px;height:34%;margin-left:-1px;margin-top:-34%;background:var(--text-dim);}
-.pt-clock.pt-clock-anchor .hand{background:var(--coral);}
-.pt-clock-face .dot{position:absolute;left:50%;top:50%;width:5px;height:5px;margin-left:-2.5px;margin-top:-2.5px;border-radius:50%;background:var(--coral-dark);}
-.pt-clock-edit{position:absolute;top:-4px;right:-4px;width:22px;height:22px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);}
+.pt-clock.pt-clock-anchor .pt-clock-face{width:82px;height:82px;}
+.pt-clock-svg{display:block;width:100%;height:100%;overflow:visible;}
+.cf-rim{fill:none;stroke:#B9895A;stroke-width:3;}
+.pt-clock.pt-clock-anchor .cf-rim{stroke:var(--coral-dark);stroke-width:3.4;}
+.cf-rim-inner{fill:none;stroke:#E8C99A;stroke-width:1;opacity:.8;}
+.cf-tick{stroke:#8A6A45;stroke-linecap:round;}
+.cf-tick.major{stroke-width:2.6;}
+.cf-tick.minor{stroke-width:1.2;opacity:.65;}
+.cf-num{font-family:'Lora',serif;font-size:12px;font-weight:600;fill:#7A5B3A;text-anchor:middle;dominant-baseline:middle;}
+.cf-hand{stroke-linecap:round;}
+.cf-hand.cf-hour{stroke:#5C4327;stroke-width:3.4;}
+.cf-hand.cf-min{stroke:#8A6A45;stroke-width:2.2;}
+.pt-clock.pt-clock-anchor .cf-hand.cf-hour{stroke:var(--coral-dark);}
+.pt-clock.pt-clock-anchor .cf-hand.cf-min{stroke:var(--coral);}
+.cf-pin{fill:var(--coral-dark);stroke:#fff;stroke-width:1;}
+.pt-clock-edit{position:absolute;top:-4px;right:-4px;width:22px;height:22px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);z-index:2;}
 .pt-clock-edit:hover{border-color:var(--coral);color:var(--coral);}
 .pt-clock-city{font-size:12px;font-weight:700;text-align:center;line-height:1.25;color:var(--text);max-width:82px;}
 .pt-clock.pt-clock-anchor .pt-clock-city{color:var(--coral);}
@@ -1237,6 +1274,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .pt-clock.pt-clock-anchor .pt-clock-face{width:60px;height:60px;}
   .pt-clock-city{font-size:10px;max-width:60px;}
   .pt-gmt-badge{font-size:9px;padding:2px 7px;}
+  .cf-num{font-size:15px;}
 }
 
 /* ---------- Next / after-next prayer cards ---------- */
@@ -1262,7 +1300,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-footer-row .pt-method-label{font-size:12.5px;color:var(--text-dim);}
 
 /* ---------- Day & Night World Map (Prayer Times page) ---------- */
-.pt-map-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:16px;}
+.pt-map-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:8px;}
 .pt-map-header{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;position:relative;}
 .pt-map-title{font-size:13px;font-weight:700;color:var(--text-dim);}
 .pt-map-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text-faint);padding:0;}
@@ -2296,6 +2334,19 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 </div>
 
 <div id="page-prayertimes" class="app-page hidden">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="cfParchment" cx="42%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#FFFBF2"/>
+      <stop offset="55%" stop-color="#FBF0DA"/>
+      <stop offset="100%" stop-color="#F1DDB2"/>
+    </radialGradient>
+    <filter id="cfGrain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.42  0 0 0 0 0.25  0 0 0 0.05 0"/>
+    </filter>
+  </defs>
+</svg>
 <div class="pt-backdrop"><img src="assets/prayertimes/background.webp" alt="" aria-hidden="true"></div>
 <main class="page">
   <div class="pt-page">
@@ -2307,7 +2358,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l1.8 4.6L18 8l-4.2 1.4L12 14l-1.8-4.6L6 8l4.2-1.4z"/></svg>
     </div>
 
-    <div style="text-align:center;margin-bottom:8px;">
+    <div style="text-align:center;margin-bottom:6px;">
       <button class="pt-location-pill" id="ptLocationBtn" type="button">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
         <span id="ptLocationLabel">Set your location</span>
@@ -2443,6 +2494,31 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 </footer>
 
 <div class="toast" id="toast"></div>
+
+<div class="welcome-backdrop" id="welcomeBackdrop" style="display:none;">
+  <div class="welcome-card">
+    <button type="button" class="welcome-close" id="welcomeClose" aria-label="Close">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="welcome-pin">📌</div>
+    <h3>Welcome, welcome early explorer!</h3>
+    <p class="welcome-lede">You've discovered something that's still being lovingly built.</p>
+
+    <p>WhereWePraying is currently a work in progress, and you've arrived pretty early in the journey! ^-^</p>
+    <p>I'm working on turning this little idea into a proper working prototype, and if you'd like, you can follow along as it grows.</p>
+    <p>In the meantime, spread the word! The more people who try it, the more we can test, discover those sneaky little glitches 🐛 and make WhereWePraying better for everyone.</p>
+    <p>And yes... I've never actually run an email update or mailing list before soooo...</p>
+    <p>Sign up if you fancy ittt. Okei? 👉👈<br>No spam. Just occasional updates when something interesting happens.</p>
+
+    <form id="welcomeForm" class="welcome-form">
+      <input type="email" id="welcomeEmail" placeholder="you@example.com" required autocomplete="email">
+      <button type="submit" id="welcomeSubmit">✉️ Follow the Journey</button>
+    </form>
+    <p class="welcome-status" id="welcomeStatus"></p>
+
+    <a href="javascript:void(0)" class="welcome-skip" id="welcomeSkip">Or you can just explore. You're already part of the early crew. 🤍</a>
+  </div>
+</div>
 
 <script>
 
@@ -2917,6 +2993,34 @@ const PrayerTimes = (function(){
     return {hourDeg, minDeg, timeLabel};
   }
 
+  // Builds a real vintage/watercolour analogue clock face — parchment
+  // dial, painted rim, 12 tick marks with numerals at the quarters,
+  // and hour/minute hands — as an inline SVG (viewBox 0 0 100 100).
+  function clockFaceSvg(hourDeg, minDeg){
+    let ticks = '';
+    for(let i=0;i<12;i++){
+      const isMajor = i%3===0;
+      const r1 = isMajor ? 34.5 : 36.5;
+      const cls = isMajor ? 'major' : 'minor';
+      ticks += '<line class="cf-tick '+cls+'" x1="50" y1="'+(50-r1)+'" x2="50" y2="'+(50-40)+'" transform="rotate('+(i*30)+' 50 50)"/>';
+    }
+    const numerals = ''
+      + '<text class="cf-num" x="50" y="15">12</text>'
+      + '<text class="cf-num" x="85" y="51">3</text>'
+      + '<text class="cf-num" x="50" y="87">6</text>'
+      + '<text class="cf-num" x="15" y="51">9</text>';
+    return '<svg class="pt-clock-svg" viewBox="0 0 100 100">'
+      + '<circle cx="50" cy="50" r="47" fill="url(#cfParchment)"/>'
+      + '<circle cx="50" cy="50" r="47" fill="#8A6A45" filter="url(#cfGrain)" opacity="0.5"/>'
+      + '<circle class="cf-rim" cx="50" cy="50" r="46"/>'
+      + '<circle class="cf-rim-inner" cx="50" cy="50" r="40.5"/>'
+      + ticks + numerals
+      + '<line class="cf-hand cf-hour" x1="50" y1="58" x2="50" y2="29" transform="rotate('+hourDeg+' 50 50)"/>'
+      + '<line class="cf-hand cf-min" x1="50" y1="61" x2="50" y2="21" transform="rotate('+minDeg+' 50 50)"/>'
+      + '<circle class="cf-pin" cx="50" cy="50" r="3.2"/>'
+    + '</svg>';
+  }
+
   // UTC offset in minutes for a timezone at the current instant (DST-aware).
   function tzOffsetMinutes(tz){
     const now = new Date();
@@ -2959,11 +3063,7 @@ const PrayerTimes = (function(){
       return '<div class="pt-clock'+(isAnchor?' pt-clock-anchor':'')+'">'
         + '<span class="pt-gmt-badge">'+relativeGmtBadge(city.tz, anchor.tz)+'</span>'
         + '<div class="pt-clock-face-wrap">'
-          + '<div class="pt-clock-face">'
-            + '<div class="hand hour" style="transform:translate(0,-100%) rotate('+face.hourDeg+'deg)"></div>'
-            + '<div class="hand min" style="transform:translate(0,-100%) rotate('+face.minDeg+'deg)"></div>'
-            + '<div class="dot"></div>'
-          + '</div>'
+          + '<div class="pt-clock-face">'+clockFaceSvg(face.hourDeg, face.minDeg)+'</div>'
           + (isAnchor ? '' :
               '<select class="pt-clock-select" data-idx="'+editIdx+'">'+cityOptionsHtml(city.label)+'</select>'
               + '<button type="button" class="pt-clock-edit" data-idx="'+editIdx+'" title="Change city">'
@@ -3618,6 +3718,74 @@ if(headerHelpBtn) headerHelpBtn.addEventListener('click', function(){
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2600);
 });
+
+/* ---------- Welcome / early-access popup ----------
+   Shows once, ~20s after first arriving, inviting people to join the
+   mailing list. Dismissing it (X, "just explore", backdrop click, or
+   a successful signup) sets a localStorage flag so it never nags a
+   returning visitor again. */
+(function(){
+  const SEEN_KEY = 'wwp:welcomeSeen';
+  const backdrop = document.getElementById('welcomeBackdrop');
+  if(!backdrop) return;
+  let alreadySeen = false;
+  try{ alreadySeen = localStorage.getItem(SEEN_KEY) === '1'; }catch(e){}
+  if(alreadySeen) return;
+
+  function markSeen(){ try{ localStorage.setItem(SEEN_KEY,'1'); }catch(e){} }
+  function openWelcome(){
+    backdrop.style.display = 'flex';
+    requestAnimationFrame(()=> backdrop.classList.add('show'));
+  }
+  function closeWelcome(){
+    backdrop.classList.remove('show');
+    markSeen();
+    setTimeout(()=>{ backdrop.style.display = 'none'; }, 400);
+  }
+
+  setTimeout(openWelcome, 20000);
+
+  const closeBtn = document.getElementById('welcomeClose');
+  const skipLink = document.getElementById('welcomeSkip');
+  if(closeBtn) closeBtn.addEventListener('click', closeWelcome);
+  if(skipLink) skipLink.addEventListener('click', closeWelcome);
+  backdrop.addEventListener('click', function(e){ if(e.target === backdrop) closeWelcome(); });
+
+  const form = document.getElementById('welcomeForm');
+  const statusEl = document.getElementById('welcomeStatus');
+  if(form) form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    const emailInput = document.getElementById('welcomeEmail');
+    const submitBtn = document.getElementById('welcomeSubmit');
+    const email = emailInput ? emailInput.value.trim() : '';
+    if(!email) return;
+
+    submitBtn.disabled = true;
+    const original = submitBtn.textContent;
+    submitBtn.textContent = 'Sending…';
+    statusEl.textContent = '';
+    statusEl.className = 'welcome-status';
+
+    try{
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      if(!res.ok) throw new Error('Request failed');
+      statusEl.textContent = "You're on the list — thank you! 🤍";
+      statusEl.className = 'welcome-status ok';
+      form.reset();
+      setTimeout(closeWelcome, 1800);
+    }catch(err){
+      statusEl.textContent = "Couldn't sign you up right now — please try again shortly.";
+      statusEl.className = 'welcome-status err';
+    }finally{
+      submitBtn.disabled = false;
+      submitBtn.textContent = original;
+    }
+  });
+})();
 
 // Initial route: land on whichever page (and, for guides, which
 // specific guide) matches the URL the user arrived on — a direct
