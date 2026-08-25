@@ -248,12 +248,13 @@ async function sendConfirmationEmail(email, env) {
       'Content-Type': 'application/json',
       'Authorization': \`Bearer \${resendApiKey}\`
     },
-    body: JSON.stringify({
-      from: 'noreply@wherewepraying.com',
-      to: email,
-      subject: 'Welcome to WhereWePraying! 🤍',
-      html: htmlContent
-    })
+   body: JSON.stringify({
+  from: 'noreply@wherewepraying.com',
+  to: email,
+  subject: 'Welcome to WhereWePraying! 🤍',
+  html: htmlContent,
+  text: 'You\'re on the list! Thanks for signing up to WhereWePraying updates. Visit https://wherewepraying.com'
+})
   });
 
   if (!response.ok) {
