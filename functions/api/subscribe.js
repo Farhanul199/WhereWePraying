@@ -48,7 +48,7 @@ async function sendConfirmationEmail(email, env) {
   const htmlContent = `<html>
 <body style="margin: 0; padding: 20px; background-color: #fbf3ec;">
   <div style="max-width: 600px; margin: 0 auto;">
-    <img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-welcome.png" alt="Welcome to WhereWePraying" style="width: 100%; max-width: 600px; height: auto; display: block; border-radius: 24px;">
+    <a href="https://wherewepraying.com" style="display: block; text-decoration: none;"><img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-welcome.png" alt="Welcome to WhereWePraying" style="width: 100%; max-width: 600px; height: auto; display: block; border-radius: 24px;"></a>
   </div>
 </body>
 </html>`;
