@@ -1241,7 +1241,8 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-day-card{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:12px;padding:8px 10px;}
 [data-theme="dark"] .pt-day-card, [data-theme="amoled"] .pt-day-card{background:rgba(255,255,255,.04);}
 .pt-day-card.active{border-color:var(--coral);background:var(--coral-soft);}
-.pt-day-card .pdc-icon{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;}
+.pt-day-card .pdc-icon{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-day-card .pdc-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 [data-theme="dark"] .pt-day-card .pdc-icon, [data-theme="amoled"] .pt-day-card .pdc-icon{background:rgba(255,255,255,.06);}
 .pt-day-card.active .pdc-icon{background:rgba(255,255,255,.55);color:var(--coral);}
 .pt-day-card .pdc-body{min-width:0;}
@@ -1302,25 +1303,28 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 }
 
 /* ---------- Next / after-next prayer cards ---------- */
-.pt-next-card{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--coral);border-radius:20px;box-shadow:var(--shadow);padding:18px 22px;max-width:560px;margin:0 auto 10px;}
-.pt-next-card .pnc-icon{width:52px;height:52px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;}
-.pt-next-card .pnc-body{flex:1;min-width:0;}
-.pt-next-card .pnc-name{font-family:'Lora',serif;font-size:19px;font-weight:600;}
-.pt-next-card .pnc-time{font-family:'Lora',serif;font-size:26px;font-weight:700;color:var(--coral);}
-.pt-next-card .pnc-countdown{font-size:12.5px;font-weight:700;color:var(--coral-dark);margin-top:2px;}
+.pt-next-card{display:flex;align-items:center;justify-content:center;gap:14px;background:transparent;border:1px solid var(--coral);border-radius:18px;box-shadow:none;padding:16px 20px;max-width:504px;margin:0 auto 9px;}
+.pt-next-card .pnc-icon{width:47px;height:47px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-next-card .pnc-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.pt-next-card .pnc-body{flex:none;min-width:0;margin-right:28px;}
+.pt-next-card .pnc-name{font-family:'Lora',serif;font-size:17px;font-weight:600;}
+.pt-next-card .pnc-time{font-family:'Lora',serif;font-size:23px;font-weight:700;color:var(--coral);}
+.pt-next-card .pnc-countdown{font-size:11.5px;font-weight:700;color:var(--coral-dark);margin-top:2px;}
 .pt-next-card .pnc-finish{text-align:right;flex:none;}
-.pt-next-card .pnc-finish-label{font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
-.pt-next-card .pnc-finish-time{font-size:14px;font-weight:700;color:var(--text-dim);}
-.pt-afternext-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:12px 20px;max-width:480px;margin:0 auto 22px;opacity:.7;}
-.pt-afternext-card .pac-icon{width:36px;height:36px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;}
-.pt-afternext-card .pac-name{font-family:'Lora',serif;font-size:15px;font-weight:600;}
-.pt-afternext-card .pac-time{font-size:12.5px;color:var(--text-dim);font-weight:600;margin-left:auto;}
+.pt-next-card .pnc-finish-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.pt-next-card .pnc-finish-time{font-size:13px;font-weight:700;color:var(--text-dim);}
+.pt-afternext-card{display:flex;align-items:center;gap:13px;background:transparent;border:1px solid var(--border);border-radius:15px;box-shadow:none;padding:11px 18px;max-width:432px;margin:0 auto 20px;opacity:.7;}
+.pt-afternext-card .pac-icon{width:32px;height:32px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-afternext-card .pac-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.pt-afternext-card .pac-name{font-family:'Lora',serif;font-size:14px;font-weight:600;}
+.pt-afternext-card .pac-time{font-size:11.5px;color:var(--text-dim);font-weight:600;margin-left:auto;}
 @media (max-width:480px){
-  .pt-next-card{flex-wrap:wrap;padding:16px;}
-  .pt-next-card .pnc-finish{margin-left:68px;text-align:left;}
+  .pt-next-card{flex-wrap:wrap;padding:14px;justify-content:flex-start;}
+  .pt-next-card .pnc-body{margin-right:0;}
+  .pt-next-card .pnc-finish{margin-left:61px;text-align:left;}
 }
 
-.pt-footer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 18px;}
+.pt-footer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:transparent;border:1px solid var(--border);border-radius:15px;padding:13px 17px;}
 .pt-footer-row .pt-method-label{font-size:12.5px;color:var(--text-dim);}
 
 /* ---------- Day & Night World Map (Prayer Times page) ---------- */
@@ -1336,7 +1340,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .pt-map-frame{position:relative;border-radius:16px;overflow:hidden;background:#cfe0e8;}
 .pt-map-imgwrap{position:relative;width:100%;aspect-ratio:2.679/1;overflow:hidden;transform-origin:center center;transition:transform .25s ease;}
 .pt-map-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
-.pt-map-img-night{clip-path:polygon(0 0,0 0);-webkit-clip-path:polygon(0 0,0 0);filter:drop-shadow(0 0 0 transparent);}
+.pt-map-img-night{mask:url(#ptTermMask);-webkit-mask:url(#ptTermMask);mask-mode:alpha;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;}
 .pt-map-zoom{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:2;}
 .pt-map-zoom button{width:28px;height:28px;border-radius:50%;background:rgba(255,251,244,.92);border:1px solid rgba(0,0,0,.08);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.15);}
 .pt-map-zoom button:hover{color:var(--coral);}
@@ -2428,6 +2432,16 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
           <div class="pt-map-imgwrap" id="ptMapImgWrap">
             <img class="pt-map-img pt-map-img-day" src="assets/prayertimes/map-day.webp" alt="">
             <img class="pt-map-img pt-map-img-night" id="ptMapNightImg" src="assets/prayertimes/map-night.webp" alt="">
+            <svg width="0" height="0" style="position:absolute;">
+              <defs>
+                <filter id="ptTermBlur" x="-20%" y="-60%" width="140%" height="220%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blurred"/>
+                </filter>
+                <mask id="ptTermMask" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="1" height="1">
+                  <polygon id="ptTermPolygon" points="" fill="#fff" filter="url(#ptTermBlur)"/>
+                </mask>
+              </defs>
+            </svg>
           </div>
         </div>
         <div class="pt-map-slider-row">
@@ -2906,6 +2920,18 @@ const PrayerTimes = (function(){
     Maghrib: '<path d="M12 2v6M5 9l2 2M19 9l-2 2M2 17h20M6 17a6 6 0 0 1 12 0"/><path d="M2 21h20"/>',
     Isha: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/>'
   };
+  const PT_IMAGES = {
+    Fajr: 'assets/prayertimes/fajr.webp',
+    Dhuhr: 'assets/prayertimes/dhuhr.webp',
+    Asr: 'assets/prayertimes/asr.webp',
+    Maghrib: 'assets/prayertimes/maghrib.webp',
+    Isha: 'assets/prayertimes/isha.webp'
+  };
+  function ptIconMarkup(name, size){
+    const img = PT_IMAGES[name];
+    if(img) return '<img src="'+img+'" alt="" width="'+size+'" height="'+size+'">';
+    return '<svg width="'+Math.round(size*0.42)+'" height="'+Math.round(size*0.42)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg>';
+  }
 
   function renderHome(){
     const state = PrayerTimes.getState();
@@ -3187,20 +3213,24 @@ const PrayerTimes = (function(){
 
   function renderMapSvg(dateForMap){
     const nightImg = document.getElementById('ptMapNightImg');
-    if(!nightImg) return;
+    const termPolygon = document.getElementById('ptTermPolygon');
+    const wrap = document.getElementById('ptMapImgWrap');
+    if(!nightImg || !termPolygon || !wrap) return;
     const subsolar = solarPosition(dateForMap);
     const term = terminatorRing(subsolar);
     const nightBelow = subsolar.lat >= 0; // north pole in daylight => night is south of the curve
 
-    // Build the night-side clip polygon (curve + map edge), in %
-    // coordinates so it scales cleanly with the image's own size.
-    const curvePts = term.map(p=>[lonToX(p[0]), latToY(p[1])]);
-    const edgeY = nightBelow ? MAP_H : 0;
+    // Build the night-side mask polygon (curve + map edge) in real pixel
+    // coordinates matching the image's rendered box (userSpaceOnUse), so
+    // the Gaussian blur filter feathers the terminator into a soft,
+    // gradual day/night band instead of a razor-sharp line.
+    const w = wrap.clientWidth || 800, h = wrap.clientHeight || 300;
+    const curvePts = term.map(p=>[lonToX(p[0])/MAP_W*w, latToY(p[1])/MAP_H*h]);
+    const edgeY = nightBelow ? h : 0;
     const pts = curvePts.slice();
-    pts.push([MAP_W, edgeY], [0, edgeY]);
-    const polygon = pts.map(p=>p[0].toFixed(2)+'% '+p[1].toFixed(2)+'%').join(',');
-    nightImg.style.clipPath = 'polygon('+polygon+')';
-    nightImg.style.webkitClipPath = 'polygon('+polygon+')';
+    pts.push([w, edgeY], [0, edgeY]);
+    const polygon = pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    termPolygon.setAttribute('points', polygon);
   }
 
   function formatMinutes(mins){
@@ -3349,7 +3379,7 @@ const PrayerTimes = (function(){
       const nextName = PT_STACK_ORDER[i+1];
       const finish = nextName ? PrayerTimes.to12h(state.timings[nextName]) : '—';
       return '<div class="pt-day-card'+(active?' active':'')+'">'
-        + '<div class="pdc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg></div>'
+        + '<div class="pdc-icon">'+ptIconMarkup(name,32)+'</div>'
         + '<div class="pdc-body">'
           + '<div class="pdc-name">'+name+'</div>'
           + '<div class="pdc-time">'+PrayerTimes.to12h(state.timings[name])+' – '+finish+'</div>'
@@ -3381,7 +3411,7 @@ const PrayerTimes = (function(){
     const next = PrayerTimes.getNextPrayer();
 
     nextCard.innerHTML =
-      '<div class="pnc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[stack.next.name]+'</svg></div>'
+      '<div class="pnc-icon">'+ptIconMarkup(stack.next.name,52)+'</div>'
       + '<div class="pnc-body">'
         + '<div class="pnc-name">'+stack.next.name+'</div>'
         + '<div class="pnc-time">'+PrayerTimes.to12h(state.timings[stack.next.name])+'</div>'
@@ -3393,7 +3423,7 @@ const PrayerTimes = (function(){
       + '</div>';
 
     afterCard.innerHTML =
-      '<div class="pac-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[stack.afterNext.name]+'</svg></div>'
+      '<div class="pac-icon">'+ptIconMarkup(stack.afterNext.name,36)+'</div>'
       + '<div class="pac-name">'+stack.afterNext.name+'</div>'
       + '<div class="pac-time">'+PrayerTimes.to12h(state.timings[stack.afterNext.name])+'</div>';
   }
@@ -3676,6 +3706,10 @@ window.__WWP_guideSectionReady = function(){
   }
   syncHeaderHeight();
   window.addEventListener('resize', syncHeaderHeight);
+  window.addEventListener('resize', function(){
+    const wrap = document.getElementById('ptMapImgWrap');
+    if(wrap) renderMapSvg(dateForAnchorMinutes(mapState.minutes));
+  });
   window.addEventListener('load', syncHeaderHeight);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
   new ResizeObserver(syncHeaderHeight).observe(header);
