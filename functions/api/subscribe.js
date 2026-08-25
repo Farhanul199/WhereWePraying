@@ -49,9 +49,7 @@ async function sendConfirmationEmail(email, env) {
 <body style="margin: 0; padding: 20px; background-color: #fbf3ec;">
   <div style="max-width: 600px; margin: 0 auto;">
     <a href="https://wherewepraying.com" style="display: block; text-decoration: none;"><img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-welcome.png" alt="Welcome to WhereWePraying" style="width: 100%; max-width: 600px; height: auto; display: block; border-radius: 24px;"></a>
-    
     <p style="margin-top: 24px; font-size: 14px; color: #5c4033; line-height: 1.6; text-align: center;">It's still a work in progress and we are happy to see you being able to join us through our launch journey. Stay tuned for this amazing project!</p>
-    
     <p style="margin-top: 16px; text-align: center;"><a href="https://wherewepraying.com" style="color: #f4714e; text-decoration: none; font-weight: 600;">Explore WhereWePraying →</a></p>
   </div>
 </body>
@@ -68,7 +66,7 @@ async function sendConfirmationEmail(email, env) {
       to: email,
       subject: 'Welcome to WhereWePraying! 🤍',
       html: htmlContent,
-      text: 'You\'re on the list! Thanks for signing up to WhereWePraying updates. Visit https://wherewepraying.com'
+      text: 'You\'re on the list! Thanks for signing up to WhereWePraying updates.\n\nIt\'s still a work in progress and we are happy to see you being able to join us through our launch journey. Stay tuned for this amazing project!\n\nExplore WhereWePraying: https://wherewepraying.com'
     })
   });
 
