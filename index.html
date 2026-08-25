@@ -3876,10 +3876,16 @@ if(headerHelpBtn) headerHelpBtn.addEventListener('click', function(){
       submitBtn.textContent = original;
     }
   });
+})();
 
+// Footer newsletter signup — kept independent of the welcome-popup
+// IIFE above, which returns early once a visitor has already seen
+// that popup. The footer form must keep working regardless.
+(function(){
   const footerForm = document.getElementById('footerNewsletterForm');
   const footerStatusEl = document.getElementById('footerNewsletterStatus');
-  if(footerForm) footerForm.addEventListener('submit', async function(e){
+  if(!footerForm) return;
+  footerForm.addEventListener('submit', async function(e){
     e.preventDefault();
     const emailInput = document.getElementById('footerNewsletterEmail');
     const submitBtn = document.getElementById('footerNewsletterSubmit');
