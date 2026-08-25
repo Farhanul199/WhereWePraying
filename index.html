@@ -80,7 +80,7 @@ svg{display:block;}
   --gray-soft:#141414;
 }
 
-.topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:28px;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:14px clamp(16px,2.5vw,32px);background:var(--surface);border-bottom:1px solid var(--border);}
 /* Fixed (not sticky) so it never drifts mid-scroll on any device.
    body padding-top is set by JS (measured topbar height) so page
    content starts right below it. */
@@ -88,12 +88,12 @@ body{padding-top:78px;}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;white-space:nowrap;}
 .brand-mark{width:34px;height:34px;border-radius:11px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;}
 .brand-mark img{width:100%;height:100%;object-fit:contain;}
-.nav{display:flex;align-items:center;gap:24px;flex:1;overflow-x:auto;}
-.nav a{font-size:14px;font-weight:600;color:var(--text-dim);white-space:nowrap;padding:6px 2px;position:relative;cursor:pointer;}
+.nav{display:flex;align-items:center;gap:clamp(8px,1.6vw,24px);flex:1;min-width:0;overflow-x:auto;}
+.nav a{font-size:clamp(12px,1.05vw,14px);font-weight:600;color:var(--text-dim);white-space:nowrap;padding:6px 2px;position:relative;cursor:pointer;}
 .nav a.active{color:var(--coral);}
 .nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-16px;height:2px;background:var(--coral);}
-.topbar-icons{display:flex;align-items:center;gap:14px;margin-left:auto;flex:none;}
-.icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;}
+.topbar-icons{display:flex;align-items:center;gap:clamp(6px,1vw,14px);margin-left:auto;flex:none;}
+.icon-btn{width:clamp(30px,2.4vw,36px);height:clamp(30px,2.4vw,36px);border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;}
 .icon-btn:hover{border-color:var(--coral);color:var(--coral);}
 
 .app-page{}
