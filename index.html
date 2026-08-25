@@ -818,7 +818,7 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
 #page-dua .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;}
 #page-dua .cat-grid .full{grid-column:1 / -1;}
 #page-dua .cat-card{
-  position:relative;border-radius:16px;min-height:140px;cursor:pointer;border:2px solid transparent;overflow:hidden;
+  position:relative;border-radius:16px;cursor:pointer;border:2px solid transparent;overflow:hidden;
 }
 #page-dua .cat-card:hover{transform:translateY(-1px);}
 #page-dua .cat-card.active{
@@ -827,7 +827,7 @@ body #page-dua{font-family:'Manrope',sans-serif;background:var(--bg);color:var(-
 }
 #page-dua .cat-scene-wrap{position:absolute;inset:0;}
 #page-dua .cat-scene-wrap svg,#page-dua .cat-scene-wrap img{width:100%;height:100%;display:block;object-fit:cover;}
-#page-dua .cat-card-art{min-height:150px;}
+#page-dua .cat-card-art{aspect-ratio:700/574;}
 #page-dua .cat-scrim{position:absolute;inset:0;}
 #page-dua .cat-card.light-txt .cat-scrim{background:linear-gradient(to top, rgba(8,6,18,.6), rgba(8,6,18,0) 62%);}
 #page-dua .cat-card:not(.light-txt) .cat-scrim{background:linear-gradient(to top, rgba(255,252,245,.5), rgba(255,252,245,0) 58%);}
@@ -6694,14 +6694,26 @@ async function loadDuaFromBackend(){
    ============================================================ */
 function getCategory(id){ return CATEGORIES.find(c=>c.id===id); }
 
+const DUA_TILE_ASPECT = {
+  morning:700/574, evening:700/574, salah:700/574, sleep:700/574,
+  praise:700/574, qurandua:700/574, istighfar:700/573, ummah:700/574,
+  names:1689/453, other:1709/609
+};
 function renderCategories(){
   const grid = $('#catGrid'); grid.innerHTML='';
   CATEGORIES.forEach((cat,i)=>{
     const card = document.createElement('div');
     const isFull = !!cat.wide;
     card.className = `cat-card cat-card-art ${state.hasUserSelectedCategory && state.selectedCategory===cat.id && !state.favoritesMode?'active':''} ${isFull?'full':''}`;
+    // Tile art has its title baked into the image at a fixed spot, so the
+    // card box must match that image's aspect ratio or object-fit:cover
+    // crops straight through the words. Wide tiles also have their title
+    // anchored to the left, so bias the crop to eat into the empty right
+    // side of the art rather than the text.
+    const ratio = DUA_TILE_ASPECT[cat.id];
+    if(ratio) card.style.aspectRatio = String(ratio);
     card.innerHTML = `
-      <div class="cat-scene-wrap"><img src="${DUA_TILE_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy"></div>
+      <div class="cat-scene-wrap"><img src="${DUA_TILE_IMAGES[cat.id]}" alt="${cat.title}" loading="lazy" style="${isFull?'object-position:left center;':''}"></div>
     `;
     card.addEventListener('click', ()=> selectCategory(cat.id));
     grid.appendChild(card);
