@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>WhereWePraying — Broadcast Admin</title>
+<style>
+  :root{
+    --coral:#F4714E;
+    --cream:#FBF3EC;
+    --text:#3A2E28;
+    --muted:#8A7A70;
+    --border:#EADFD6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--cream);
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .card{
+    width:100%;
+    max-width:560px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:32px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.04);
+  }
+  h1{
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 28px;
+  }
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:6px;
+    margin-top:18px;
+  }
+  input[type=text],
+  input[type=password],
+  textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--text);
+    background:var(--cream);
+  }
+  textarea{
+    min-height:160px;
+    resize:vertical;
+  }
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:4px;
+  }
+  button{
+    margin-top:24px;
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:var(--coral);
+    color:#fff;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+  }
+  button:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+  }
+  #status{
+    margin-top:16px;
+    font-size:14px;
+    padding:12px 14px;
+    border-radius:12px;
+    display:none;
+  }
+  #status.ok{
+    display:block;
+    background:#EAF6EE;
+    color:#1F7A3E;
+  }
+  #status.err{
+    display:block;
+    background:#FBEAEA;
+    color:#B3261E;
+  }
+  .lockrow{
+    display:flex;
+    gap:10px;
+  }
+  .lockrow input{flex:1;}
+  .lockrow button{
+    margin-top:0;
+    width:auto;
+    padding:0 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Broadcast Admin</h1>
+  <p class="sub">Send an email to everyone on the WhereWePraying subscriber list.</p>
+
+  <div id="lockScreen">
+    <label for="secretInput">Broadcast key</label>
+    <div class="lockrow">
+      <input type="password" id="secretInput" placeholder="Paste your BROADCAST_SECRET">
+      <button id="unlockBtn">Unlock</button>
+    </div>
+    <p class="hint">This is the value you set in Cloudflare → Settings → Variables and secrets.</p>
+  </div>
+
+  <div id="formScreen" style="display:none;">
+    <label for="subjectInput">Subject</label>
+    <input type="text" id="subjectInput" placeholder="e.g. New feature: Prayer Times world clocks">
+
+    <label for="messageInput">Message</label>
+    <textarea id="messageInput" placeholder="Write your update here..."></textarea>
+    <p class="hint">Plain text is fine — line breaks will be preserved. Basic HTML tags also work if you want them.</p>
+
+    <button id="sendBtn">Send to all subscribers</button>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script>
+  const lockScreen = document.getElementById('lockScreen');
+  const formScreen = document.getElementById('formScreen');
+  const secretInput = document.getElementById('secretInput');
+  const unlockBtn = document.getElementById('unlockBtn');
+  const subjectInput = document.getElementById('subjectInput');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const statusEl = document.getElementById('status');
+
+  let broadcastKey = '';
+
+  unlockBtn.addEventListener('click', function(){
+    const val = secretInput.value.trim();
+    if(!val){ return; }
+    broadcastKey = val;
+    lockScreen.style.display = 'none';
+    formScreen.style.display = 'block';
+  });
+
+  secretInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') unlockBtn.click();
+  });
+
+  sendBtn.addEventListener('click', async function(){
+    const subject = subjectInput.value.trim();
+    const message = messageInput.value.trim();
+
+    if(!subject || !message){
+      showStatus('Please fill in both subject and message.', 'err');
+      return;
+    }
+
+    const confirmed = confirm('Send this email to every subscriber? This cannot be undone.');
+    if(!confirmed) return;
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+    statusEl.style.display = 'none';
+
+    const html = '<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#3A2E28;">' +
+                 message.replace(/\n/g, '<br>') +
+                 '</div>';
+
+    try{
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Broadcast-Key': broadcastKey
+        },
+        body: JSON.stringify({ subject: subject, html: html, text: message })
+      });
+
+      const data = await res.json();
+
+      if(!res.ok){
+        showStatus('Error: ' + (data.error || 'Request failed'), 'err');
+      } else if(data.errors && data.errors.length){
+        showStatus('Sent ' + data.sent + ' of ' + data.total + ', but some batches failed. Check console for details.', 'err');
+        console.error(data.errors);
+      } else {
+        showStatus('Sent to ' + data.sent + ' subscriber(s) successfully! 🤍', 'ok');
+        subjectInput.value = '';
+        messageInput.value = '';
+      }
+    }catch(err){
+      showStatus('Network error — please try again.', 'err');
+    }finally{
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send to all subscribers';
+    }
+  });
+
+  function showStatus(msg, type){
+    statusEl.textContent = msg;
+    statusEl.className = type;
+    statusEl.style.display = 'block';
+  }
+</script>
+
+</body>
+</html>
