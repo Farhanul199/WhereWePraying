@@ -566,6 +566,23 @@ body #page-quran{
   font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
 }
 #page-quran .continue-btn:hover{background:var(--coral-dark);}
+#page-quran .physical-bm-divider{height:1px;background:var(--border);margin:2px 0;}
+#page-quran .physical-bm-row{display:flex;align-items:center;gap:10px;}
+#page-quran .physical-bm-icon{width:30px;height:30px;border-radius:9px;background:var(--active-bg);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;}
+#page-quran .physical-bm-body{flex:1;min-width:0;}
+#page-quran .physical-bm-label{font-size:10.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+#page-quran .physical-bm-loc{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#page-quran .physical-bm-edit{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--text-dim);cursor:pointer;flex:none;}
+#page-quran .physical-bm-edit:hover{border-color:var(--coral);color:var(--coral);}
+#page-quran .physical-bm-form{display:none;gap:8px;}
+#page-quran .physical-bm-form.open{display:flex;}
+#page-quran .physical-bm-form select, #page-quran .physical-bm-form input{
+  border:1px solid var(--border);border-radius:9px;padding:8px 9px;font-size:12.5px;background:var(--surface-alt);color:var(--text);min-width:0;
+}
+#page-quran .physical-bm-form select{flex:1.6;}
+#page-quran .physical-bm-form input{flex:1;}
+#page-quran .physical-bm-save{background:var(--coral);color:#fff;border:none;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;flex:none;}
+#page-quran .physical-bm-save:hover{background:var(--coral-dark);}
 @media (min-width:1600px){
 #page-quran .page{max-width:2200px;}
 #page-quran{--sidebar-w:330px;--audio-w:350px;}
@@ -1952,6 +1969,23 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
         Continue reading
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
+
+      <div class="physical-bm-divider"></div>
+      <div class="physical-bm-row" id="physicalBmRow">
+        <div class="physical-bm-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+        </div>
+        <div class="physical-bm-body">
+          <div class="physical-bm-label">Physical copy</div>
+          <div class="physical-bm-loc" id="physicalBmLoc">Not set</div>
+        </div>
+        <button class="physical-bm-edit" id="physicalBmEditBtn" title="Update where you are in your physical Qur'an">Update</button>
+      </div>
+      <div class="physical-bm-form" id="physicalBmForm">
+        <select id="physicalBmSurah"></select>
+        <input type="number" id="physicalBmAyah" min="1" placeholder="Ayah #">
+        <button class="physical-bm-save" id="physicalBmSaveBtn">Save</button>
+      </div>
     </div>
   </div>
 
@@ -4438,6 +4472,7 @@ const state = {
   bookmarks:new Set(),           // "surah:ayah"
   history:[],                    // {surah,ayah,ts}
   lastRead:{surah:1,ayah:1,ts:Date.now()},
+  physicalBookmark:null,          // {surah, ayah, ts} | null — where the person is in their paper mushaf; optional, manual, unrelated to streak
   readDates:{},                   // dateKey -> true; drives the real streak below
   streak:{days:0, week:[false,false,false,false,false,false,false]}, // Mon..Sun
   todayIdx:(new Date().getDay()+6)%7,
@@ -4505,6 +4540,7 @@ const Services = {
       bookmarks: Array.from(state.bookmarks),
       history: state.history,
       lastRead: state.lastRead,
+      physicalBookmark: state.physicalBookmark,
       readDates: state.readDates,
       dailyGoal: state.dailyGoal,
       todayProgress: state.todayProgress,
@@ -4523,6 +4559,7 @@ const Services = {
     if(Array.isArray(saved.bookmarks)) state.bookmarks = new Set(saved.bookmarks);
     if(Array.isArray(saved.history)) state.history = saved.history;
     if(saved.lastRead) state.lastRead = saved.lastRead;
+    if(saved.physicalBookmark) state.physicalBookmark = saved.physicalBookmark;
     if(saved.readDates) state.readDates = saved.readDates;
     if(saved.dailyGoal) state.dailyGoal = saved.dailyGoal;
     if(typeof saved.todayProgress==='number') state.todayProgress = saved.todayProgress;
@@ -4784,6 +4821,28 @@ function renderContinueCard(){
   $('#continueTime').textContent = mins<1 ? 'Last read just now' : `Last read ${mins}m ago`;
 }
 
+// Physical copy bookmark: a single, optional, manually-updated marker for
+// where the person is in their own paper mushaf. Deliberately separate
+// from the app's Bookmarks (multi-save) and Last Read (auto-tracked) —
+// and never touches the reading streak.
+function populatePhysicalBmSurahSelect(){
+  const sel = $('#physicalBmSurah');
+  if(!sel || sel.options.length) return; // populate once
+  sel.innerHTML = SURAHS.map(s=>`<option value="${s.num}">${s.num}. ${s.en}</option>`).join('');
+}
+
+function renderPhysicalBookmark(){
+  const loc = $('#physicalBmLoc');
+  if(!loc) return;
+  const pb = state.physicalBookmark;
+  if(pb){
+    const s = getSurah(pb.surah);
+    loc.textContent = s ? `${s.en}, Ayah ${pb.ayah}` : 'Not set';
+  } else {
+    loc.textContent = 'Not set';
+  }
+}
+
 function renderProgressStats(){
   $('#statJuz').textContent = `${state.progress.juzDone}/30`;
   $('#statPages').textContent = `${state.progress.pagesRead}/604`;
@@ -4835,6 +4894,7 @@ function renderAll(){
   renderStreak();
   renderPlan();
   renderContinueCard();
+  renderPhysicalBookmark();
   renderProgressStats();
   renderSidebarCurrentToggle();
   renderEstimatedCompletion();
@@ -5213,6 +5273,7 @@ async function init(){
   await Services.loadFromBackend();
 
   Services.logHistory(state.currentSurah, state.currentAyah);
+  populatePhysicalBmSurahSelect();
   renderAll();
   ensureSurahLoaded(state.currentSurah);
 
@@ -5443,6 +5504,32 @@ async function init(){
 
   // Footer: continue
   $('#continueBtn').addEventListener('click', continueReading);
+
+  // Footer: physical copy bookmark — manual, optional, separate from
+  // both the app's Bookmarks list and Last Read/streak tracking.
+  $('#physicalBmEditBtn').addEventListener('click', ()=>{
+    const form = $('#physicalBmForm');
+    const willOpen = !form.classList.contains('open');
+    if(willOpen){
+      const pb = state.physicalBookmark;
+      $('#physicalBmSurah').value = pb ? pb.surah : state.currentSurah;
+      $('#physicalBmAyah').value = pb ? pb.ayah : '';
+    }
+    form.classList.toggle('open', willOpen);
+  });
+  $('#physicalBmSaveBtn').addEventListener('click', ()=>{
+    const surah = parseInt($('#physicalBmSurah').value, 10);
+    const meta = getSurah(surah);
+    let ayah = parseInt($('#physicalBmAyah').value, 10);
+    if(!meta){ showToast('Pick a surah first'); return; }
+    if(!ayah || ayah<1) ayah = 1;
+    if(ayah > meta.ayahs) ayah = meta.ayahs;
+    state.physicalBookmark = {surah, ayah, ts:Date.now()};
+    $('#physicalBmForm').classList.remove('open');
+    Services.persist();
+    renderPhysicalBookmark();
+    showToast('Physical copy position saved');
+  });
 }
 
 function continueReading(){
