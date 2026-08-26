@@ -7161,7 +7161,9 @@ const ICONS = {
   moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/>',
   star:'<path d="M12 3l2.6 6 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.2 1.4-6.3L3 7.6 9.4 7Z"/>',
   bookmark:'<path d="M6 3h12v18l-6-4-6 4V3Z"/>',
-  check:'<path d="M20 6 9 17l-5-5"/>'
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  home:'<path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
+  utensils:'<path d="M7 3v7a2 2 0 0 0 4 0V3"/><path d="M9 10v11"/><path d="M17 3c-2 0-3 2.5-3 5.5S15 14 17 14v7"/>'
 };
 function iconSvg(name, size){ size = size||14; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[name]||ICONS.star}</svg>`; }
 
@@ -7290,6 +7292,32 @@ const GUIDES = [
       {title:'Be patient and gentle with children', body:'Children are welcome in the mosque \u2014 the Prophet was famously gentle with them, even during prayer. Guide them calmly rather than treating their presence as a disruption.'},
       {title:'Keep the space clean', body:'Take any rubbish with you and leave the area as you found it.'},
       {title:'Leave with your left foot', body:'Step out left foot first, and say the dua for leaving.', arabic:'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u0647\u0650 \u0648\u064e\u0627\u0644\u0635\u0651\u064e\u0644\u0627\u0629\u064f \u0648\u064e\u0627\u0644\u0633\u0651\u064e\u0644\u0627\u0645\u064f \u0639\u064e\u0644\u064e\u0649 \u0631\u064e\u0633\u0648\u0644\u0650 \u0627\u0644\u0644\u0651\u0647\u0650\u060c \u0627\u0644\u0644\u0651\u0647\u0645\u0651 \u0625\u0650\u0646\u0651\u064a \u0623\u064e\u0633\u0652\u0623\u064e\u0644\u064f\u0643\u064e \u0645\u0650\u0646 \u0641\u064e\u0636\u0652\u0644\u0650\u0643\u064e', translit:"Bismillah, was-salatu was-salamu 'ala Rasulillah, Allahumma inni as'aluka min fadlik", translation:'In the name of Allah, and peace and blessings be upon the Messenger of Allah. O Allah, I ask You from Your favor.'}
+    ]},
+
+  { id:'home-etiquette', title:'Home Etiquette', icon:'home', tag:'Good to know', time:'4 min',
+    summary:'The small daily habits — coming in, going out, and hosting others — that the Prophet \ufdfa taught around the home.',
+    steps:[
+      {title:'Say Bismillah as you enter', body:'Mentioning the name of Allah as you come home is more than a formality \u2014 the Prophet \ufdfa said it keeps the shaytan from settling in with you for the night.', arabic:'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0647\u0650 \u0648\u064e\u0644\u064e\u062c\u0652\u0646\u0627 \u0648\u064e\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0647\u0650 \u062e\u064e\u0631\u064e\u062c\u0652\u0646\u0627 \u0648\u064e\u0639\u064e\u0644\u0649 \u0631\u064e\u0628\u0651\u0650\u0646\u0627 \u062a\u064e\u0648\u064e\u0643\u0651\u0644\u0652\u0646\u0627', translit:'Bismillahi walajna, wa bismillahi kharajna, wa \u2018ala Rabbina tawakkalna', translation:'In the Name of Allah we enter, in the Name of Allah we leave, and upon our Lord we depend.'},
+      {title:'Greet those inside with Salam', body:"Even if you find no one home, it's still recommended to say the greeting \u2014 angels present in the house reply on their behalf."},
+      {title:'Enter with your right foot', body:"It's customary to enter with your right foot first, the same as entering the mosque."},
+      {title:'Close doors gently', body:'The Prophet \ufdfa said gentleness adorns everything it touches, and its absence leaves everything flawed (Sahih Muslim). Avoid slamming doors or letting them bang shut.'},
+      {title:'Keep dhikr alive in your home', body:'Reciting Surah Al-Baqarah regularly in the house is encouraged \u2014 the Prophet \ufdfa said Satan flees a home in which it is recited (Sahih Muslim).'},
+      {title:'Honor your guests, and mind your neighbors', body:'The Prophet \ufdfa said: "Whoever believes in Allah and the Last Day should serve his guest generously, should not harm his neighbor, and should speak what is good or remain silent." (Sahih al-Bukhari)'},
+      {title:'Say the dua before you leave', body:'Step out with trust in Allah for whatever the day holds.', arabic:'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0647\u0650 \u062a\u064e\u0648\u064e\u0643\u064e\u0651\u0644\u0652\u062a\u064f \u0639\u064e\u0644\u0649 \u0627\u0644\u0644\u0647\u0650 \u0648\u064e\u0644\u0627 \u062d\u064e\u0648\u0652\u0644\u064e \u0648\u064e\u0644\u0627 \u0642\u064f\u0648\u064e\u0651\u0629\u064e \u0625\u0650\u0644\u0627\u0651 \u0628\u0650\u0627\u0644\u0644\u0647', translit:'Bismillahi, tawakkaltu \u2018alallahi, wa la hawla wa la quwwata illa billah', translation:'In the Name of Allah, I have placed my trust in Allah; there is no might and no power except by Allah.'},
+      {title:'Ask for protection as you go', body:"There's a second dua the Prophet \ufdfa used to say when leaving home, asking Allah for protection from misguiding others or being misguided, and from wronging others or being wronged."}
+    ]},
+
+  { id:'food-etiquette', title:'Food & Eating Etiquette', icon:'utensils', tag:'Good to know', time:'4 min',
+    summary:'Simple sunnah manners that turn an everyday meal into an act of gratitude.',
+    steps:[
+      {title:'Wash your hands before eating', body:"Washing your hands before and after a meal is recommended, and traditionally seen as part of what brings blessing to the food."},
+      {title:'Sit down to eat', body:'Eating while sitting, rather than standing or walking around, is the fuller sunnah.'},
+      {title:'Say Bismillah before you start', body:"If you forget and only remember partway through, say the fuller version covering the whole meal.", arabic:'\u0628\u0633\u0645\u0650 \u0627\u0644\u0644\u064e\u0651\u0647\u0650', translit:'Bismillah', translation:'In the Name of Allah.'},
+      {title:'Eat and drink with your right hand', body:'The Prophet \ufdfa specifically taught this \u2014 it applies even if you\u2019re left-handed for other everyday tasks.'},
+      {title:"Eat from what's nearest to you", body:'When sharing a dish with others, take from the part closest to you rather than reaching across.'},
+      {title:"Don't waste, and don't overeat", body:'The Prophet \ufdfa advised filling a third of the stomach with food, a third with drink, and leaving a third for air \u2014 eating to satisfy hunger rather than to excess.'},
+      {title:'Praise Allah when you finish', body:'A short dua of thanks for the meal.', arabic:'\u0627\u0644\u0652\u062d\u064e\u0645\u0652\u062f\u064f \u0644\u0644\u0647\u0650 \u0627\u0644\u064e\u0651\u0630\u064a \u0623\u064e\u0637\u0652\u0639\u064e\u0645\u064e\u0646\u064a \u0647\u0630\u0627 \u0648\u064e\u0631\u064e\u0632\u064e\u0642\u064e\u0646\u064a\u0647\u0650 \u0645\u0650\u0646\u0652 \u063a\u064e\u064a\u0652\u0631\u0650 \u062d\u064e\u0648\u0652\u0644\u064d \u0645\u0650\u0646\u0651\u064a \u0648\u064e\u0644\u0627 \u0642\u064f\u0648\u064e\u0651\u0629', translit:'Alhamdu lillahil-ladhi at\u2019amani hadha, wa razaqanihi min ghayri hawlin minni wa la quwwah', translation:'Praise be to Allah, who fed me this and provided it for me without any power or might on my part.'},
+      {title:'Thank whoever fed you', body:"If someone gave you food or drink, it's recommended to make dua for them in return \u2014 a simple exchange of gratitude."}
     ]}
 ];
 
