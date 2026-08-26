@@ -30,12 +30,16 @@ export async function onRequestPost(context) {
   }
 
   const subject = (body && body.subject ? String(body.subject) : '').trim();
-  const html = body && body.html ? String(body.html) : '';
-  const text = body && body.text ? String(body.text) : '';
+  const message = (body && body.message ? String(body.message) : '').trim();
+  const buttonText = (body && body.buttonText ? String(body.buttonText) : '').trim();
+  const buttonUrl = (body && body.buttonUrl ? String(body.buttonUrl) : '').trim();
 
-  if (!subject || (!html && !text)) {
-    return jsonResponse({ error: 'subject and (html or text) are required.' }, 400);
+  if (!subject || !message) {
+    return jsonResponse({ error: 'subject and message are required.' }, 400);
   }
+
+  const html = buildEmailHtml(message, buttonText, buttonUrl);
+  const text = message + (buttonText && buttonUrl ? `\n\n${buttonText}: ${buttonUrl}` : '');
 
   const resendApiKey = env.RESEND_API_KEY;
   if (!resendApiKey) {
@@ -100,6 +104,43 @@ export async function onRequestPost(context) {
     sent,
     errors
   });
+}
+
+function buildEmailHtml(message, buttonText, buttonUrl) {
+  const messageHtml = message
+    .split('\n')
+    .map(line => line.trim() ? `<p style="margin:0 0 16px; font-size:15px; color:#5c4033; line-height:1.6;">${escapeHtml(line)}</p>` : '')
+    .join('');
+
+  const buttonHtml = (buttonText && buttonUrl) ? `
+    <div style="text-align:center; margin-top:8px;">
+      <a href="${escapeAttr(buttonUrl)}" style="display:inline-block; background-color:#f4714e; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:12px 28px; border-radius:999px;">${escapeHtml(buttonText)}</a>
+    </div>` : '';
+
+  return `<html>
+<body style="margin:0; padding:20px; background-color:#fbf3ec;">
+  <div style="max-width:600px; margin:0 auto;">
+    <a href="https://wherewepraying.com" style="display:block; text-decoration:none;">
+      <img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-welcome.png" alt="WhereWePraying" style="width:100%; max-width:600px; height:auto; display:block; border-radius:24px;">
+    </a>
+    <div style="margin-top:24px; text-align:center;">
+      ${messageHtml}
+    </div>
+    ${buttonHtml}
+    <p style="margin-top:32px; text-align:center; font-size:12px; color:#a8988c;">
+      <a href="https://wherewepraying.com" style="color:#f4714e; text-decoration:none;">wherewepraying.com</a>
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;');
 }
 
 function jsonResponse(data, status = 200) {
