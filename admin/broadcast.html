@@ -135,7 +135,13 @@
 
     <label for="messageInput">Message</label>
     <textarea id="messageInput" placeholder="Write your update here..."></textarea>
-    <p class="hint">Plain text is fine — line breaks will be preserved. Basic HTML tags also work if you want them.</p>
+    <p class="hint">Plain text — each line becomes its own paragraph. Matches the style of your welcome email.</p>
+
+    <label for="buttonTextInput">Button text (optional)</label>
+    <input type="text" id="buttonTextInput" placeholder="e.g. Check it out">
+
+    <label for="buttonUrlInput">Button link (optional)</label>
+    <input type="text" id="buttonUrlInput" placeholder="https://wherewepraying.com/...">
 
     <button id="sendBtn">Send to all subscribers</button>
   </div>
@@ -170,6 +176,8 @@
   sendBtn.addEventListener('click', async function(){
     const subject = subjectInput.value.trim();
     const message = messageInput.value.trim();
+    const buttonText = document.getElementById('buttonTextInput').value.trim();
+    const buttonUrl = document.getElementById('buttonUrlInput').value.trim();
 
     if(!subject || !message){
       showStatus('Please fill in both subject and message.', 'err');
@@ -183,10 +191,6 @@
     sendBtn.textContent = 'Sending…';
     statusEl.style.display = 'none';
 
-    const html = '<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#3A2E28;">' +
-                 message.replace(/\n/g, '<br>') +
-                 '</div>';
-
     try{
       const res = await fetch('/api/broadcast', {
         method: 'POST',
@@ -195,7 +199,7 @@
           'X-Broadcast-Key': broadcastKey,
           'X-Device-Id': 'admin-broadcast-panel'
         },
-        body: JSON.stringify({ subject: subject, html: html, text: message })
+        body: JSON.stringify({ subject: subject, message: message, buttonText: buttonText, buttonUrl: buttonUrl })
       });
 
       const data = await res.json();
@@ -209,6 +213,8 @@
         showStatus('Sent to ' + data.sent + ' subscriber(s) successfully! 🤍', 'ok');
         subjectInput.value = '';
         messageInput.value = '';
+        document.getElementById('buttonTextInput').value = '';
+        document.getElementById('buttonUrlInput').value = '';
       }
     }catch(err){
       showStatus('Network error — please try again.', 'err');
