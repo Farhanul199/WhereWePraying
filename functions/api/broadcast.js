@@ -109,28 +109,80 @@ export async function onRequestPost(context) {
 function buildEmailHtml(message, buttonText, buttonUrl) {
   const messageHtml = message
     .split('\n')
-    .map(line => line.trim() ? `<p style="margin:0 0 16px; font-size:15px; color:#5c4033; line-height:1.6;">${escapeHtml(line)}</p>` : '')
+    .map(line => line.trim() ? `<p style="margin:0 0 16px; font-size:15px; color:#5c4033; line-height:1.7;">${escapeHtml(line)}</p>` : '')
     .join('');
 
   const buttonHtml = (buttonText && buttonUrl) ? `
-    <div style="text-align:center; margin-top:8px;">
-      <a href="${escapeAttr(buttonUrl)}" style="display:inline-block; background-color:#f4714e; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:12px 28px; border-radius:999px;">${escapeHtml(buttonText)}</a>
-    </div>` : '';
+          <tr>
+            <td align="center" style="padding-top:8px; padding-bottom:8px;">
+              <a href="${escapeAttr(buttonUrl)}" style="display:inline-block; background-color:#f4714e; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:13px 32px; border-radius:999px; font-family:'Manrope',Arial,sans-serif;">${escapeHtml(buttonText)}</a>
+            </td>
+          </tr>` : '';
+
+  const iconUrl = 'https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-icon.png';
 
   return `<html>
-<body style="margin:0; padding:20px; background-color:#fbf3ec;">
-  <div style="max-width:600px; margin:0 auto;">
-    <a href="https://wherewepraying.com" style="display:block; text-decoration:none;">
-      <img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-welcome.png" alt="WhereWePraying" style="width:100%; max-width:600px; height:auto; display:block; border-radius:24px;">
-    </a>
-    <div style="margin-top:24px; text-align:center;">
-      ${messageHtml}
-    </div>
-    ${buttonHtml}
-    <p style="margin-top:32px; text-align:center; font-size:12px; color:#a8988c;">
-      <a href="https://wherewepraying.com" style="color:#f4714e; text-decoration:none;">wherewepraying.com</a>
-    </p>
-  </div>
+<body style="margin:0; padding:24px 16px; background-color:#fbe4d8; font-family:'Manrope',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; margin:0 auto;">
+    <tr>
+      <td style="padding:4px;">
+        <!-- outer border -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid #f4a184; border-radius:28px;">
+          <tr>
+            <td style="padding:6px;">
+              <!-- inner border -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f4c2ab; border-radius:22px; background-color:#fdf6f0;">
+                <tr>
+                  <td style="padding:44px 36px 36px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                      <!-- icon -->
+                      <tr>
+                        <td align="center">
+                          <img src="${iconUrl}" alt="WhereWePraying" width="88" style="display:block; width:88px; height:auto; border-radius:20px;">
+                        </td>
+                      </tr>
+
+                      <!-- heart divider -->
+                      <tr>
+                        <td align="center" style="padding:28px 0 30px;">
+                          <span style="color:#f4a184; font-size:14px; letter-spacing:2px;">— &#10084; —</span>
+                        </td>
+                      </tr>
+
+                      <!-- message -->
+                      <tr>
+                        <td align="center" style="text-align:center;">
+                          ${messageHtml}
+                        </td>
+                      </tr>
+
+                      ${buttonHtml}
+
+                      <!-- dot divider -->
+                      <tr>
+                        <td align="center" style="padding:34px 0 26px;">
+                          <span style="color:#f4c2ab; font-size:12px; letter-spacing:2px;">— &#8226; —</span>
+                        </td>
+                      </tr>
+
+                      <!-- url pill -->
+                      <tr>
+                        <td align="center">
+                          <span style="display:inline-block; background-color:#fbe4d8; color:#f4714e; font-weight:700; font-size:14px; padding:10px 22px; border-radius:999px;">wherewepraying.com</span>
+                        </td>
+                      </tr>
+
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 }
