@@ -169,7 +169,13 @@ function buildEmailHtml(message, buttonText, buttonUrl) {
                       <!-- url pill -->
                       <tr>
                         <td align="center">
-                          <span style="display:inline-block; background-color:#fbe4d8; color:#f4714e; font-weight:700; font-size:14px; padding:10px 22px; border-radius:999px;">wherewepraying.com</span>
+                          <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+                            <tr>
+                              <td style="background-color:#fbe4d8; border-radius:999px; padding:10px 22px;">
+                                <span style="color:#f4714e; font-weight:700; font-size:14px; text-decoration:none;">wherewepraying.com</span>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
 
