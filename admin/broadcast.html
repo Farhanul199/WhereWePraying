@@ -192,7 +192,8 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Broadcast-Key': broadcastKey
+          'X-Broadcast-Key': broadcastKey,
+          'X-Device-Id': 'admin-broadcast-panel'
         },
         body: JSON.stringify({ subject: subject, html: html, text: message })
       });
