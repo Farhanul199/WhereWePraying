@@ -1361,13 +1361,15 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .home-next-prayer .time{font-size:16px;font-weight:700;color:var(--text-dim);}
 .home-next-prayer .remaining{font-size:13px;font-weight:700;color:var(--coral);}
 .home-prayer-quote-divider{width:1px;align-self:stretch;background:var(--border);flex:none;}
-.home-prayer-quote{flex:1;min-width:190px;max-width:280px;}
-.home-prayer-quote .hpq-top{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
-.home-prayer-quote .hpq-universal{font-size:11.5px;line-height:1.45;color:var(--text-dim);}
-.home-prayer-quote .hpq-source{color:var(--text-faint);}
+.home-prayer-quote{flex:1;min-width:200px;max-width:300px;cursor:pointer;border-radius:10px;padding:2px 6px;margin:-2px -6px;transition:background .15s ease;}
+.home-prayer-quote:hover{background:var(--surface-alt);}
+.home-prayer-quote .hpq-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--coral);margin-bottom:3px;}
+.home-prayer-quote .hpq-headline{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.home-prayer-quote .hpq-text{font-size:11.5px;line-height:1.45;color:var(--text-dim);}
+.home-prayer-quote .hpq-cite{display:block;text-align:right;font-size:10px;color:var(--text-faint);margin-top:4px;}
 @media (max-width:720px){
   .home-prayer-quote-divider{display:none;}
-  .home-prayer-quote{border-top:1px solid var(--border);padding-top:12px;width:100%;max-width:none;}
+  .home-prayer-quote{border-top:1px solid var(--border);padding-top:12px;margin-top:0;width:100%;max-width:none;}
 }
 .home-timeline{display:flex;align-items:center;gap:26px;flex:1;flex-wrap:wrap;}
 .home-timeline-item{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
@@ -1574,9 +1576,21 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .pt-next-card .pnc-finish-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .pt-next-card .pnc-finish-time{font-size:13px;font-weight:700;color:var(--text-dim);}
 .pt-afternext-card{display:flex;align-items:center;gap:13px;background:transparent;border:1px solid var(--border);border-radius:15px;box-shadow:none;padding:11px 18px;max-width:432px;margin:0 auto 20px;opacity:.7;}
-.pt-prayer-quote{max-width:432px;margin:0 auto 16px;padding:13px 18px;background:var(--surface);border:1px solid var(--border);border-radius:15px;font-size:12.5px;line-height:1.5;color:var(--text-dim);}
-.pt-prayer-quote .ppq-top{font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px;font-size:13px;}
-.pt-prayer-quote .ppq-source{color:var(--text-faint);}
+.pt-prayer-quote{max-width:432px;margin:0 auto 16px;padding:13px 18px;background:var(--surface);border:1px solid var(--border);border-radius:15px;font-size:12.5px;line-height:1.5;color:var(--text-dim);cursor:pointer;transition:border-color .15s ease;}
+.pt-prayer-quote:hover{border-color:var(--coral);}
+.pt-prayer-quote .ppq-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--coral);margin-bottom:3px;}
+.pt-prayer-quote .ppq-headline{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.pt-prayer-quote .ppq-cite{display:block;text-align:right;font-size:10px;color:var(--text-faint);margin-top:5px;}
+
+.pt-hadith-section{max-width:640px;margin:36px auto 40px;padding:0 4px;}
+.pt-hadith-header{text-align:center;margin-bottom:22px;}
+.pt-hadith-header h2{font-family:'Lora',serif;font-size:21px;font-weight:700;margin-bottom:6px;}
+.pt-hadith-header p{font-size:13px;color:var(--text-dim);}
+.pt-hadith-group-title{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--coral);margin:24px 0 10px;}
+.pt-hadith-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:10px;}
+.pt-hadith-card .phc-arabic{font-family:'Amiri','Scheherazade New',serif;font-size:18px;direction:rtl;text-align:right;line-height:1.9;color:var(--text);margin-bottom:10px;}
+.pt-hadith-card .phc-translation{font-size:13.5px;line-height:1.6;color:var(--text-dim);margin-bottom:8px;}
+.pt-hadith-card .phc-cite{font-size:11.5px;color:var(--text-faint);text-align:right;}
 .pt-afternext-card .pac-icon{width:32px;height:32px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
 .pt-afternext-card .pac-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .pt-afternext-card .pac-name{font-family:'Lora',serif;font-size:14px;font-weight:600;}
@@ -1857,9 +1871,11 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
         </div>
       </div>
       <div class="home-prayer-quote-divider"></div>
-      <div class="home-prayer-quote">
-        <div class="hpq-top"><span id="homePQEmoji">🛡️</span> <span id="homePQShort">Under Allah's protection</span></div>
-        <div class="hpq-universal">"The five daily prayers erase sins between them, provided major sins are avoided." <span class="hpq-source">— Sahih Muslim 233a</span></div>
+      <div class="home-prayer-quote" id="homePrayerQuoteCard" role="button" tabindex="0">
+        <div class="hpq-label" id="homePQLabel">Fajr</div>
+        <div class="hpq-headline" id="homePQHeadline">Allah's Protection</div>
+        <div class="hpq-text">"Whoever prays the morning (Fajr) prayer is under the protection of Allah."</div>
+        <span class="hpq-cite">— Sahih Muslim 657a</span>
       </div>
     </div>
   </div>
@@ -2896,6 +2912,95 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
         <span class="pt-method-label" id="ptMethodLabel">Calculation method: Muslim World League</span>
         <button class="pt-location-btn" id="ptChangeMethodBtn" type="button">Change <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="display:inline;vertical-align:-1px;"><path d="M6 9l6 6 6-6"/></svg></button>
       </div>
+
+      <div class="pt-hadith-section" id="ptHadithSection">
+        <div class="pt-hadith-header">
+          <h2>Prayer Benefits &amp; Protections</h2>
+          <p>Authentic hadith on the virtues of each prayer — Arabic, translation, and source.</p>
+        </div>
+
+        <div class="pt-hadith-group-title">Fajr</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ صَلَّى الصُّبْحَ فَهُوَ فِي ذِمَّةِ اللَّهِ فَلاَ يَطْلُبَنَّكُمُ اللَّهُ مِنْ ذِمَّتِهِ بِشَىْءٍ فَيُدْرِكَهُ فَيَكُبَّهُ فِي نَارِ جَهَنَّمَ</div>
+          <div class="phc-translation">"Whoever prays the morning (Fajr) prayer is under the protection of Allah — so do not violate that protection in any way, for whoever does, Allah will seize him and throw him down on his face into the Fire of Hell."</div>
+          <div class="phc-cite">Sahih Muslim 657a — Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ صَلَّى الْبَرْدَيْنِ دَخَلَ الْجَنَّةَ</div>
+          <div class="phc-translation">"Whoever prays the two cool prayers (Fajr and Asr) will enter Paradise."</div>
+          <div class="phc-cite">Sahih al-Bukhari 574 — Sahih (agreed upon)</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">يَتَعَاقَبُونَ فِيكُمْ مَلاَئِكَةٌ بِاللَّيْلِ وَمَلاَئِكَةٌ بِالنَّهَارِ، وَيَجْتَمِعُونَ فِي صَلاَةِ الْفَجْرِ وَصَلاَةِ الْعَصْرِ</div>
+          <div class="phc-translation">"Angels come to you in succession by night and by day, and they gather together at the Fajr and Asr prayers."</div>
+          <div class="phc-cite">Sahih al-Bukhari 555 — Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">رَكْعَتَا الْفَجْرِ خَيْرٌ مِنْ الدُّنْيَا وَمَا فِيهَا</div>
+          <div class="phc-translation">"The two rak'ahs before Fajr are better than this world and everything in it."</div>
+          <div class="phc-cite">Sahih Muslim 725a — Sahih</div>
+        </div>
+
+        <div class="pt-hadith-group-title">Dhuhr</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ حَافَظَ عَلَى أَرْبَعِ رَكَعَاتٍ قَبْلَ الظُّهْرِ وَأَرْبَعٍ بَعْدَهَا حَرَّمَهُ اللَّهُ عَلَى النَّارِ</div>
+          <div class="phc-translation">"Whoever preserves four rak'ahs before Dhuhr and four after it, Allah will forbid him from the Fire."</div>
+          <div class="phc-cite">Sunan at-Tirmidhi 428 — Hasan Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">إِنَّ أَبْوَابَ السَّمَاءِ تُفْتَحُ إِذَا زَالَتِ الشَّمْسُ</div>
+          <div class="phc-translation">"The gates of heaven are opened when the sun passes its zenith" — said of the time before Dhuhr, when the Prophet ﷺ loved for his good deeds to rise.</div>
+          <div class="phc-cite">Sunan Ibn Majah 1157 — Hasan (Al-Albani)</div>
+        </div>
+
+        <div class="pt-hadith-group-title">Asr</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ تَرَكَ صَلاَةَ الْعَصْرِ فَقَدْ حَبِطَ عَمَلُهُ</div>
+          <div class="phc-translation">"Whoever leaves the Asr prayer, his deeds are nullified."</div>
+          <div class="phc-cite">Sahih al-Bukhari 553 — Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">الَّذِي تَفُوتُهُ صَلاَةُ الْعَصْرِ كَأَنَّمَا وُتِرَ أَهْلَهُ وَمَالَهُ</div>
+          <div class="phc-translation">"Whoever misses the Asr prayer, it is as if he had lost his family and his wealth."</div>
+          <div class="phc-cite">Sahih al-Bukhari 552 / Muslim 626 — Muttafaqun Alayhi</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">رَحِمَ اللَّهُ امْرَأً صَلَّى قَبْلَ الْعَصْرِ أَرْبَعًا</div>
+          <div class="phc-translation">"May Allah have mercy on a person who prays four rak'ahs before Asr."</div>
+          <div class="phc-cite">Jami' at-Tirmidhi 430 — Hasan</div>
+        </div>
+
+        <div class="pt-hadith-group-title">Maghrib</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ صَلَّى فِي يَوْمٍ وَلَيْلَةٍ ثِنْتَىْ عَشْرَةَ رَكْعَةً بُنِيَ لَهُ بَيْتٌ فِي الْجَنَّةِ أَرْبَعًا قَبْلَ الظُّهْرِ وَرَكْعَتَيْنِ بَعْدَهَا وَرَكْعَتَيْنِ بَعْدَ الْمَغْرِبِ وَرَكْعَتَيْنِ بَعْدَ الْعِشَاءِ وَرَكْعَتَيْنِ قَبْلَ صَلاَةِ الْفَجْرِ</div>
+          <div class="phc-translation">"Whoever prays twelve rak'ahs in a day and night — including two after Maghrib — a house will be built for him in Paradise."</div>
+          <div class="phc-cite">Jami' at-Tirmidhi 415 — Hasan Sahih</div>
+        </div>
+
+        <div class="pt-hadith-group-title">Isha</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">مَنْ شَهِدَ الْعِشَاءَ فِي جَمَاعَةٍ كَانَ لَهُ قِيَامُ نِصْفِ لَيْلَةٍ</div>
+          <div class="phc-translation">"Whoever attends Isha in congregation, it is as if he had stood half the night in prayer."</div>
+          <div class="phc-cite">Sahih Muslim 656 / Tirmidhi 221 — Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">وَمَنْ صَلَّى الْعِشَاءَ وَالْفَجْرَ فِي جَمَاعَةٍ كَانَ لَهُ كَقِيَامِ لَيْلَةٍ</div>
+          <div class="phc-translation">"And whoever prays Isha and Fajr in congregation, it is as if he had stood the whole night in prayer."</div>
+          <div class="phc-cite">Sahih Muslim 656 / Tirmidhi 221 — Sahih</div>
+        </div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">لَيْسَ صَلاَةٌ أَثْقَلَ عَلَى الْمُنَافِقِينَ مِنَ الْفَجْرِ وَالْعِشَاءِ، وَلَوْ يَعْلَمُونَ مَا فِيهِمَا لأَتَوْهُمَا وَلَوْ حَبْوًا</div>
+          <div class="phc-translation">"No prayer is heavier upon the hypocrites than Fajr and Isha; if they knew what reward is in them, they would come to them even if they had to crawl."</div>
+          <div class="phc-cite">Sahih al-Bukhari 657 / Muslim 651 — Muttafaqun Alayhi</div>
+        </div>
+
+        <div class="pt-hadith-group-title">For Every Prayer</div>
+        <div class="pt-hadith-card">
+          <div class="phc-arabic">الصَّلَوَاتُ الْخَمْسُ، وَالْجُمُعَةُ إِلَى الْجُمُعَةِ، وَرَمَضَانُ إِلَى رَمَضَانَ، مُكَفِّرَاتٌ مَا بَيْنَهُنَّ إِذَا اجْتَنَبَ الْكَبَائِرَ</div>
+          <div class="phc-translation">"The five daily prayers, one Friday prayer to the next, and one Ramadan to the next, are expiation for whatever comes between them, so long as major sins are avoided."</div>
+          <div class="phc-cite">Sahih Muslim 233a — Sahih</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -3377,33 +3482,35 @@ const PrayerTimes = (function(){
   // ==> CONNECT: primary (strongest-authenticity) virtue per prayer for
   // the compact homepage/Prayer-Times widgets. Full sourced entries
   // (Arabic, translation, grade) live in ITEMS under the 'pb-*' ids,
-  // browsable in Du'a & Dhikr → Salah and After Salah. Each prayer has
-  // an array — one is picked per day (stable all day, rotates at
-  // midnight local time) so the same quote doesn't show every day.
+  // browsable in Du'a & Dhikr → Salah and After Salah, and also in the
+  // read-only "Prayer Benefits & Protections" reference section on the
+  // Prayer Times page (#ptHadithSection). Each prayer has an array —
+  // one is picked per day (stable all day, rotates at midnight local
+  // time) so the same quote doesn't show every day.
   const PRAYER_QUOTE_WIDGET = {
     Fajr: [
-      {emoji:'🛡️', text:"Under Allah's protection"},
-      {emoji:'🌿', text:'Fajr + Asr → Jannah'},
-      {emoji:'👼', text:'Witnessed by angels'},
-      {emoji:'⭐', text:"Two rak'ahs before it are better than the world"}
+      {headline:"Allah's Protection", text:"Whoever prays the morning (Fajr) prayer is under the protection of Allah.", cite:"Sahih Muslim 657a"},
+      {headline:'Gateway to Jannah', text:'Whoever prays the two cool prayers (Fajr and Asr) will enter Paradise.', cite:'Sahih al-Bukhari 574'},
+      {headline:'Witnessed by Angels', text:'Angels come to you in succession by night and by day, and they gather at the Fajr and Asr prayers.', cite:'Sahih al-Bukhari 555'},
+      {headline:'Better Than the World', text:"The two rak'ahs before Fajr are better than this world and everything in it.", cite:'Sahih Muslim 725a'}
     ],
     Dhuhr: [
-      {emoji:'🔥', text:"4 before + 4 after → protection from the Fire"},
-      {emoji:'🕊️', text:'An hour when the gates of heaven open'}
+      {headline:'Shield from the Fire', text:"Whoever preserves four rak'ahs before Dhuhr and four after it, Allah will forbid him from the Fire.", cite:'Sunan at-Tirmidhi 428'},
+      {headline:"Heaven's Gates Open", text:'The gates of heaven are opened when the sun passes its zenith, just before Dhuhr.', cite:'Sunan Ibn Majah 1157'}
     ],
     Asr: [
-      {emoji:'🌿', text:'Fajr + Asr → Jannah'},
-      {emoji:'⚠️', text:'Severe warning against abandoning it'},
-      {emoji:'💔', text:'Missing it is like losing family and wealth'},
-      {emoji:'🤲', text:"A Prophetic du'a for four rak'ahs before it"}
+      {headline:'Gateway to Jannah', text:'Whoever prays the two cool prayers (Fajr and Asr) will enter Paradise.', cite:'Sahih al-Bukhari 574'},
+      {headline:'A Serious Warning', text:'Whoever leaves the Asr prayer, his deeds are nullified.', cite:'Sahih al-Bukhari 553'},
+      {headline:'Like Losing Everything', text:'Whoever misses the Asr prayer, it is as if he had lost his family and his wealth.', cite:'Sahih al-Bukhari 552 / Muslim 626'},
+      {headline:"The Prophet's Du'a", text:'May Allah have mercy on a person who prays four rak\'ahs before Asr.', cite:'Jami\' at-Tirmidhi 430'}
     ],
     Maghrib: [
-      {emoji:'🕌', text:"Part of the 12 Sunnah rak'ahs that build a house in Paradise"}
+      {headline:'A House in Paradise', text:"Whoever prays twelve rak'ahs in a day and night — including two after Maghrib — a house will be built for him in Paradise.", cite:"Jami' at-Tirmidhi 415"}
     ],
     Isha: [
-      {emoji:'🌌', text:"In congregation → half a night's worship"},
-      {emoji:'🌌', text:"Isha + Fajr in congregation → a whole night's worship"},
-      {emoji:'⭐', text:'Immense reward despite its difficulty'}
+      {headline:"Half a Night's Worship", text:'Whoever attends Isha in congregation, it is as if he had stood half the night in prayer.', cite:"Sahih Muslim 656 / Tirmidhi 221"},
+      {headline:"A Whole Night's Worship", text:'Whoever prays Isha and Fajr in congregation, it is as if he had stood the whole night in prayer.', cite:"Sahih Muslim 656 / Tirmidhi 221"},
+      {headline:'Immense Hidden Reward', text:'No prayer is heavier upon the hypocrites than Fajr and Isha; if they knew what reward is in them, they would come even if crawling.', cite:'Sahih al-Bukhari 657 / Muslim 651'}
     ]
   };
   function dayOfYear(d){
@@ -3415,14 +3522,42 @@ const PrayerTimes = (function(){
     if(!arr || !arr.length) return null;
     return arr[dayOfYear(new Date()) % arr.length];
   }
-  function updatePrayerQuoteWidget(elEmojiId, elShortId, prayerName){
-    const emojiEl = document.getElementById(elEmojiId);
-    const shortEl = document.getElementById(elShortId);
-    if(!emojiEl || !shortEl) return;
+  // Navigates to the Prayer Times page's full reference list and
+  // scrolls it into view. Callable from the homepage (cross-page) or
+  // directly from the Prayer Times page itself (same-page scroll).
+  function goToPrayerHadithSection(){
+    const doScroll = () => {
+      const el = document.getElementById('ptHadithSection');
+      if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+    if(document.getElementById('page-prayertimes') && !document.getElementById('page-prayertimes').classList.contains('hidden')){
+      doScroll();
+    } else if(typeof window.switchPage === 'function'){
+      window.switchPage('prayertimes');
+      setTimeout(doScroll, 220);
+    }
+  }
+  window.goToPrayerHadithSection = goToPrayerHadithSection; // needed for inline onclick on the dynamically-rendered Prayer Times card
+  const homePQCard = document.getElementById('homePrayerQuoteCard');
+  if(homePQCard){
+    homePQCard.addEventListener('click', goToPrayerHadithSection);
+    homePQCard.addEventListener('keypress', e=>{ if(e.key==='Enter') goToPrayerHadithSection(); });
+  }
+  function updatePrayerQuoteWidget(labelId, headlineId, prayerName){
+    const labelEl = document.getElementById(labelId);
+    const headlineEl = document.getElementById(headlineId);
+    if(!labelEl || !headlineEl) return;
     const q = getPrayerQuoteOfDay(prayerName);
     if(!q) return;
-    emojiEl.textContent = q.emoji;
-    shortEl.textContent = q.text;
+    labelEl.textContent = prayerName;
+    headlineEl.textContent = q.headline;
+    const textEl = document.getElementById(headlineId).closest('.home-prayer-quote, .pt-prayer-quote');
+    if(textEl){
+      const t = textEl.querySelector('.hpq-text, .ppq-text');
+      const c = textEl.querySelector('.hpq-cite, .ppq-cite');
+      if(t) t.textContent = '"'+q.text+'"';
+      if(c) c.textContent = '— '+q.cite;
+    }
   }
 
   function renderHome(){
@@ -3447,7 +3582,7 @@ const PrayerTimes = (function(){
       nameEl.textContent = next.name;
       timeEl.textContent = PrayerTimes.to12h(next.time);
       remEl.textContent = PrayerTimes.formatRemaining(next.remainingMs) + (next.isTomorrow ? ' (tomorrow)' : '');
-      updatePrayerQuoteWidget('homePQEmoji', 'homePQShort', next.name);
+      updatePrayerQuoteWidget('homePQLabel', 'homePQHeadline', next.name);
     }
 
     PrayerTimes.PRAYER_ORDER.forEach(name=>{
@@ -3918,9 +4053,15 @@ const PrayerTimes = (function(){
     const quoteCard = document.getElementById('ptPrayerQuote');
     if(quoteCard){
       const q = getPrayerQuoteOfDay(stack.next.name);
+      quoteCard.setAttribute('role','button');
+      quoteCard.setAttribute('tabindex','0');
+      quoteCard.onclick = goToPrayerHadithSection;
+      quoteCard.onkeypress = function(e){ if(e.key==='Enter') goToPrayerHadithSection(); };
       quoteCard.innerHTML = q
-        ? '<div class="ppq-top">'+q.emoji+' '+q.text+'</div>'
-          + '<div>"The five daily prayers erase sins between them, provided major sins are avoided." <span class="ppq-source">— Sahih Muslim 233a</span></div>'
+        ? '<div class="ppq-label">'+stack.next.name+'</div>'
+          + '<div class="ppq-headline">'+q.headline+'</div>'
+          + '<div class="ppq-text">"'+q.text+'"</div>'
+          + '<span class="ppq-cite">— '+q.cite+'</span>'
         : '';
     }
 
