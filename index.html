@@ -120,6 +120,39 @@ body[data-theme="sepia"][data-event-theme="jummah"]{
 body[data-event-theme="jummah"] .home-hero-art .hero-img-standard{display:none;}
 body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
 
+/* Subtle lamp-lit flicker + sparkles, positioned over the lantern in
+   the Jummah hero art (glow centred ~47.5%/31.5% of the image). */
+.jummah-lamp-fx{display:none;position:absolute;inset:0;pointer-events:none;}
+body[data-event-theme="jummah"] .jummah-lamp-fx{display:block;}
+.jummah-lamp-glow{
+  position:absolute; left:47.5%; top:31.5%; width:38px; height:38px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(255,224,153,.55) 0%, rgba(255,224,153,.18) 45%, rgba(255,224,153,0) 75%);
+  border-radius:50%; filter:blur(1.5px);
+  animation:wwp-lamp-flicker 3.4s ease-in-out infinite;
+}
+.jummah-sparkle{
+  position:absolute; color:var(--coral); font-size:12px; line-height:1;
+  opacity:0; animation:wwp-sparkle-twinkle 3.2s ease-in-out infinite;
+}
+.jummah-sparkle.s1{left:43%; top:24%; animation-delay:.2s;}
+.jummah-sparkle.s2{left:52%; top:22%; font-size:9px; animation-delay:1.4s;}
+.jummah-sparkle.s3{left:50%; top:38%; font-size:10px; animation-delay:2.3s;}
+@keyframes wwp-lamp-flicker{
+  0%,100%{opacity:.55; transform:translate(-50%,-50%) scale(1);}
+  30%{opacity:.85; transform:translate(-50%,-50%) scale(1.08);}
+  55%{opacity:.4; transform:translate(-50%,-50%) scale(.94);}
+  80%{opacity:.7; transform:translate(-50%,-50%) scale(1.03);}
+}
+@keyframes wwp-sparkle-twinkle{
+  0%,100%{opacity:0; transform:scale(.4) rotate(0deg);}
+  50%{opacity:.9; transform:scale(1) rotate(8deg);}
+}
+@media (prefers-reduced-motion: reduce){
+  .jummah-lamp-glow, .jummah-sparkle{animation:none; opacity:.5;}
+}
+
+
 .topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:14px clamp(16px,2.5vw,32px);background:var(--surface);border-bottom:1px solid var(--border);}
 /* Fixed (not sticky) so it never drifts mid-scroll on any device.
    body padding-top is set by JS (measured topbar height) so page
@@ -1722,6 +1755,12 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
     <div class="home-hero-art">
       <img class="hero-img-standard" src="assets/home/hero-arch.webp" alt="Watercolour illustration of an Islamic archway courtyard at sunset with an open Qur'an on a rehal" width="1400" height="933">
       <img class="hero-img-jummah" src="assets/home/hero-arch-jummah.webp" alt="Watercolour illustration of an archway overlooking a mosque, marking Jummah" width="1400" height="933">
+      <div class="jummah-lamp-fx" aria-hidden="true">
+        <span class="jummah-lamp-glow"></span>
+        <span class="jummah-sparkle s1">✦</span>
+        <span class="jummah-sparkle s2">✦</span>
+        <span class="jummah-sparkle s3">✧</span>
+      </div>
     </div>
   </div>
 
