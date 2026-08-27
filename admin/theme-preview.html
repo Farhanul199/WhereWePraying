@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>WhereWePraying — Theme Preview Admin</title>
+<style>
+  :root{
+    --coral:#F4714E;
+    --cream:#FBF3EC;
+    --text:#3A2E28;
+    --muted:#8A7A70;
+    --border:#EADFD6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--cream);
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .wrap{width:100%;max-width:1100px;}
+  .card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:32px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.04);
+  }
+  h1{font-size:22px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:18px;}
+  input[type=password]{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--text);
+    background:var(--cream);
+  }
+  .hint{font-size:12px;color:var(--muted);margin-top:4px;}
+  .lockrow{display:flex;gap:10px;}
+  .lockrow input{flex:1;}
+  button{
+    border:none;
+    border-radius:12px;
+    background:var(--coral);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    padding:12px 18px;
+  }
+  button.secondary{
+    background:var(--cream);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  button:disabled{opacity:0.45;cursor:not-allowed;}
+  .lockrow button{padding:0 20px;}
+
+  .controls-card{margin-bottom:20px;}
+  .control-group{margin-top:18px;}
+  .control-group:first-child{margin-top:0;}
+  .control-group-label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;}
+  .pillrow{display:flex;flex-wrap:wrap;gap:8px;}
+  .pill{
+    padding:9px 16px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--cream);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    color:var(--text);
+  }
+  .pill.active{background:var(--coral);border-color:var(--coral);color:#fff;}
+  .pill.disabled{opacity:0.4;cursor:not-allowed;}
+  .pill.disabled:hover{background:var(--cream);}
+  .frame-toolbar{display:flex;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap;}
+  .frame-toolbar .url-display{
+    flex:1;
+    min-width:200px;
+    font-size:12px;
+    color:var(--muted);
+    background:var(--cream);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 12px;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+  .frame-wrap{
+    margin-top:16px;
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    background:#fff;
+  }
+  iframe{width:100%;height:75vh;border:none;display:block;}
+  .viewport-row{display:flex;gap:8px;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="card" id="lockCard">
+    <h1>Theme Preview Admin</h1>
+    <p class="sub">Preview base and seasonal/event themes on the live site — no need to wait for the real date.</p>
+
+    <div id="lockScreen">
+      <label for="secretInput">Admin key</label>
+      <div class="lockrow">
+        <input type="password" id="secretInput" placeholder="Paste your admin key">
+        <button id="unlockBtn">Unlock</button>
+      </div>
+      <p class="hint">Same key style as the broadcast admin. This only gates access to this local page — it doesn't call any API.</p>
+    </div>
+  </div>
+
+  <div id="panelScreen" style="display:none;">
+
+    <div class="card controls-card">
+      <h1>Theme Preview</h1>
+      <p class="sub">Changes apply instantly to the preview below via query params — they never affect real visitors.</p>
+
+      <div class="control-group">
+        <div class="control-group-label">Base theme</div>
+        <div class="pillrow" id="baseThemeRow">
+          <button class="pill active" data-theme="light">Light</button>
+          <button class="pill" data-theme="sepia">Sepia</button>
+          <button class="pill" data-theme="dark">Dark</button>
+          <button class="pill" data-theme="amoled">AMOLED</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-group-label">Seasonal / event theme</div>
+        <div class="pillrow" id="eventThemeRow">
+          <button class="pill active" data-event="none">None</button>
+          <button class="pill" data-event="jummah">Jummah (Friday)</button>
+          <button class="pill disabled" data-event="ramadan" disabled>Ramadan — coming soon</button>
+          <button class="pill disabled" data-event="eid" disabled>Eid — coming soon</button>
+          <button class="pill disabled" data-event="dhuljijjah" disabled>Dhul Hijjah — coming soon</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-group-label">Page</div>
+        <div class="pillrow" id="pageRow">
+          <button class="pill active" data-path="/">Home</button>
+          <button class="pill" data-path="/prayer-times">Prayer Times</button>
+          <button class="pill" data-path="/quran">Qur'an</button>
+          <button class="pill" data-path="/journal">Journal</button>
+          <button class="pill" data-path="/dua">Du'a &amp; Dhikr</button>
+          <button class="pill" data-path="/guides">Guides</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-group-label">Viewport</div>
+        <div class="pillrow viewport-row">
+          <button class="pill active" data-vp="desktop">Desktop</button>
+          <button class="pill" data-vp="mobile">Mobile</button>
+        </div>
+      </div>
+
+      <div class="frame-toolbar">
+        <div class="url-display" id="urlDisplay"></div>
+        <button class="secondary" id="openTabBtn">Open in new tab</button>
+        <button class="secondary" id="reloadBtn">Reload preview</button>
+      </div>
+    </div>
+
+    <div class="frame-wrap" id="frameWrap">
+      <iframe id="previewFrame" title="Theme preview"></iframe>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  const SITE_BASE = 'https://wherewepraying.com';
+
+  const lockCard = document.getElementById('lockCard');
+  const panelScreen = document.getElementById('panelScreen');
+  const secretInput = document.getElementById('secretInput');
+  const unlockBtn = document.getElementById('unlockBtn');
+
+  // Client-side gate only (same threat model as the broadcast admin's
+  // page-level obfuscation) — this page makes no API calls, it's just a
+  // controlled way to compose preview URLs against the public site.
+  const ADMIN_KEY = 'wwp-theme-preview';
+
+  unlockBtn.addEventListener('click', function(){
+    if(secretInput.value.trim() === ADMIN_KEY){
+      lockCard.style.display = 'none';
+      panelScreen.style.display = 'block';
+      buildAndLoad();
+    } else {
+      secretInput.style.borderColor = '#B3261E';
+      secretInput.value = '';
+      secretInput.placeholder = 'Incorrect key — try again';
+    }
+  });
+  secretInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') unlockBtn.click();
+  });
+
+  const state = { theme:'light', event:'none', path:'/', vp:'desktop' };
+
+  function wireRow(rowId, dataAttr, stateKey){
+    const row = document.getElementById(rowId);
+    row.querySelectorAll('.pill').forEach(btn=>{
+      if(btn.disabled) return;
+      btn.addEventListener('click', ()=>{
+        row.querySelectorAll('.pill').forEach(b=> b.classList.remove('active'));
+        btn.classList.add('active');
+        state[stateKey] = btn.dataset[dataAttr];
+        buildAndLoad();
+      });
+    });
+  }
+  wireRow('baseThemeRow', 'theme', 'theme');
+  wireRow('eventThemeRow', 'event', 'event');
+  wireRow('pageRow', 'path', 'path');
+
+  document.querySelectorAll('.viewport-row .pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.viewport-row .pill').forEach(b=> b.classList.remove('active'));
+      btn.classList.add('active');
+      state.vp = btn.dataset.vp;
+      applyViewport();
+    });
+  });
+
+  function buildUrl(){
+    const url = new URL(SITE_BASE + state.path);
+    url.searchParams.set('previewTheme', state.theme);
+    url.searchParams.set('previewEvent', state.event);
+    return url.toString();
+  }
+
+  function buildAndLoad(){
+    const url = buildUrl();
+    document.getElementById('urlDisplay').textContent = url;
+    document.getElementById('previewFrame').src = url;
+  }
+
+  function applyViewport(){
+    const frame = document.getElementById('previewFrame');
+    const wrap = document.getElementById('frameWrap');
+    if(state.vp === 'mobile'){
+      frame.style.width = '390px';
+      frame.style.height = '78vh';
+      wrap.style.display = 'flex';
+      wrap.style.justifyContent = 'center';
+      wrap.style.background = '#EFE7DC';
+      wrap.style.padding = '18px 0';
+    } else {
+      frame.style.width = '100%';
+      frame.style.height = '75vh';
+      wrap.style.display = 'block';
+      wrap.style.padding = '0';
+      wrap.style.background = '#fff';
+    }
+  }
+
+  document.getElementById('openTabBtn').addEventListener('click', ()=>{
+    window.open(buildUrl(), '_blank');
+  });
+  document.getElementById('reloadBtn').addEventListener('click', buildAndLoad);
+</script>
+
+</body>
+</html>
