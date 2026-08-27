@@ -3819,6 +3819,12 @@ const PrayerTimes = (function(){
   // "Xh Ym remaining" display, but check every 15s so it flips promptly
   // right as a prayer time passes.
   setInterval(renderAll, 15000);
+
+  // Expose for cross-IIFE access (e.g., the header-height sync listener
+  // needs to call renderMapSvg on window resize)
+  window.__PTRenderMapSvg = renderMapSvg;
+  window.__PTMapState = mapState;
+  window.__PTDateForAnchorMinutes = dateForAnchorMinutes;
 })();
 
 /* ============================================================
@@ -3976,7 +3982,9 @@ window.__WWP_guideSectionReady = function(){
   window.addEventListener('resize', syncHeaderHeight);
   window.addEventListener('resize', function(){
     const wrap = document.getElementById('ptMapImgWrap');
-    if(wrap) renderMapSvg(dateForAnchorMinutes(mapState.minutes));
+    if(wrap && window.__PTRenderMapSvg && window.__PTMapState && window.__PTDateForAnchorMinutes){
+      window.__PTRenderMapSvg(window.__PTDateForAnchorMinutes(window.__PTMapState.minutes));
+    }
   });
   window.addEventListener('load', syncHeaderHeight);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
@@ -7390,7 +7398,6 @@ function iconSvg(name, size){ size = size||14; return `<svg width="${size}" heig
    ==> CONNECT: replace with a scholar-reviewed content source.
    ============================================================ */
 const GUIDES = [
-const GUIDES = [
   { id:'wudu', title:'Wudu (Ablution)', icon:'droplet', tag:'Essential', time:'5 min',
     summary:"The ritual washing performed before prayer and before handling the Qur'an.",
     note:"The sequence shown here is the commonly taught one — small details (like exact wiping order) vary between schools of thought. Ask a local teacher if you're unsure.",
@@ -8639,9 +8646,25 @@ const CATEGORY_COLORS = {
 };
 // <== GUIDE CATEGORIZATION
 
-GUIDES.forEach(g => { state.completedSteps[g.id] = new Set(); });
+// Expose to other <script> blocks (e.g. the guides display override),
+// which run in a sibling scope and cannot see these IIFE-local consts.
+window.GUIDES = GUIDES;
+window.QA = QA;
+window.GUIDE_CATEGORIES = GUIDE_CATEGORIES;
+window.CATEGORY_COLORS = CATEGORY_COLORS;
 
-function getGuide(id){ return GUIDES.find(g=>g.id===id); }
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  selectedGuide: 'wudu',
+  bookmarks: new Set(),
+  completedSteps: {}, // guideId -> Set of step indices
+};
+GUIDES.forEach(g => { state.completedSteps[g.id] = new Set(); });
+QA.forEach(q => { state.completedSteps[q.id] = new Set(); });
+
+function getGuide(id){ return GUIDES.find(g=>g.id===id) || QA.find(q=>q.id===id); }
 
 function persistGuides(){
   const completedSteps = {};
@@ -8852,152 +8875,192 @@ init();
 </script>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 
+<script>
 // ==> GUIDES DISPLAY OVERRIDE
 (function() {
-  // Override the guide list rendering when guides page loads
-  const originalShowPage = window.showPage;
-  window.showPage = function(pageName) {
-    originalShowPage.call(this, pageName);
-    
-    if (pageName === 'guides') {
-      setTimeout(() => renderGroupedGuides(), 100);
+  // Hook the real router (window.switchPage) rather than a nonexistent
+  // window.showPage. switchPage is assigned synchronously above, so it
+  // exists by the time this IIFE runs (this script tag loads after it).
+  const originalSwitchPage = window.switchPage;
+  window.switchPage = function(id, opts) {
+    originalSwitchPage.call(this, id, opts);
+    if (id === 'guides') {
+      setTimeout(renderGroupedGuides, 150);
     }
   };
-  
-  function renderGroupedGuides() {
-    const guideList = document.querySelector('#page-guides .guide-list');
-    if (!guideList) return;
-    
-    // Create container for grouped guides
-    const container = document.createElement('div');
-    container.className = 'guides-container grouped-guides';
+
+  window.renderGroupedGuides = function() {
+    const pageContent = document.querySelector('#page-guides .page');
+    if (!pageContent) return;
+
+    let container = pageContent.querySelector('.guides-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'guides-container grouped-guides';
+      const layout = pageContent.querySelector('.guides-layout');
+      if (layout) {
+        layout.parentNode.insertBefore(container, layout.nextSibling);
+      } else {
+        pageContent.appendChild(container);
+      }
+    }
+
     container.innerHTML = '';
-    
-    // All Guides section (grouped by category)
+
+    // === All Guides Section ===
     const guidesSection = document.createElement('div');
     guidesSection.className = 'collapsible-section';
-    
+
     const guidesHeader = document.createElement('div');
     guidesHeader.className = 'collapsible-header open';
-    guidesHeader.innerHTML = '<span>All Guides (Grouped by Category)</span>';
-    guidesHeader.style.padding = '12px 0';
-    guidesHeader.onclick = function(e) {
-      const content = this.nextElementSibling;
-      this.classList.toggle('open');
-      content.classList.toggle('closed');
-    };
-    guidesSection.appendChild(guidesHeader);
-    
+    guidesHeader.textContent = 'All Guides (Grouped by Category)';
+
     const guidesList = document.createElement('div');
     guidesList.className = 'collapsible-content';
-    guidesList.style.padding = '8px 0';
-    
-    // Render by category
+
+    guidesHeader.addEventListener('click', function() {
+      this.classList.toggle('open');
+      guidesList.classList.toggle('closed');
+    });
+
+    guidesSection.appendChild(guidesHeader);
+    guidesSection.appendChild(guidesList);
+
     Object.keys(GUIDE_CATEGORIES).forEach(cat => {
       const ids = GUIDE_CATEGORIES[cat];
       const guides = GUIDES.filter(g => ids.includes(g.id));
       const color = CATEGORY_COLORS[cat];
-      
+
       if (guides.length > 0) {
         const catDiv = document.createElement('div');
         catDiv.className = 'guides-category';
-        catDiv.innerHTML = `<h3 class="category-title">${cat}</h3>`;
-        
+
+        const catTitle = document.createElement('h3');
+        catTitle.className = 'category-title';
+        catTitle.textContent = cat;
+        catDiv.appendChild(catTitle);
+
         const grid = document.createElement('div');
         grid.className = 'guides-grid';
-        
+
         guides.forEach(g => {
           const card = document.createElement('div');
           card.className = 'guide-card';
           card.style.borderLeft = `4px solid ${color}`;
-          card.innerHTML = `
-            <div class="guide-header">
-              <span class="guide-title">${g.title}</span>
-              <span class="guide-time">${g.time}</span>
-            </div>
-            <div class="guide-summary">${g.summary}</div>
-            <button class="guide-btn" onclick="openGuide('${g.id}')">Read Guide</button>
-          `;
+
+          const header = document.createElement('div');
+          header.className = 'guide-header';
+
+          const title = document.createElement('span');
+          title.className = 'guide-title';
+          title.textContent = g.title;
+
+          const time = document.createElement('span');
+          time.className = 'guide-time';
+          time.textContent = g.time;
+
+          header.appendChild(title);
+          header.appendChild(time);
+          card.appendChild(header);
+
+          const summary = document.createElement('div');
+          summary.className = 'guide-summary';
+          summary.textContent = g.summary;
+          card.appendChild(summary);
+
+          const btn = document.createElement('button');
+          btn.className = 'guide-btn';
+          btn.textContent = 'Read Guide';
+          btn.addEventListener('click', () => window.WWP_openGuide(g.id));
+          card.appendChild(btn);
+
           grid.appendChild(card);
         });
+
         catDiv.appendChild(grid);
         guidesList.appendChild(catDiv);
       }
     });
-    
-    guidesSection.appendChild(guidesList);
+
     container.appendChild(guidesSection);
-    
-    // Q&A section
-    if (QA && QA.length > 0) {
+
+    // === Q&A Section ===
+    if (window.QA && QA.length > 0) {
       const qaSection = document.createElement('div');
       qaSection.className = 'collapsible-section';
-      
+
       const qaHeader = document.createElement('div');
       qaHeader.className = 'collapsible-header open';
-      qaHeader.innerHTML = `<span>All Q&A (${QA.length} questions)</span>`;
-      qaHeader.style.padding = '12px 0';
-      qaHeader.onclick = function(e) {
-        const content = this.nextElementSibling;
-        this.classList.toggle('open');
-        content.classList.toggle('closed');
-      };
-      qaSection.appendChild(qaHeader);
-      
+      qaHeader.textContent = `All Q&A (${QA.length} questions)`;
+
       const qaList = document.createElement('div');
       qaList.className = 'collapsible-content';
-      qaList.style.padding = '8px 0';
-      
+
+      qaHeader.addEventListener('click', function() {
+        this.classList.toggle('open');
+        qaList.classList.toggle('closed');
+      });
+
+      qaSection.appendChild(qaHeader);
+      qaSection.appendChild(qaList);
+
       const qaGrid = document.createElement('div');
       qaGrid.className = 'guides-grid';
-      
+
       QA.forEach(q => {
         const card = document.createElement('div');
         card.className = 'guide-card qa-card';
         card.style.borderLeft = '4px solid #C9A77A';
-        card.innerHTML = `
-          <div class="guide-header">
-            <span class="guide-title">${q.title}</span>
-            <span class="guide-time">3 min</span>
-          </div>
-          <div class="guide-summary">${q.summary}</div>
-          <button class="guide-btn" onclick="openGuide('${q.id}')">Read Q&A</button>
-        `;
+
+        const header = document.createElement('div');
+        header.className = 'guide-header';
+
+        const title = document.createElement('span');
+        title.className = 'guide-title';
+        title.textContent = q.title;
+
+        const time = document.createElement('span');
+        time.className = 'guide-time';
+        time.textContent = '3 min';
+
+        header.appendChild(title);
+        header.appendChild(time);
+        card.appendChild(header);
+
+        const summary = document.createElement('div');
+        summary.className = 'guide-summary';
+        summary.textContent = q.summary;
+        card.appendChild(summary);
+
+        const btn = document.createElement('button');
+        btn.className = 'guide-btn';
+        btn.textContent = 'Read Q&A';
+        btn.addEventListener('click', () => window.WWP_openGuide(q.id));
+        card.appendChild(btn);
+
         qaGrid.appendChild(card);
       });
-      
+
       qaList.appendChild(qaGrid);
-      qaSection.appendChild(qaList);
       container.appendChild(qaSection);
     }
-    
-    // Replace the old guide list with new grouped version
-    const pageContent = document.querySelector('#page-guides .page');
-    if (pageContent) {
-      let existingContainer = pageContent.querySelector('.guides-container');
-      if (existingContainer) {
-        existingContainer.replaceWith(container);
-      } else {
-        // Insert after the stats section
-        const statsSection = pageContent.querySelector('.g-stats');
-        if (statsSection) {
-          statsSection.parentNode.insertBefore(container, statsSection.nextSibling);
-        } else {
-          pageContent.appendChild(container);
-        }
-      }
+  };
+
+  // If the guides page is already the active page on load (e.g. direct
+  // URL to /guides/...), render immediately rather than waiting for a
+  // switchPage call that may never come.
+  document.addEventListener('DOMContentLoaded', function() {
+    const guidesPageEl = document.getElementById('page-guides');
+    if (guidesPageEl && !guidesPageEl.classList.contains('hidden')) {
+      setTimeout(renderGroupedGuides, 150);
     }
-  }
+  });
 })();
 // <== GUIDES DISPLAY OVERRIDE
-
+</script>
 </script>
 
 </body>
 </html>
-
-#page-guides .guides-layout { display: block !important; }
-#page-guides .guide-sidebar { display: none !important; }
-#page-guides .guides-container { width: 100%; }
