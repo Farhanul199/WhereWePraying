@@ -171,6 +171,12 @@ body[data-theme="sepia"][data-event-theme="ramadan"]{
 body[data-event-theme="ramadan"] .home-hero-art .hero-img-standard{display:none;}
 body[data-event-theme="ramadan"] .home-hero-art .hero-img-jummah{display:none;}
 body[data-event-theme="ramadan"] .home-hero-art .hero-img-ramadan{display:block;}
+/* Shown only on Ramadan's first day, only when no saved user location
+   existed so we fell back to the Saudi reference point for the Hijri
+   date check — see JS resolver at the bottom of the page. */
+.ramadan-source-note{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;padding-right:4px;}
+.ramadan-source-note.hidden{display:none;}
+@media (max-width:860px){ .ramadan-source-note{display:none !important;} }
 
 /* ==== Lantern glow — always on, every theme, every day ====
    Warm flicker over each illustrated lantern (home hero standard,
@@ -1876,6 +1882,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     <a data-page="dua">Du'a &amp; Dhikr</a>
     <a data-page="guides">Guides</a>
   </nav>
+  <span id="ramadan-source-note" class="ramadan-source-note hidden">Based on the Ramadan start time in Saudi Arabia</span>
   <div class="topbar-icons">
     <button class="icon-btn" id="sharedThemeToggle" title="Theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -9753,6 +9760,18 @@ init();
 // further to Eid/Dhul Hijjah/Summer/Winter without touching this logic.
 // Priority when both could apply on the same day (e.g. a Friday in
 // Ramadan): Ramadan takes precedence as the rarer, higher-priority event.
+//
+// Ramadan detection is LIVE, not a hardcoded date table: it reads the
+// Hijri month (month.number === 9) from api.aladhan.com's calendar
+// calculation (Umm al-Qura), the same free/no-key API already powering
+// prayer times elsewhere in this app. It's calculated for a location:
+//   1) the user's saved prayer-times location (wwp:prayertimes:location),
+//      if they've set one — so someone whose local moonsighting authority
+//      differs from Saudi still gets an accurate date for their area;
+//   2) otherwise Saudi Arabia (Makkah coordinates) as the default, since
+//      that's the most widely-followed reference globally.
+// Result is cached in localStorage for the day so this costs one network
+// request per visitor per day, not one per page load.
 (function(){
   // ==> CONNECT: admin/theme-preview.html drives this via ?previewTheme=
   // and ?previewEvent= query params so themes can be tested on any day
@@ -9761,40 +9780,90 @@ init();
   var forceBaseTheme = preview.theme;   // light|sepia|dark|amoled
   var forceEventTheme = preview.event;  // jummah|ramadan|none
 
-  // Ramadan Gregorian start/end dates (Umm al-Qura estimates, local
-  // moonsighting may shift by a day). ==> CONNECT: move to a remote
-  // config (D1/KV) once the seasonal engine migrates off hardcoded
-  // dates, so these don't require a redeploy every year.
-  var RAMADAN_RANGES = [
-    {start:'2026-02-18', end:'2026-03-19'},
-    {start:'2027-02-08', end:'2027-03-09'},
-    {start:'2028-01-28', end:'2028-02-26'}
-  ];
+  var HIJRI_API = 'https://api.aladhan.com/v1/gToH';
+  var MAKKAH_COORDS = {lat:21.4225, lon:39.8262}; // Saudi fallback reference point
+  var LOC_KEY = 'wwp:prayertimes:location';       // shared with the Prayer Times module
+  var HIJRI_CACHE_KEY = 'wwp:ramadan:hijriCheck';  // {dateKey, isRamadan, source, day}
 
-  function dateOnly(d){
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  }
-  function isRamadan(){
-    if(forceEventTheme) return forceEventTheme === 'ramadan';
-    var today = dateOnly(new Date());
-    for(var i=0;i<RAMADAN_RANGES.length;i++){
-      var r = RAMADAN_RANGES[i];
-      if(today >= dateOnly(new Date(r.start)) && today <= dateOnly(new Date(r.end))) return true;
-    }
-    return false;
-  }
-  function isJummah(){
-    if(forceEventTheme) return forceEventTheme === 'jummah';
-    return new Date().getDay() === 5; // Friday, user's local time
-  }
   function todayKey(){
     var d = new Date();
     return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
   }
-  function apply(){
-    if(forceBaseTheme){ document.body.setAttribute('data-theme', forceBaseTheme); }
+  function dateStrForApi(){
+    var d = new Date();
+    return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+  }
 
-    var ramadanActive = isRamadan();
+  function getSavedLocation(){
+    try{
+      var raw = localStorage.getItem(LOC_KEY);
+      if(raw){
+        var loc = JSON.parse(raw);
+        if(loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') return loc;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  // Cached result for today, so repeat visits/page loads don't re-fetch.
+  // {dateKey, isRamadan, source:'user'|'saudi', day} — day is the Hijri
+  // day-of-month, used to detect "day 1" for the Saudi-attribution note.
+  var hijriState = null;
+  function loadCachedHijriState(){
+    try{
+      var raw = localStorage.getItem(HIJRI_CACHE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && parsed.dateKey === todayKey()) return parsed;
+      }
+    }catch(e){}
+    return null;
+  }
+  function saveCachedHijriState(s){
+    hijriState = s;
+    try{ localStorage.setItem(HIJRI_CACHE_KEY, JSON.stringify(s)); }catch(e){}
+  }
+
+  // Fetches the live Hijri date for a given lat/lon via api.aladhan.com,
+  // resolving to {isRamadan, day}. Falls back to Saudi coordinates if no
+  // location is available or the request fails.
+  function fetchHijriState(){
+    var savedLoc = getSavedLocation();
+    var usingSource = savedLoc ? 'user' : 'saudi';
+    var coords = savedLoc || MAKKAH_COORDS;
+    var url = HIJRI_API + '/' + dateStrForApi() + '?latitude=' + coords.lat + '&longitude=' + coords.lon;
+
+    return fetch(url).then(function(res){
+      if(!res.ok) throw new Error('Hijri lookup failed');
+      return res.json();
+    }).then(function(data){
+      var hijri = data && data.data && data.data.hijri;
+      if(!hijri) throw new Error('Unexpected Hijri response');
+      var result = {
+        dateKey: todayKey(),
+        isRamadan: parseInt(hijri.month.number, 10) === 9,
+        source: usingSource,
+        day: parseInt(hijri.day, 10)
+      };
+      saveCachedHijriState(result);
+      return result;
+    }).catch(function(){
+      // Network/API failure: if we're not sure, don't force the theme on —
+      // safer to fall back to standard than to wrongly show Ramadan mode.
+      var fallback = {dateKey: todayKey(), isRamadan:false, source:usingSource, day:null};
+      saveCachedHijriState(fallback);
+      return fallback;
+    });
+  }
+
+  function isJummah(){
+    if(forceEventTheme) return forceEventTheme === 'jummah';
+    return new Date().getDay() === 5; // Friday, user's local time
+  }
+
+  function applyWithHijriState(state){
+    hijriState = state;
+    var ramadanActive = forceEventTheme ? forceEventTheme === 'ramadan' : !!state.isRamadan;
     var jummahActive = !ramadanActive && isJummah(); // Ramadan takes priority over Jummah
 
     if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
@@ -9817,6 +9886,36 @@ init();
         try{ ramadanDismissed = localStorage.getItem('ramadanBannerDismissed') === todayKey(); }catch(e){}
       }
       ramadanBanner.classList.toggle('hidden', !ramadanActive || ramadanDismissed);
+    }
+
+    // Small top-right attribution note, shown only on Ramadan's first day
+    // AND only when we fell back to the Saudi reference point (no saved
+    // user location) — tells the visitor which authority the start date
+    // is based on, since moonsighting can differ by a day region to region.
+    var note = document.getElementById('ramadan-source-note');
+    if(note){
+      var showNote = ramadanActive && state.source === 'saudi' && state.day === 1;
+      note.classList.toggle('hidden', !showNote);
+    }
+  }
+
+  function apply(){
+    if(forceBaseTheme){ document.body.setAttribute('data-theme', forceBaseTheme); }
+
+    if(forceEventTheme){
+      // Preview mode: skip the network call, resolve synchronously.
+      applyWithHijriState({dateKey:todayKey(), isRamadan:forceEventTheme==='ramadan', source:'saudi', day:1});
+      return;
+    }
+
+    var cached = loadCachedHijriState();
+    if(cached){
+      applyWithHijriState(cached);
+      // Still refresh quietly in the background in case the user's saved
+      // location changed since the cache was written earlier today.
+      fetchHijriState().then(applyWithHijriState);
+    }else{
+      fetchHijriState().then(applyWithHijriState);
     }
   }
   apply();
