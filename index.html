@@ -9189,7 +9189,15 @@ init();
 // pattern (per-theme config + application layer) can extend this to
 // Ramadan/Eid/Dhul Hijjah/Summer/Winter without touching this logic.
 (function(){
+  // ==> CONNECT: admin/theme-preview.html drives this via ?previewTheme=
+  // and ?previewEvent= query params so themes can be tested on any day
+  // without touching real visitors (no query params = normal behaviour).
+  var previewParams = new URLSearchParams(location.search);
+  var forceBaseTheme = previewParams.get('previewTheme');   // light|sepia|dark|amoled
+  var forceEventTheme = previewParams.get('previewEvent');  // jummah|none
+
   function isJummah(){
+    if(forceEventTheme) return forceEventTheme === 'jummah';
     return new Date().getDay() === 5; // Friday, user's local time
   }
   function todayKey(){
@@ -9197,6 +9205,7 @@ init();
     return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
   }
   function apply(){
+    if(forceBaseTheme){ document.body.setAttribute('data-theme', forceBaseTheme); }
     var active = isJummah();
     if(active){ document.body.setAttribute('data-event-theme', 'jummah'); }
     else{ document.body.removeAttribute('data-event-theme'); }
@@ -9204,7 +9213,9 @@ init();
     var banner = document.getElementById('jummah-banner');
     if(!banner) return;
     var dismissedToday = false;
-    try{ dismissedToday = localStorage.getItem('jummahBannerDismissed') === todayKey(); }catch(e){}
+    if(!forceEventTheme){
+      try{ dismissedToday = localStorage.getItem('jummahBannerDismissed') === todayKey(); }catch(e){}
+    }
     banner.classList.toggle('hidden', !active || dismissedToday);
   }
   apply();
