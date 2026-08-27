@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+// Capture ?previewTheme= / ?previewEvent= before the router's
+// history.replaceState (later in the page) wipes the query string.
+// ==> CONNECT: read by admin/theme-preview.html's forced-theme logic
+// further down the page — see window.__wwpPreview.
+window.__wwpPreview = (function(){
+  try{
+    var p = new URLSearchParams(location.search);
+    return { theme: p.get('previewTheme'), event: p.get('previewEvent') };
+  }catch(e){ return { theme:null, event:null }; }
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More</title>
@@ -9192,9 +9204,9 @@ init();
   // ==> CONNECT: admin/theme-preview.html drives this via ?previewTheme=
   // and ?previewEvent= query params so themes can be tested on any day
   // without touching real visitors (no query params = normal behaviour).
-  var previewParams = new URLSearchParams(location.search);
-  var forceBaseTheme = previewParams.get('previewTheme');   // light|sepia|dark|amoled
-  var forceEventTheme = previewParams.get('previewEvent');  // jummah|none
+  var preview = window.__wwpPreview || {theme:null, event:null};
+  var forceBaseTheme = preview.theme;   // light|sepia|dark|amoled
+  var forceEventTheme = preview.event;  // jummah|none
 
   function isJummah(){
     if(forceEventTheme) return forceEventTheme === 'jummah';
