@@ -82,6 +82,32 @@ svg{display:block;}
   --gray-soft:#141414;
 }
 
+/* ==== Jummah (Friday) event theme — sage green accent, site-wide ====
+   ==> CONNECT: this is theme #1 of the planned seasonal/event engine.
+   Applied via body[data-event-theme="jummah"], set by JS date resolver
+   below. Layers on top of whichever base data-theme is active. */
+body[data-event-theme="jummah"]{
+  --coral:#7E9C79; --coral-dark:#5C7A59; --coral-soft:#E1E9DA; --beam:#AFC7A2;
+}
+body[data-theme="light"][data-event-theme="jummah"],
+body[data-theme="sepia"][data-event-theme="jummah"]{
+  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('assets/theme/jummah-bg.webp');
+  background-size:cover;
+  background-position:center top;
+  background-attachment:fixed;
+}
+.jummah-banner{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--coral-soft);border-bottom:1px solid var(--border);}
+.jummah-banner.hidden{display:none;}
+.jummah-banner-img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none;}
+.jummah-banner-text{display:flex;flex-direction:column;line-height:1.25;font-size:13px;}
+.jummah-banner-text strong{color:var(--coral-dark);font-size:13.5px;}
+.jummah-banner-text span{color:var(--text-dim);}
+.jummah-banner-close{margin-left:auto;background:none;border:none;font-size:20px;line-height:1;color:var(--text-dim);cursor:pointer;padding:4px 8px;flex:none;}
+.jummah-banner-close:hover{color:var(--coral-dark);}
+.home-hero-art .hero-img-jummah{display:none;}
+body[data-event-theme="jummah"] .home-hero-art .hero-img-standard{display:none;}
+body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
+
 .topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:14px clamp(16px,2.5vw,32px);background:var(--surface);border-bottom:1px solid var(--border);}
 /* Fixed (not sticky) so it never drifts mid-scroll on any device.
    body padding-top is set by JS (measured topbar height) so page
@@ -1635,6 +1661,15 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   </div>
 </header>
 
+<div id="jummah-banner" class="jummah-banner hidden">
+  <img src="assets/home/hero-arch-jummah.webp" alt="" class="jummah-banner-img">
+  <div class="jummah-banner-text">
+    <strong>Jummah Mubarak</strong>
+    <span>May your Friday prayers be accepted.</span>
+  </div>
+  <button class="jummah-banner-close" aria-label="Dismiss">&times;</button>
+</div>
+
 <div id="page-home" class="app-page">
 <main class="page">
 
@@ -1655,7 +1690,8 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
       </div>
     </div>
     <div class="home-hero-art">
-      <img src="assets/home/hero-arch.webp" alt="Watercolour illustration of an Islamic archway courtyard at sunset with an open Qur'an on a rehal" width="1400" height="933">
+      <img class="hero-img-standard" src="assets/home/hero-arch.webp" alt="Watercolour illustration of an Islamic archway courtyard at sunset with an open Qur'an on a rehal" width="1400" height="933">
+      <img class="hero-img-jummah" src="assets/home/hero-arch-jummah.webp" alt="Watercolour illustration of an archway overlooking a mosque, marking Jummah" width="1400" height="933">
     </div>
   </div>
 
@@ -9147,6 +9183,42 @@ init();
 })();
 // <== GUIDES DISPLAY OVERRIDE
 </script>
+<script>
+// ==== Jummah (Friday) event theme: date resolver + application layer ====
+// ==> CONNECT: theme #1 of the planned seasonal/event engine. Registry
+// pattern (per-theme config + application layer) can extend this to
+// Ramadan/Eid/Dhul Hijjah/Summer/Winter without touching this logic.
+(function(){
+  function isJummah(){
+    return new Date().getDay() === 5; // Friday, user's local time
+  }
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+  function apply(){
+    var active = isJummah();
+    if(active){ document.body.setAttribute('data-event-theme', 'jummah'); }
+    else{ document.body.removeAttribute('data-event-theme'); }
+
+    var banner = document.getElementById('jummah-banner');
+    if(!banner) return;
+    var dismissedToday = false;
+    try{ dismissedToday = localStorage.getItem('jummahBannerDismissed') === todayKey(); }catch(e){}
+    banner.classList.toggle('hidden', !active || dismissedToday);
+  }
+  apply();
+  setInterval(apply, 5 * 60 * 1000); // catches Friday's start/end without a reload
+
+  var closeBtn = document.querySelector('.jummah-banner-close');
+  if(closeBtn){
+    closeBtn.addEventListener('click', function(){
+      var banner = document.getElementById('jummah-banner');
+      if(banner) banner.classList.add('hidden');
+      try{ localStorage.setItem('jummahBannerDismissed', todayKey()); }catch(e){}
+    });
+  }
+})();
 </script>
 
 </body>
