@@ -979,6 +979,123 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 #page-dua .pane-items{min-height:70vh;}}
 
 /* ---------- Guides page (scoped) ---------- */
+
+/* ==> GUIDES CATEGORIZATION STYLES */
+.guides-container { width: 100%; }
+.collapsible-section { margin-bottom: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+.collapsible-header { 
+  cursor: pointer; 
+  font-weight: 700; 
+  font-size: 1.15rem; 
+  color: var(--coral); 
+  padding: 1rem 0; 
+  display: flex; 
+  align-items: center; 
+  user-select: none;
+  transition: color 0.2s ease;
+}
+.collapsible-header:hover { color: var(--coral-dark); }
+.collapsible-header::before { 
+  content: '▼'; 
+  display: inline-block; 
+  margin-right: 0.75rem; 
+  transition: transform 0.2s ease;
+  font-size: 0.9rem;
+}
+.collapsible-header.open::before { transform: rotate(-90deg); }
+.collapsible-content { display: block; transition: opacity 0.2s ease; }
+.collapsible-content.closed { display: none; }
+.guides-category { margin-bottom: 2.5rem; }
+.category-title { 
+  font-size: 1rem; 
+  font-weight: 700; 
+  color: var(--text); 
+  margin-bottom: 1.25rem; 
+  text-transform: uppercase; 
+  letter-spacing: 0.6px;
+  opacity: 0.85;
+}
+.guides-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); 
+  gap: 1.5rem; 
+  margin-bottom: 2rem;
+}
+.guide-card { 
+  background: var(--surface); 
+  border-radius: 10px; 
+  padding: 1.5rem; 
+  box-shadow: 0 2px 8px rgba(60,42,24,.05); 
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.guide-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  opacity: 0.8;
+}
+.guide-card:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 6px 16px rgba(60,42,24,.1);
+}
+.qa-card { background: rgba(230, 184, 162, 0.08); }
+.guide-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: flex-start; 
+  margin-bottom: 0.9rem; 
+  gap: 1rem;
+}
+.guide-title { 
+  font-weight: 700; 
+  color: var(--text); 
+  font-size: 1rem; 
+  line-height: 1.3;
+}
+.guide-time { 
+  font-size: 0.8rem; 
+  color: var(--text-dim); 
+  white-space: nowrap;
+  background: var(--gray-soft);
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+}
+.guide-summary { 
+  font-size: 0.95rem; 
+  color: var(--text-dim); 
+  margin-bottom: 1.2rem; 
+  line-height: 1.5;
+}
+.guide-btn { 
+  background: var(--coral); 
+  color: white; 
+  border: none; 
+  padding: 0.65rem 1.3rem; 
+  border-radius: 6px; 
+  cursor: pointer; 
+  font-weight: 600; 
+  font-size: 0.9rem; 
+  transition: all 0.2s ease;
+  width: 100%;
+}
+.guide-btn:hover { 
+  background: var(--coral-dark);
+  transform: scale(1.02);
+}
+.guide-btn:active { transform: scale(0.98); }
+@media (max-width: 768px) {
+  .guides-grid { grid-template-columns: 1fr; }
+  .guide-card { padding: 1.2rem; }
+  .collapsible-header { font-size: 1.05rem; }
+}
+/* <== GUIDES CATEGORIZATION STYLES */
+
+
 #page-guides .page{max-width:1360px;margin:0 auto;padding:28px 32px 56px;}
 #page-guides .page-head{margin-bottom:20px;}
 #page-guides .page-head h1{font-size:32px;font-weight:800;letter-spacing:-.01em;}
@@ -1482,6 +1599,13 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 @media (min-width: 768px) {
   /* Desktop uses current CSS unchanged */
 }
+
+
+#page-guides .guides-layout { display: block !important; }
+#page-guides .guide-sidebar { display: none !important; }
+#page-guides .guides-container { width: 100%; }
+.grouped-guides { padding: 0; }
+
 </style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
@@ -7266,6 +7390,7 @@ function iconSvg(name, size){ size = size||14; return `<svg width="${size}" heig
    ==> CONNECT: replace with a scholar-reviewed content source.
    ============================================================ */
 const GUIDES = [
+const GUIDES = [
   { id:'wudu', title:'Wudu (Ablution)', icon:'droplet', tag:'Essential', time:'5 min',
     summary:"The ritual washing performed before prayer and before handling the Qur'an.",
     note:"The sequence shown here is the commonly taught one — small details (like exact wiping order) vary between schools of thought. Ask a local teacher if you're unsure.",
@@ -8359,7 +8484,10 @@ const GUIDES = [
     ],
     sources:[{book:'Fiqh us-Sunnah', ref:'Chapters on the virtues of specific months and voluntary fasting days'}],
     keywords:['islamic year planning','what to expect each hijri month','ramadan dhul hijjah calendar','muslim year overview'],
-    snippet:'A practical, month-by-month overview of the Islamic calendar year — what each period means and how to prepare for it.'},
+    snippet:'A practical, month-by-month overview of the Islamic calendar year — what each period means and how to prepare for it.'}
+];
+
+const QA = [
 
 
   { id:'qa-working-in-bank', title:'Q&A: Banking', icon:'briefcase', tag:'Q&A', time:'3 min',
@@ -8476,17 +8604,41 @@ const GUIDES = [
     summary:'Honoring parents is a core Islamic duty, balanced with managing caregiver stress and family dynamics.',
     steps:[{title:'Balance and Support', body:'Honoring parents is second only to belief in Allah. Caregiving for aging parents is one of the highest acts of worship. However, honoring doesn\'t mean sacrificing your own health, family, or mental health. Finding balance (not abandonment, not self-sacrifice) is Islamic wisdom. Share caregiving among siblings if possible — Islamic teaching emphasizes community support. Medical and long-term care decisions involve parents, consult family, seek Islamic guidance. Caregiver burnout is real; attending to your wellbeing enables better care. Take breaks, use respite care, seek therapy or support groups. Conversations about wishes, legacy, and spiritual preparation can transform this phase into deepening connection. Grief and guilt after a parent dies are normal; process both. The Islamic principle is that effort with limits is honored.'}],
     keywords:['caring for elderly parents islam','aging parents duty','elder care Islamic'] }
-
 ];
 
-/* ============================================================
-   STATE
-   ============================================================ */
-const state = {
-  selectedGuide: 'wudu',
-  bookmarks: new Set(),
-  completedSteps: {}, // guideId -> Set of step indices
+
+// ==> GUIDE CATEGORIZATION
+const GUIDE_CATEGORIES = {
+  'Prayer': ['wudu', 'salah', 'ghusl', 'tayammum', 'adhan', 'sujoodsahw', 'qibla', 'jumuah', 'five-prayers', 'consistent-prayer-practice', 'prayer-feels-empty', 'actions-during-prayer', 'should-i-pray-now', 'staying-focused-salah', 'praying-in-car', 'wudu-limited-water', 'praying-at-work', 'praying-while-sick', 'prayer-with-disabilities'],
+  'Etiquette': ['mosque-etiquette', 'home-etiquette', 'food-etiquette', 'quran-etiquette', 'manners', 'neighbors', 'work-etiquette', 'women-in-workplace', 'mosque-with-kids'],
+  'Ritual Purification': ['wudu-mistakes', 'salah-mistakes', 'ghusl-or-wudu', 'common-mistakes'],
+  'Fasting': ['fasting', 'ramadan', 'ramadan-preparation', 'ramadan-fasting-guide', 'laylat-qadr', 'eid', 'eid-prayer-detailed', 'can-i-fast-today', 'fasting-physical-job', 'ramadan-timezones', 'breaking-fast-traveling', 'fasting-medical-procedures', 'muharram-ashura'],
+  'Scenarios': ['travel', 'finding-jamaah-away', 'hajj-umrah-basics', 'hajj-umrah-detailed', 'planning-your-islamic-year', 'islamic-calendar-explained'],
+  'Personal Dev': ['patience-hardship', 'anger-management', 'gratitude', 'intention', 'seeking-knowledge', 'dealing-with-loss', 'dealing-with-doubt', 'why-islam-forbids-things', 'breaking-bad-habits', 'perfectionism-islamic-lens', 'geographic-isolation-faith', 'anxiety-waswasa-distinction'],
+  'Knowledge': ['tawheed-basics', 'shirk-avoidance', 'innovation-bidah', 'is-this-halal-framework', 'seeking-knowledge-guide'],
+  'Women': ['menstruation', 'postpartum', 'pregnancy-etiquette', 'women-leadership'],
+  'Youth': ['youth-identity', 'youth-relationships', 'youth-career'],
+  'Life Events': ['death-preparation', 'mourning-etiquette', 'grief-major-loss', 'divorce-islamic-process', 'interfaith-families', 'aging-parents-care', 'new-muslim-first-month', 'converts-journey', 'parents-teaching-kids', 'elders-in-islam', 'teen-young-adult-guide'],
+  'Health': ['sleep', 'hygiene', 'chronic-illness-faith', 'mental-health-stigma'],
+  'Finance': ['finance', 'financial-hardship-survival']
 };
+
+const CATEGORY_COLORS = {
+  'Prayer': '#F4714E',
+  'Etiquette': '#D4A574',
+  'Ritual Purification': '#B8956A',
+  'Fasting': '#E6B8A2',
+  'Scenarios': '#C9A77A',
+  'Personal Dev': '#A789A8',
+  'Knowledge': '#8B7BA8',
+  'Women': '#D4A5C8',
+  'Youth': '#7FA8B8',
+  'Life Events': '#A89575',
+  'Health': '#9BBD8B',
+  'Finance': '#C9A77A'
+};
+// <== GUIDE CATEGORIZATION
+
 GUIDES.forEach(g => { state.completedSteps[g.id] = new Set(); });
 
 function getGuide(id){ return GUIDES.find(g=>g.id===id); }
@@ -8700,7 +8852,152 @@ init();
 </script>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js">
+
+// ==> GUIDES DISPLAY OVERRIDE
+(function() {
+  // Override the guide list rendering when guides page loads
+  const originalShowPage = window.showPage;
+  window.showPage = function(pageName) {
+    originalShowPage.call(this, pageName);
+    
+    if (pageName === 'guides') {
+      setTimeout(() => renderGroupedGuides(), 100);
+    }
+  };
+  
+  function renderGroupedGuides() {
+    const guideList = document.querySelector('#page-guides .guide-list');
+    if (!guideList) return;
+    
+    // Create container for grouped guides
+    const container = document.createElement('div');
+    container.className = 'guides-container grouped-guides';
+    container.innerHTML = '';
+    
+    // All Guides section (grouped by category)
+    const guidesSection = document.createElement('div');
+    guidesSection.className = 'collapsible-section';
+    
+    const guidesHeader = document.createElement('div');
+    guidesHeader.className = 'collapsible-header open';
+    guidesHeader.innerHTML = '<span>All Guides (Grouped by Category)</span>';
+    guidesHeader.style.padding = '12px 0';
+    guidesHeader.onclick = function(e) {
+      const content = this.nextElementSibling;
+      this.classList.toggle('open');
+      content.classList.toggle('closed');
+    };
+    guidesSection.appendChild(guidesHeader);
+    
+    const guidesList = document.createElement('div');
+    guidesList.className = 'collapsible-content';
+    guidesList.style.padding = '8px 0';
+    
+    // Render by category
+    Object.keys(GUIDE_CATEGORIES).forEach(cat => {
+      const ids = GUIDE_CATEGORIES[cat];
+      const guides = GUIDES.filter(g => ids.includes(g.id));
+      const color = CATEGORY_COLORS[cat];
+      
+      if (guides.length > 0) {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'guides-category';
+        catDiv.innerHTML = `<h3 class="category-title">${cat}</h3>`;
+        
+        const grid = document.createElement('div');
+        grid.className = 'guides-grid';
+        
+        guides.forEach(g => {
+          const card = document.createElement('div');
+          card.className = 'guide-card';
+          card.style.borderLeft = `4px solid ${color}`;
+          card.innerHTML = `
+            <div class="guide-header">
+              <span class="guide-title">${g.title}</span>
+              <span class="guide-time">${g.time}</span>
+            </div>
+            <div class="guide-summary">${g.summary}</div>
+            <button class="guide-btn" onclick="openGuide('${g.id}')">Read Guide</button>
+          `;
+          grid.appendChild(card);
+        });
+        catDiv.appendChild(grid);
+        guidesList.appendChild(catDiv);
+      }
+    });
+    
+    guidesSection.appendChild(guidesList);
+    container.appendChild(guidesSection);
+    
+    // Q&A section
+    if (QA && QA.length > 0) {
+      const qaSection = document.createElement('div');
+      qaSection.className = 'collapsible-section';
+      
+      const qaHeader = document.createElement('div');
+      qaHeader.className = 'collapsible-header open';
+      qaHeader.innerHTML = `<span>All Q&A (${QA.length} questions)</span>`;
+      qaHeader.style.padding = '12px 0';
+      qaHeader.onclick = function(e) {
+        const content = this.nextElementSibling;
+        this.classList.toggle('open');
+        content.classList.toggle('closed');
+      };
+      qaSection.appendChild(qaHeader);
+      
+      const qaList = document.createElement('div');
+      qaList.className = 'collapsible-content';
+      qaList.style.padding = '8px 0';
+      
+      const qaGrid = document.createElement('div');
+      qaGrid.className = 'guides-grid';
+      
+      QA.forEach(q => {
+        const card = document.createElement('div');
+        card.className = 'guide-card qa-card';
+        card.style.borderLeft = '4px solid #C9A77A';
+        card.innerHTML = `
+          <div class="guide-header">
+            <span class="guide-title">${q.title}</span>
+            <span class="guide-time">3 min</span>
+          </div>
+          <div class="guide-summary">${q.summary}</div>
+          <button class="guide-btn" onclick="openGuide('${q.id}')">Read Q&A</button>
+        `;
+        qaGrid.appendChild(card);
+      });
+      
+      qaList.appendChild(qaGrid);
+      qaSection.appendChild(qaList);
+      container.appendChild(qaSection);
+    }
+    
+    // Replace the old guide list with new grouped version
+    const pageContent = document.querySelector('#page-guides .page');
+    if (pageContent) {
+      let existingContainer = pageContent.querySelector('.guides-container');
+      if (existingContainer) {
+        existingContainer.replaceWith(container);
+      } else {
+        // Insert after the stats section
+        const statsSection = pageContent.querySelector('.g-stats');
+        if (statsSection) {
+          statsSection.parentNode.insertBefore(container, statsSection.nextSibling);
+        } else {
+          pageContent.appendChild(container);
+        }
+      }
+    }
+  }
+})();
+// <== GUIDES DISPLAY OVERRIDE
+
+</script>
 
 </body>
 </html>
+
+#page-guides .guides-layout { display: block !important; }
+#page-guides .guide-sidebar { display: none !important; }
+#page-guides .guides-container { width: 100%; }
