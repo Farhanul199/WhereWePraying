@@ -1565,20 +1565,21 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-city-item:hover .pci-country{color:var(--coral-dark);}
 .pt-city-empty{padding:14px 12px;font-size:12.5px;color:var(--text-faint);text-align:center;}
 
-/* Watercolour backdrop behind the whole page, like #page-mosque's */
+/* Watercolour backdrop behind the top of the page, like #page-mosque's.
+   Pinned to a fixed-height band (not the whole page) with a fade into
+   the theme's real --bg colour underneath, so dark/AMOLED themes don't
+   get stuck showing the light watercolour art as the page backdrop. */
 #page-prayertimes{position:relative;overflow:hidden;}
-#page-prayertimes .pt-backdrop{position:absolute;inset:0;z-index:0;pointer-events:none;}
+#page-prayertimes .pt-backdrop{position:absolute;top:0;left:0;width:100%;height:420px;z-index:0;pointer-events:none;overflow:hidden;}
 #page-prayertimes .pt-backdrop img{width:100%;height:100%;object-fit:cover;object-position:center;opacity:.9;}
+#page-prayertimes .pt-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,var(--bg) 92%);}
 #page-prayertimes .page{position:relative;z-index:1;}
-/* On tall/narrow mobile screens, inset:0 forces the wide landscape
-   artwork to be cropped down to its (mostly blank) centre column,
-   hiding the mosque and hills painted at its left/right edges. Pin
-   the art to a shorter top band instead, so its full width — and
-   both edges — stay visible, then fade it into the page background. */
+/* On tall/narrow mobile screens, the shorter band keeps the full-width
+   artwork (mosque, hills at its edges) visible instead of cropping into
+   its mostly-blank centre column. */
 @media (max-width:620px){
-  #page-prayertimes .pt-backdrop{inset:auto 0 auto 0;top:0;height:300px;}
+  #page-prayertimes .pt-backdrop{height:300px;}
   #page-prayertimes .pt-backdrop img{object-position:center top;}
-  #page-prayertimes .pt-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,var(--bg) 92%);}
 }
 
 #page-prayertimes .pt-page{max-width:900px;margin:0 auto;padding:36px 24px 56px;}
@@ -3093,8 +3094,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
       <div id="ptAfterNextCard" class="pt-afternext-card"><!-- populated by JS: prayer after next, small --></div>
 
       <div class="pt-two-col-section">
-        <div class="pt-hadith-section" id="ptHadithSection">
-          <button class="pt-hadith-toggle" id="ptHadithToggle" type="button" aria-expanded="false" aria-controls="ptHadithBody">
+        <div class="pt-hadith-section open" id="ptHadithSection">
+          <button class="pt-hadith-toggle" id="ptHadithToggle" type="button" aria-expanded="true" aria-controls="ptHadithBody">
             <div class="pt-hadith-header">
               <h2>Prayer Benefits &amp; Protections</h2>
               <p>Authentic hadith on the virtues of each prayer.</p>
@@ -3853,9 +3854,10 @@ const PrayerTimes = (function(){
     homePQCard.addEventListener('click', goToPrayerHadithSection);
     homePQCard.addEventListener('keypress', e=>{ if(e.key==='Enter') goToPrayerHadithSection(); });
   }
-  // Collapsed by default; click the header to expand/collapse. (No
-  // scroll-based auto-open anymore — it was fighting the manual toggle,
-  // making the button feel broken when the section re-opened itself.)
+  // Open by default (the section is easy to miss on mobile if collapsed);
+  // click the header to expand/collapse. (No scroll-based auto-open
+  // logic — it was fighting the manual toggle, making the button feel
+  // broken when the section re-opened itself.)
   const ptHadithToggleBtn = document.getElementById('ptHadithToggle');
   const ptHadithSectionEl = document.getElementById('ptHadithSection');
   if(ptHadithToggleBtn && ptHadithSectionEl){
