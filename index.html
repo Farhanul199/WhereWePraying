@@ -59,6 +59,13 @@ svg{display:block;}
   --amber:#D79A3C; --amber-soft:#F6E7CB;
   --red:#D8654A; --red-soft:#F7DCD2;
   --gray-soft:#EFE7D8;
+  /* Watercolour per-prayer palette (Prayer Benefits & Adhkar cards) */
+  --fajr-1:#EAF1FB; --fajr-2:#DCE7F8; --fajr-border:#CBDBF2; --fajr-border-adhkar:#AFC7EA;
+  --dhuhr-1:#FFF7E3; --dhuhr-2:#FBEFCC; --dhuhr-border:#EEDCA0; --dhuhr-border-adhkar:#E0C67A;
+  --asr-1:#FDEEE0; --asr-2:#FAE1C7; --asr-border:#EDC89C; --asr-border-adhkar:#E0AE73;
+  --maghrib-1:#FBE7E7; --maghrib-2:#F6D8D8; --maghrib-border:#E9BBBB; --maghrib-border-adhkar:#DE9E9E;
+  --isha-1:#EDEAF8; --isha-2:#E1DBF2; --isha-border:#CBC0E8; --isha-border-adhkar:#B4A4DC;
+  --general-1:#EAF3EC; --general-2:#DCEEE0; --general-border:#C4E0CB; --general-border-adhkar:#A9D3B3;
 }
 [data-theme="sepia"]{
   --bg:#EFE3C6; --surface:#F8EFD9; --surface-alt:#F1E4C4;
@@ -70,6 +77,12 @@ svg{display:block;}
   --amber:#C08A34; --amber-soft:#E9D6A6;
   --red:#C25F44; --red-soft:#E9CBB6;
   --gray-soft:#E2D6B2;
+  --fajr-1:#E3E6DD; --fajr-2:#D6DBCE; --fajr-border:#C2CAB5; --fajr-border-adhkar:#A9B497;
+  --dhuhr-1:#F3E7BE; --dhuhr-2:#EDDBA0; --dhuhr-border:#DDC378; --dhuhr-border-adhkar:#CBA956;
+  --asr-1:#EED9B8; --asr-2:#E6C79A; --asr-border:#D2AC6E; --asr-border-adhkar:#C0924C;
+  --maghrib-1:#EAD2C8; --maghrib-2:#E0BEAF; --maghrib-border:#CC9C87; --maghrib-border-adhkar:#BA8066;
+  --isha-1:#DED6E0; --isha-2:#CFC2D3; --isha-border:#B7A4BC; --isha-border-adhkar:#9E86A5;
+  --general-1:#DCE4CE; --general-2:#CBD8B8; --general-border:#B0C093; --general-border-adhkar:#93A873;
 }
 [data-theme="dark"]{
   --bg:#121010; --surface:#1B1816; --surface-alt:#211D1A;
@@ -81,6 +94,12 @@ svg{display:block;}
   --amber:#D8A84E; --amber-soft:#3A2E17;
   --red:#E17E63; --red-soft:#3A241D;
   --gray-soft:#241F1B;
+  --fajr-1:rgba(120,150,220,.16); --fajr-2:rgba(120,150,220,.04); --fajr-border:rgba(120,150,220,.3); --fajr-border-adhkar:rgba(140,170,230,.45);
+  --dhuhr-1:rgba(216,168,78,.16); --dhuhr-2:rgba(216,168,78,.04); --dhuhr-border:rgba(216,168,78,.3); --dhuhr-border-adhkar:rgba(226,182,100,.45);
+  --asr-1:rgba(220,140,90,.16); --asr-2:rgba(220,140,90,.04); --asr-border:rgba(220,140,90,.3); --asr-border-adhkar:rgba(230,155,105,.45);
+  --maghrib-1:rgba(225,126,99,.16); --maghrib-2:rgba(225,126,99,.04); --maghrib-border:rgba(225,126,99,.3); --maghrib-border-adhkar:rgba(235,140,113,.45);
+  --isha-1:rgba(155,130,210,.16); --isha-2:rgba(155,130,210,.04); --isha-border:rgba(155,130,210,.3); --isha-border-adhkar:rgba(170,145,225,.45);
+  --general-1:rgba(95,174,124,.16); --general-2:rgba(95,174,124,.04); --general-border:rgba(95,174,124,.3); --general-border-adhkar:rgba(110,190,140,.45);
 }
 [data-theme="amoled"]{
   --bg:#000000; --surface:#0A0A0A; --surface-alt:#121212;
@@ -92,6 +111,12 @@ svg{display:block;}
   --amber:#D8A84E; --amber-soft:#241C0E;
   --red:#E17E63; --red-soft:#241511;
   --gray-soft:#141414;
+  --fajr-1:rgba(120,150,220,.13); --fajr-2:rgba(120,150,220,.03); --fajr-border:rgba(120,150,220,.26); --fajr-border-adhkar:rgba(140,170,230,.4);
+  --dhuhr-1:rgba(216,168,78,.13); --dhuhr-2:rgba(216,168,78,.03); --dhuhr-border:rgba(216,168,78,.26); --dhuhr-border-adhkar:rgba(226,182,100,.4);
+  --asr-1:rgba(220,140,90,.13); --asr-2:rgba(220,140,90,.03); --asr-border:rgba(220,140,90,.26); --asr-border-adhkar:rgba(230,155,105,.4);
+  --maghrib-1:rgba(225,126,99,.13); --maghrib-2:rgba(225,126,99,.03); --maghrib-border:rgba(225,126,99,.26); --maghrib-border-adhkar:rgba(235,140,113,.4);
+  --isha-1:rgba(155,130,210,.13); --isha-2:rgba(155,130,210,.03); --isha-border:rgba(155,130,210,.26); --isha-border-adhkar:rgba(170,145,225,.4);
+  --general-1:rgba(95,174,124,.13); --general-2:rgba(95,174,124,.03); --general-border:rgba(95,174,124,.26); --general-border-adhkar:rgba(110,190,140,.4);
 }
 
 /* ==== Jummah (Friday) event theme — sage green accent, site-wide ====
@@ -1602,12 +1627,29 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .pt-hadith-section.open .pt-hadith-chevron{transform:rotate(180deg);}
 .pt-hadith-body{max-height:0;overflow:hidden;transition:max-height .4s ease;}
 .pt-hadith-section.open .pt-hadith-body{max-height:20000px;}
+.pt-hadith-body.open{max-height:20000px;}
 .pt-hadith-group-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--coral);margin:20px 0 9px;}
 .pt-hadith-group-title:first-child{margin-top:0;}
-.pt-hadith-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:9px;}
+.pt-hadith-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:9px;transition:background .2s ease, border-color .2s ease;}
 .pt-hadith-card .phc-arabic{font-family:'Amiri','Scheherazade New',serif;font-size:16.5px;direction:rtl;text-align:right;line-height:1.85;color:var(--text);margin-bottom:9px;}
+.pt-hadith-card .phc-translit{font-size:12px;font-style:italic;line-height:1.5;color:var(--text-dim);margin-bottom:7px;}
 .pt-hadith-card .phc-translation{font-size:12.5px;line-height:1.55;color:var(--text-dim);margin-bottom:7px;}
 .pt-hadith-card .phc-cite{font-size:11px;color:var(--text-faint);text-align:right;}
+/* Watercolour fill per prayer — same fill in both columns; Adhkar
+   column uses a slightly stronger border shade so the two sections
+   read as distinct even when a card shares a prayer's colour. */
+.pt-hadith-card.phc-fajr{background:linear-gradient(150deg, var(--fajr-1), var(--fajr-2));border-color:var(--fajr-border);}
+.pt-hadith-card.phc-dhuhr{background:linear-gradient(150deg, var(--dhuhr-1), var(--dhuhr-2));border-color:var(--dhuhr-border);}
+.pt-hadith-card.phc-asr{background:linear-gradient(150deg, var(--asr-1), var(--asr-2));border-color:var(--asr-border);}
+.pt-hadith-card.phc-maghrib{background:linear-gradient(150deg, var(--maghrib-1), var(--maghrib-2));border-color:var(--maghrib-border);}
+.pt-hadith-card.phc-isha{background:linear-gradient(150deg, var(--isha-1), var(--isha-2));border-color:var(--isha-border);}
+.pt-hadith-card.phc-general{background:linear-gradient(150deg, var(--general-1), var(--general-2));border-color:var(--general-border);}
+#ptAdhkarSection .pt-hadith-card.phc-fajr{border-color:var(--fajr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-dhuhr{border-color:var(--dhuhr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-asr{border-color:var(--asr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-maghrib{border-color:var(--maghrib-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-isha{border-color:var(--isha-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-general{border-color:var(--general-border-adhkar);}
 @media (max-width:820px){
   .pt-two-col-section{flex-direction:column;}
   .pt-hadith-section, .pt-adhkar-section{max-width:640px;width:100%;margin:0 auto;}
@@ -2948,82 +2990,82 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
           <div class="pt-hadith-body" id="ptHadithBody">
 
             <div class="pt-hadith-group-title">Fajr</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-fajr">
               <div class="phc-arabic">مَنْ صَلَّى الصُّبْحَ فَهُوَ فِي ذِمَّةِ اللَّهِ فَلاَ يَطْلُبَنَّكُمُ اللَّهُ مِنْ ذِمَّتِهِ بِشَىْءٍ فَيُدْرِكَهُ فَيَكُبَّهُ فِي نَارِ جَهَنَّمَ</div>
               <div class="phc-translation">"Whoever prays the morning (Fajr) prayer is under the protection of Allah — so do not violate that protection in any way, for whoever does, Allah will seize him and throw him down on his face into the Fire of Hell."</div>
               <div class="phc-cite">Sahih Muslim 657a — Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-fajr">
               <div class="phc-arabic">مَنْ صَلَّى الْبَرْدَيْنِ دَخَلَ الْجَنَّةَ</div>
               <div class="phc-translation">"Whoever prays the two cool prayers (Fajr and Asr) will enter Paradise."</div>
               <div class="phc-cite">Sahih al-Bukhari 574 — Sahih (agreed upon)</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-fajr">
               <div class="phc-arabic">يَتَعَاقَبُونَ فِيكُمْ مَلاَئِكَةٌ بِاللَّيْلِ وَمَلاَئِكَةٌ بِالنَّهَارِ، وَيَجْتَمِعُونَ فِي صَلاَةِ الْفَجْرِ وَصَلاَةِ الْعَصْرِ</div>
               <div class="phc-translation">"Angels come to you in succession by night and by day, and they gather together at the Fajr and Asr prayers."</div>
               <div class="phc-cite">Sahih al-Bukhari 555 — Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-fajr">
               <div class="phc-arabic">رَكْعَتَا الْفَجْرِ خَيْرٌ مِنْ الدُّنْيَا وَمَا فِيهَا</div>
               <div class="phc-translation">"The two rak'ahs before Fajr are better than this world and everything in it."</div>
               <div class="phc-cite">Sahih Muslim 725a — Sahih</div>
             </div>
 
             <div class="pt-hadith-group-title">Dhuhr</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-dhuhr">
               <div class="phc-arabic">مَنْ حَافَظَ عَلَى أَرْبَعِ رَكَعَاتٍ قَبْلَ الظُّهْرِ وَأَرْبَعٍ بَعْدَهَا حَرَّمَهُ اللَّهُ عَلَى النَّارِ</div>
               <div class="phc-translation">"Whoever preserves four rak'ahs before Dhuhr and four after it, Allah will forbid him from the Fire."</div>
               <div class="phc-cite">Sunan at-Tirmidhi 428 — Hasan Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-dhuhr">
               <div class="phc-arabic">إِنَّ أَبْوَابَ السَّمَاءِ تُفْتَحُ إِذَا زَالَتِ الشَّمْسُ</div>
               <div class="phc-translation">"The gates of heaven are opened when the sun passes its zenith" — said of the time before Dhuhr, when the Prophet ﷺ loved for his good deeds to rise.</div>
               <div class="phc-cite">Sunan Ibn Majah 1157 — Hasan (Al-Albani)</div>
             </div>
 
             <div class="pt-hadith-group-title">Asr</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-asr">
               <div class="phc-arabic">مَنْ تَرَكَ صَلاَةَ الْعَصْرِ فَقَدْ حَبِطَ عَمَلُهُ</div>
               <div class="phc-translation">"Whoever leaves the Asr prayer, his deeds are nullified."</div>
               <div class="phc-cite">Sahih al-Bukhari 553 — Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-asr">
               <div class="phc-arabic">الَّذِي تَفُوتُهُ صَلاَةُ الْعَصْرِ كَأَنَّمَا وُتِرَ أَهْلَهُ وَمَالَهُ</div>
               <div class="phc-translation">"Whoever misses the Asr prayer, it is as if he had lost his family and his wealth."</div>
               <div class="phc-cite">Sahih al-Bukhari 552 / Muslim 626 — Muttafaqun Alayhi</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-asr">
               <div class="phc-arabic">رَحِمَ اللَّهُ امْرَأً صَلَّى قَبْلَ الْعَصْرِ أَرْبَعًا</div>
               <div class="phc-translation">"May Allah have mercy on a person who prays four rak'ahs before Asr."</div>
               <div class="phc-cite">Jami' at-Tirmidhi 430 — Hasan</div>
             </div>
 
             <div class="pt-hadith-group-title">Maghrib</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-maghrib">
               <div class="phc-arabic">مَنْ صَلَّى فِي يَوْمٍ وَلَيْلَةٍ ثِنْتَىْ عَشْرَةَ رَكْعَةً بُنِيَ لَهُ بَيْتٌ فِي الْجَنَّةِ أَرْبَعًا قَبْلَ الظُّهْرِ وَرَكْعَتَيْنِ بَعْدَهَا وَرَكْعَتَيْنِ بَعْدَ الْمَغْرِبِ وَرَكْعَتَيْنِ بَعْدَ الْعِشَاءِ وَرَكْعَتَيْنِ قَبْلَ صَلاَةِ الْفَجْرِ</div>
               <div class="phc-translation">"Whoever prays twelve rak'ahs in a day and night — including two after Maghrib — a house will be built for him in Paradise."</div>
               <div class="phc-cite">Jami' at-Tirmidhi 415 — Hasan Sahih</div>
             </div>
 
             <div class="pt-hadith-group-title">Isha</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-isha">
               <div class="phc-arabic">مَنْ شَهِدَ الْعِشَاءَ فِي جَمَاعَةٍ كَانَ لَهُ قِيَامُ نِصْفِ لَيْلَةٍ</div>
               <div class="phc-translation">"Whoever attends Isha in congregation, it is as if he had stood half the night in prayer."</div>
               <div class="phc-cite">Sahih Muslim 656 / Tirmidhi 221 — Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-isha">
               <div class="phc-arabic">وَمَنْ صَلَّى الْعِشَاءَ وَالْفَجْرَ فِي جَمَاعَةٍ كَانَ لَهُ كَقِيَامِ لَيْلَةٍ</div>
               <div class="phc-translation">"And whoever prays Isha and Fajr in congregation, it is as if he had stood the whole night in prayer."</div>
               <div class="phc-cite">Sahih Muslim 656 / Tirmidhi 221 — Sahih</div>
             </div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-isha">
               <div class="phc-arabic">لَيْسَ صَلاَةٌ أَثْقَلَ عَلَى الْمُنَافِقِينَ مِنَ الْفَجْرِ وَالْعِشَاءِ، وَلَوْ يَعْلَمُونَ مَا فِيهِمَا لأَتَوْهُمَا وَلَوْ حَبْوًا</div>
               <div class="phc-translation">"No prayer is heavier upon the hypocrites than Fajr and Isha; if they knew what reward is in them, they would come to them even if they had to crawl."</div>
               <div class="phc-cite">Sahih al-Bukhari 657 / Muslim 651 — Muttafaqun Alayhi</div>
             </div>
 
             <div class="pt-hadith-group-title">For Every Prayer</div>
-            <div class="pt-hadith-card">
+            <div class="pt-hadith-card phc-general">
               <div class="phc-arabic">الصَّلَوَاتُ الْخَمْسُ، وَالْجُمُعَةُ إِلَى الْجُمُعَةِ، وَرَمَضَانُ إِلَى رَمَضَانَ، مُكَفِّرَاتٌ مَا بَيْنَهُنَّ إِذَا اجْتَنَبَ الْكَبَائِرَ</div>
               <div class="phc-translation">"The five daily prayers, one Friday prayer to the next, and one Ramadan to the next, are expiation for whatever comes between them, so long as major sins are avoided."</div>
               <div class="phc-cite">Sahih Muslim 233a — Sahih</div>
@@ -3035,62 +3077,9 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
         <div class="pt-adhkar-section" id="ptAdhkarSection">
           <div class="pt-hadith-header">
             <h2>Adhkar After Salah</h2>
-            <p>What to recite after each prayer, in chronological order.</p>
+            <p id="ptAdhkarSubhead">What to recite after Fajr, shortest to longest.</p>
           </div>
-
-          <div class="pt-hadith-group-title">Every Prayer</div>
-          <div class="pt-hadith-card">
-            <div class="phc-arabic">أَسْتَغْفِرُ اللَّهَ (×٣) — اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ</div>
-            <div class="phc-translation">"I seek the forgiveness of Allah (×3). O Allah, You are Peace, and from You comes peace. Blessed are You, O Possessor of majesty and honour." — said right after the salam, before moving or speaking.</div>
-            <div class="phc-cite">Sahih Muslim 591 — Sahih</div>
-          </div>
-          <div class="pt-hadith-card">
-            <div class="phc-arabic">لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ...</div>
-            <div class="phc-translation">"None has the right to be worshipped but Allah alone, He has no partner, His is the dominion and His is the praise, and He is able to do all things..."</div>
-            <div class="phc-cite">Sahih al-Bukhari / Sahih Muslim 1/414</div>
-          </div>
-          <div class="pt-hadith-card">
-            <div class="phc-arabic">سُبْحَانَ اللَّهِ (×٣٣) — الْحَمْدُ لِلَّهِ (×٣٣) — اللَّهُ أَكْبَرُ (×٣٤)</div>
-            <div class="phc-translation">"Glory be to Allah (×33). Praise be to Allah (×33). Allah is the greatest (×34)." — whoever says this after every prayer will be forgiven, even if his sins are like the foam of the sea.</div>
-            <div class="phc-cite">Sahih Muslim 1/418</div>
-          </div>
-          <div class="pt-hadith-card">
-            <div class="phc-translation">Ayat al-Kursi (Qur'an 2:255) — recited after each of the five obligatory prayers, one of the most emphasized daily practices in the Sunnah. Full Arabic in the Morning card, Du'a &amp; Dhikr section.</div>
-            <div class="phc-cite">An-Nasa'i, ʿAmal al-Yawm wal-Laylah 100</div>
-          </div>
-          <div class="pt-hadith-card">
-            <div class="phc-translation">The Three Quls — Al-Ikhlas, Al-Falaq and An-Nas — recited once after every prayer (three times each after Fajr and Maghrib specifically).</div>
-            <div class="phc-cite">Qur'an 112–114 — Sunan Abi Dawud, An-Nasa'i</div>
-          </div>
-
-          <div class="pt-hadith-group-title">Fajr</div>
-          <div class="pt-hadith-card">
-            <div class="phc-arabic">لَاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ يُحْيِي وَيُمِيتُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ</div>
-            <div class="phc-translation">"None has the right to be worshipped but Allah alone, without partner. His is the dominion and His is the praise. He gives life and causes death, and He is able to do all things." — recited ten times, before speaking or moving from the place of prayer.</div>
-            <div class="phc-cite">Jami' at-Tirmidhi 3474 — Hasan Sahih</div>
-          </div>
-
-          <div class="pt-hadith-group-title">Dhuhr</div>
-          <div class="pt-hadith-card">
-            <div class="phc-translation">No additional dhikr is specifically established for after Dhuhr beyond the general adhkar above.</div>
-          </div>
-
-          <div class="pt-hadith-group-title">Asr</div>
-          <div class="pt-hadith-card">
-            <div class="phc-translation">No additional dhikr is specifically established for after Asr beyond the general adhkar above.</div>
-          </div>
-
-          <div class="pt-hadith-group-title">Maghrib</div>
-          <div class="pt-hadith-card">
-            <div class="phc-arabic">لَاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ يُحْيِي وَيُمِيتُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ</div>
-            <div class="phc-translation">Same as the Fajr addition above: recited ten times after Maghrib, before speaking or moving from the place of prayer.</div>
-            <div class="phc-cite">Jami' at-Tirmidhi 3474 — Hasan Sahih</div>
-          </div>
-
-          <div class="pt-hadith-group-title">Isha</div>
-          <div class="pt-hadith-card">
-            <div class="phc-translation">No additional dhikr is specifically established for after Isha beyond the general adhkar above.</div>
-          </div>
+          <div class="pt-hadith-body open" id="ptAdhkarBody"><!-- populated by JS: renderAdhkarSection() --></div>
         </div>
       </div>
 
@@ -3619,6 +3608,76 @@ const PrayerTimes = (function(){
     if(!arr || !arr.length) return null;
     return arr[dayOfYear(new Date()) % arr.length];
   }
+
+  // ==> CONNECT: Adhkar After Salah — dynamic, current-prayer-only view.
+  // Every entry carries a rough "weight" (shorter = lower number) used
+  // to sort shortest-to-longest; general adhkar always render in
+  // phc-general (sage) regardless of the current prayer, while a
+  // prayer-specific entry renders in that prayer's own colour. Sourced
+  // and verified the same way as the Prayer Benefits & Protections data.
+  const ADHKAR_GENERAL = [
+    { weight:1,
+      arabic:"أَسْتَغْفِرُ اللَّهَ (×٣) — اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ",
+      translit:"Astaghfirullah (×3). Allahumma antas-salam, wa minkas-salam, tabarakta ya dhal-jalali wal-ikram.",
+      translation:"\"I seek the forgiveness of Allah (×3). O Allah, You are Peace, and from You comes peace. Blessed are You, O Possessor of majesty and honour.\" — said right after the salam, before moving or speaking.",
+      cite:"Sahih Muslim 591 — Sahih" },
+    { weight:2,
+      arabic:"سُبْحَانَ اللَّهِ (×٣٣) — الْحَمْدُ لِلَّهِ (×٣٣) — اللَّهُ أَكْبَرُ (×٣٤)",
+      translit:"Subhan Allah (×33) — Alhamdu lillah (×33) — Allahu akbar (×34).",
+      translation:"\"Glory be to Allah (×33). Praise be to Allah (×33). Allah is the greatest (×34).\" — whoever says this after every prayer will be forgiven, even if his sins are like the foam of the sea.",
+      cite:"Sahih Muslim 1/418" },
+    { weight:4,
+      arabic:"لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ، اللَّهُمَّ لَا مَانِعَ لِمَا أَعْطَيْتَ، وَلَا مُعْطِيَ لِمَا مَنَعْتَ، وَلَا يَنْفَعُ ذَا الْجَدِّ مِنْكَ الْجَدُّ",
+      translit:"La ilaha illallah, wahdahu la sharika lah, lahul-mulku wa lahul-hamd, wa huwa 'ala kulli shay'in qadir. Allahumma la mani'a lima a'tayt, wa la mu'tiya lima mana't, wa la yanfa'u dhal-jaddi minkal-jadd.",
+      translation:"\"None has the right to be worshipped but Allah alone, He has no partner, His is the dominion and His is the praise, and He is able to do all things. O Allah, there is none who can withhold what You give, and none may give what You have withheld, and the might of the mighty person cannot benefit him against You.\"",
+      cite:"Hisn al-Muslim 67 (Al-Bukhari 1/255, Muslim 1/414)" },
+    { weight:5, arabic:null, translit:null,
+      translation:"The Three Quls — Al-Ikhlas, Al-Falaq and An-Nas — recited once after every prayer (three times each after Fajr and Maghrib specifically). Full Arabic &amp; transliteration in the Three Quls card, Du'a &amp; Dhikr section.",
+      cite:"Qur'an 112–114 — Sunan Abi Dawud, An-Nasa'i" },
+    { weight:6, arabic:null, translit:null,
+      translation:"Ayat al-Kursi (Qur'an 2:255) — recited after each of the five obligatory prayers, one of the most emphasized daily practices in the Sunnah. Full Arabic &amp; transliteration in the Morning card, Du'a &amp; Dhikr section.",
+      cite:"An-Nasa'i, 'Amal al-Yawm wal-Laylah 100" }
+  ];
+  const ADHKAR_BY_PRAYER = {
+    Fajr: [
+      { weight:3,
+        arabic:"لَاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ يُحْيِي وَيُمِيتُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+        translit:"La ilaha illallahu wahdahu la sharika lahu, lahul-mulku wa lahul-hamdu, yuhyi wa yumitu wa huwa 'ala kulli shay'in qadir. (×10)",
+        translation:"\"None has the right to be worshipped but Allah alone, without partner. His is the dominion and His is the praise. He gives life and causes death, and He is able to do all things.\" — recited ten times, before speaking or moving from the place of prayer.",
+        cite:"Jami' at-Tirmidhi 3474 — Hasan Sahih" }
+    ],
+    Dhuhr: [],
+    Asr: [],
+    Maghrib: [
+      { weight:3,
+        arabic:"لَاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ يُحْيِي وَيُمِيتُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+        translit:"La ilaha illallahu wahdahu la sharika lahu, lahul-mulku wa lahul-hamdu, yuhyi wa yumitu wa huwa 'ala kulli shay'in qadir. (×10)",
+        translation:"Same wording as after Fajr — recited ten times after Maghrib, before speaking or moving from the place of prayer.",
+        cite:"Jami' at-Tirmidhi 3474 — Hasan Sahih" }
+    ],
+    Isha: []
+  };
+  function renderAdhkarCard(entry, colorClass){
+    let html = '<div class="pt-hadith-card '+colorClass+'">';
+    if(entry.arabic) html += '<div class="phc-arabic">'+entry.arabic+'</div>';
+    if(entry.translit) html += '<div class="phc-translit">'+entry.translit+'</div>';
+    html += '<div class="phc-translation">'+entry.translation+'</div>';
+    html += '<div class="phc-cite">'+entry.cite+'</div>';
+    html += '</div>';
+    return html;
+  }
+  function renderAdhkarSection(prayerName){
+    const body = document.getElementById('ptAdhkarBody');
+    const subhead = document.getElementById('ptAdhkarSubhead');
+    if(!body) return;
+    const colorClass = 'phc-'+prayerName.toLowerCase();
+    const specific = (ADHKAR_BY_PRAYER[prayerName] || []).map(e=>({entry:e, cls:colorClass}));
+    const general = ADHKAR_GENERAL.map(e=>({entry:e, cls:'phc-general'}));
+    const combined = specific.concat(general).sort((a,b)=> a.entry.weight - b.entry.weight);
+    body.innerHTML = combined.map(x=> renderAdhkarCard(x.entry, x.cls)).join('');
+    if(subhead) subhead.textContent = 'What to recite after '+prayerName+', shortest to longest.';
+  }
+
   // Navigates to the Prayer Times page's full reference list and
   // scrolls it into view. Callable from the homepage (cross-page) or
   // directly from the Prayer Times page itself (same-page scroll).
@@ -4187,6 +4246,7 @@ const PrayerTimes = (function(){
           + '<span class="ppq-cite">— '+q.cite+'</span>'
         : '';
     }
+    renderAdhkarSection(stack.next.name);
 
     afterCard.innerHTML =
       '<div class="pac-icon">'+ptIconMarkup(stack.afterNext.name,36)+'</div>'
