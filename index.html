@@ -1071,23 +1071,9 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   margin-bottom: 1.2rem; 
   line-height: 1.5;
 }
-.guide-btn { 
-  background: var(--coral); 
-  color: white; 
-  border: none; 
-  padding: 0.65rem 1.3rem; 
-  border-radius: 6px; 
-  cursor: pointer; 
-  font-weight: 600; 
-  font-size: 0.9rem; 
-  transition: all 0.2s ease;
-  width: 100%;
+.guide-card {
+  cursor: pointer;
 }
-.guide-btn:hover { 
-  background: var(--coral-dark);
-  transform: scale(1.02);
-}
-.guide-btn:active { transform: scale(0.98); }
 @media (max-width: 768px) {
   .guides-grid { grid-template-columns: 1fr; }
   .guide-card { padding: 1.2rem; }
@@ -8970,11 +8956,7 @@ init();
           summary.textContent = g.summary;
           card.appendChild(summary);
 
-          const btn = document.createElement('button');
-          btn.className = 'guide-btn';
-          btn.textContent = 'Read Guide';
-          btn.addEventListener('click', () => window.WWP_openGuide(g.id));
-          card.appendChild(btn);
+          card.addEventListener('click', () => window.WWP_openGuide(g.id));
 
           grid.appendChild(card);
         });
@@ -9034,11 +9016,7 @@ init();
         summary.textContent = q.summary;
         card.appendChild(summary);
 
-        const btn = document.createElement('button');
-        btn.className = 'guide-btn';
-        btn.textContent = 'Read Q&A';
-        btn.addEventListener('click', () => window.WWP_openGuide(q.id));
-        card.appendChild(btn);
+        card.addEventListener('click', () => window.WWP_openGuide(q.id));
 
         qaGrid.appendChild(card);
       });
