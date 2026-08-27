@@ -1360,6 +1360,15 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .home-next-prayer .name{font-size:22px;font-weight:800;}
 .home-next-prayer .time{font-size:16px;font-weight:700;color:var(--text-dim);}
 .home-next-prayer .remaining{font-size:13px;font-weight:700;color:var(--coral);}
+.home-prayer-quote-divider{width:1px;align-self:stretch;background:var(--border);flex:none;}
+.home-prayer-quote{flex:1;min-width:190px;max-width:280px;}
+.home-prayer-quote .hpq-top{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.home-prayer-quote .hpq-universal{font-size:11.5px;line-height:1.45;color:var(--text-dim);}
+.home-prayer-quote .hpq-source{color:var(--text-faint);}
+@media (max-width:720px){
+  .home-prayer-quote-divider{display:none;}
+  .home-prayer-quote{border-top:1px solid var(--border);padding-top:12px;width:100%;max-width:none;}
+}
 .home-timeline{display:flex;align-items:center;gap:26px;flex:1;flex-wrap:wrap;}
 .home-timeline-item{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
 .home-timeline-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-faint);}
@@ -1565,6 +1574,9 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .pt-next-card .pnc-finish-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .pt-next-card .pnc-finish-time{font-size:13px;font-weight:700;color:var(--text-dim);}
 .pt-afternext-card{display:flex;align-items:center;gap:13px;background:transparent;border:1px solid var(--border);border-radius:15px;box-shadow:none;padding:11px 18px;max-width:432px;margin:0 auto 20px;opacity:.7;}
+.pt-prayer-quote{max-width:432px;margin:0 auto 16px;padding:13px 18px;background:var(--surface);border:1px solid var(--border);border-radius:15px;font-size:12.5px;line-height:1.5;color:var(--text-dim);}
+.pt-prayer-quote .ppq-top{font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px;font-size:13px;}
+.pt-prayer-quote .ppq-source{color:var(--text-faint);}
 .pt-afternext-card .pac-icon{width:32px;height:32px;border-radius:50%;background:var(--surface-alt);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
 .pt-afternext-card .pac-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .pt-afternext-card .pac-name{font-family:'Lora',serif;font-size:14px;font-weight:600;}
@@ -1843,6 +1855,11 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
           <span class="pname">Isha</span>
           <span class="ptime">—</span>
         </div>
+      </div>
+      <div class="home-prayer-quote-divider"></div>
+      <div class="home-prayer-quote">
+        <div class="hpq-top"><span id="homePQEmoji">🛡️</span> <span id="homePQShort">Under Allah's protection</span></div>
+        <div class="hpq-universal">"The five daily prayers erase sins between them, provided major sins are avoided." <span class="hpq-source">— Sahih Muslim 233a</span></div>
       </div>
     </div>
   </div>
@@ -2872,6 +2889,7 @@ body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
       </div>
 
       <div id="ptNextCard" class="pt-next-card"><!-- populated by JS: next prayer, big --></div>
+      <div id="ptPrayerQuote" class="pt-prayer-quote"><!-- populated by JS: prayer virtue quote --></div>
       <div id="ptAfterNextCard" class="pt-afternext-card"><!-- populated by JS: prayer after next, small --></div>
 
       <div class="pt-footer-row">
@@ -3356,6 +3374,57 @@ const PrayerTimes = (function(){
     return '<svg width="'+Math.round(size*0.42)+'" height="'+Math.round(size*0.42)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+PT_ICONS[name]+'</svg>';
   }
 
+  // ==> CONNECT: primary (strongest-authenticity) virtue per prayer for
+  // the compact homepage/Prayer-Times widgets. Full sourced entries
+  // (Arabic, translation, grade) live in ITEMS under the 'pb-*' ids,
+  // browsable in Du'a & Dhikr → Salah and After Salah. Each prayer has
+  // an array — one is picked per day (stable all day, rotates at
+  // midnight local time) so the same quote doesn't show every day.
+  const PRAYER_QUOTE_WIDGET = {
+    Fajr: [
+      {emoji:'🛡️', text:"Under Allah's protection"},
+      {emoji:'🌿', text:'Fajr + Asr → Jannah'},
+      {emoji:'👼', text:'Witnessed by angels'},
+      {emoji:'⭐', text:"Two rak'ahs before it are better than the world"}
+    ],
+    Dhuhr: [
+      {emoji:'🔥', text:"4 before + 4 after → protection from the Fire"},
+      {emoji:'🕊️', text:'An hour when the gates of heaven open'}
+    ],
+    Asr: [
+      {emoji:'🌿', text:'Fajr + Asr → Jannah'},
+      {emoji:'⚠️', text:'Severe warning against abandoning it'},
+      {emoji:'💔', text:'Missing it is like losing family and wealth'},
+      {emoji:'🤲', text:"A Prophetic du'a for four rak'ahs before it"}
+    ],
+    Maghrib: [
+      {emoji:'🕌', text:"Part of the 12 Sunnah rak'ahs that build a house in Paradise"}
+    ],
+    Isha: [
+      {emoji:'🌌', text:"In congregation → half a night's worship"},
+      {emoji:'🌌', text:"Isha + Fajr in congregation → a whole night's worship"},
+      {emoji:'⭐', text:'Immense reward despite its difficulty'}
+    ]
+  };
+  function dayOfYear(d){
+    const start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
+  }
+  function getPrayerQuoteOfDay(prayerName){
+    const arr = PRAYER_QUOTE_WIDGET[prayerName];
+    if(!arr || !arr.length) return null;
+    return arr[dayOfYear(new Date()) % arr.length];
+  }
+  function updatePrayerQuoteWidget(elEmojiId, elShortId, prayerName){
+    const emojiEl = document.getElementById(elEmojiId);
+    const shortEl = document.getElementById(elShortId);
+    if(!emojiEl || !shortEl) return;
+    const q = getPrayerQuoteOfDay(prayerName);
+    if(!q) return;
+    emojiEl.textContent = q.emoji;
+    shortEl.textContent = q.text;
+  }
+
   function renderHome(){
     const state = PrayerTimes.getState();
     const nameEl = document.getElementById('homeNextName');
@@ -3378,6 +3447,7 @@ const PrayerTimes = (function(){
       nameEl.textContent = next.name;
       timeEl.textContent = PrayerTimes.to12h(next.time);
       remEl.textContent = PrayerTimes.formatRemaining(next.remainingMs) + (next.isTomorrow ? ' (tomorrow)' : '');
+      updatePrayerQuoteWidget('homePQEmoji', 'homePQShort', next.name);
     }
 
     PrayerTimes.PRAYER_ORDER.forEach(name=>{
@@ -3844,6 +3914,15 @@ const PrayerTimes = (function(){
         + '<div class="pnc-finish-label">Finishes</div>'
         + '<div class="pnc-finish-time">'+PrayerTimes.to12h(state.timings[stack.afterNext.name])+'</div>'
       + '</div>';
+
+    const quoteCard = document.getElementById('ptPrayerQuote');
+    if(quoteCard){
+      const q = getPrayerQuoteOfDay(stack.next.name);
+      quoteCard.innerHTML = q
+        ? '<div class="ppq-top">'+q.emoji+' '+q.text+'</div>'
+          + '<div>"The five daily prayers erase sins between them, provided major sins are avoided." <span class="ppq-source">— Sahih Muslim 233a</span></div>'
+        : '';
+    }
 
     afterCard.innerHTML =
       '<div class="pac-icon">'+ptIconMarkup(stack.afterNext.name,36)+'</div>'
@@ -7223,7 +7302,98 @@ const ITEMS = {
     arabic:"إِنَّ لِلَّهِ مَا أَخَذَ، وَلَهُ مَا أَعْطَى، وَكُلُّ شَيْءٍ عِنْدَهُ بِأَجَلٍ مُسَمًّى، فَلْتَصْبِرْ وَلْتَحْتَسِبْ",
     translit:"Inna lillāhi mā akhadh, wa lahu mā a'ṭā, wa kullu shay'in 'indahu bi-ajalin musammā, faltaṣbir wal-taḥtasib.",
     translation:"Surely to Allah belongs what He takes, and to Him belongs what He gives; everything with Him has an appointed time. So be patient and seek reward.",
-    reference:"Hisn al-Muslim 162 (Al-Bukhari 2/80, Muslim 2/636)" }
+    reference:"Hisn al-Muslim 162 (Al-Bukhari 2/80, Muslim 2/636)" },
+
+  // ============ PRAYER BENEFITS & PROTECTIONS ============
+  // ==> CONNECT: starter set of fully-verified hadith (Arabic checked
+  // directly against sunnah.com). Scoped to the entries the site owner
+  // asked to prioritise per prayer, plus the universal one. Continuable
+  // to 20-30 per prayer in a future data-build session using the same
+  // sourcing method (Tier 1/2 sources only, grade always shown).
+  'pb-fajr-protection':{ title:"Fajr: Under Allah's Protection", subtitle:"Sahih Muslim 657a", icon:'shield',
+    arabic:"مَنْ صَلَّى الصُّبْحَ فَهُوَ فِي ذِمَّةِ اللَّهِ فَلاَ يَطْلُبَنَّكُمُ اللَّهُ مِنْ ذِمَّتِهِ بِشَىْءٍ فَيُدْرِكَهُ فَيَكُبَّهُ فِي نَارِ جَهَنَّمَ",
+    translit:"Man ṣallā aṣ-ṣubḥa fahuwa fī dhimmatillāh, falā yaṭlubannakumullāhu min dhimmatihī bishay'in fayudrikahū fayakubbahū fī nāri jahannam.",
+    translation:"Whoever prays the morning (Fajr) prayer is under the protection of Allah — so do not violate that protection in any way, for whoever does, Allah will seize him and throw him down on his face into the Fire of Hell.",
+    reference:"Sahih Muslim 657a — Grade: Sahih (authentic)" },
+
+  'pb-fajr-asr-jannah':{ title:"Fajr + Asr → Paradise", subtitle:"Sahih al-Bukhari 574", icon:'star',
+    arabic:"مَنْ صَلَّى الْبَرْدَيْنِ دَخَلَ الْجَنَّةَ",
+    translit:"Man ṣallā al-bardayni dakhala al-jannah.",
+    translation:"Whoever prays the two cool prayers (Fajr and Asr) will enter Paradise.",
+    reference:"Sahih al-Bukhari 574 — Grade: Sahih (agreed upon)" },
+
+  'pb-fajr-angels':{ title:"Fajr & Asr: Witnessed by Angels", subtitle:"Sahih al-Bukhari 555", icon:'people',
+    arabic:"يَتَعَاقَبُونَ فِيكُمْ مَلاَئِكَةٌ بِاللَّيْلِ وَمَلاَئِكَةٌ بِالنَّهَارِ، وَيَجْتَمِعُونَ فِي صَلاَةِ الْفَجْرِ وَصَلاَةِ الْعَصْرِ",
+    translit:"Yata'āqabūna fīkum malā'ikatun bil-layli wa malā'ikatun bin-nahār, wa yajtami'ūna fī ṣalāti al-fajri wa ṣalāti al-'aṣr.",
+    translation:"Angels come to you in succession by night and by day, and they gather together at the Fajr and Asr prayers.",
+    reference:"Sahih al-Bukhari 555 — Grade: Sahih" },
+
+  'pb-dhuhr-fire':{ title:"Dhuhr: 4 Before + 4 After → Protection from the Fire", subtitle:"Sunan at-Tirmidhi 428", icon:'shield',
+    arabic:"مَنْ حَافَظَ عَلَى أَرْبَعِ رَكَعَاتٍ قَبْلَ الظُّهْرِ وَأَرْبَعٍ بَعْدَهَا حَرَّمَهُ اللَّهُ عَلَى النَّارِ",
+    translit:"Man ḥāfaẓa 'alā arba'i raka'ātin qabla aẓ-ẓuhri wa arba'in ba'dahā ḥarramahullāhu 'alan-nār.",
+    translation:"Whoever preserves four rak'ahs before Dhuhr and four after it, Allah will forbid him from the Fire.",
+    reference:"Sunan at-Tirmidhi 428 — Grade: Hasan Sahih" },
+
+  'pb-asr-warning':{ title:"Asr: Severe Warning Against Abandoning It", subtitle:"Sahih al-Bukhari 553", icon:'shield',
+    arabic:"مَنْ تَرَكَ صَلاَةَ الْعَصْرِ فَقَدْ حَبِطَ عَمَلُهُ",
+    translit:"Man taraka ṣalāta al-'aṣri faqad ḥabiṭa 'amaluh.",
+    translation:"Whoever leaves the Asr prayer, his deeds are nullified.",
+    reference:"Sahih al-Bukhari 553 — Grade: Sahih" },
+
+  'pb-maghrib-house':{ title:"Maghrib: Part of the Twelve Sunnah Rak'ahs", subtitle:"Jami' at-Tirmidhi 415", icon:'mosque',
+    arabic:"مَنْ صَلَّى فِي يَوْمٍ وَلَيْلَةٍ ثِنْتَىْ عَشْرَةَ رَكْعَةً بُنِيَ لَهُ بَيْتٌ فِي الْجَنَّةِ أَرْبَعًا قَبْلَ الظُّهْرِ وَرَكْعَتَيْنِ بَعْدَهَا وَرَكْعَتَيْنِ بَعْدَ الْمَغْرِبِ وَرَكْعَتَيْنِ بَعْدَ الْعِشَاءِ وَرَكْعَتَيْنِ قَبْلَ صَلاَةِ الْفَجْرِ",
+    translit:"Man ṣallā fī yawmin wa laylatin thintay 'ashrata rak'atan buniya lahu baytun fī al-jannah...",
+    translation:"Whoever prays twelve rak'ahs in a day and night — four before Dhuhr and two after, two after Maghrib, two after Isha, and two before Fajr — a house will be built for him in Paradise.",
+    reference:"Jami' at-Tirmidhi 415 — Grade: Hasan Sahih" },
+
+  'pb-isha-half-night':{ title:"Isha in Congregation → Half a Night's Worship", subtitle:"Sahih Muslim 656 / Tirmidhi 221", icon:'moon',
+    arabic:"مَنْ شَهِدَ الْعِشَاءَ فِي جَمَاعَةٍ كَانَ لَهُ قِيَامُ نِصْفِ لَيْلَةٍ",
+    translit:"Man shahida al-'ishā'a fī jamā'atin kāna lahu qiyāmu niṣfi laylah.",
+    translation:"Whoever attends Isha in congregation, it is as if he had stood half the night in prayer.",
+    reference:"Sahih Muslim 656 / Jami' at-Tirmidhi 221 — Grade: Sahih" },
+
+  'pb-isha-fajr-whole-night':{ title:"Isha + Fajr in Congregation → a Whole Night's Worship", subtitle:"Sahih Muslim 656 / Tirmidhi 221", icon:'moonstars',
+    arabic:"وَمَنْ صَلَّى الْعِشَاءَ وَالْفَجْرَ فِي جَمَاعَةٍ كَانَ لَهُ كَقِيَامِ لَيْلَةٍ",
+    translit:"Wa man ṣallā al-'ishā'a wal-fajra fī jamā'atin kāna lahu ka qiyāmi laylah.",
+    translation:"And whoever prays Isha and Fajr in congregation, it is as if he had stood the whole night in prayer.",
+    reference:"Sahih Muslim 656 / Jami' at-Tirmidhi 221 — Grade: Sahih" },
+
+  'pb-isha-hypocrites':{ title:"Isha & Fajr: Immense Reward Despite the Difficulty", subtitle:"Sahih al-Bukhari 657 / Muslim 651", icon:'star',
+    arabic:"لَيْسَ صَلاَةٌ أَثْقَلَ عَلَى الْمُنَافِقِينَ مِنَ الْفَجْرِ وَالْعِشَاءِ، وَلَوْ يَعْلَمُونَ مَا فِيهِمَا لأَتَوْهُمَا وَلَوْ حَبْوًا",
+    translit:"Laysa ṣalātun athqalu 'alal-munāfiqīna minal-fajri wal-'ishā'i, wa law ya'lamūna mā fīhimā la'atawhumā wa law ḥabwā.",
+    translation:"No prayer is heavier upon the hypocrites than Fajr and Isha; if they knew what reward is in them, they would come to them even if they had to crawl.",
+    reference:"Sahih al-Bukhari 657 / Sahih Muslim 651 — Grade: Muttafaqun Alayhi (agreed upon)" },
+
+  'pb-universal-expiate':{ title:"All Five Prayers Erase Sins Between Them", subtitle:"Sahih Muslim 233a", icon:'shield',
+    arabic:"الصَّلَوَاتُ الْخَمْسُ، وَالْجُمُعَةُ إِلَى الْجُمُعَةِ، وَرَمَضَانُ إِلَى رَمَضَانَ، مُكَفِّرَاتٌ مَا بَيْنَهُنَّ إِذَا اجْتَنَبَ الْكَبَائِرَ",
+    translit:"Aṣ-ṣalawātu al-khamsu, wal-jumu'atu ilā al-jumu'ah, wa ramaḍānu ilā ramaḍān, mukaffirātun mā baynahunna idhā ijtanaba al-kabā'ir.",
+    translation:"The five daily prayers, one Friday prayer to the next, and one Ramadan to the next, are expiation for whatever comes between them, so long as major sins are avoided.",
+    reference:"Sahih Muslim 233a — Grade: Sahih" },
+
+  // ---- continued data-build (batch 2) ----
+  'pb-fajr-two-rakat':{ title:"Fajr: The Two Sunnah Rak'ahs Are Better Than the World", subtitle:"Sahih Muslim 725a", icon:'star',
+    arabic:"رَكْعَتَا الْفَجْرِ خَيْرٌ مِنْ الدُّنْيَا وَمَا فِيهَا",
+    translit:"Rak'atā al-fajri khayrun min ad-dunyā wa mā fīhā.",
+    translation:"The two rak'ahs before Fajr are better than this world and everything in it.",
+    reference:"Sahih Muslim 725a — Grade: Sahih" },
+
+  'pb-dhuhr-gates-heaven':{ title:"Dhuhr: An Hour When the Gates of Heaven Open", subtitle:"Sunan Ibn Majah 1157", icon:'shield',
+    arabic:"إِنَّ أَبْوَابَ السَّمَاءِ تُفْتَحُ إِذَا زَالَتِ الشَّمْسُ",
+    translit:"Inna abwāba as-samā'i tuftaḥu idhā zālati ash-shams.",
+    translation:"The gates of heaven are opened when the sun passes its zenith — the Prophet ﷺ used this time before Dhuhr, saying he loved for his good deeds to rise up in that hour.",
+    reference:"Sunan Ibn Majah 1157 — Grade: Hasan (Al-Albani, Sahih al-Jami)" },
+
+  'pb-asr-lost-family':{ title:"Asr: Missing It Is Like Losing Family and Wealth", subtitle:"Sahih al-Bukhari 552 / Muslim 626", icon:'shield',
+    arabic:"الَّذِي تَفُوتُهُ صَلاَةُ الْعَصْرِ كَأَنَّمَا وُتِرَ أَهْلَهُ وَمَالَهُ",
+    translit:"Alladhī tafūtuhu ṣalātu al-'aṣri ka'annamā wutira ahlahu wa mālah.",
+    translation:"Whoever misses the Asr prayer, it is as if he had lost his family and his wealth.",
+    reference:"Sahih al-Bukhari 552 / Sahih Muslim 626 — Grade: Muttafaqun Alayhi (agreed upon)" },
+
+  'pb-asr-four-before':{ title:"Asr: A Prophetic Supplication for Whoever Prays Four Before It", subtitle:"Jami' at-Tirmidhi 430", icon:'star',
+    arabic:"رَحِمَ اللَّهُ امْرَأً صَلَّى قَبْلَ الْعَصْرِ أَرْبَعًا",
+    translit:"Raḥima Allāhu imra'an ṣallā qabla al-'aṣri arba'an.",
+    translation:"May Allah have mercy on a person who prays four rak'ahs before Asr.",
+    reference:"Jami' at-Tirmidhi 430 — Grade: Hasan" }
 
 };
 
@@ -7237,7 +7407,11 @@ const CATEGORIES = [
     items:['evening-dhikr','evening-protection','evening-pleased','ayat-al-kursi','three-quls']},
   {id:'salah', title:"Salah and After Salah", icon:'mosque', theme:'theme-salah', light:false,
     desc:"Remembrance to say after completing each obligatory prayer.",
-    items:['tasbih-33','dua-after-salah','ayat-al-kursi-salah','three-quls','istikhara']},
+    items:['tasbih-33','dua-after-salah','ayat-al-kursi-salah','three-quls','istikhara',
+      'pb-fajr-protection','pb-fajr-asr-jannah','pb-fajr-angels','pb-fajr-two-rakat',
+      'pb-dhuhr-fire','pb-dhuhr-gates-heaven',
+      'pb-asr-warning','pb-asr-lost-family','pb-asr-four-before',
+      'pb-maghrib-house','pb-isha-half-night','pb-isha-fajr-whole-night','pb-isha-hypocrites','pb-universal-expiate']},
   {id:'sleep', title:"Before Sleep and Tahajjud", icon:'moonstars', theme:'theme-sleep', light:true,
     desc:"Du'as and Surahs to recite before sleep and during the blessed hours of the night.",
     items:['sajdah-mulk','ayat-al-kursi-sleep','last-two-baqarah','al-kafirun','three-quls','tasbih-fatima','mercy-protection','sleep-soul','sleep-punishment']},
