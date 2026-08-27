@@ -1165,6 +1165,15 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 }
 #page-guides .cross-link-btn:hover{background:var(--coral-dark);}
 
+#page-guides .related-guides{margin:0 26px 22px;}
+#page-guides .related-guides h4{font-size:11.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+#page-guides .related-chips{display:flex;flex-wrap:wrap;gap:8px;}
+#page-guides .related-chip{
+  display:inline-flex;align-items:center;gap:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);border-radius:10px;
+  padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer;
+}
+#page-guides .related-chip:hover{background:var(--active-bg);border-color:var(--coral-soft);color:var(--coral);}
+
 @media (max-width:1100px){
   #page-guides .guides-layout{grid-template-columns:1fr;}
   #page-guides .guide-sidebar{position:relative;top:0;height:auto;max-height:260px;}
@@ -2555,6 +2564,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
       <div class="guide-steps" id="guideSteps"></div>
 
       <div id="crossLinkSlot"></div>
+      <div id="relatedGuidesSlot"></div>
       <div id="noteSlot"></div>
     </section>
   </div>
@@ -3902,11 +3912,27 @@ function pageIdFromPath(path){
 }
 
 function updateSEOTags(id, guideSlug){
-  let title, desc, path;
+  let title, desc, path, schema = null;
   if(id === 'guides' && guideSlug && GUIDE_ROUTES[guideSlug]){
-    title = GUIDE_ROUTES[guideSlug].title;
-    desc = GUIDE_ROUTES[guideSlug].desc;
-    path = '/guides/'+guideSlug;
+    const g = window.getGuide ? window.getGuide(guideSlug) : null;
+    if(g){
+      title = g.title + ' — WhereWePraying?';
+      desc = g.summary.slice(0, 155);
+      path = '/guides/'+guideSlug;
+      schema = {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": g.title,
+        "description": g.summary,
+        "estimatedDuration": "PT"+g.time,
+        "step": g.steps.map((s,i) => ({
+          "@type": "HowToStep",
+          "position": i+1,
+          "name": s.title,
+          "text": s.body
+        }))
+      };
+    }
   }else{
     const route = ROUTES[id] || ROUTES.home;
     title = route.title; desc = route.desc; path = route.path;
@@ -3927,6 +3953,44 @@ function updateSEOTags(id, guideSlug){
     document.head.appendChild(canonical);
   }
   canonical.setAttribute('href', 'https://wherewepraying.com'+path);
+  
+  if(schema){
+    let schemaScript = document.querySelector('script[data-guide-schema]');
+    if(!schemaScript){
+      schemaScript = document.createElement('script');
+      schemaScript.setAttribute('type', 'application/ld+json');
+      schemaScript.setAttribute('data-guide-schema', '');
+      document.head.appendChild(schemaScript);
+    }
+    schemaScript.textContent = JSON.stringify(schema);
+  }
+  
+  if(id === 'guides' && guideSlug){
+    const q = QA.find(x => x.id === guideSlug);
+    if(q){
+      let faqScript = document.querySelector('script[data-faq-schema]');
+      if(!faqScript){
+        faqScript = document.createElement('script');
+        faqScript.setAttribute('type', 'application/ld+json');
+        faqScript.setAttribute('data-faq-schema', '');
+        document.head.appendChild(faqScript);
+      }
+      const faqSchema = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{
+          "@type": "Question",
+          "@id": "https://wherewepraying.com/guides/"+guideSlug,
+          "name": q.title.replace('Q&A: ', ''),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": q.steps[0].body
+          }
+        }]
+      };
+      faqScript.textContent = JSON.stringify(faqSchema);
+    }
+  }
 }
 // Exposed so selectGuide() (Guides section, own scoped IIFE further
 // down) can update <title>/description directly when a guide is
@@ -7385,7 +7449,8 @@ function iconSvg(name, size){ size = size||14; return `<svg width="${size}" heig
    ============================================================ */
 const GUIDES = [
   { id:'wudu', title:'Wudu (Ablution)', icon:'droplet', tag:'Essential', time:'5 min',
-    summary:"The ritual washing performed before prayer and before handling the Qur'an.",
+    related:['salah','tayammum','wudu-mistakes','wudu-limited-water'],
+    summary:"The ritual washing performed before prayer and before handling the Qur'an. Wudu (ablution) is one of Islam's most frequent daily practices, honoring the body as a vessel for worship. Maintaining wudu throughout the day brings baraka (blessing) and mindfulness into routine.",
     note:"The sequence shown here is the commonly taught one — small details (like exact wiping order) vary between schools of thought. Ask a local teacher if you're unsure.",
     steps:[
       {title:'Make the intention (Niyyah)', body:"Silently intend in your heart to purify yourself for prayer. No specific words are required."},
@@ -7401,7 +7466,8 @@ const GUIDES = [
     mistakes:[{wrong:'Washing limbs fewer than the required number of times or skipping a limb entirely', fix:'Wash each limb in the correct order at least once fully; three times is the fuller sunnah. If unsure a spot was covered, wash it again.', source:'Sahih al-Bukhari, Hadith on the description of Wudu'},{wrong:'Forgetting to wipe the ears after the head', fix:'After wiping the head, use wet fingers to wipe the inside and outside of both ears in the same motion.', source:'Sunan Abu Dawud, Hadith on wiping the ears'},{wrong:'Not letting water reach between the fingers and toes', fix:'Interlace fingers and toes briefly while washing hands and feet to ensure water reaches every gap.', source:'Jami\' at-Tirmidhi, Hadith on khilal (interlacing)'}]},
 
   { id:'salah', title:'Salah (How to Pray)', icon:'pray', tag:'Essential', time:'10 min',
-    summary:"The core structure shared by every prayer, shown here as a simple two-rak'ah walkthrough.",
+    related:['wudu','sujoodsahw','salah-mistakes','five-prayers'],
+    summary:"The core structure shared by every prayer, shown here as a simple two-rak'ah walkthrough. Salah (prayer) is the second pillar of Islam and the most direct conversation with Allah. Praying five times daily creates rhythm, discipline, and connection throughout your life, anchor points that transform ordinary moments into spiritual acts.",
     rakahInfo:[['Fajr','2'],['Dhuhr','4'],['Asr','4'],['Maghrib','3'],['Isha','4']],
     note:"For prayers with more than two rak'ahs, sit briefly for a short Tashahhud after the second rak'ah, then stand again for the rest before the final, longer Tashahhud. Hand position and a few other details vary between schools of thought.",
     steps:[
@@ -7419,6 +7485,7 @@ const GUIDES = [
     mistakes:[{wrong:'Rushing through ruku and sujood without settling', fix:'Pause briefly and settle into each position — the Prophet ﷺ told a man to repeat his prayer because he moved too quickly (Sahih al-Bukhari).', source:'Sahih al-Bukhari, Hadith of the poorly-praying man'},{wrong:'Praying without facing the Qibla correctly', fix:'Double-check direction using a reliable Qibla compass or app before starting, especially in unfamiliar locations.', source:'Fiqh us-Sunnah, Chapter on conditions of prayer'},{wrong:'Losing focus and thinking of unrelated matters throughout', fix:'Bring attention back gently each time it wanders; understanding the meaning of what you recite helps anchor focus (khushu).', source:'Riyad as-Salihin, Chapter on khushu in prayer'}]},
 
   { id:'tayammum', title:'Tayammum (Dry Ablution)', icon:'hand', tag:'When needed', time:'2 min',
+    related:['wudu','wudu-limited-water','ghusl-or-wudu'],
     summary:'A substitute for Wudu using clean earth or dust, when water is unavailable or unsafe to use.',
     note:'Exactly how far up the arm to wipe varies between schools of thought — this shows the commonly taught general form.',
     steps:[
@@ -7432,7 +7499,8 @@ const GUIDES = [
     mistakes:[{wrong:'Using tayammum when water is actually available and accessible', fix:'Tayammum is only for when water is absent, harmful to use, or too far to reasonably reach — check availability first.', source:'Qur\'an 5:6, verse on tayammum conditions'},{wrong:'Striking the ground more than once per wipe unnecessarily', fix:'One strike of clean earth or dust is sufficient for both the face and hands in the simplified method most scholars teach.', source:'Sahih al-Bukhari, Hadith on tayammum method'}]},
 
   { id:'ghusl', title:'Ghusl (Ritual Bath)', icon:'shower', tag:'Essential', time:'10 min',
-    summary:'The full-body purification required after certain occasions, such as before Friday prayer or Eid.',
+    related:['wudu','ghusl-or-wudu','hygiene'],
+    summary:'The full-body purification required after certain occasions, such as before Friday prayer or Eid. Ghusl is a complete physical and spiritual cleansing, restoring your readiness for prayer and worship. The practice intertwines bodily care with spiritual renewal, honoring both dimensions of human nature.',
     steps:[
       {title:'Make the intention (Niyyah)', body:'Intend in your heart to perform a complete purification.'},
       {title:'Say Bismillah and wash your hands', body:'Begin by mentioning the name of Allah, then wash both hands.', arabic:'بِسْمِ اللَّهِ', translit:'Bismillah', translation:'In the name of Allah.'},
@@ -7445,16 +7513,19 @@ const GUIDES = [
     mistakes:[{wrong:'Not ensuring water reaches the roots of the hair', fix:'Run fingers through the hair while pouring water to make sure water reaches the scalp, not just the surface.', source:'Sahih Muslim, Hadith on ghusl description'},{wrong:'Skipping the initial wudu before the full-body wash', fix:'Perform a complete wudu first, then pour water over the rest of the body — this is the sequence the Prophet ﷺ followed.', source:'Sahih al-Bukhari, Hadith on the Prophet\'s ghusl'}]},
 
   { id:'adhan', title:'Adhan & Iqamah', icon:'megaphone', tag:'Good to know', time:'2 min',
+    related:['salah','jumuah','morning-routine'],
     summary:'The call to prayer, and the shorter call said just before the prayer begins.',
     crossLink:{label:"See the wording in Du'a & Dhikr", page:'dua'},
     steps:[
       {title:'Face the Qibla, if possible', body:'When prayer time begins, face the direction of the Qibla to give the call.'},
       {title:'Call the Adhan', body:'Recite the Adhan in a raised, clear voice — it announces that prayer time has begun and invites others to join.'},
-      {title:'Call the Iqamah', body:'Just before standing to pray, say the Iqamah — a shorter, quicker version of the Adhan said right before the prayer starts.'}
+      {title:'Call the Iqamah', body:'Just before standing to pray, say the Iqamah — a shorter, quicker version of the Adhan said right before the prayer starts.'},
+      {title:'Respond if you hear someone else calling it', body:'When you hear the Adhan being called nearby, it\'s recommended to quietly repeat each phrase after the caller, then make the dua for the Prophet ﷺ once it finishes.'}
     ],
-    mistakes:[{wrong:'Rushing the call to prayer without pausing between phrases', fix:'Recite each phrase clearly with a brief pause, allowing the call to be heard and understood distinctly.', source:'Sunan Abu Dawud, Hadith on the method of Adhan'}]},
+    mistakes:[{wrong:'Rushing the call to prayer without pausing between phrases', fix:'Recite each phrase clearly with a brief pause, allowing the call to be heard and understood distinctly.', source:'Sunan Abu Dawud, Hadith on the method of Adhan'},{wrong:'Treating the Adhan and Iqamah as interchangeable', fix:'The Adhan announces that prayer time has begun and may be called well before the prayer itself; the Iqamah is said moments before standing to pray and signals it\'s time to line up.', source:'Sahih al-Bukhari, Hadith distinguishing Adhan and Iqamah'}]},
 
   { id:'sujoodsahw', title:'Sujood as-Sahw', icon:'refresh', tag:'Good to know', time:'2 min',
+    related:['salah','salah-mistakes','actions-during-prayer'],
     summary:'Two extra prostrations that correct a small, honest mistake during prayer — you never need to restart.',
     note:'Whether these go before or after the final Salam depends on the type of mistake, and differs slightly between schools of thought.',
     steps:[
@@ -7462,35 +7533,43 @@ const GUIDES = [
       {title:'Prostrate twice', body:'Perform two extra prostrations, either just before or just after the final Salam.'},
       {title:'Repeat the usual tasbih', body:'Say the same phrase you say in ordinary Sujood, in each of the two prostrations.', arabic:'سُبْحَانَ رَبِّيَ الْأَعْلَى', translit:"Subhana Rabbiyal A'la", translation:'Glory be to my Lord, the Most High.'},
       {title:'Finish as normal', body:'Complete the prayer with the Salam, if you haven\u2019t already said it.'}
-    ]},
+    ],
+    mistakes:[{wrong:'Restarting the entire prayer over a minor, honest mistake', fix:"Sujood as-Sahw exists precisely so you don't have to start over — it applies to things like an extra rak'ah, a forgotten step, or uncertainty over the count, not deliberate errors.", source:"Sahih Muslim, Hadith on the Prophet's own Sujood as-Sahw"},{wrong:'Not knowing whether to prostrate before or after the Salam', fix:"As a simple default: if you added something extra, prostrate before the Salam; if you left something out, prostrate after it — schools of thought vary on the finer details.", source:'Fiqh us-Sunnah, Chapter on Sujood as-Sahw'}]},
 
   { id:'qibla', title:'Facing the Qibla', icon:'compass', tag:'Good to know', time:'3 min',
+    related:['salah','praying-in-car','finding-jamaah-away'],
     summary:'The direction of the Kaaba in Makkah, faced during every prayer.',
     steps:[
       {title:'Understand the Qibla', body:'The Qibla is the direction of the Kaaba in Makkah. Muslims around the world face this direction during every prayer.'},
       {title:'Find your direction', body:'Use a compass, a Qibla-finder app, or ask locally to work out the direction from where you are.'},
       {title:"If you can't be sure", body:'If you genuinely cannot determine the direction, such as while travelling, face your best estimate — your prayer is still valid.'},
-      {title:'Mark it for next time', body:"Once you know your Qibla direction at home or another regular spot, a small mark or sticker saves you looking it up each time."}
-    ]},
+      {title:'Mark it for next time', body:"Once you know your Qibla direction at home or another regular spot, a small mark or sticker saves you looking it up each time."},
+      {title:'Understand congregational alignment', body:"In congregational prayer, only the Imam needs to face the exact Qibla direction — worshippers line up behind and beside them, forming rows that follow the Imam's orientation rather than each individually rechecking direction."}
+    ],
+    mistakes:[{wrong:'Assuming the Qibla is always due east or due south based on rough geography', fix:'The actual direction depends on great-circle distance to Makkah, which can feel counterintuitive — always check a reliable compass or app rather than guessing from a map.', source:'Fiqh us-Sunnah, Chapter on the direction of prayer'}]},
 
   { id:'jumuah', title:"Jumu'ah (Friday) Prayer", icon:'mosque', tag:'Weekly', time:'5 min',
+    related:['mosque-etiquette','adhan','salah'],
     summary:'The congregational Friday prayer that replaces Dhuhr for those attending.',
     steps:[
       {title:'Know when it applies', body:"Jumu'ah replaces the Dhuhr prayer every Friday for adult Muslim men attending the mosque. Women may attend Jumu'ah or pray Dhuhr."},
       {title:'Prepare beforehand', body:"It's encouraged to perform Ghusl, wear clean clothes, and arrive early."},
       {title:'Listen to the Khutbah', body:'Listen attentively to the two-part sermon given by the Imam before the prayer begins.'},
-      {title:'Pray in congregation', body:"Pray two rak'ahs led by the Imam, just as in a normal prayer."}
+      {title:'Pray in congregation', body:"Pray two rak'ahs led by the Imam, just as in a normal prayer."},
+      {title:"If you can't attend", body:"If Jumu'ah isn't accessible — due to work, illness, or no mosque nearby — pray Dhuhr as usual instead; missing Jumu'ah without a valid reason is discouraged, but circumstances are taken into account."}
     ],
-    mistakes:[{wrong:'Arriving after the khutbah has started and talking during it', fix:'Arrive early and remain silent once the khutbah begins — even saying \'be quiet\' to someone else during the khutbah is discouraged (Sahih al-Bukhari).', source:'Sahih al-Bukhari, Hadith on silence during khutbah'}]},
+    mistakes:[{wrong:'Arriving after the khutbah has started and talking during it', fix:'Arrive early and remain silent once the khutbah begins — even saying \'be quiet\' to someone else during the khutbah is discouraged (Sahih al-Bukhari).', source:'Sahih al-Bukhari, Hadith on silence during khutbah'},{wrong:'Skipping the Sunnah prayers before or after Jumu\u2019ah', fix:'Praying voluntary rak\u2019ahs before the khutbah and after the fard prayer, when time allows, follows the Prophet\u2019s ﷺ regular practice on Fridays.', source:'Sahih Muslim, Hadith on Sunnah prayers around Jumu\u2019ah'}]},
 
   { id:'fasting', title:'A Simple Fasting Routine', icon:'moon', tag:'Occasional', time:'5 min',
+    related:['ramadan','ramadan-fasting-guide','can-i-fast-today','breaking-fast-traveling'],
     summary:'The daily rhythm of fasting during Ramadan or a voluntary fast.',
     steps:[
       {title:'Make the intention (Niyyah)', body:'Intend to fast, ideally before dawn.'},
       {title:'Eat Suhoor', body:'Have a pre-dawn meal before the Fajr prayer begins — it\u2019s encouraged, even if light.'},
       {title:'Fast through the day', body:'Refrain from food, drink and other invalidators from dawn (Fajr) until sunset (Maghrib).'},
       {title:'Break your fast', body:'At Maghrib, break your fast promptly — traditionally with a few dates and water — saying the breaking-fast dua.'},
-      {title:'Continue as normal', body:'Carry on with your prayers and daily life; extra Qur\u2019an reading and dua are especially encouraged while fasting.'}
+      {title:'Continue as normal', body:'Carry on with your prayers and daily life; extra Qur\u2019an reading and dua are especially encouraged while fasting.'},
+      {title:'Know what genuinely breaks the fast', body:'Eating, drinking, and intimacy during fasting hours invalidate the fast, along with vomiting on purpose — but things like a headache, tasting food without swallowing, or an injection generally do not.'}
     ],
     mistakes:[{wrong:'Delaying the intention until after dawn', fix:'Make the intention (niyyah) for an obligatory fast before Fajr begins — even the night before is sufficient.', source:'Sunan Abu Dawud, Hadith on intention for fasting'},{wrong:'Believing minor things like an accidental sip of water break the fast', fix:'Genuinely forgetful eating or drinking does not invalidate the fast — only continue once you remember (Sahih al-Bukhari).', source:'Sahih al-Bukhari, Hadith on forgetfulness while fasting'}]},
 
@@ -7588,6 +7667,7 @@ const GUIDES = [
     ]},
 
   { id:'ramadan', title:'Ramadan Etiquette', icon:'moon', tag:'Good to know', time:'5 min',
+    related:['fasting','ramadan-preparation','eid'],
     summary:"The rhythm of a fasting day, from before dawn to sunset, and the habits that shape the month.",
     steps:[
       {title:'Make the intention (Niyyah)', body:'Intend in your heart to fast for the sake of Allah before dawn — no specific words are required.'},
@@ -7616,6 +7696,7 @@ const GUIDES = [
     mistakes:[{wrong:'Forgetting to pay Zakat al-Fitr before the Eid al-Fitr prayer', fix:'Set this aside a few days in advance so it\'s ready before you leave for prayer — paying it after invalidates the intended timing.', source:'Sunan Abu Dawud, Hadith on the timing of Zakat al-Fitr'}]},
 
   { id:'travel', title:'Travel Etiquette', icon:'plane', tag:'Good to know', time:'5 min',
+    related:['finding-jamaah-away','breaking-fast-traveling','praying-in-car'],
     summary:'How the Prophet ﷺ prepared for journeys, and the concessions Islam gives travelers along the way.',
     steps:[
       {title:'Say the traveler\u2019s dua', body:'Recited on setting off, once you\u2019re seated or underway.', arabic:'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَىٰ رَبِّنَا لَمُنقَلِبُونَ', translit:'Subhanal-ladhi sakhkhara lana hadha wa ma kunna lahu muqrinin, wa inna ila Rabbina lamunqalibun', translation:'Glory be to Him who has subjected this to us, and we could never have accomplished it by ourselves. And indeed, to our Lord we will return.'},
@@ -7668,6 +7749,7 @@ const GUIDES = [
     ]},
 
   { id:'morning-routine', title:'Morning Routine', icon:'sun', tag:'Daily', time:'3 min',
+    related:['evening-routine','salah','gratitude'],
     summary:'Starting the day with intention — small habits that set the tone before anything else.',
     steps:[
       {title:'Wake with gratitude', body:'The moment you open your eyes, say the waking dua thanking Allah for another day.', arabic:'الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ', translit:"Alhamdu lillahil-ladhi ahyana ba'da ma amatana wa ilayhin-nushur", translation:'Praise be to Allah who gave us life after having caused us to die, and to Him is the return.'},
@@ -7675,10 +7757,13 @@ const GUIDES = [
       {title:'Make wudu', body:'Start fresh with ablution, even before the morning prayer (Fajr), to be in a state of purity.'},
       {title:'Pray Fajr in congregation if possible', body:'The first prayer of the day, ideally prayed with others in the mosque.'},
       {title:'Read or listen to Qur\'an', body:'Spending time with the Qur\'an early settles the heart and anchors the day in remembrance.'},
-      {title:'Make morning dhikr', body:'Short remembrances of Allah — tasbihat and tahlil — traditionally said after Fajr prayer before sunrise.'}
-    ]},
+      {title:'Make morning dhikr', body:'Short remembrances of Allah — tasbihat and tahlil — traditionally said after Fajr prayer before sunrise.'},
+      {title:'Eat a light breakfast with intention', body:"Even a simple meal counts as worship when begun with Bismillah — the Prophet ﷺ encouraged not skipping breakfast where possible, as strength for the day's tasks."}
+    ],
+    mistakes:[{wrong:'Going back to sleep right after Fajr and missing the blessed early morning', fix:'The time between Fajr and sunrise is considered especially blessed for dhikr and productivity — try staying awake even briefly before resuming sleep if needed.', source:'Jami\' at-Tirmidhi, Hadith on the blessing of the early morning'}]},
 
   { id:'evening-routine', title:'Evening Routine', icon:'moon', tag:'Daily', time:'3 min',
+    related:['morning-routine','sleep','family'],
     summary:'Winding down with reflection and intention — habits that close the day well.',
     steps:[
       {title:'Attend Maghrib prayer', body:'The sunset prayer, traditionally at the time the sun fully disappears — a natural marker for the evening.'},
@@ -7686,8 +7771,10 @@ const GUIDES = [
       {title:'Make evening dhikr', body:'Tasbihat and remembrance said after Maghrib or Isha prayer, honoring the transition into night.'},
       {title:'Spend time with family', body:'The evening is traditionally a time to be present with those at home, sharing a meal or conversation.'},
       {title:'Read before bed', body:'Whether Qur\'an, Islamic knowledge, or something uplifting — settling the mind before sleep.'},
-      {title:'Make wudu and say the night duas', body:'Final preparations: ablution, recitation of protective verses and the sleeping dua, before resting.'}
-    ]},
+      {title:'Make wudu and say the night duas', body:'Final preparations: ablution, recitation of protective verses and the sleeping dua, before resting.'},
+      {title:'Set tomorrow\'s intention before sleeping', body:'Briefly decide what you want to accomplish or improve the next day — a small habit that carries the day\'s momentum into the next.'}
+    ],
+    mistakes:[{wrong:'Skipping the night duas and protective verses out of tiredness', fix:'These take only a minute or two and were a consistent part of the Prophet\u2019s ﷺ nightly routine — try saying them even briefly before sleep overtakes you.', source:'Sahih al-Bukhari, Hadith on the Prophet\u2019s nightly recitations'}]},
 
   { id:'work-etiquette', title:'Work & Workplace Etiquette', icon:'hand', tag:'Daily', time:'4 min',
     summary:'How to carry Islamic values into your job — integrity, fairness, and good character with colleagues.',
@@ -7787,6 +7874,7 @@ const GUIDES = [
 
 
   { id:'five-prayers', title:'The Five Daily Prayers (Salah)', icon:'pray', tag:'Essential', time:'8 min',
+    related:['salah','adhan','qibla'],
     summary:'A quick reference to the names, times, and number of rakahs for each obligatory prayer.',
     steps:[
       {title:'Fajr — Dawn prayer', body:'Two rakahs, performed after the first light of dawn and before sunrise. The community is encouraged to attend; many mosques hold Fajr in congregation daily.'},
@@ -8078,13 +8166,15 @@ const GUIDES = [
     snippet:'How to pray while driving or traveling by car — from pulling over safely to combining prayers and using seated prayer when needed.'},
 
   { id:'wudu-limited-water', title:'Making Wudu with Limited Water', icon:'droplet', tag:'Scenario', time:'3 min',
+    related:['wudu','tayammum','praying-in-car'],
     summary:'How to perform valid ablution when water is scarce, during travel, or in emergency situations.',
     steps:[
       {title:'Know the minimum requirement', body:'Wudu requires washing each limb only once at minimum — the three-times method is preferred, not obligatory. In water-scarce situations, one wash per limb, done thoroughly, is fully valid.'},
       {title:'Use a cup or bottle rather than a running tap', body:'Pouring small controlled amounts from a bottle over each limb uses far less water than a running faucet, while still ensuring full coverage.'},
       {title:'Prioritize covering every required area over splashing generously', body:'Thin, careful coverage over the face, arms, head-wipe, and feet matters more than the volume of water used — a wet hand wiped fully counts.'},
       {title:'If water is truly unavailable, move to tayammum', body:'When there is no accessible water at all — not just inconvenient water — tayammum (dry ablution with clean earth or dust) becomes the valid substitute (Qur\'an 5:6).'},
-      {title:'Carry a small reusable water bottle when traveling', body:'A portable bottle dedicated to wudu solves most limited-water situations before they become a problem, especially at work, on hikes, or during flights.'}
+      {title:'Carry a small reusable water bottle when traveling', body:'A portable bottle dedicated to wudu solves most limited-water situations before they become a problem, especially at work, on hikes, or during flights.'},
+      {title:'Use wet wipes or a damp cloth only as a last resort before tayammum', body:'A truly damp cloth can technically substitute for water in extreme scarcity for some scholars, but this is a minority position — tayammum is the safer, agreed-upon fallback when water genuinely runs out.'}
     ],
     sources:[{book:'Qur\'an', ref:'5:6, verse on ablution and tayammum'},{book:'Fiqh us-Sunnah', ref:'Chapter on the minimum requirements of Wudu'}],
     keywords:['wudu with little water','ablution water scarcity','minimal water wudu islam','how to save water during wudu'],
@@ -8105,13 +8195,15 @@ const GUIDES = [
     snippet:'How to fit daily prayers into a work or school schedule — finding space, talking to employers, and knowing when combining prayers is valid.'},
 
   { id:'finding-jamaah-away', title:'Finding Jama\'ah While Away From Home', icon:'mosque', tag:'Scenario', time:'3 min',
+    related:['travel','mosque-etiquette','jumuah'],
     summary:'Locating a mosque and congregational prayer when traveling, relocating, or visiting somewhere new.',
     steps:[
       {title:'Search before you arrive, not after', body:'A quick search for mosques at your destination before you travel saves scrambling once you\'re there, especially in unfamiliar cities.'},
       {title:'Use the Find a Mosque feature', body:'Once available, this app feature will help locate nearby mosques and their Jama\'ah times directly from your location.'},
       {title:'Ask locally — taxi drivers, hotel staff, and shopkeepers often know', body:'In many cities, especially with visible Muslim communities, asking around locally can be faster than searching online.'},
       {title:'Check if the mosque follows a different madhab\'s timing', body:'Some mosques calculate Asr or Isha slightly differently based on their school of thought — don\'t assume the same schedule as home.'},
-      {title:'If no mosque is nearby, gather 2-3 people for Jama\'ah anywhere', body:'Congregational prayer doesn\'t require a mosque — even a small group of Muslims in a hotel room or shared space praying together earns the reward of Jama\'ah.'}
+      {title:'If no mosque is nearby, gather 2-3 people for Jama\'ah anywhere', body:'Congregational prayer doesn\'t require a mosque — even a small group of Muslims in a hotel room or shared space praying together earns the reward of Jama\'ah.'},
+      {title:'Check mosque apps and online directories specific to your destination country', body:'Many countries and cities have their own dedicated mosque-finder apps or community directories, often more complete than generic map searches for that region.'}
     ],
     sources:[{book:'Sahih al-Bukhari', ref:'Hadith on the reward of congregational prayer'}],
     keywords:['find mosque while traveling','jamaah away from home','mosque near me travel','congregational prayer while visiting'],
@@ -8173,13 +8265,15 @@ const GUIDES = [
     snippet:'How to pray while sick, injured, or physically limited — standing, sitting, or lying down, with wudu adaptations for wounds and casts.'},
 
   { id:'breaking-fast-traveling', title:'Breaking Fast While Still Traveling', icon:'plane', tag:'Scenario', time:'3 min',
+    related:['fasting','travel','ramadan-timezones'],
     summary:'What to do at sunset when you\'re mid-journey and haven\'t reached your destination.',
     steps:[
       {title:'Break your fast at the correct local time, not your destination\'s time', body:'Iftar happens based on sunset wherever you currently are — not the time zone or city you\'re heading toward.'},
       {title:'Keep dates and water accessible while traveling', body:'Packing a small snack for iftar means you\'re not caught unprepared if you\'re still in transit — on a plane, train, or road at sunset.'},
       {title:'If flying, check with airline staff or use a reliable app for local sunset time', body:'Time zones shift quickly during flights — a prayer app with GPS tracking gives a more accurate iftar time than guessing based on your departure city.'},
       {title:'Delay if you\'re unsure, don\'t break early', body:'If genuinely uncertain whether sunset has occurred at your current location, it\'s safer to wait a few extra minutes than to break the fast prematurely.'},
-      {title:'Continuing travel after iftar doesn\'t affect your fast\'s validity', body:'Once you\'ve broken your fast at the correct time, continuing your journey afterward has no bearing on that day\'s fast — it was already completed correctly.'}
+      {title:'Continuing travel after iftar doesn\'t affect your fast\'s validity', body:'Once you\'ve broken your fast at the correct time, continuing your journey afterward has no bearing on that day\'s fast — it was already completed correctly.'},
+      {title:'Remember travelers have the option to not fast at all', body:'As a traveler, you\'re permitted to break your fast entirely and make up the missed day later — this timing guidance is for those choosing to fast anyway while in transit.'}
     ],
     sources:[{book:'Fiqh us-Sunnah', ref:'Chapter on the timing of Iftar during travel'}],
     keywords:['breaking fast while traveling','iftar time flight','ramadan travel sunset time','fasting on a plane'],
@@ -8635,6 +8729,7 @@ const CATEGORY_COLORS = {
 // Expose to other <script> blocks (e.g. the guides display override),
 // which run in a sibling scope and cannot see these IIFE-local consts.
 window.GUIDES = GUIDES;
+window.getGuide = getGuide;
 window.QA = QA;
 window.GUIDE_CATEGORIES = GUIDE_CATEGORIES;
 window.CATEGORY_COLORS = CATEGORY_COLORS;
@@ -8753,6 +8848,20 @@ function renderGuide(){
     });
   } else {
     crossSlot.innerHTML = '';
+  }
+
+  const relatedSlot = $('#relatedGuidesSlot');
+  if(g.related && g.related.length){
+    const chips = g.related.map(rid=>{
+      const rg = getGuide(rid);
+      return rg ? `<button class="related-chip" data-rid="${rid}">${rg.title}</button>` : '';
+    }).join('');
+    relatedSlot.innerHTML = `<div class="related-guides"><h4>Related guides</h4><div class="related-chips">${chips}</div></div>`;
+    relatedSlot.querySelectorAll('.related-chip').forEach(btn=>{
+      btn.addEventListener('click', ()=> window.WWP_openGuide(btn.dataset.rid));
+    });
+  } else {
+    relatedSlot.innerHTML = '';
   }
 
   const noteSlot = $('#noteSlot');
