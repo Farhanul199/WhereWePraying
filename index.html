@@ -551,6 +551,23 @@ body #page-quran{
   background:var(--coral-soft);border-radius:12px;border-bottom-color:transparent;
   transition:background 1.4s ease;
 }
+/* Surah Al-Kahf (18): first 10 and last 10 ayahs get a subtle,
+   theme-matched background tint — light peach normally, light sage
+   green during Jummah, light lilac during Ramadan. Same rounded
+   treatment as .jump-highlight above, just a gentler permanent tint
+   rather than a temporary scroll-to flash. Own CSS vars per theme
+   keep the tint genuinely subtle rather than reusing the stronger
+   --coral-soft (which is tuned for hover/active states, not a resting
+   background over ~20 lines of Arabic + translation text). */
+#page-quran .ayah-card.ayah-kahf-highlight{
+  border-radius:12px; border-bottom-color:transparent;
+  padding:16px 16px 20px; margin:0 -16px;
+  background:var(--kahf-tint, rgba(244,113,78,.06));
+}
+:root, [data-theme="light"], [data-theme="sepia"]{ --kahf-tint: rgba(244,113,78,.07); }
+[data-theme="dark"], [data-theme="amoled"]{ --kahf-tint: rgba(244,113,78,.09); }
+body[data-event-theme="jummah"]{ --kahf-tint: rgba(126,156,121,.14); }
+body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 #page-quran .ayah-card:last-child{border-bottom:none;}
 #page-quran .ayah-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 #page-quran .ayah-num{
@@ -1430,7 +1447,55 @@ body[data-event-theme="ramadan"] .home-desc-ramadan{display:block;}
 .home-jummah-reminders{display:none;list-style:none;margin:0 0 28px;max-width:400px;}
 body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
 .home-jummah-reminders li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.5;color:var(--text-dim);margin-bottom:10px;}
-.home-jummah-reminders li svg{flex:none;margin-top:3px;color:var(--coral);}
+/* Tick button: light sage/grey when undone, switches to the active
+   theme accent (coral normally, sage green in Jummah) once pressed.
+   No box/border — just the check glyph itself changing color+weight. */
+.hjr-check{flex:none;margin-top:1px;background:none;border:none;padding:0;cursor:pointer;color:#B9C2B6;display:flex;align-items:center;justify-content:center;transition:color .15s ease,transform .15s ease;}
+.hjr-check:hover{color:#93A190;}
+.hjr-check svg{display:block;}
+li[data-deed-id].done .hjr-check{color:var(--coral);transform:scale(1.08);}
+[data-theme="dark"] .hjr-check, [data-theme="amoled"] .hjr-check{color:#4A5049;}
+[data-theme="dark"] .hjr-check:hover, [data-theme="amoled"] .hjr-check:hover{color:#626B60;}
+.hjr-text{color:inherit;text-decoration:none;}
+li[data-deed-id].done .hjr-text{color:var(--text);}
+a.hjr-text{cursor:pointer;}
+a.hjr-text:hover{color:var(--coral);}
+a.hjr-text:hover .hjr-arrow{transform:translateX(3px);}
+.hjr-arrow{display:inline-block;transition:transform .15s ease;margin-left:1px;}
+/* Jummah-only: Al-Kahf line gets a subtle sage highlight treatment on
+   top of the normal reminder-row styling, so it stands out as the
+   day's signature recommended act. */
+body[data-event-theme="jummah"] li[data-deed-id="jummah-kahf"]{
+  background:var(--coral-soft); border-radius:12px; padding:8px 10px; margin:-8px -10px 10px;
+}
+body[data-event-theme="jummah"] li[data-deed-id="jummah-kahf"] a.hjr-text{font-weight:700; color:var(--coral-dark);}
+
+/* First/Last 10 Ayah quick-jump boxes — Jummah only. Sage-green
+   gradient fill with a glistening/twinkling sparkle effect, matching
+   the Jummah theme's sparkle motif used elsewhere on the homepage. */
+.hjr-kahf-boxes{display:none;gap:12px;margin:2px 0 26px;flex-wrap:wrap;}
+body[data-event-theme="jummah"] .hjr-kahf-boxes{display:flex;}
+.hjr-kahf-box{
+  position:relative; overflow:hidden;
+  flex:1 1 170px; min-width:170px;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:16px 14px; border-radius:14px;
+  font-size:13px; font-weight:700; line-height:1.4;
+  color:var(--coral-dark); text-decoration:none;
+  background:linear-gradient(135deg, var(--coral-soft) 0%, var(--beam) 100%);
+  border:1.5px solid var(--coral);
+  box-shadow:0 4px 16px rgba(124,156,121,.18);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.hjr-kahf-box:hover{transform:translateY(-2px); box-shadow:0 8px 22px rgba(124,156,121,.28);}
+.hjr-kahf-box-sparkle{
+  position:absolute; pointer-events:none; color:#fff; opacity:0;
+  animation:wwp-sparkle-twinkle 3.2s ease-in-out infinite;
+}
+.hjr-kahf-box-sparkle:nth-child(1){left:14%; top:18%; font-size:11px; animation-delay:.2s;}
+.hjr-kahf-box-sparkle:nth-child(2){right:16%; top:22%; font-size:9px; animation-delay:1.4s;}
+.hjr-kahf-box-sparkle:nth-child(3){left:50%; bottom:16%; font-size:10px; animation-delay:2.3s;}
+@media (prefers-reduced-motion: reduce){ .hjr-kahf-box-sparkle{animation:none; opacity:.5;} }
 .home-ramadan-reminders{display:none;list-style:none;margin:0 0 28px;max-width:400px;}
 body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .home-ramadan-reminders li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.5;color:var(--text-dim);margin-bottom:10px;}
@@ -1927,12 +1992,38 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
       <p class="home-desc home-desc-standard">Find mosques, check prayer times, read the Qur'an, remember Allah and grow every day.</p>
       <p class="home-desc home-desc-jummah">May this blessed day bring you closer to Allah and fill your heart with peace &lt;3</p>
       <p class="home-desc home-desc-ramadan">Wishing you a blessed month of fasting, prayer and reflection &lt;3</p>
-      <ul class="home-jummah-reminders">
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Read Surah Al-Kahf today</li>
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Send abundant salawat upon the Prophet ﷺ</li>
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Make du'a — especially in the last hour before Maghrib</li>
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Give a little in charity, even if small</li>
+      <ul class="home-jummah-reminders" id="jummahRemindersList">
+        <li data-deed-id="jummah-kahf" data-deed-label="Read Surah Al-Kahf">
+          <button class="hjr-check" type="button" aria-label="Mark as done"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></button>
+          <a class="hjr-text hjr-kahf-link" href="/quran" data-page="quran" data-open-surah="18">Read Surah Al-Kahf today <span class="hjr-arrow">→</span></a>
+        </li>
+        <li data-deed-id="jummah-salawat" data-deed-label="Sent abundant salawat upon the Prophet ﷺ">
+          <button class="hjr-check" type="button" aria-label="Mark as done"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></button>
+          <span class="hjr-text">Send abundant salawat upon the Prophet ﷺ</span>
+        </li>
+        <li data-deed-id="jummah-dua" data-deed-label="Made du'a before Maghrib">
+          <button class="hjr-check" type="button" aria-label="Mark as done"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></button>
+          <span class="hjr-text">Make du'a — especially in the last hour before Maghrib</span>
+        </li>
+        <li data-deed-id="jummah-charity" data-deed-label="Gave charity">
+          <button class="hjr-check" type="button" aria-label="Mark as done"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></button>
+          <span class="hjr-text">Give a little in charity, even if small</span>
+        </li>
       </ul>
+      <div class="hjr-kahf-boxes" id="jummahKahfBoxes">
+        <a class="hjr-kahf-box" href="/quran" data-open-surah="18" data-open-ayah="1">
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✦</span>
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✧</span>
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✦</span>
+          First 10 Ayah of Surah Al-Kahf
+        </a>
+        <a class="hjr-kahf-box" href="/quran" data-open-surah="18" data-open-ayah="101">
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✦</span>
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✧</span>
+          <span class="hjr-kahf-box-sparkle" aria-hidden="true">✦</span>
+          Last 10 Ayah of Surah Al-Kahf
+        </a>
+      </div>
       <ul class="home-ramadan-reminders">
         <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Set your intention (niyyah) for the fast</li>
         <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Increase Qur'an recitation daily</li>
@@ -5637,8 +5728,18 @@ function renderReaderHeader(){
 // continuously-scrollable surah (see renderReader below).
 function ayahCardHTML(surahNum, ayahNum, data, isBm){
   const endMark = `<span class="ayah-end-mark">﴾${toArabicIndicDigits(ayahNum)}﴿</span>`;
+  // Surah Al-Kahf (18): first 10 and last 10 ayahs get a subtle,
+  // theme-matched tint — sage green in Jummah, light peach normally,
+  // light lilac in Ramadan. Styling lives entirely in CSS (see
+  // .ayah-kahf-highlight rules), keyed off body[data-event-theme] so
+  // it stays correct if the active theme changes without a re-render.
+  let kahfClass = '';
+  if(surahNum === 18){
+    if(ayahNum <= 10) kahfClass = ' ayah-kahf-highlight ayah-kahf-first10';
+    else if(ayahNum >= 101) kahfClass = ' ayah-kahf-highlight ayah-kahf-last10';
+  }
   return `
-    <div class="ayah-card" id="ayah-${surahNum}-${ayahNum}" data-surah="${surahNum}" data-ayah="${ayahNum}">
+    <div class="ayah-card${kahfClass}" id="ayah-${surahNum}-${ayahNum}" data-surah="${surahNum}" data-ayah="${ayahNum}">
       <div class="ayah-top">
         <span class="ayah-num">${ayahNum}</span>
         <div class="ayah-mini-actions">
@@ -6486,7 +6587,27 @@ function continueReading(){
   showToast('Resumed where you left off');
 }
 
+// Exposed for cross-section navigation — e.g. the homepage's Jummah
+// "Read Surah Al-Kahf today" reminder, or any other deep-link into a
+// specific surah/ayah from outside this IIFE.
+window.WWP_openSurah = function(surahNum, ayahNum){
+  selectSurah(surahNum, ayahNum || 1);
+};
+
 init();
+
+// Jummah-only: landing on the Qur'an tab (fresh navigation, not a
+// specific bookmark/history restore) during Friday's event theme
+// opens Surah Al-Kahf automatically, since it's the day's signature
+// recommended reading. Only applies once per navigation — flagged by
+// the router via window.__WWP_pendingJummahKahf so it doesn't fight
+// a user who's mid-way through a different surah and just re-renders.
+if(window.__WWP_pendingJummahKahf){
+  window.__WWP_pendingJummahKahf = false;
+  var __pendingAyah = window.__WWP_pendingJummahKahfAyah || 1;
+  window.__WWP_pendingJummahKahfAyah = null;
+  selectSurah(18, __pendingAyah);
+}
 
 })();
 
@@ -9939,6 +10060,157 @@ init();
       try{ localStorage.setItem('ramadanBannerDismissed', todayKey()); }catch(e){}
     });
   }
+})();
+</script>
+
+<script>
+// ==== Jummah homepage good-deed ticks: toggle state + Journal sync ====
+// Each of the 4 reminder rows on the homepage (Read Surah Al-Kahf, send
+// salawat, make du'a, give charity) is independently tickable. Ticking
+// one writes it into today's Journal entry as a completed deed, so it
+// shows up in the person's existing Good Deeds count/streak without
+// them having to open the Journal separately. State is keyed by date so
+// yesterday's ticks don't carry over and the boxes reset each Jummah.
+(function(){
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  var TICK_STORE_KEY = 'wwp:jummahTicks';
+
+  function loadTickState(){
+    try{
+      var raw = localStorage.getItem(TICK_STORE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && parsed.dateKey === todayKey()) return parsed.ticked || {};
+      }
+    }catch(e){}
+    return {};
+  }
+  function saveTickState(ticked){
+    try{ localStorage.setItem(TICK_STORE_KEY, JSON.stringify({dateKey:todayKey(), ticked:ticked})); }catch(e){}
+  }
+
+  var tickedState = loadTickState();
+
+  function applyTickVisuals(){
+    document.querySelectorAll('#jummahRemindersList li[data-deed-id]').forEach(function(li){
+      var id = li.getAttribute('data-deed-id');
+      li.classList.toggle('done', !!tickedState[id]);
+    });
+  }
+  applyTickVisuals();
+
+  // Merges a completed deed into today's Journal entry via the shared
+  // WWP backend module (same device-scoped storage the Journal page
+  // itself reads from/writes to) — reads the current blob first so this
+  // doesn't clobber reflections/prayers/mistakes/routines already saved.
+  async function addDeedToJournal(deedId, label){
+    if(typeof window.WWP === 'undefined') return;
+    var key = todayKey();
+    var saved = await window.WWP.get('journal');
+    var blob = saved || {reflections:{}, prayers:{}, deeds:{}, mistakes:{}, routines:[], heartSaved:false};
+    if(!blob.deeds) blob.deeds = {};
+    if(!blob.deeds[key]) blob.deeds[key] = [];
+    var already = blob.deeds[key].some(function(d){ return d.id === 'jummah-'+deedId; });
+    if(!already){
+      blob.deeds[key].push({id:'jummah-'+deedId, label:label, done:true});
+    }
+    window.WWP.saveNow ? window.WWP.saveNow('journal', blob) : window.WWP.save('journal', blob);
+  }
+
+  // Removes a previously-added Jummah deed from today's Journal entry
+  // if the person un-ticks it on the homepage — keeps the two views
+  // (homepage ticks, Journal deed list) consistent in both directions.
+  async function removeDeedFromJournal(deedId){
+    if(typeof window.WWP === 'undefined') return;
+    var key = todayKey();
+    var saved = await window.WWP.get('journal');
+    if(!saved || !saved.deeds || !saved.deeds[key]) return;
+    saved.deeds[key] = saved.deeds[key].filter(function(d){ return d.id !== 'jummah-'+deedId; });
+    window.WWP.saveNow ? window.WWP.saveNow('journal', saved) : window.WWP.save('journal', saved);
+  }
+
+  function toggleTick(li){
+    var id = li.getAttribute('data-deed-id');
+    var label = li.getAttribute('data-deed-label') || id;
+    var nowDone = !tickedState[id];
+    tickedState[id] = nowDone;
+    saveTickState(tickedState);
+    li.classList.toggle('done', nowDone);
+    if(nowDone) addDeedToJournal(id, label);
+    else removeDeedFromJournal(id);
+  }
+
+  document.querySelectorAll('#jummahRemindersList .hjr-check').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      toggleTick(btn.closest('li[data-deed-id]'));
+    });
+  });
+
+  // The Al-Kahf row's text/arrow is a real link (kept as an <a href>
+  // for SEO/no-JS fallback) — intercept the click to route through the
+  // in-app router instead of a full page reload, and flag the Qur'an
+  // section to auto-open Surah Al-Kahf once it mounts.
+  var kahfLink = document.querySelector('.hjr-kahf-link');
+  if(kahfLink){
+    kahfLink.addEventListener('click', function(e){
+      e.preventDefault();
+      window.__WWP_pendingJummahKahf = true;
+      if(typeof window.WWP_openSurah === 'function'){
+        // Qur'an section already initialized this session — open directly.
+        if(typeof window.switchPage === 'function') window.switchPage('quran');
+        window.__WWP_pendingJummahKahf = false;
+        window.WWP_openSurah(18, 1);
+      }else if(typeof window.switchPage === 'function'){
+        // First visit to the Qur'an tab this session — the section's own
+        // init() will see the pending flag and open Al-Kahf itself.
+        window.switchPage('quran');
+      }
+    });
+  }
+
+  // First/Last 10 Ayah boxes — same routing pattern as the Al-Kahf
+  // reminder link above, but jumping to ayah 1 or ayah 101 specifically
+  // rather than always landing at the top of the surah.
+  document.querySelectorAll('.hjr-kahf-box').forEach(function(box){
+    box.addEventListener('click', function(e){
+      e.preventDefault();
+      var ayah = parseInt(box.getAttribute('data-open-ayah'), 10) || 1;
+      if(typeof window.WWP_openSurah === 'function'){
+        if(typeof window.switchPage === 'function') window.switchPage('quran');
+        window.WWP_openSurah(18, ayah);
+      }else if(typeof window.switchPage === 'function'){
+        window.__WWP_pendingJummahKahfAyah = ayah;
+        window.__WWP_pendingJummahKahf = true;
+        window.switchPage('quran');
+      }
+    });
+  });
+})();
+</script>
+
+<script>
+// ==== Jummah-only: Qur'an tab auto-opens Surah Al-Kahf ====
+// Separate from the homepage tick script above so it applies even if
+// the person navigates to the Qur'an tab directly via the nav bar (not
+// just via the homepage's "Read Surah Al-Kahf today" link) while the
+// Jummah event theme is active. Sets the same pending flag the Qur'an
+// section's init() checks — see window.WWP_openSurah usage there.
+(function(){
+  document.querySelectorAll('.nav a[data-page="quran"], .brand[data-page="quran"]').forEach(function(a){
+    a.addEventListener('click', function(){
+      if(document.body.getAttribute('data-event-theme') === 'jummah'){
+        if(typeof window.WWP_openSurah === 'function'){
+          window.WWP_openSurah(18, 1);
+        }else{
+          window.__WWP_pendingJummahKahf = true;
+        }
+      }
+    });
+  });
 })();
 </script>
 
