@@ -1952,6 +1952,206 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .grouped-guides { padding: 0; }
 
 </style>
+<style>
+/* Auth Popup Styles */
+
+.auth-popup {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow, 0 4px 16px rgba(0, 0, 0, 0.1));
+  z-index: 1000;
+  min-width: 280px;
+  padding: 20px;
+  font-family: 'Manrope', sans-serif;
+}
+
+.auth-popup.hidden {
+  display: none;
+}
+
+.auth-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-popup-close:hover {
+  color: var(--text);
+}
+
+.auth-popup-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-popup-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.auth-popup-signed-in {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-popup-signed-in.hidden {
+  display: none;
+}
+
+.auth-popup-email {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-all;
+  padding: 8px 12px;
+  background: var(--surface-alt);
+  border-radius: 6px;
+}
+
+.auth-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-form-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  background: var(--surface-alt);
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+
+.auth-form-input:focus {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(244, 113, 78, 0.1);
+}
+
+.auth-form-input::placeholder {
+  color: var(--text-faint);
+}
+
+.auth-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn-primary {
+  background: var(--coral);
+  color: white;
+}
+
+.auth-btn-primary:hover:not(:disabled) {
+  background: #FF8B69;
+}
+
+.auth-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-popup-message {
+  padding: 10px 12px;
+  background: rgba(78, 138, 99, 0.1);
+  border-left: 3px solid var(--green);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--green);
+  line-height: 1.4;
+}
+
+.auth-popup-message.hidden {
+  display: none;
+}
+
+.auth-popup-error {
+  padding: 10px 12px;
+  background: rgba(194, 95, 68, 0.1);
+  border-left: 3px solid var(--red);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--red);
+  line-height: 1.4;
+}
+
+.auth-popup-error.hidden {
+  display: none;
+}
+
+.auth-popup-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.auth-popup-loading.hidden {
+  display: none;
+}
+
+.auth-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(244, 113, 78, 0.2);
+  border-top-color: var(--coral);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-popup {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+  }
+}
+</style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
 
@@ -1983,6 +2183,44 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     <button class="icon-btn" title="Account">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
     </button>
+  </div>
+
+  <!-- Account popup modal -->
+  <div id="accountPopup" class="auth-popup hidden">
+    <div class="auth-popup-content">
+      <!-- Sign-out state (when authenticated) -->
+      <div class="auth-popup-signed-in hidden">
+        <div class="auth-popup-email" id="authPopupEmail"></div>
+        <button class="auth-btn auth-btn-primary" id="signOutBtn">Sign Out</button>
+      </div>
+
+      <!-- Sign-in state (when not authenticated) -->
+      <div class="auth-popup-sign-in">
+        <h3 class="auth-popup-title">Sign In</h3>
+        <p class="auth-popup-text">Enter your email to get a sign-in link.</p>
+
+        <div class="auth-form-group">
+          <input
+            type="email"
+            id="authEmailInput"
+            class="auth-form-input"
+            placeholder="your@email.com"
+            autocomplete="email"
+          />
+          <button class="auth-btn auth-btn-primary" id="sendMagicLinkBtn">Send Link</button>
+        </div>
+
+        <div class="auth-popup-message hidden" id="authPopupMessage"></div>
+        <div class="auth-popup-error hidden" id="authPopupError"></div>
+
+        <div class="auth-popup-loading hidden" id="authPopupLoading">
+          <span class="auth-spinner"></span>
+          <span>Sending...</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="auth-popup-close" id="closeAuthPopupBtn">&times;</button>
   </div>
 </header>
 
@@ -10277,5 +10515,229 @@ init();
 })();
 </script>
 
+<script>
+// Auth System: Popup logic + Session management
+(function() {
+  const AUTH_POPUP_ID = 'accountPopup';
+  const EMAIL_INPUT_ID = 'authEmailInput';
+  const SEND_LINK_BTN_ID = 'sendMagicLinkBtn';
+  const SIGN_OUT_BTN_ID = 'signOutBtn';
+  const CLOSE_POPUP_BTN_ID = 'closeAuthPopupBtn';
+  const ACCOUNT_BTN_SELECTOR = '.topbar-icons button[title="Account"]';
+
+  let authState = { authenticated: false, email: null };
+
+  const $ = (sel) => sel.startsWith('#') || sel.startsWith('.') ? document.querySelector(sel) : document.getElementById(sel);
+
+  async function init() {
+    await checkSession();
+    setupEventListeners();
+    handleVerifyRedirect();
+  }
+
+  async function checkSession() {
+    try {
+      const res = await fetch('/api/session', { credentials: 'include' });
+      const data = await res.json();
+
+      if (data.authenticated) {
+        authState = { authenticated: true, email: data.email, userId: data.userId };
+        renderAuthUI('signed-in');
+      } else {
+        authState = { authenticated: false, email: null };
+        renderAuthUI('sign-in');
+      }
+    } catch (err) {
+      console.error('checkSession error:', err);
+      renderAuthUI('sign-in');
+    }
+  }
+
+  function renderAuthUI(state) {
+    const popup = document.getElementById(AUTH_POPUP_ID);
+    if (!popup) return;
+
+    const signedInDiv = popup.querySelector('.auth-popup-signed-in');
+    const signInDiv = popup.querySelector('.auth-popup-sign-in');
+
+    if (state === 'signed-in') {
+      signedInDiv.classList.remove('hidden');
+      signInDiv.classList.add('hidden');
+      const emailSpan = popup.querySelector('#authPopupEmail');
+      if (emailSpan) emailSpan.textContent = authState.email;
+    } else {
+      signedInDiv.classList.add('hidden');
+      signInDiv.classList.remove('hidden');
+    }
+  }
+
+  function setupEventListeners() {
+    const accountBtn = document.querySelector(ACCOUNT_BTN_SELECTOR);
+    if (accountBtn) {
+      accountBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleAuthPopup();
+      });
+    }
+
+    const sendBtn = document.getElementById(SEND_LINK_BTN_ID);
+    if (sendBtn) sendBtn.addEventListener('click', sendMagicLink);
+
+    const signOutBtn = document.getElementById(SIGN_OUT_BTN_ID);
+    if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+
+    const closeBtn = document.getElementById(CLOSE_POPUP_BTN_ID);
+    if (closeBtn) closeBtn.addEventListener('click', closeAuthPopup);
+
+    document.addEventListener('click', (e) => {
+      const popup = document.getElementById(AUTH_POPUP_ID);
+      const accountBtn = document.querySelector(ACCOUNT_BTN_SELECTOR);
+      if (popup && !popup.contains(e.target) && e.target !== accountBtn && !accountBtn?.contains(e.target)) {
+        closeAuthPopup();
+      }
+    });
+
+    const emailInput = document.getElementById(EMAIL_INPUT_ID);
+    if (emailInput) {
+      emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMagicLink();
+      });
+    }
+  }
+
+  function toggleAuthPopup() {
+    const popup = document.getElementById(AUTH_POPUP_ID);
+    if (popup) popup.classList.toggle('hidden');
+  }
+
+  function closeAuthPopup() {
+    const popup = document.getElementById(AUTH_POPUP_ID);
+    if (popup) popup.classList.add('hidden');
+  }
+
+  async function sendMagicLink() {
+    const emailInput = document.getElementById(EMAIL_INPUT_ID);
+    const email = emailInput?.value?.trim();
+
+    if (!email || !email.includes('@')) {
+      showAuthError('Please enter a valid email');
+      return;
+    }
+
+    showAuthLoading(true);
+    clearMessages();
+
+    try {
+      const res = await fetch('/api/send-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAuthError(data.error || 'Failed to send link');
+        return;
+      }
+
+      showAuthMessage('Check your email for the sign-in link. Link expires in 24 hours.');
+      emailInput.value = '';
+    } catch (err) {
+      console.error('sendMagicLink error:', err);
+      showAuthError('Network error. Please try again.');
+    } finally {
+      showAuthLoading(false);
+    }
+  }
+
+  async function signOut() {
+    try {
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        authState = { authenticated: false, email: null };
+        renderAuthUI('sign-in');
+        closeAuthPopup();
+      } else {
+        showAuthError('Sign out failed');
+      }
+    } catch (err) {
+      console.error('signOut error:', err);
+      showAuthError('Network error. Please try again.');
+    }
+  }
+
+  async function handleVerifyRedirect() {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token');
+
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/verify-token?token=${encodeURIComponent(token)}`, {
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        authState = { authenticated: true, email: data.email, userId: data.userId };
+        renderAuthUI('signed-in');
+        window.history.replaceState({}, document.title, '/');
+        console.log('[SUCCESS] Signed in successfully!');
+      } else {
+        window.history.replaceState({}, document.title, '/');
+        console.log('[ERROR]', data.error || 'Sign-in failed');
+      }
+    } catch (err) {
+      console.error('handleVerifyRedirect error:', err);
+      window.history.replaceState({}, document.title, '/');
+    }
+  }
+
+  function showAuthMessage(msg) {
+    const msgEl = document.getElementById('authPopupMessage');
+    if (msgEl) {
+      msgEl.textContent = msg;
+      msgEl.classList.remove('hidden');
+    }
+  }
+
+  function showAuthError(msg) {
+    const errEl = document.getElementById('authPopupError');
+    if (errEl) {
+      errEl.textContent = msg;
+      errEl.classList.remove('hidden');
+    }
+  }
+
+  function showAuthLoading(show) {
+    const loadingEl = document.getElementById('authPopupLoading');
+    const sendBtn = document.getElementById(SEND_LINK_BTN_ID);
+    if (loadingEl) loadingEl.classList.toggle('hidden', !show);
+    if (sendBtn) sendBtn.disabled = show;
+  }
+
+  function clearMessages() {
+    const msgEl = document.getElementById('authPopupMessage');
+    const errEl = document.getElementById('authPopupError');
+    if (msgEl) msgEl.classList.add('hidden');
+    if (errEl) errEl.classList.add('hidden');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  window.AuthSystem = { checkSession, signOut, toggleAuthPopup };
+})();
+</script>
 </body>
 </html>
