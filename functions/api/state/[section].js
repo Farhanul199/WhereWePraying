@@ -17,7 +17,7 @@
 // link intact if a write ever comes in unauthenticated (e.g. signed
 // out on this device) — it won't unlink the row.
 
-const ALLOWED_SECTIONS = new Set(['quran', 'journal', 'dua', 'guides']);
+const ALLOWED_SECTIONS = new Set(['quran', 'journal', 'dua', 'guides', 'prayertimes']);
 const MAX_BODY_BYTES = 200 * 1024; // 200KB is generous headroom per section
 
 function json(payload, status) {
