@@ -67,7 +67,7 @@ export async function onRequestGet(context) {
   // with them on this ranking even without a mutual friend request.
   const rows = await db
     .prepare(
-      `SELECT u.id, u.username, COALESCE(ls.score, 0) AS score
+      `SELECT u.id, u.username, u.avatar_url, u.is_supporter, COALESCE(ls.score, 0) AS score
        FROM users u
        LEFT JOIN leaderboard_scores ls ON ls.user_id = u.id
        WHERE u.id = ?1
@@ -86,6 +86,8 @@ export async function onRequestGet(context) {
 
   const entries = (rows.results || []).map((r) => ({
     username: r.username || 'Unnamed',
+    avatarUrl: r.avatar_url || null,
+    isSupporter: !!r.is_supporter,
     score: r.score,
     isYou: r.id === session.userId,
   }));
