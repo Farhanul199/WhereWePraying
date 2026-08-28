@@ -10537,7 +10537,10 @@ init();
 
   async function checkSession() {
     try {
-      const res = await fetch('/api/session', { credentials: 'include' });
+      const res = await fetch('/api/session', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' }
+      });
       const data = await res.json();
 
       if (data.authenticated) {
@@ -10630,7 +10633,10 @@ init();
     try {
       const res = await fetch('/api/send-magic-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || ''
+        },
         body: JSON.stringify({ email }),
         credentials: 'include',
       });
@@ -10656,6 +10662,7 @@ init();
     try {
       const res = await fetch('/api/session', {
         method: 'POST',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
         credentials: 'include',
       });
 
@@ -10681,6 +10688,7 @@ init();
     try {
       const res = await fetch(`/api/verify-token?token=${encodeURIComponent(token)}`, {
         credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' }
       });
 
       const data = await res.json();
