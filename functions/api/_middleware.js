@@ -6,10 +6,20 @@
 // looks sane before any handler touches the database, and keeps a
 // lightweight "devices" record so you can see how many distinct testers
 // have actually opened the app.
+//
+// Exception: /api/auth/* (Google OAuth redirect + callback) are reached
+// via full-page browser navigation, not fetch() calls, so they can't
+// carry a custom header — those routes skip the device-id check.
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 
 export async function onRequest(context) {
   const { request, env, next, data } = context;
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith('/api/auth/')) {
+    return next();
+  }
+
   const deviceId = request.headers.get('X-Device-Id');
 
   if (!deviceId || !DEVICE_ID_RE.test(deviceId)) {
