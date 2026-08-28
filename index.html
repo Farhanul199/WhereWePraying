@@ -1490,6 +1490,9 @@ body[data-event-theme="ramadan"] .home-desc-ramadan{display:block;}
 .home-hero-actions{display:flex;gap:14px;flex-wrap:wrap;}
 .home-jummah-reminders{display:none;list-style:none;margin:0 0 28px;max-width:400px;}
 body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
+.home-fasting-note{display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);margin:-10px 0 20px;padding:6px 12px;background:rgba(244,113,78,.07);border:1px solid rgba(244,113,78,.16);border-radius:99px;width:fit-content;}
+body[data-event-theme="jummah"] .home-fasting-note,body[data-event-theme="ramadan"] .home-fasting-note{display:none!important;}
+.home-fasting-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);flex:none;}
 .home-jummah-reminders li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.5;color:var(--text-dim);margin-bottom:10px;}
 /* Tick button: light sage/grey when undone, switches to the active
    theme accent (coral normally, sage green in Jummah) once pressed.
@@ -2516,6 +2519,44 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-setting-row small{display:block;font-size:10px;margin-top:3px;}
 #page-travel .tm-action{width:100%;height:42px;margin-bottom:6px;border-radius:11px;text-align:left;padding:0 13px;display:flex;align-items:center;gap:13px;cursor:pointer;font:inherit;font-size:12.5px;}
 #page-travel .tm-action span{width:23px;text-align:center;font-size:17px;}
+
+/* ---- Flight tracker ---- */
+#page-travel .tm-flight-section{padding:16px 34px 0;}
+#page-travel .tm-flight-teaser{padding:38px 24px;text-align:center;}
+#page-travel .tm-flight-teaser-icon{font-size:26px;margin-bottom:10px;}
+#page-travel .tm-flight-teaser strong{display:block;font-family:'Lora',serif;font-size:16px;margin-bottom:6px;}
+#page-travel .tm-flight-teaser p{margin:0 0 14px;font-size:12.5px;line-height:1.55;}
+#page-travel .tm-flight-teaser-badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:99px;}
+#page-travel .tm-flight-card{padding:24px;}
+#page-travel .tm-flight-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px;}
+#page-travel .tm-flight-add-btn{flex:none;display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border-radius:12px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+#page-travel .tm-flight-add-btn span{font-size:16px;line-height:1;}
+#page-travel .tm-flight-empty{text-align:center;padding:26px 20px 8px;}
+#page-travel .tm-flight-empty .tm-cs-icon{font-size:28px;margin-bottom:8px;}
+#page-travel .tm-flight-empty strong{display:block;font-family:'Lora',serif;font-size:14.5px;margin-bottom:5px;}
+#page-travel .tm-flight-empty p{margin:0;font-size:11.5px;line-height:1.5;}
+#page-travel .tm-flight-list{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
+#page-travel .tm-flight-item{border-radius:16px;padding:16px 18px;position:relative;}
+#page-travel .tm-flight-item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+#page-travel .tm-flight-number{font-family:'Lora',serif;font-size:16px;font-weight:600;}
+#page-travel .tm-flight-badge{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 9px;border-radius:99px;}
+#page-travel .tm-flight-route{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+#page-travel .tm-flight-endpoint{flex:1;}
+#page-travel .tm-flight-endpoint .code{display:block;font-family:'Lora',serif;font-size:19px;font-weight:600;}
+#page-travel .tm-flight-endpoint .time{display:block;font-size:11.5px;margin-top:2px;}
+#page-travel .tm-flight-endpoint.right{text-align:right;}
+#page-travel .tm-flight-arrow{flex:none;font-size:15px;opacity:.6;}
+#page-travel .tm-flight-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;margin-bottom:10px;}
+#page-travel .tm-flight-meta span{display:flex;align-items:center;gap:4px;}
+#page-travel .tm-flight-actions{display:flex;gap:8px;}
+#page-travel .tm-flight-refresh-btn,#page-travel .tm-flight-remove-btn{flex:1;border-radius:10px;font-size:11.5px;padding:8px 0;text-align:center;cursor:pointer;}
+#page-travel .tm-flight-loading{font-size:11.5px;padding:6px 0;}
+#page-travel .tm-flight-field-label{display:block;font-size:11.5px;font-weight:600;margin:12px 0 6px;}
+#page-travel .tm-flight-field-label:first-of-type{margin-top:4px;}
+#page-travel .tm-flight-form-error{font-size:12px;margin-top:8px;}
+#page-travel .tm-flight-save-btn{width:100%;height:44px;border-radius:12px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:16px;}
+@media(max-width:600px){#page-travel .tm-flight-section{padding:16px 16px 0;}#page-travel .tm-flight-header{flex-direction:column;}#page-travel .tm-flight-add-btn{width:100%;justify-content:center;}}
+
 #page-travel .tm-bottom-banner{margin:16px 34px 10px;height:72px;border-radius:16px;display:flex;align-items:center;gap:14px;padding:0 23px;position:relative;overflow:hidden;}
 #page-travel .tm-info{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:19px;flex:none;}
 #page-travel .tm-bottom-banner strong{display:block;font-family:'Lora',serif;font-size:15px;}
@@ -2583,6 +2624,33 @@ body[data-theme="amoled"] #page-travel .tm-setting-row small{color:#aeb3cb;}
 body[data-theme="amoled"] #page-travel .tm-action{border:1px solid rgba(185,192,231,.12);background:linear-gradient(180deg,rgba(40,49,91,.72),rgba(34,42,78,.72));color:#ececf5;}
 body[data-theme="amoled"] #page-travel .tm-action:hover{border-color:rgba(173,160,255,.35);}
 body[data-theme="amoled"] #page-travel .tm-bottom-banner{border:1px solid rgba(180,188,228,.12);background:linear-gradient(100deg,#20294b,#1a2142);}
+
+body[data-theme="amoled"] #page-travel .tm-flight-add-btn{background:rgba(255,255,255,.06);border:1px solid rgba(220,224,245,.25);color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-teaser{background:linear-gradient(145deg,rgba(31,39,76,.9),rgba(27,34,66,.92));border:1px solid var(--tm-line);}
+body[data-theme="amoled"] #page-travel .tm-flight-teaser-icon{color:var(--tm-accent);}
+body[data-theme="amoled"] #page-travel .tm-flight-teaser strong{color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-teaser p{color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-teaser-badge{background:rgba(169,155,255,.22);color:#c7bdff;}
+body[data-theme="amoled"] #page-travel .tm-flight-add-btn:hover{background:rgba(255,255,255,.1);}
+body[data-theme="amoled"] #page-travel .tm-flight-item{background:linear-gradient(145deg,rgba(31,39,76,.9),rgba(27,34,66,.92));border:1px solid var(--tm-line);}
+body[data-theme="amoled"] #page-travel .tm-flight-number{color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-scheduled{background:rgba(15,110,86,.3);color:#7fd9ba;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-active{background:rgba(169,155,255,.22);color:#c7bdff;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-delayed{background:rgba(186,117,23,.28);color:#f2b877;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-landed{background:rgba(120,120,130,.25);color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-cancelled{background:rgba(163,45,45,.3);color:#f29a9a;}
+body[data-theme="amoled"] #page-travel .tm-flight-badge.status-unknown{background:rgba(120,120,130,.25);color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-endpoint .code{color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-endpoint .time{color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-arrow{color:#9298b6;}
+body[data-theme="amoled"] #page-travel .tm-flight-meta{color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-refresh-btn{background:rgba(255,255,255,.06);border:1px solid rgba(220,224,245,.2);color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-remove-btn{background:rgba(163,45,45,.18);border:1px solid rgba(163,45,45,.35);color:#f29a9a;}
+body[data-theme="amoled"] #page-travel .tm-flight-loading{color:#c3c6d9;}
+body[data-theme="amoled"] #page-travel .tm-flight-field-label{color:#f4f4fb;}
+body[data-theme="amoled"] #page-travel .tm-flight-form-error{color:#f29a9a;}
+body[data-theme="amoled"] #page-travel .tm-flight-save-btn{background:#a99bff;color:#181c34;border:0;}
+body[data-theme="amoled"] #page-travel .tm-flight-save-btn:hover{background:#b7abff;}
 body[data-theme="amoled"] #page-travel .tm-info{border:2px solid #e6e6f0;}
 body[data-theme="amoled"] #page-travel .tm-bottom-banner small{color:#c1c4d7;}
 body[data-theme="amoled"] #page-travel .tm-banner-flight{color:#a99bff;}
@@ -2692,6 +2760,33 @@ body:not([data-theme="amoled"]) #page-travel .tm-coming-soon strong{color:#2e242
 body:not([data-theme="amoled"]) #page-travel .tm-coming-soon p{color:#6b5850;}
 body:not([data-theme="amoled"]) #page-travel .tm-coming-soon .tm-cs-icon{color:#a06a9e;}
 body:not([data-theme="amoled"]) #page-travel .tm-bottom-banner{background:rgba(255,255,255,.13);backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);border:1px solid rgba(255,255,255,.38);box-shadow:0 6px 24px rgba(120,90,70,.08),inset 0 1px 0 rgba(255,255,255,.45);}
+
+body:not([data-theme="amoled"]) #page-travel .tm-flight-add-btn{background:rgba(255,255,255,.32);border:1px solid rgba(255,255,255,.5);color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-teaser{background:rgba(255,255,255,.2);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid rgba(255,255,255,.4);box-shadow:0 6px 24px rgba(120,90,70,.08),inset 0 1px 0 rgba(255,255,255,.45);}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-teaser-icon{filter:saturate(1.3);}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-teaser strong{color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-teaser p{color:#6b5850;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-teaser-badge{background:rgba(213,180,235,.42);color:#5a2e73;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-add-btn:hover{background:rgba(255,255,255,.46);}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-item{background:rgba(255,255,255,.22);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid rgba(255,255,255,.4);}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-number{color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-scheduled{background:rgba(158,206,199,.4);color:#1e5248;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-active{background:rgba(213,180,235,.42);color:#5a2e73;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-delayed{background:rgba(247,201,163,.5);color:#8a4a12;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-landed{background:rgba(200,200,200,.4);color:#4a4540;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-cancelled{background:rgba(224,168,148,.5);color:#8a2a1a;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-badge.status-unknown{background:rgba(200,200,200,.4);color:#4a4540;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-endpoint .code{color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-endpoint .time{color:#6b5850;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-arrow{color:#6b5850;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-meta{color:#6b5850;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-refresh-btn{background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.42);color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-remove-btn{background:rgba(224,168,148,.22);border:1px solid rgba(224,168,148,.4);color:#8a2a1a;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-loading{color:#6b5850;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-field-label{color:#2e2420;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-form-error{color:#8a2a1a;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-save-btn{background:#2e2420;color:#fdfaf6;border:0;}
+body:not([data-theme="amoled"]) #page-travel .tm-flight-save-btn:hover{background:#453a33;}
 body:not([data-theme="amoled"]) #page-travel .tm-info{border-color:#2e2420;color:#2e2420;}
 body:not([data-theme="amoled"]) #page-travel .tm-bottom-banner strong{color:#2e2420;}
 body:not([data-theme="amoled"]) #page-travel .tm-bottom-banner small{color:#6b5850;}
@@ -3023,6 +3118,10 @@ body[data-theme="amoled"] #page-travel .tm-modal-empty{color:#9298b6;}
       <h1 class="home-h1 home-h1-jummah">Jummah Mubarak</h1>
       <h1 class="home-h1 home-h1-ramadan">Ramadan Mubarak</h1>
       <p class="home-desc home-desc-standard">Find mosques, check prayer times, read the Qur'an, remember Allah and grow every day.</p>
+      <p class="home-fasting-note" id="homeFastingNote" style="display:none;">
+        <span class="home-fasting-dot" aria-hidden="true"></span>
+        <span id="homeFastingNoteText">Today is a Sunnah day for optional fasting</span>
+      </p>
       <p class="home-desc home-desc-jummah">May this blessed day bring you closer to Allah and fill your heart with peace &lt;3</p>
       <p class="home-desc home-desc-ramadan">Wishing you a blessed month of fasting, prayer and reflection &lt;3</p>
       <ul class="home-jummah-reminders" id="jummahRemindersList">
@@ -4411,7 +4510,7 @@ body[data-theme="amoled"] #page-travel .tm-modal-empty{color:#9298b6;}
           <div class="tm-card-title">Travel Prayer Guide</div>
           <p class="tm-card-desc">Short, step-by-step prayer<br>guides and rulings for:</p>
           <button class="tm-guide-row" data-guide="tayammum" type="button"><span class="tm-row-icon">♧</span><span><b>Tayammum</b><small>When water isn't available</small></span></button>
-          <button class="tm-guide-row" data-guide="salah" type="button"><span class="tm-row-icon">⌖</span><span><b>Combining (Jam')</b><small>Conditions and rules</small></span></button>
+          <button class="tm-guide-row" data-guide="travel-combining" type="button"><span class="tm-row-icon">⌖</span><span><b>Combining (Jam')</b><small>Conditions and rules</small></span></button>
           <button class="tm-guide-row" data-guide="sujoodsahw" type="button"><span class="tm-row-icon">◉</span><span><b>Missed Prayer</b><small>What to do</small></span></button>
           <button class="tm-link tm-guide-link" id="tmGuideBtn" type="button">View Full Guide <span>→</span></button>
         </article>
@@ -4459,6 +4558,48 @@ body[data-theme="amoled"] #page-travel .tm-modal-empty{color:#9298b6;}
           <button class="tm-action" id="tmShareLocation" type="button"><span>↗</span>Share Location</button>
         </article>
       </div>
+
+      <div class="tm-flight-section">
+        <article class="tm-card tm-flight-teaser">
+          <div class="tm-flight-teaser-icon">✨</div>
+          <strong>Something new is coming to Travel Mode</strong>
+          <p>A new way to prepare for your next trip is in the works. Stay tuned.</p>
+          <span class="tm-flight-teaser-badge">Coming soon</span>
+        </article>
+      </div>
+
+      <div id="tmFlightFormBackdrop" class="tm-modal-backdrop" style="display:none;">
+        <div class="tm-modal tm-flight-modal" role="dialog" aria-modal="true" aria-labelledby="tmFlightModalTitle">
+          <button class="tm-modal-close" id="tmFlightModalClose" type="button" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <h3 id="tmFlightModalTitle">Track a flight</h3>
+          <p class="tm-modal-sub">Enter the flight number as it appears on your ticket, e.g. BA106 or EK002.</p>
+
+          <label class="tm-flight-field-label" for="tmFlightNumberInput">Flight number</label>
+          <input type="text" id="tmFlightNumberInput" class="tm-modal-input" placeholder="e.g. BA106" autocomplete="off" style="text-transform:uppercase;">
+
+          <label class="tm-flight-field-label" for="tmFlightDateInput">Departure date</label>
+          <input type="date" id="tmFlightDateInput" class="tm-modal-input">
+
+          <label class="tm-flight-field-label" for="tmFlightDirectionSelect">Direction</label>
+          <select id="tmFlightDirectionSelect" class="tm-modal-input">
+            <option value="outbound">Outbound (leaving home)</option>
+            <option value="return">Return (coming home)</option>
+          </select>
+
+          <div id="tmFlightFormError" class="tm-flight-form-error" style="display:none;"></div>
+
+          <button class="tm-flight-save-btn" id="tmFlightSaveBtn" type="button">Track flight</button>
+        </div>
+      </div>
+
+      <!-- NOTE: The section above (#tmFlightFormBackdrop) and its matching
+           JS block ("---- Flight Tracker ----") are the real, working flight
+           tracker, intentionally hidden behind the teaser card until a
+           live data provider is connected. To reveal it, restore the
+           .tm-flight-card markup (see git history / prior version) in
+           place of .tm-flight-teaser above — no JS changes needed. -->
 
       <div class="tm-bottom-banner">
         <span class="tm-info">i</span>
@@ -10028,6 +10169,21 @@ const GUIDES = [
     ],
     mistakes:[{wrong:'Restarting the entire prayer over a minor, honest mistake', fix:"Sujood as-Sahw exists precisely so you don't have to start over — it applies to things like an extra rak'ah, a forgotten step, or uncertainty over the count, not deliberate errors.", source:"Sahih Muslim, Hadith on the Prophet's own Sujood as-Sahw"},{wrong:'Not knowing whether to prostrate before or after the Salam', fix:"As a simple default: if you added something extra, prostrate before the Salam; if you left something out, prostrate after it — schools of thought vary on the finer details.", source:'Fiqh us-Sunnah, Chapter on Sujood as-Sahw'}]},
 
+  { id:'travel-combining', title:"Combining & Shortening Prayers While Traveling", icon:'plane', tag:'For travelers', time:'7 min',
+    related:['travel','salah','qibla','finding-jamaah-away'],
+    summary:"Islam eases the burden of travel through two related concessions: Qasr (shortening the four-rak'ah prayers to two) and Jam' (combining Dhuhr with Asr, or Maghrib with Isha, into one time slot). The two are separate rulings — you can shorten without combining, and in some schools of thought, combine without shortening — and the exact conditions differ noticeably between the four schools of thought.",
+    note:"This guide summarizes the mainstream position of each school of thought. It is not a substitute for asking a knowledgeable local scholar about your specific journey, especially for edge cases like short layovers or unclear travel status.",
+    steps:[
+      {title:'Confirm you qualify as a traveler (musafir)', body:"The concessions only apply once you meet your school of thought's definition of 'travel' — both a minimum distance and, for combining specifically, genuine difficulty in praying each prayer at its own time. [Hanafi: roughly 77km / 48 miles as the minimum distance] [Shafi'i, Maliki, Hanbali: roughly 80-88km / 48-55 miles, historically described as a journey of two days by camel or foot]. You're generally considered a traveler once you leave the built-up limits of your home city or town, not merely once you leave your house."},
+      {title:'Check how long you plan to stay', body:"Once you arrive and settle at your destination, the traveler concessions have a time limit before you're considered a resident again. [Hanafi: your traveler status continues for up to 15 days at the destination] [Shafi'i, Maliki, Hanbali: up to 4 days, not counting the day you arrive or the day you leave]. Staying longer than this at one location generally ends the concessions until you travel again."},
+      {title:"Shorten the four-rak'ah prayers (Qasr)", body:"Dhuhr, Asr, and Isha are prayed as two rak'ahs instead of four. Fajr (already two rak'ahs) and Maghrib (three rak'ahs) are never shortened. [Hanafi: shortening is considered obligatory (wajib) for a traveler — praying four rak'ahs deliberately, without sitting for the first Tashahhud after the second, is said to invalidate the prayer] [Shafi'i, Maliki, Hanbali: shortening is a strongly emphasized Sunnah — praying the full four rak'ahs is valid but considered less complete than following the Prophet's ﷺ consistent practice while traveling]."},
+      {title:"Understand the two ways to combine (Jam')", body:"Where combining applies, it can be done in one of two ways: Jam' Taqdim, praying the second prayer early, in the first prayer's time slot — for example praying Asr right after Dhuhr, both within Dhuhr's window; or Jam' Ta'khir, delaying the first prayer so it's prayed together with the second, in the second prayer's time slot — for example delaying Dhuhr until Asr time and praying both then."},
+      {title:'Know your school of thought\'s position on combining', body:"This is where the schools of thought diverge most. [Shafi'i, Maliki, Hanbali: genuine combining (Jam' Haqiqi) of Dhuhr with Asr, and Maghrib with Isha, is permitted for ordinary travel, using either Taqdim or Ta'khir] [Hanafi: does not permit genuine combining for ordinary travel outside of Hajj — the two daily prayers at Arafah and Muzdalifah are treated as a specific exception. What can look like combining on an everyday journey is instead 'apparent' combining (Jam' Suri): praying the first prayer right at the very end of its own time window, then praying the second right at the very start of its own window, so each prayer technically still falls within its own time]. Fajr is never combined with any other prayer in any school of thought."},
+      {title:'Consider the purpose of your journey', body:"[Shafi'i, Hanbali: the journey should be for a lawful purpose — these schools of thought withhold the traveler concessions from a journey undertaken specifically to commit sin] [Hanafi, Maliki: the concessions apply regardless of the purpose of the journey]."},
+      {title:'Apply it practically on a flight or long journey', body:"In practice, many travelers combine Dhuhr and Asr before a flight departs or shortly after landing, and combine Maghrib and Isha similarly, rather than trying to pray precisely on a moving plane. Set an alarm for prayer times in your departure and arrival timezones so a short layover or overnight flight doesn't cause a prayer to be missed entirely."}
+    ],
+    mistakes:[{wrong:'Combining prayers as a default whenever traveling, regardless of genuine difficulty', fix:"Combining is a concession for hardship, not a routine convenience — where your school of thought permits it, use it when actually needed (during the flight, an overnight journey, or a packed itinerary), and pray on time separately when it's easy to do so.", source:"Fiqh us-Sunnah, Chapter on prayer while traveling"},{wrong:'Not knowing your own school of thought\'s distance and duration thresholds before a trip', fix:'Check the specific figures for your school of thought in advance, since they materially affect whether shortening and combining apply to a given journey.', source:'Kitab al-Fiqh ala al-Madhahib al-Arba\'ah, Chapter on the prayer of the traveler'},{wrong:'Assuming combining and shortening are the same ruling', fix:"They're separate concessions with separate conditions — a traveler may shorten without combining, and depending on the school of thought, the two don't always travel together.", source:'Fiqh us-Sunnah, Chapter on Qasr and Jam\''}]},
+
   { id:'qibla', title:'Facing the Qibla', icon:'compass', tag:'Good to know', time:'3 min',
     related:['salah','praying-in-car','finding-jamaah-away'],
     summary:'The direction of the Kaaba in Makkah, faced during every prayer.',
@@ -10188,7 +10344,7 @@ const GUIDES = [
     mistakes:[{wrong:'Forgetting to pay Zakat al-Fitr before the Eid al-Fitr prayer', fix:'Set this aside a few days in advance so it\'s ready before you leave for prayer — paying it after invalidates the intended timing.', source:'Sunan Abu Dawud, Hadith on the timing of Zakat al-Fitr'}]},
 
   { id:'travel', title:'Travel Etiquette', icon:'plane', tag:'Good to know', time:'5 min',
-    related:['finding-jamaah-away','breaking-fast-traveling','praying-in-car'],
+    related:['travel-combining','finding-jamaah-away','breaking-fast-traveling','praying-in-car'],
     summary:'How the Prophet ﷺ prepared for journeys, and the concessions Islam gives travelers along the way.',
     steps:[
       {title:'Say the traveler\u2019s dua', body:'Recited on setting off, once you\u2019re seated or underway.', arabic:'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَىٰ رَبِّنَا لَمُنقَلِبُونَ', translit:'Subhanal-ladhi sakhkhara lana hadha wa ma kunna lahu muqrinin, wa inna ila Rabbina lamunqalibun', translation:'Glory be to Him who has subjected this to us, and we could never have accomplished it by ourselves. And indeed, to our Lord we will return.'},
@@ -11617,6 +11773,26 @@ init();
     var ramadanBanner = document.getElementById('ramadan-banner');
     if(ramadanBanner){ ramadanBanner.classList.toggle('hidden', !ramadanActive); }
 
+    // Subtle Monday/Thursday optional-fasting note — standard theme only.
+    // Sunnah fasting is a distinct, separate matter from Ramadan (already
+    // obligatory) and Jummah (fasting Friday alone is discouraged), so this
+    // only ever shows when neither of those themes is active.
+    var fastingNote = document.getElementById('homeFastingNote');
+    if(fastingNote){
+      var dow = new Date().getDay(); // 0=Sun..6=Sat
+      var isSunnahFastDay = (dow === 1 || dow === 4); // Monday or Thursday
+      var showFastingNote = !ramadanActive && !jummahActive && isSunnahFastDay;
+      fastingNote.style.display = showFastingNote ? 'flex' : 'none';
+      if(showFastingNote){
+        var textEl = document.getElementById('homeFastingNoteText');
+        if(textEl){
+          textEl.textContent = dow === 1
+            ? "Monday is a Sunnah day for optional fasting"
+            : "Thursday is a Sunnah day for optional fasting";
+        }
+      }
+    }
+
     // Small top-right attribution note, shown only on Ramadan's first day
     // AND only when we fell back to the Saudi reference point (no saved
     // user location) — tells the visitor which authority the start date
@@ -13026,6 +13202,172 @@ window.WWP_TravelHome = (function(){
   }
   loadChecklist(); render();
   setInterval(()=>{if(!page.classList.contains('hidden'))render();},1000);
+
+  // ---- Flight Tracker ----
+  // Stores tracked flights locally (device-only, no account needed).
+  // Live status comes from /api/flight-status, a Cloudflare Pages
+  // Function that holds the AeroDataBox key server-side — the key can
+  // never live in this static HTML file, so lookups fail gracefully
+  // with a clear message until that endpoint is deployed.
+  const FLIGHTS_KEY='wwp:travel:flights';
+  const flightList=$('#tmFlightList');
+  const flightEmpty=$('#tmFlightEmpty');
+  const flightAddBtn=$('#tmFlightAddBtn');
+  const flightFormBackdrop=$('#tmFlightFormBackdrop');
+  const flightNumberInput=$('#tmFlightNumberInput');
+  const flightDateInput=$('#tmFlightDateInput');
+  const flightDirectionSelect=$('#tmFlightDirectionSelect');
+  const flightFormError=$('#tmFlightFormError');
+  const flightSaveBtn=$('#tmFlightSaveBtn');
+
+  function loadFlights(){
+    try{ return JSON.parse(localStorage.getItem(FLIGHTS_KEY)||'[]'); }catch(e){ return []; }
+  }
+  function saveFlights(list){
+    try{ localStorage.setItem(FLIGHTS_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function flightStatusLabel(status){
+    const map={scheduled:'Scheduled',active:'In the air',landed:'Landed',delayed:'Delayed',cancelled:'Cancelled',unknown:'Saved'};
+    return map[status]||'Saved';
+  }
+  function fmtFlightTime(iso){
+    if(!iso) return '—';
+    try{
+      const d=new Date(iso);
+      return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'});
+    }catch(e){ return iso; }
+  }
+
+  async function fetchFlightStatus(flightNumber, date){
+    const url='/api/flight-status?number='+encodeURIComponent(flightNumber)+'&date='+encodeURIComponent(date);
+    let res;
+    try{
+      res = await fetch(url);
+    }catch(networkErr){
+      throw new Error('Live tracking isn\u2019t connected yet \u2014 your flight is saved and will update once it is.');
+    }
+    if(res.status===404 || res.status===501){
+      throw new Error('Live tracking isn\u2019t connected yet \u2014 your flight is saved and will update once it is.');
+    }
+    if(!res.ok){
+      const body=await res.json().catch(()=>({}));
+      throw new Error(body.error || 'Couldn\u2019t reach live flight data right now.');
+    }
+    return res.json();
+  }
+
+  function renderFlights(){
+    if(!flightEmpty || !flightList) return; // Flight Tracker UI is hidden behind the teaser card for now.
+    const flights=loadFlights();
+    if(!flights.length){
+      flightEmpty.style.display='block';
+      flightList.innerHTML='';
+      return;
+    }
+    flightEmpty.style.display='none';
+    flightList.innerHTML=flights.map(f=>{
+      const status=(f.data && f.data.status) || (f.error ? 'unknown' : 'scheduled');
+      const badgeClass='status-'+status;
+      const dep=f.data ? f.data.departure : null;
+      const arr=f.data ? f.data.arrival : null;
+      return '<div class="tm-flight-item" data-id="'+f.id+'">'
+        + '<div class="tm-flight-item-top">'
+          + '<span class="tm-flight-number">'+esc(f.number)+'</span>'
+          + '<span class="tm-flight-badge '+badgeClass+'">'+esc(flightStatusLabel(status))+'</span>'
+        + '</div>'
+        + (f.loading ? '<div class="tm-flight-loading">Looking up flight…</div>' : '')
+        + (f.error ? '<div class="tm-flight-loading">'+esc(f.error)+'</div>' : '')
+        + (dep || arr ?
+          '<div class="tm-flight-route">'
+            + '<div class="tm-flight-endpoint"><span class="code">'+esc(dep && dep.airportCode || '—')+'</span><span class="time">'+fmtFlightTime(dep && dep.time)+'</span></div>'
+            + '<span class="tm-flight-arrow">✈</span>'
+            + '<div class="tm-flight-endpoint right"><span class="code">'+esc(arr && arr.airportCode || '—')+'</span><span class="time">'+fmtFlightTime(arr && arr.time)+'</span></div>'
+          + '</div>'
+          + '<div class="tm-flight-meta">'
+            + (dep && dep.terminal ? '<span>Terminal '+esc(dep.terminal)+'</span>' : '')
+            + (dep && dep.gate ? '<span>Gate '+esc(dep.gate)+'</span>' : '')
+            + (f.direction ? '<span>'+(f.direction==='outbound'?'Outbound':'Return')+'</span>' : '')
+          + '</div>'
+          : '<div class="tm-flight-meta"><span>'+esc(f.date)+' · '+(f.direction==='outbound'?'Outbound':'Return')+'</span></div>')
+        + '<div class="tm-flight-actions">'
+          + '<button class="tm-flight-refresh-btn" data-action="refresh" data-id="'+f.id+'" type="button">Refresh</button>'
+          + '<button class="tm-flight-remove-btn" data-action="remove" data-id="'+f.id+'" type="button">Remove</button>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+  }
+
+  async function refreshFlight(id){
+    const flights=loadFlights();
+    const idx=flights.findIndex(f=>f.id===id);
+    if(idx===-1) return;
+    flights[idx].loading=true; flights[idx].error=null;
+    saveFlights(flights); renderFlights();
+    try{
+      const data=await fetchFlightStatus(flights[idx].number, flights[idx].date);
+      const latest=loadFlights();
+      const i2=latest.findIndex(f=>f.id===id);
+      if(i2>-1){ latest[i2].data=data; latest[i2].loading=false; latest[i2].error=null; saveFlights(latest); }
+    }catch(err){
+      const latest=loadFlights();
+      const i2=latest.findIndex(f=>f.id===id);
+      if(i2>-1){ latest[i2].loading=false; latest[i2].error=err.message||'Could not fetch flight status.'; saveFlights(latest); }
+    }
+    renderFlights();
+  }
+
+  function openFlightForm(){
+    flightNumberInput.value='';
+    flightDateInput.value='';
+    flightDirectionSelect.value='outbound';
+    flightFormError.style.display='none';
+    flightFormBackdrop.style.display='flex';
+    setTimeout(()=>flightNumberInput.focus(), 50);
+  }
+  function closeFlightForm(){ flightFormBackdrop.style.display='none'; }
+
+  flightAddBtn?.addEventListener('click', openFlightForm);
+  $('#tmFlightModalClose')?.addEventListener('click', closeFlightForm);
+  flightFormBackdrop?.addEventListener('click',(e)=>{ if(e.target===flightFormBackdrop) closeFlightForm(); });
+
+  flightSaveBtn?.addEventListener('click', async ()=>{
+    const number=(flightNumberInput.value||'').trim().toUpperCase().replace(/\s+/g,'');
+    const date=flightDateInput.value;
+    const direction=flightDirectionSelect.value;
+    if(!/^[A-Z0-9]{3,8}$/.test(number)){
+      flightFormError.textContent='Enter a valid flight number, e.g. BA106.';
+      flightFormError.style.display='block';
+      return;
+    }
+    if(!date){
+      flightFormError.textContent='Choose a departure date.';
+      flightFormError.style.display='block';
+      return;
+    }
+    flightFormError.style.display='none';
+    const id='flt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const flights=loadFlights();
+    flights.push({id, number, date, direction, data:null, loading:true, error:null});
+    saveFlights(flights);
+    closeFlightForm();
+    renderFlights();
+    await refreshFlight(id);
+  });
+
+  flightList?.addEventListener('click',(e)=>{
+    const btn=e.target.closest('button[data-action]');
+    if(!btn) return;
+    const id=btn.dataset.id;
+    if(btn.dataset.action==='remove'){
+      const flights=loadFlights().filter(f=>f.id!==id);
+      saveFlights(flights);
+      renderFlights();
+    }else if(btn.dataset.action==='refresh'){
+      refreshFlight(id);
+    }
+  });
+
+  renderFlights();
 })();
 </script>
 </body>
