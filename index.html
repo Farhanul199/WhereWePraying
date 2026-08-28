@@ -2437,7 +2437,13 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   b.addEventListener('touchstart',(e)=>{touchStart=e.touches[0].clientY;},{passive:true});
   b.addEventListener('touchend',(e)=>{const touchEnd=e.changedTouches[0].clientY;if(touchEnd-touchStart>50){dismiss;}},{passive:true});
   window.addEventListener('offline',show);
-  window.addEventListener('online',dismiss);
+  window.addEventListener('online',()=>{
+    dismiss();
+    // Auto-refresh prayer times when reconnecting
+    if(window.PrayerTimesAPI && window.PrayerTimesAPI.fetchTimings){
+      window.PrayerTimesAPI.fetchTimings().catch(()=>0);
+    }
+  });
   if('serviceWorker' in navigator){navigator.serviceWorker.register('data:text/javascript;base64,'+btoa(`const CACHE_NAME='wwp-v1';const URLS=['/','/index.html','https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css'];const DUA_IMAGES=['assets/dua/tile/morning.webp','assets/dua/tile/evening.webp','assets/dua/tile/salah.webp','assets/dua/tile/sleep.webp','assets/dua/tile/praise.webp','assets/dua/tile/qurandua.webp','assets/dua/tile/istighfar.webp','assets/dua/tile/ummah.webp','assets/dua/tile/names.webp','assets/dua/tile/other.webp','assets/dua/banner/morning.webp','assets/dua/banner/evening.webp','assets/dua/banner/salah.webp','assets/dua/banner/sleep.webp','assets/dua/banner/praise.webp','assets/dua/banner/qurandua.webp','assets/dua/banner/istighfar.webp','assets/dua/banner/ummah.webp','assets/dua/banner/names.webp','assets/dua/banner/other.webp'];const ALL_URLS=[...URLS,...DUA_IMAGES];self.addEventListener('install',(e)=>{e.waitUntil(caches.open(CACHE_NAME).then((c)=>{return Promise.all(ALL_URLS.map(u=>c.add(u).catch(()=>0)))}).then(()=>self.skipWaiting()))});self.addEventListener('activate',(e)=>{e.waitUntil(caches.keys().then(n=>Promise.all(n.filter(x=>x!==CACHE_NAME).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});self.addEventListener('fetch',(e)=>{if(e.request.method!=='GET')return;const url=new URL(e.request.url);if(url.hostname==='api.aladhan.com'||url.hostname==='api.alquran.cloud'||url.hostname==='everyayah.com'){e.respondWith(caches.open(CACHE_NAME).then(c=>c.match(e.request).then(cached=>{const fp=fetch(e.request).then(r=>{if(r.status===200)c.put(e.request,r.clone());return r}).catch(()=>cached||new Response('',{status:503}));return cached||fp})));return}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(resp.status===200)caches.open(CACHE_NAME).then(c=>c.put(e.request,resp.clone()));return resp}).catch(()=>null)))});`)).catch(()=>0)}
 })();
 </script>
@@ -4269,10 +4275,38 @@ const PrayerTimes = (function(){
     }catch(e){ /* offline or not signed in — local cache above is fine */ }
   }
 
+  async function preCachePrayerTimes(loc){
+    // Cache next 7 days of prayer times for offline access
+    try{
+      const today = new Date();
+      for(let i = 0; i < 7; i++){
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        const dateStr = String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+        const url = API_BASE+'/timings/'+dateStr+'?latitude='+loc.lat+'&longitude='+loc.lon+'&method='+state.method;
+        try{
+          const res = await fetch(url);
+          if(res.ok){
+            const data = await res.json();
+            if(data.data && data.data.timings){
+              const t = data.data.timings;
+              const timings = {};
+              PRAYER_ORDER.forEach(p=>{ timings[p] = (t[p]||'').split(' ')[0]; });
+              const cacheKey = 'pt:'+dateStr+':'+loc.lat.toFixed(2)+','+loc.lon.toFixed(2)+':'+state.method;
+              await OfflineData.set('metadata', {key:cacheKey, value:JSON.stringify({timings, hijri:data.data.date?.hijri})});
+            }
+          }
+        }catch(e){ /* skip individual dates */ }
+      }
+    }catch(e){ console.log('Prayer times pre-cache failed:', e); }
+  }
+
   function saveLocation(loc){
     state.location = loc;
     try{ localStorage.setItem(LOC_KEY, JSON.stringify(loc)); }catch(e){}
     WWP.save('prayertimes', {location: state.location, method: state.method});
+    // Pre-cache 7 days offline
+    preCachePrayerTimes(loc).catch(()=>0);
   }
   function saveMethod(method){
     state.method = method;
@@ -4378,6 +4412,19 @@ const PrayerTimes = (function(){
       }
     }catch(e){}
 
+    // Try IndexedDB offline cache
+    const offlineKey = 'pt:'+todayKey()+':'+state.location.lat.toFixed(2)+','+state.location.lon.toFixed(2)+':'+state.method;
+    try{
+      const cached = await OfflineData.get('metadata', offlineKey);
+      if(cached && !state.timings){
+        const data = JSON.parse(cached.value);
+        state.timings = data.timings;
+        state.hijri = data.hijri;
+        state.loading = false;
+        notify();
+      }
+    }catch(e){}
+
     // ==> CONNECT (resolved): live call to api.aladhan.com — no key needed.
     try{
       const d = new Date();
@@ -4403,6 +4450,11 @@ const PrayerTimes = (function(){
 
       try{
         if(key) localStorage.setItem(key, JSON.stringify({timings:timings, hijri:hijri}));
+      }catch(e){}
+      
+      // Also cache to IndexedDB
+      try{
+        await OfflineData.set('metadata', {key:offlineKey, value:JSON.stringify({timings, hijri})});
       }catch(e){}
     }catch(e){
       state.loading = false;
@@ -4478,6 +4530,9 @@ const PrayerTimes = (function(){
     PRAYER_ORDER
   };
 })();
+
+// Expose for offline auto-refresh
+window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
 
 /* ============================================================
    PRAYER TIMES UI :: renders PrayerTimes state into both the
