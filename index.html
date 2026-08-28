@@ -12,6 +12,16 @@ window.__wwpPreview = (function(){
     return { theme: p.get('previewTheme'), event: p.get('previewEvent') };
   }catch(e){ return { theme:null, event:null }; }
 })();
+
+// Capture ?token= (magic link sign-in) before the router's
+// history.replaceState wipes the query string — see window.__wwpAuthToken,
+// read by the auth system script further down the page.
+window.__wwpAuthToken = (function(){
+  try{
+    var p = new URLSearchParams(location.search);
+    return p.get('token');
+  }catch(e){ return null; }
+})();
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2151,9 +2161,100 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     max-width: none;
   }
 }
+
+/* Auth Toast — brief confirmation banner */
+.auth-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  box-shadow: var(--shadow, 0 4px 16px rgba(0, 0, 0, 0.15));
+  padding: 14px 20px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.auth-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.auth-toast.error {
+  border-left-color: var(--red);
+}
+
+.auth-toast-icon {
+  display: flex;
+  align-items: center;
+  color: var(--green);
+}
+
+.auth-toast.error .auth-toast-icon {
+  color: var(--red);
+}
+
+@media (max-width: 480px) {
+  .auth-toast {
+    left: 16px;
+    right: 16px;
+    transform: translateY(-20px);
+    max-width: none;
+  }
+  .auth-toast.show {
+    transform: translateY(0);
+  }
+}
 </style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
+<script>
+// Early event-theme resolver — runs before any header/content is painted,
+// so Jummah/Ramadan styling is already in place on first paint instead of
+// flashing standard theme first. Mirrors the cache/Friday logic in the
+// full resolver further down the page; that block re-verifies via the
+// live Hijri API afterward and corrects this if the cache was stale.
+(function(){
+  try{
+    var preview = window.__wwpPreview || {theme:null, event:null};
+    var forceEventTheme = preview.event;
+
+    if(forceEventTheme === 'ramadan' || forceEventTheme === 'jummah'){
+      document.body.setAttribute('data-event-theme', forceEventTheme);
+      return;
+    }
+    if(forceEventTheme === 'none'){ return; }
+
+    var d = new Date();
+    var todayKey = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+    var isFriday = d.getDay() === 5;
+
+    var ramadanActive = false;
+    try{
+      var raw = localStorage.getItem('wwp:ramadan:hijriCheck');
+      if(raw){
+        var cached = JSON.parse(raw);
+        if(cached && cached.dateKey === todayKey) ramadanActive = !!cached.isRamadan;
+      }
+    }catch(e){}
+
+    if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
+    else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
+  }catch(e){}
+})();
+</script>
 
 <header class="topbar">
 
@@ -10680,8 +10781,7 @@ init();
   }
 
   async function handleVerifyRedirect() {
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get('token');
+    const token = window.__wwpAuthToken;
 
     if (!token) return;
 
@@ -10697,10 +10797,10 @@ init();
         authState = { authenticated: true, email: data.email, userId: data.userId };
         renderAuthUI('signed-in');
         window.history.replaceState({}, document.title, '/');
-        console.log('[SUCCESS] Signed in successfully!');
+        showAuthToast("You're signed in!", 'success');
       } else {
         window.history.replaceState({}, document.title, '/');
-        console.log('[ERROR]', data.error || 'Sign-in failed');
+        showAuthToast(data.error || 'Sign-in failed', 'error');
       }
     } catch (err) {
       console.error('handleVerifyRedirect error:', err);
@@ -10736,6 +10836,29 @@ init();
     const errEl = document.getElementById('authPopupError');
     if (msgEl) msgEl.classList.add('hidden');
     if (errEl) errEl.classList.add('hidden');
+  }
+
+  function showAuthToast(msg, type = 'success') {
+    // Remove any existing toast first
+    const existing = document.querySelector('.auth-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'auth-toast' + (type === 'error' ? ' error' : '');
+
+    const icon = type === 'error'
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>';
+
+    toast.innerHTML = `<span class="auth-toast-icon">${icon}</span><span>${msg}</span>`;
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
   }
 
   if (document.readyState === 'loading') {
