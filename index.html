@@ -2105,6 +2105,67 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   cursor: not-allowed;
 }
 
+.auth-btn-secondary {
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  flex: none;
+}
+
+.auth-btn-secondary:hover {
+  background: var(--active-bg, var(--surface-alt));
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.auth-tab {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.auth-tab.active {
+  color: var(--coral);
+  border-bottom-color: var(--coral);
+}
+
+.auth-tab-panel.hidden {
+  display: none;
+}
+
+.auth-settings-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.auth-settings-location {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .auth-btn-google {
   display: flex;
   align-items: center;
@@ -2339,10 +2400,42 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   <!-- Account popup modal -->
   <div id="accountPopup" class="auth-popup hidden">
     <div class="auth-popup-content">
-      <!-- Sign-out state (when authenticated) -->
+      <!-- Signed-in state: tabbed Account / Settings -->
       <div class="auth-popup-signed-in hidden">
-        <div class="auth-popup-email" id="authPopupEmail"></div>
-        <button class="auth-btn auth-btn-primary" id="signOutBtn">Sign Out</button>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="authTabAccount" type="button">Account</button>
+          <button class="auth-tab" id="authTabSettings" type="button">Settings</button>
+        </div>
+
+        <!-- Account tab -->
+        <div class="auth-tab-panel" id="authPanelAccount">
+          <div class="auth-popup-email" id="authPopupEmail"></div>
+          <button class="auth-btn auth-btn-primary" id="signOutBtn">Sign Out</button>
+        </div>
+
+        <!-- Settings tab -->
+        <div class="auth-tab-panel hidden" id="authPanelSettings">
+          <label class="auth-settings-label">Username</label>
+          <div class="auth-form-group">
+            <input
+              type="text"
+              id="usernameInput"
+              class="auth-form-input"
+              placeholder="pick a username"
+              maxlength="20"
+              autocomplete="off"
+            />
+            <button class="auth-btn auth-btn-primary" id="saveUsernameBtn">Save</button>
+          </div>
+          <div class="auth-popup-message hidden" id="usernameMessage"></div>
+          <div class="auth-popup-error hidden" id="usernameError"></div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Location</label>
+          <div class="auth-settings-location">
+            <span id="settingsLocationLabel">Not set</span>
+            <button class="auth-btn auth-btn-secondary" id="manageLocationBtn" type="button">Change</button>
+          </div>
+        </div>
       </div>
 
       <!-- Sign-in state (when not authenticated) -->
@@ -10770,10 +10863,40 @@ init();
       signInDiv.classList.add('hidden');
       const emailSpan = popup.querySelector('#authPopupEmail');
       if (emailSpan) emailSpan.textContent = authState.email;
+      loadProfile();
+      loadSettingsLocation();
     } else {
       signedInDiv.classList.add('hidden');
       signInDiv.classList.remove('hidden');
     }
+  }
+
+  async function loadProfile() {
+    try {
+      const res = await fetch('/api/user/profile', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+      });
+      const data = await res.json();
+      const input = document.getElementById('usernameInput');
+      if (input && data.username) input.value = data.username;
+    } catch (e) {
+      console.error('loadProfile error:', e);
+    }
+  }
+
+  function loadSettingsLocation() {
+    const labelEl = document.getElementById('settingsLocationLabel');
+    if (!labelEl) return;
+    try {
+      const raw = localStorage.getItem('wwp:prayertimes:location');
+      if (raw) {
+        const loc = JSON.parse(raw);
+        labelEl.textContent = loc.label || (loc.lat + ', ' + loc.lon);
+        return;
+      }
+    } catch (e) {}
+    labelEl.textContent = 'Not set';
   }
 
   function setupEventListeners() {
@@ -10807,6 +10930,99 @@ init();
       emailInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') sendMagicLink();
       });
+    }
+
+    const tabAccount = document.getElementById('authTabAccount');
+    const tabSettings = document.getElementById('authTabSettings');
+    if (tabAccount) tabAccount.addEventListener('click', () => switchAuthTab('account'));
+    if (tabSettings) tabSettings.addEventListener('click', () => switchAuthTab('settings'));
+
+    const saveUsernameBtn = document.getElementById('saveUsernameBtn');
+    if (saveUsernameBtn) saveUsernameBtn.addEventListener('click', saveUsername);
+
+    const usernameInput = document.getElementById('usernameInput');
+    if (usernameInput) {
+      usernameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveUsername();
+      });
+    }
+
+    const manageLocationBtn = document.getElementById('manageLocationBtn');
+    if (manageLocationBtn) {
+      manageLocationBtn.addEventListener('click', () => {
+        closeAuthPopup();
+        if (typeof window.switchPage === 'function') window.switchPage('prayertimes');
+      });
+    }
+  }
+
+  function switchAuthTab(tab) {
+    const tabAccount = document.getElementById('authTabAccount');
+    const tabSettings = document.getElementById('authTabSettings');
+    const panelAccount = document.getElementById('authPanelAccount');
+    const panelSettings = document.getElementById('authPanelSettings');
+
+    if (tab === 'settings') {
+      tabAccount.classList.remove('active');
+      tabSettings.classList.add('active');
+      panelAccount.classList.add('hidden');
+      panelSettings.classList.remove('hidden');
+      loadSettingsLocation();
+    } else {
+      tabSettings.classList.remove('active');
+      tabAccount.classList.add('active');
+      panelSettings.classList.add('hidden');
+      panelAccount.classList.remove('hidden');
+    }
+  }
+
+  async function saveUsername() {
+    const input = document.getElementById('usernameInput');
+    const msgEl = document.getElementById('usernameMessage');
+    const errEl = document.getElementById('usernameError');
+    const username = input?.value?.trim();
+
+    msgEl?.classList.add('hidden');
+    errEl?.classList.add('hidden');
+
+    if (!username || !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+      if (errEl) {
+        errEl.textContent = 'Username must be 3-20 characters, letters/numbers/underscores only';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = data.error || 'Failed to save username';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (msgEl) {
+        msgEl.textContent = 'Username saved!';
+        msgEl.classList.remove('hidden');
+      }
+    } catch (e) {
+      console.error('saveUsername error:', e);
+      if (errEl) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+      }
     }
   }
 
