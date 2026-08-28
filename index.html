@@ -2512,6 +2512,12 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
           <div id="friendList" class="auth-friend-list">
             <span class="auth-popup-text">No friends yet.</span>
           </div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Leaderboard</label>
+          <p class="auth-popup-text" style="margin-bottom:8px;">Based on streak, prayer consistency and deeds logged.</p>
+          <div id="leaderboardList" class="auth-friend-list">
+            <span class="auth-popup-text">Add friends to see the leaderboard.</span>
+          </div>
         </div>
       </div>
 
@@ -7430,6 +7436,32 @@ function renderStats(){
   const fg = $('#weekRingFg');
   fg.setAttribute('stroke-dasharray', c.toFixed(1));
   fg.setAttribute('stroke-dashoffset', (c*(1-pct2/100)).toFixed(1));
+
+  // Combined activity score for the friends leaderboard — weights streak
+  // most heavily (consistency over time matters more than any one day),
+  // then weekly prayer consistency, then deeds logged this week.
+  const combinedScore = (state.streakDays * 10) + avg + (deedsThisWeek * 3);
+  submitLeaderboardScore(combinedScore);
+}
+
+// Debounced so we're not hitting the API on every keystroke-triggered
+// re-render — only signed-in users have a leaderboard entry at all.
+let leaderboardSubmitTimer = null;
+function submitLeaderboardScore(score){
+  clearTimeout(leaderboardSubmitTimer);
+  leaderboardSubmitTimer = setTimeout(async ()=>{
+    try{
+      await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || ''
+        },
+        credentials: 'include',
+        body: JSON.stringify({ score })
+      });
+    }catch(e){ /* silent — leaderboard is a nice-to-have, not critical */ }
+  }, 1500);
 }
 
 function renderReflectionForm(){
@@ -11081,6 +11113,7 @@ init();
       tabFriends.classList.add('active');
       panelFriends.classList.remove('hidden');
       loadFriends();
+      loadLeaderboard();
     } else {
       tabAccount.classList.add('active');
       panelAccount.classList.remove('hidden');
@@ -11154,6 +11187,38 @@ init();
       }
     } catch (e) {
       console.error('loadFriends error:', e);
+    }
+  }
+
+  async function loadLeaderboard() {
+    const listEl = document.getElementById('leaderboardList');
+    if (!listEl) return;
+
+    try {
+      const res = await fetch('/api/leaderboard', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+      });
+      const data = await res.json();
+      if (!res.ok) return;
+
+      listEl.innerHTML = '';
+
+      if (!data.entries || data.entries.length <= 1) {
+        listEl.innerHTML = '<span class="auth-popup-text">Add friends to see the leaderboard.</span>';
+        return;
+      }
+
+      data.entries.forEach((entry, i) => {
+        const item = document.createElement('div');
+        item.className = 'auth-friend-item';
+        const rank = i + 1;
+        const label = entry.isYou ? `${escapeHtml(entry.username)} (You)` : escapeHtml(entry.username);
+        item.innerHTML = `<span class="auth-friend-item-name">#${rank} ${label}</span><span>${entry.score}</span>`;
+        listEl.appendChild(item);
+      });
+    } catch (e) {
+      console.error('loadLeaderboard error:', e);
     }
   }
 
