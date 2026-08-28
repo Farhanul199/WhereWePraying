@@ -1808,7 +1808,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-adhkar-divider{height:1px;background:var(--border);margin:22px 0 4px;border:none;}
 .pt-hadith-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:9px;transition:background .2s ease, border-color .2s ease;}
 .pt-hadith-card .phc-arabic{font-family:'Amiri','Scheherazade New',serif;font-size:16.5px;direction:rtl;text-align:right;line-height:1.85;color:var(--text);margin-bottom:9px;}
-.pt-hadith-card .phc-translit{font-size:12px;font-style:italic;line-height:1.5;color:var(--text-dim);margin-bottom:7px;}
+.pt-hadith-card .phc-translit{font-size:12px;font-weight:700;font-style:italic;line-height:1.5;color:var(--text);margin-bottom:7px;}
 .pt-hadith-card .phc-translation{font-size:12.5px;line-height:1.55;color:var(--text-dim);margin-bottom:7px;}
 .pt-hadith-card .phc-cite{font-size:11px;color:var(--text-faint);text-align:right;}
 /* Watercolour fill per prayer — same fill in both columns; Adhkar
@@ -8208,25 +8208,73 @@ const ITEMS = {
     arabic:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ",
     translit:"Subḥānallāhi wa biḥamdih, subḥānallāhi l-ʿAẓīm.",
     translation:"Glory be to Allah and praise Him, glory be to Allah the Magnificent.",
-    reference:"Hisn al-Muslim 93 (Al-Bukhari 6682, Muslim 2694) — two phrases light on the tongue, heavy on the Scale, and beloved to the Most Merciful" },
+    reference:"Al-Bukhari 6682, Muslim 2694 — two phrases light on the tongue, heavy on the Scale, and beloved to the Most Merciful" },
 
   'four-witnesses-morning':{ title:"Bearing Witness at the Start of the Day", subtitle:"Recite four times", icon:'shield',
     arabic:"اللَّهُمَّ إِنِّي أَصْبَحْتُ أُشْهِدُكَ وَأُشْهِدُ حَمَلَةَ عَرْشِكَ، وَمَلَائِكَتَكَ وَجَمِيعَ خَلْقِكَ، أَنَّكَ أَنْتَ اللَّهُ لَا إِلَٰهَ إِلَّا أَنْتَ وَحْدَكَ لَا شَرِيكَ لَكَ، وَأَنَّ مُحَمَّدًا عَبْدُكَ وَرَسُولُكَ",
     translit:"Allāhumma innī aṣbaḥtu ush-hiduka wa ush-hidu ḥamalata ʿarshik, wa malāʾikataka wa jamīʿa khalqik, annaka anta-llāhu lā ilāha illā ant, waḥdaka lā sharīka lak, wa anna Muḥammadan ʿabduka wa rasūluk. (×4)",
     translation:"O Allah, I have entered a new morning and call upon You and upon the bearers of Your Throne, upon Your angels and all creation to bear witness that You are Allah, none has the right to be worshipped but You alone, You have no partner, and that Muhammad is Your slave and Your Messenger.",
-    reference:"Hisn al-Muslim 93 (Abu Dawud 4/317) — whoever says this four times in the morning or evening, Allah spares them from the Fire" },
+    reference:"Hisn al-Muslim 80 (Abu Dawud 4/317) — whoever says this four times in the morning or evening, Allah spares them from the Fire" },
 
   'four-witnesses-evening':{ title:"Bearing Witness at the Close of the Day", subtitle:"Recite four times", icon:'shield',
     arabic:"اللَّهُمَّ إِنِّي أَمْسَيْتُ أُشْهِدُكَ وَأُشْهِدُ حَمَلَةَ عَرْشِكَ، وَمَلَائِكَتَكَ وَجَمِيعَ خَلْقِكَ، أَنَّكَ أَنْتَ اللَّهُ لَا إِلَٰهَ إِلَّا أَنْتَ وَحْدَكَ لَا شَرِيكَ لَكَ، وَأَنَّ مُحَمَّدًا عَبْدُكَ وَرَسُولُكَ",
     translit:"Allāhumma innī amsaytu ush-hiduka wa ush-hidu ḥamalata ʿarshik, wa malāʾikataka wa jamīʿa khalqik, annaka anta-llāhu lā ilāha illā ant, waḥdaka lā sharīka lak, wa anna Muḥammadan ʿabduka wa rasūluk. (×4)",
     translation:"O Allah, I have entered a new evening and call upon You and upon the bearers of Your Throne, upon Your angels and all creation to bear witness that You are Allah, none has the right to be worshipped but You alone, You have no partner, and that Muhammad is Your slave and Your Messenger.",
-    reference:"Hisn al-Muslim 93 (Abu Dawud 4/317) — evening form of the same witnessing du'a; Allah spares from the Fire whoever recites it four times" },
+    reference:"Hisn al-Muslim 80 (Abu Dawud 4/317) — evening form of the same witnessing du'a; Allah spares from the Fire whoever recites it four times" },
 
   'fitrah-morning':{ title:"Upon the Fitrah of Islam", subtitle:"Rising upon the natural religion", icon:'sun',
     arabic:"أَصْبَحْنَا عَلَىٰ فِطْرَةِ الْإِسْلَامِ، وَعَلَىٰ كَلِمَةِ الْإِخْلَاصِ، وَعَلَىٰ دِينِ نَبِيِّنَا مُحَمَّدٍ ﷺ، وَعَلَىٰ مِلَّةِ أَبِينَا إِبْرَاهِيمَ، حَنِيفًا مُسْلِمًا وَمَا كَانَ مِنَ الْمُشْرِكِينَ",
     translit:"Aṣbaḥnā ʿalā fiṭrati l-Islām, wa ʿalā kalimati l-ikhlāṣ, wa ʿalā dīni Nabiyyinā Muḥammadin (ṣallallāhu ʿalayhi wa sallam), wa ʿalā millati abīnā Ibrāhīm, ḥanīfan musliman wa mā kāna minal-mushrikīn.",
     translation:"We have risen this morning upon the fitrah of Islam, upon the word of pure faith, upon the religion of our Prophet Muhammad ﷺ, and upon the way of our father Ibrahim, who was upright and submitted to Allah, and was not of those who associate partners with Him.",
-    reference:"Hisn al-Muslim (Ahmad 3/406-407, 3/439) — narrated by Ibn 'Umar, recited by the Prophet ﷺ upon rising each morning" },
+    reference:"Hisn al-Muslim 90 (Ahmad 3/406-407, 3/439) — narrated by Ibn 'Umar; the evening form substitutes 'amsaynā' (we have entered the evening) for 'aṣbaḥnā'" },
+
+  'blessing-from-you':{ title:"Every Blessing Is From You Alone", subtitle:"A short acknowledgement of Allah's favour", icon:'star',
+    arabic:"اللَّهُمَّ مَا أَصْبَحَ بِي مِنْ نِعْمَةٍ أَوْ بِأَحَدٍ مِنْ خَلْقِكَ، فَمِنْكَ وَحْدَكَ لَا شَرِيكَ لَكَ، فَلَكَ الْحَمْدُ وَلَكَ الشُّكْرُ",
+    translit:"Allāhumma mā aṣbaḥa bī min niʿmatin aw bi-aḥadin min khalqik, fa-minka waḥdaka lā sharīka lak, fa-lakal-ḥamdu wa lakash-shukr.",
+    translation:"O Allah, whatever blessing I or any of Your creation have risen upon this morning is from You alone, without partner. So to You belongs all praise and to You belongs all thanks.",
+    reference:"Hisn al-Muslim 81 (Abu Dawud, Ibn As-Sunni) — whoever says this has fulfilled their thanks for that day" },
+
+  'afw-afiyah':{ title:"Pardon and Well-Being in Every Direction", subtitle:"Comprehensive protection for the day ahead", icon:'shield',
+    arabic:"اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ، اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي دِينِي وَدُنْيَايَ وَأَهْلِي وَمَالِي، اللَّهُمَّ اسْتُرْ عَوْرَاتِي وَآمِنْ رَوْعَاتِي، اللَّهُمَّ احْفَظْنِي مِنْ بَيْنِ يَدَيَّ وَمِنْ خَلْفِي وَعَنْ يَمِينِي وَعَنْ شِمَالِي وَمِنْ فَوْقِي، وَأَعُوذُ بِعَظَمَتِكَ أَنْ أُغْتَالَ مِنْ تَحْتِي",
+    translit:"Allāhumma innī asʾalukal-ʿafwa wal-ʿāfiyata fid-dunyā wal-ākhirah. Allāhumma innī asʾalukal-ʿafwa wal-ʿāfiyata fī dīnī wa dunyāya wa ahlī wa mālī. Allāhummastur ʿawrātī wa āmin rawʿātī. Allāhumma ḥfaẓnī min bayni yadayya wa min khalfī wa ʿan yamīnī wa ʿan shimālī wa min fawqī, wa aʿūdhu biʿaẓamatika an ughtāla min taḥtī.",
+    translation:"O Allah, I ask You for pardon and well-being in this life and the next. O Allah, I ask You for pardon and well-being in my religious and worldly affairs, and my family and my wealth. O Allah, veil my weaknesses and ease my fears. O Allah, protect me from in front of me, from behind me, from my right, from my left, and from above me, and I take refuge in Your greatness from being seized from beneath me.",
+    reference:"Hisn al-Muslim 84 (Abu Dawud, Ibn Majah)" },
+
+  'witness-unseen-seen':{ title:"Bearing Witness to the Knower of the Unseen", subtitle:"Refuge from the evil of one's own soul", icon:'shield',
+    arabic:"اللَّهُمَّ عَالِمَ الْغَيْبِ وَالشَّهَادَةِ فَاطِرَ السَّمَاوَاتِ وَالْأَرْضِ، رَبَّ كُلِّ شَيْءٍ وَمَلِيكَهُ، أَشْهَدُ أَنْ لَا إِلَٰهَ إِلَّا أَنْتَ، أَعُوذُ بِكَ مِنْ شَرِّ نَفْسِي وَمِنْ شَرِّ الشَّيْطَانِ وَشِرْكِهِ",
+    translit:"Allāhumma ʿālimal-ghaybi wash-shahādah, fāṭiras-samāwāti wal-arḍ, Rabba kulli shayʾin wa malīkah, ash-hadu an lā ilāha illā ant, aʿūdhu bika min sharri nafsī wa min sharrish-shayṭāni wa shirkih.",
+    translation:"O Allah, Knower of the unseen and the seen, Creator of the heavens and the earth, Lord and Sovereign of all things — I bear witness that none has the right to be worshipped but You. I take refuge in You from the evil of my own soul and from the evil of Shaytan and his shirk.",
+    reference:"Hisn al-Muslim 85 (At-Tirmidhi, Abu Dawud)" },
+
+  'bismillah-protection':{ title:"Nothing Can Cause Harm With This Name", subtitle:"Recite three times", icon:'shield',
+    arabic:"بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ",
+    translit:"Bismillāhil-ladhī lā yaḍurru maʿa smihi shayʾun fil-arḍi wa lā fis-samāʾi wa huwas-Samīʿul-ʿAlīm. (×3)",
+    translation:"In the name of Allah, with whose name nothing on earth or in the heavens can cause harm, and He is the All-Hearing, the All-Knowing.",
+    reference:"Hisn al-Muslim 86 (Abu Dawud, At-Tirmidhi) — whoever recites this three times will not be struck by sudden affliction until the next morning or evening" },
+
+  'ya-hayyu-ya-qayyum':{ title:"O Ever-Living, O Sustainer", subtitle:"Seeking Allah's mercy for every affair", icon:'star',
+    arabic:"يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ، أَصْلِحْ لِي شَأْنِي كُلَّهُ، وَلَا تَكِلْنِي إِلَىٰ نَفْسِي طَرْفَةَ عَيْنٍ",
+    translit:"Yā Ḥayyu yā Qayyūmu bi-raḥmatika astaghīth, aṣliḥ lī shaʾnī kullah, wa lā takilnī ilā nafsī ṭarfata ʿayn.",
+    translation:"O Ever-Living, O Self-Subsisting Sustainer of all, by Your mercy I seek relief. Set right all of my affairs, and do not leave me to myself even for the blink of an eye.",
+    reference:"Hisn al-Muslim 88 (An-Nasa'i, Al-Hakim)" },
+
+  'khayra-hadhal-yawm':{ title:"The Good of This Day", subtitle:"Asking for its triumphs and guidance", icon:'sun',
+    arabic:"أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ رَبِّ الْعَالَمِينَ، اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَٰذَا الْيَوْمِ فَتْحَهُ وَنَصْرَهُ وَنُورَهُ وَبَرَكَتَهُ وَهُدَاهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِيهِ وَشَرِّ مَا بَعْدَهُ",
+    translit:"Aṣbaḥnā wa aṣbaḥal-mulku lillāhi Rabbil-ʿālamīn. Allāhumma innī asʾaluka khayra hādhal-yawm: fatḥahu wa naṣrahu wa nūrahu wa barakatahu wa hudāh, wa aʿūdhu bika min sharri mā fīhi wa sharri mā baʿdah.",
+    translation:"We have entered the morning, and with us the whole dominion of Allah, Lord of all the worlds. O Allah, I ask You for the good of this day: its triumphs, its help, its light, its blessing, and its guidance, and I take refuge in You from the evil in it and the evil that follows it.",
+    reference:"Hisn al-Muslim 89 (Abu Dawud) — evening form substitutes 'this night' for 'this day'" },
+
+  'subhanallahi-hundred':{ title:"Subhanallahi wa Bihamdihi", subtitle:"Recite one hundred times", icon:'repeat',
+    arabic:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
+    translit:"Subḥānallāhi wa biḥamdih. (×100)",
+    translation:"How perfect Allah is, and I praise Him.",
+    reference:"Hisn al-Muslim 91 (Muslim) — whoever says this one hundred times a day will have their sins forgiven, even if they are like the foam of the sea" },
+
+  'subhanallahi-extended':{ title:"By the Weight of His Throne", subtitle:"Recite three times", icon:'star',
+    arabic:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ عَدَدَ خَلْقِهِ، وَرِضَا نَفْسِهِ، وَزِنَةَ عَرْشِهِ، وَمِدَادَ كَلِمَاتِهِ",
+    translit:"Subḥānallāhi wa biḥamdih, ʿadada khalqih, wa riḍā nafsih, wa zinata ʿarshih, wa midāda kalimātih. (×3)",
+    translation:"How perfect Allah is, and I praise Him, by the number of His creation, by His pleasure, by the weight of His Throne, and by the extent of His words.",
+    reference:"Hisn al-Muslim 94 (Muslim)" },
 
   // ============ EVENING ============
   'evening-dhikr':{ title:"Evening Remembrance", subtitle:"Amsayna wa amsal-mulku lillah", icon:'moon',
@@ -8800,10 +8848,10 @@ const ITEMS = {
 const CATEGORIES = [
   {id:'morning', title:"Morning", icon:'sun', theme:'theme-morning', light:false,
     desc:"Adhkar to start your day with light and protection.",
-    items:['morning-dhikr','ayat-al-kursi','sayyidul-istighfar','morning-wellbeing','morning-sufficient','three-quls','hundred-hasanat','two-light-words','four-witnesses-morning','fitrah-morning']},
+    items:['morning-dhikr','ayat-al-kursi','sayyidul-istighfar','morning-wellbeing','morning-sufficient','three-quls','hundred-hasanat','two-light-words','four-witnesses-morning','fitrah-morning','blessing-from-you','afw-afiyah','witness-unseen-seen','bismillah-protection','ya-hayyu-ya-qayyum','khayra-hadhal-yawm','subhanallahi-hundred','subhanallahi-extended']},
   {id:'evening', title:"Evening", icon:'moon', theme:'theme-evening', light:true,
     desc:"Adhkar to close the day and seek Allah's protection through the night.",
-    items:['evening-dhikr','evening-protection','evening-pleased','ayat-al-kursi','three-quls','hundred-hasanat','two-light-words','four-witnesses-evening']},
+    items:['evening-dhikr','evening-protection','evening-pleased','ayat-al-kursi','three-quls','hundred-hasanat','two-light-words','four-witnesses-evening','afw-afiyah','witness-unseen-seen','bismillah-protection','ya-hayyu-ya-qayyum','subhanallahi-hundred','subhanallahi-extended']},
   {id:'salah', title:"Salah and After Salah", icon:'mosque', theme:'theme-salah', light:false,
     desc:"Remembrance to say after completing each obligatory prayer.",
     items:['tasbih-33','dua-after-salah','ayat-al-kursi-salah','three-quls','istikhara',
