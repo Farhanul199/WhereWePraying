@@ -62,7 +62,9 @@ export async function onRequestGet(context) {
 
   const db = context.env.DB;
 
-  // Friends (accepted) plus self, with their latest score (0 if never submitted).
+  // Friends (accepted) + followed users + self, with their latest
+  // score (0 if never submitted). Following someone lets you compete
+  // with them on this ranking even without a mutual friend request.
   const rows = await db
     .prepare(
       `SELECT u.id, u.username, COALESCE(ls.score, 0) AS score
@@ -73,6 +75,9 @@ export async function onRequestGet(context) {
             SELECT CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
             FROM friendships f
             WHERE (f.requester_id = ?1 OR f.addressee_id = ?1) AND f.status = 'accepted'
+          )
+          OR u.id IN (
+            SELECT followed_id FROM follows WHERE follower_id = ?1
           )
        ORDER BY score DESC`
     )
