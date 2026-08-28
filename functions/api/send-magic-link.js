@@ -29,8 +29,12 @@ export async function onRequestPost(context) {
     const token = generateToken();
     const expiresAt = getExpiryTime();
 
-    // Check if user exists; if not, create
-    let user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    // Check if the address matches a primary OR recovery email; if
+    // neither, treat it as a brand-new signup on the primary email.
+    let user = await db
+      .prepare('SELECT id FROM users WHERE email = ?1 OR recovery_email = ?1')
+      .bind(email)
+      .first();
 
     if (!user) {
       const userId = crypto.randomUUID();
