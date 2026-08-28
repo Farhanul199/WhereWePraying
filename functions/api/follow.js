@@ -27,6 +27,38 @@ async function resolveSession(context) {
   }
 }
 
+// GET /api/follow -> { followers: [{userId, username, followingBack}] }
+// People who follow you, and whether you already follow them back.
+export async function onRequestGet(context) {
+  const session = await resolveSession(context);
+  if (!session) return json({ error: 'Not signed in' }, 401);
+
+  const db = context.env.DB;
+
+  const rows = await db
+    .prepare(
+      `SELECT u.id, u.username,
+              EXISTS(
+                SELECT 1 FROM follows fb
+                WHERE fb.follower_id = ?1 AND fb.followed_id = u.id
+              ) AS following_back
+       FROM follows f
+       JOIN users u ON u.id = f.follower_id
+       WHERE f.followed_id = ?1
+       ORDER BY f.created_at DESC`
+    )
+    .bind(session.userId)
+    .all();
+
+  const followers = (rows.results || []).map((r) => ({
+    userId: r.id,
+    username: r.username || 'Unnamed',
+    followingBack: !!r.following_back,
+  }));
+
+  return json({ followers });
+}
+
 export async function onRequestPost(context) {
   const session = await resolveSession(context);
   if (!session) return json({ error: 'Not signed in' }, 401);
