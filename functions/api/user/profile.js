@@ -30,13 +30,19 @@ export async function onRequestGet(context) {
   const session = await resolveSession(context);
   if (!session) return json({ error: 'Not signed in' }, 401);
 
-  const user = await context.env.DB.prepare('SELECT email, username FROM users WHERE id = ?')
+  const user = await context.env.DB.prepare(
+    'SELECT email, username, username_changes FROM users WHERE id = ?'
+  )
     .bind(session.userId)
     .first();
 
   if (!user) return json({ error: 'User not found' }, 404);
 
-  return json({ email: user.email, username: user.username || null });
+  return json({
+    email: user.email,
+    username: user.username || null,
+    canChangeUsername: !user.username || (user.username_changes || 0) < 1,
+  });
 }
 
 export async function onRequestPut(context) {
@@ -61,6 +67,26 @@ export async function onRequestPut(context) {
 
   const db = context.env.DB;
 
+  const current = await db
+    .prepare('SELECT username, username_changes FROM users WHERE id = ?')
+    .bind(session.userId)
+    .first();
+
+  const isFirstTimeSet = !current.username;
+  const alreadyUsedChange = (current.username_changes || 0) >= 1;
+
+  if (!isFirstTimeSet) {
+    if (current.username === username) {
+      return json({ success: true, username }); // no-op, same name resubmitted
+    }
+    if (alreadyUsedChange) {
+      return json(
+        { error: 'You can only change your username once. Contact support if you need another change.' },
+        403
+      );
+    }
+  }
+
   // Check availability (case-sensitive; someone else may already hold it).
   const existing = await db
     .prepare('SELECT id FROM users WHERE username = ? AND id != ?')
@@ -69,7 +95,16 @@ export async function onRequestPut(context) {
 
   if (existing) return json({ error: 'That username is already taken' }, 409);
 
-  await db.prepare('UPDATE users SET username = ? WHERE id = ?').bind(username, session.userId).run();
+  if (isFirstTimeSet) {
+    // Creating a username for the first time doesn't count as "a change".
+    await db.prepare('UPDATE users SET username = ? WHERE id = ?').bind(username, session.userId).run();
+  } else {
+    // This is their one allowed change — lock it after this.
+    await db
+      .prepare('UPDATE users SET username = ?, username_changes = username_changes + 1 WHERE id = ?')
+      .bind(username, session.userId)
+      .run();
+  }
 
   return json({ success: true, username });
 }
