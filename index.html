@@ -296,6 +296,11 @@ body{padding-top:78px;}
 .topbar-icons{display:flex;align-items:center;gap:clamp(6px,1vw,14px);margin-left:auto;flex:none;}
 .icon-btn{width:clamp(30px,2.4vw,36px);height:clamp(30px,2.4vw,36px);border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;}
 .icon-btn:hover{border-color:var(--coral);color:var(--coral);}
+/* Signed-in account icon — background auto-matches the active theme's
+   accent tint (light peach normally, sage green in Jummah, lilac in
+   Ramadan) since --coral-soft already swaps per theme. */
+.icon-btn.account-signed-in{background:var(--coral-soft);border-color:var(--coral-soft);color:var(--coral-dark);}
+.icon-btn.account-signed-in:hover{border-color:var(--coral);}
 
 .app-page{}
 .app-page.hidden{display:none;}
@@ -10857,6 +10862,7 @@ init();
 
     const signedInDiv = popup.querySelector('.auth-popup-signed-in');
     const signInDiv = popup.querySelector('.auth-popup-sign-in');
+    const accountBtn = document.querySelector(ACCOUNT_BTN_SELECTOR);
 
     if (state === 'signed-in') {
       signedInDiv.classList.remove('hidden');
@@ -10865,9 +10871,11 @@ init();
       if (emailSpan) emailSpan.textContent = authState.email;
       loadProfile();
       loadSettingsLocation();
+      if (accountBtn) accountBtn.classList.add('account-signed-in');
     } else {
       signedInDiv.classList.add('hidden');
       signInDiv.classList.remove('hidden');
+      if (accountBtn) accountBtn.classList.remove('account-signed-in');
     }
   }
 
