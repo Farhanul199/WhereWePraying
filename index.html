@@ -11005,7 +11005,22 @@ init();
       });
       const data = await res.json();
       const input = document.getElementById('usernameInput');
+      const saveBtn = document.getElementById('saveUsernameBtn');
+      const msgEl = document.getElementById('usernameMessage');
+
       if (input && data.username) input.value = data.username;
+
+      if (data.username && data.canChangeUsername === false) {
+        if (input) input.disabled = true;
+        if (saveBtn) saveBtn.disabled = true;
+        if (msgEl) {
+          msgEl.textContent = "You've already used your one username change.";
+          msgEl.classList.remove('hidden');
+        }
+      } else {
+        if (input) input.disabled = false;
+        if (saveBtn) saveBtn.disabled = false;
+      }
     } catch (e) {
       console.error('loadProfile error:', e);
     }
@@ -11536,6 +11551,7 @@ init();
         msgEl.textContent = 'Username saved!';
         msgEl.classList.remove('hidden');
       }
+      loadProfile(); // re-checks canChangeUsername and locks the field if that was the one allowed change
     } catch (e) {
       console.error('saveUsername error:', e);
       if (errEl) {
