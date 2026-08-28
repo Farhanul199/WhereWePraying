@@ -37,7 +37,7 @@ export async function onRequestGet(context) {
 
   const rows = await db
     .prepare(
-      `SELECT u.id, u.username,
+      `SELECT u.id, u.username, u.avatar_url, u.is_supporter,
               EXISTS(
                 SELECT 1 FROM follows fb
                 WHERE fb.follower_id = ?1 AND fb.followed_id = u.id
@@ -53,6 +53,8 @@ export async function onRequestGet(context) {
   const followers = (rows.results || []).map((r) => ({
     userId: r.id,
     username: r.username || 'Unnamed',
+    avatarUrl: r.avatar_url || null,
+    isSupporter: !!r.is_supporter,
     followingBack: !!r.following_back,
   }));
 
