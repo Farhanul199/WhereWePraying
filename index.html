@@ -4159,7 +4159,11 @@ const PrayerTimes = (function(){
   function subscribe(fn){ listeners.push(fn); return ()=>{ const i=listeners.indexOf(fn); if(i>-1) listeners.splice(i,1); }; }
   function notify(){ listeners.forEach(fn=>{ try{ fn(state); }catch(e){} }); }
 
-  function loadSavedLocation(){
+  // Location/method now sync to the account (when signed in) via the
+  // same WWP backend other sections use — localStorage stays as a fast
+  // local cache and offline fallback, but the backend copy is what
+  // makes a saved location follow you across devices.
+  async function loadSavedLocation(){
     try{
       const raw = localStorage.getItem(LOC_KEY);
       if(raw) state.location = JSON.parse(raw);
@@ -4168,15 +4172,33 @@ const PrayerTimes = (function(){
       const m = localStorage.getItem(METHOD_KEY);
       if(m) state.method = parseInt(m,10);
     }catch(e){}
+
+    // Backend copy (if any) wins over the local cache, since it's the
+    // one that follows the signed-in account across devices.
+    try{
+      const saved = await WWP.get('prayertimes');
+      if(saved){
+        if(saved.location){
+          state.location = saved.location;
+          try{ localStorage.setItem(LOC_KEY, JSON.stringify(saved.location)); }catch(e){}
+        }
+        if(typeof saved.method === 'number'){
+          state.method = saved.method;
+          try{ localStorage.setItem(METHOD_KEY, String(saved.method)); }catch(e){}
+        }
+      }
+    }catch(e){ /* offline or not signed in — local cache above is fine */ }
   }
 
   function saveLocation(loc){
     state.location = loc;
     try{ localStorage.setItem(LOC_KEY, JSON.stringify(loc)); }catch(e){}
+    WWP.save('prayertimes', {location: state.location, method: state.method});
   }
   function saveMethod(method){
     state.method = method;
     try{ localStorage.setItem(METHOD_KEY, String(method)); }catch(e){}
+    WWP.save('prayertimes', {location: state.location, method: state.method});
   }
 
   function todayKey(){
@@ -4354,8 +4376,8 @@ const PrayerTimes = (function(){
     return h12+':'+String(m).padStart(2,'0')+' '+period;
   }
 
-  function init(){
-    loadSavedLocation();
+  async function init(){
+    await loadSavedLocation();
     if(!state.location){
       // No location prompt on load — Prayer Times now runs as a
       // world-clock system anchored to London (GMT+0), so no user
@@ -4364,6 +4386,7 @@ const PrayerTimes = (function(){
       state.location = {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
       saveLocation(state.location);
     }
+    notify();
     fetchTimings();
   }
 
