@@ -158,8 +158,6 @@ body[data-theme="sepia"][data-event-theme="jummah"]{
 .jummah-banner-text{display:flex;flex-direction:column;line-height:1.25;font-size:13px;}
 .jummah-banner-text strong{color:var(--coral-dark);font-size:13.5px;}
 .jummah-banner-text span{color:var(--text-dim);}
-.jummah-banner-close{margin-left:auto;background:none;border:none;font-size:20px;line-height:1;color:var(--text-dim);cursor:pointer;padding:4px 8px;flex:none;}
-.jummah-banner-close:hover{color:var(--coral-dark);}
 .home-hero-art .hero-img-jummah{display:none;}
 body[data-event-theme="jummah"] .home-hero-art .hero-img-standard{display:none;}
 body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
@@ -184,8 +182,6 @@ body[data-theme="sepia"][data-event-theme="ramadan"]{
 .ramadan-banner-text{display:flex;flex-direction:column;line-height:1.25;font-size:13px;}
 .ramadan-banner-text strong{color:var(--coral-dark);font-size:13.5px;}
 .ramadan-banner-text span{color:var(--text-dim);}
-.ramadan-banner-close{margin-left:auto;background:none;border:none;font-size:20px;line-height:1;color:var(--text-dim);cursor:pointer;padding:4px 8px;flex:none;}
-.ramadan-banner-close:hover{color:var(--coral-dark);}
 .home-hero-art .hero-img-ramadan{display:none;}
 body[data-event-theme="ramadan"] .home-hero-art .hero-img-standard{display:none;}
 body[data-event-theme="ramadan"] .home-hero-art .hero-img-jummah{display:none;}
@@ -1625,7 +1621,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .home-about p + p{margin-top:12px;}
 
 @media (max-width:980px){
-  .home-hero{grid-template-columns:1fr;padding:32px 20px 0;gap:10px;}
+  .jummah-banner,.ramadan-banner{margin-top:18px;}
+  .home-hero{grid-template-columns:1fr;padding:14px 20px 0;gap:10px;}
   .home-hero-art{order:-1;}
   .home-hero-text{padding-top:2px;}
   .home-h1{font-size:36px;}
@@ -2631,7 +2628,6 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     <strong>Jummah Mubarak</strong>
     <span>May your Friday prayers be accepted.</span>
   </div>
-  <button class="jummah-banner-close" aria-label="Dismiss">&times;</button>
 </div>
 
 <div id="ramadan-banner" class="ramadan-banner hidden">
@@ -2640,7 +2636,6 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     <strong>Ramadan Mubarak</strong>
     <span>Wishing you a blessed month of fasting and reflection.</span>
   </div>
-  <button class="ramadan-banner-close" aria-label="Dismiss">&times;</button>
 </div>
 
 <script>
@@ -2653,20 +2648,12 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     if(!early) return; // preview mode or resolver bailed out — leave as-is
 
     if(!early.ramadanActive && early.isFriday){
-      var jd = false;
-      try{ jd = localStorage.getItem('jummahBannerDismissed') === early.todayKey; }catch(e){}
-      if(!jd){
-        var jb = document.getElementById('jummah-banner');
-        if(jb) jb.classList.remove('hidden');
-      }
+      var jb = document.getElementById('jummah-banner');
+      if(jb) jb.classList.remove('hidden');
     }
     if(early.ramadanActive){
-      var rd = false;
-      try{ rd = localStorage.getItem('ramadanBannerDismissed') === early.todayKey; }catch(e){}
-      if(!rd){
-        var rb = document.getElementById('ramadan-banner');
-        if(rb) rb.classList.remove('hidden');
-      }
+      var rb = document.getElementById('ramadan-banner');
+      if(rb) rb.classList.remove('hidden');
     }
   }catch(e){}
 })();
@@ -5650,7 +5637,10 @@ if(headerHelpBtn) headerHelpBtn.addEventListener('click', function(){
     try{
       const res = await fetch('/api/subscribe', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {
+          'Content-Type':'application/json',
+          'X-Device-Id': window.WWP.deviceId || ''
+        },
         body: JSON.stringify({email: email})
       });
       if(!res.ok) throw new Error('Request failed');
@@ -9150,8 +9140,81 @@ function setTheme(mode){
 /* ============================================================
    PAGE :: wire up + init
    ============================================================ */
+// Auto-opens whichever of the first four categories (Morning, Evening,
+// Salah and After Salah, Before Sleep and Tahajjud) best matches the
+// time of day at the signed-in user's saved location — only runs for
+// signed-in users with a saved location; everyone else keeps the
+// existing static default.
+async function applyTimeBasedCategory(){
+  try{
+    const sessionRes = await fetch('/api/session', {
+      credentials:'include',
+      headers:{'X-Device-Id': window.WWP?.deviceId || ''}
+    });
+    const sessionData = await sessionRes.json();
+    if(!sessionData || !sessionData.authenticated) return;
+
+    const saved = await WWP.get('prayertimes');
+    if(!saved || !saved.location) return;
+
+    const loc = saved.location;
+    const method = saved.method || 3;
+    const d = new Date();
+    const dateStr = String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+    const url = 'https://api.aladhan.com/v1/timings/'+dateStr+'?latitude='+loc.lat+'&longitude='+loc.lon+'&method='+method;
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    const t = data && data.data && data.data.timings;
+    if(!t) return;
+
+    const parse = (hhmm)=>{
+      if(!hhmm) return null;
+      const [h,m] = hhmm.split(' ')[0].split(':').map(Number);
+      const dd = new Date(); dd.setHours(h,m,0,0); return dd;
+    };
+
+    const times = {
+      Fajr: parse(t.Fajr), Dhuhr: parse(t.Dhuhr),
+      Asr: parse(t.Asr), Maghrib: parse(t.Maghrib), Isha: parse(t.Isha)
+    };
+
+    const now = new Date();
+    const WINDOW_MS = 30*60*1000; // within 30 min of a prayer counts as "at salah"
+
+    const nearAnyPrayer = ['Fajr','Dhuhr','Asr','Maghrib','Isha'].some(p=>{
+      const pt = times[p];
+      return pt && Math.abs(now - pt) <= WINDOW_MS;
+    });
+
+    let category;
+    if(nearAnyPrayer){
+      category = 'salah';
+    } else if(times.Isha && times.Fajr && (now >= times.Isha || now < times.Fajr)){
+      category = 'sleep';
+    } else if(times.Fajr && times.Dhuhr && now >= times.Fajr && now < times.Dhuhr){
+      category = 'morning';
+    } else if(times.Asr && times.Isha && now >= times.Asr && now < times.Isha){
+      category = 'evening';
+    } else if(times.Dhuhr && times.Asr && now >= times.Dhuhr && now < times.Asr){
+      // Between Dhuhr and Asr — no dedicated midday category, lean
+      // toward whichever adjacent window is closer in time.
+      category = (times.Asr - now) < (now - times.Dhuhr) ? 'evening' : 'morning';
+    }
+
+    if(category){
+      state.selectedCategory = category;
+      const cat = getCategory(category);
+      if(cat) state.selectedItem = cat.items[0] || null;
+    }
+  }catch(e){
+    // Silent — keeps the existing static default category on any failure.
+  }
+}
+
 async function init(){
   await loadDuaFromBackend();
+  await applyTimeBasedCategory();
   renderAll();
 
   $('#viewFavoritesBtn').addEventListener('click', showFavorites);
@@ -10882,22 +10945,10 @@ init();
     else{ document.body.removeAttribute('data-event-theme'); }
 
     var jummahBanner = document.getElementById('jummah-banner');
-    if(jummahBanner){
-      var jummahDismissed = false;
-      if(!forceEventTheme){
-        try{ jummahDismissed = localStorage.getItem('jummahBannerDismissed') === todayKey(); }catch(e){}
-      }
-      jummahBanner.classList.toggle('hidden', !jummahActive || jummahDismissed);
-    }
+    if(jummahBanner){ jummahBanner.classList.toggle('hidden', !jummahActive); }
 
     var ramadanBanner = document.getElementById('ramadan-banner');
-    if(ramadanBanner){
-      var ramadanDismissed = false;
-      if(!forceEventTheme){
-        try{ ramadanDismissed = localStorage.getItem('ramadanBannerDismissed') === todayKey(); }catch(e){}
-      }
-      ramadanBanner.classList.toggle('hidden', !ramadanActive || ramadanDismissed);
-    }
+    if(ramadanBanner){ ramadanBanner.classList.toggle('hidden', !ramadanActive); }
 
     // Small top-right attribution note, shown only on Ramadan's first day
     // AND only when we fell back to the Saudi reference point (no saved
@@ -10931,23 +10982,6 @@ init();
   }
   apply();
   setInterval(apply, 5 * 60 * 1000); // catches day/event boundaries without a reload
-
-  var jummahCloseBtn = document.querySelector('.jummah-banner-close');
-  if(jummahCloseBtn){
-    jummahCloseBtn.addEventListener('click', function(){
-      var banner = document.getElementById('jummah-banner');
-      if(banner) banner.classList.add('hidden');
-      try{ localStorage.setItem('jummahBannerDismissed', todayKey()); }catch(e){}
-    });
-  }
-  var ramadanCloseBtn = document.querySelector('.ramadan-banner-close');
-  if(ramadanCloseBtn){
-    ramadanCloseBtn.addEventListener('click', function(){
-      var banner = document.getElementById('ramadan-banner');
-      if(banner) banner.classList.add('hidden');
-      try{ localStorage.setItem('ramadanBannerDismissed', todayKey()); }catch(e){}
-    });
-  }
 })();
 </script>
 
