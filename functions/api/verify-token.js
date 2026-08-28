@@ -2,10 +2,10 @@
 // GET /api/verify-token?token=...
 // Verifies the magic link token and returns session info
 
-import crypto from 'crypto';
-
 function generateSessionId() {
-  return crypto.randomBytes(32).toString('hex');
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function onRequestGet(context) {

@@ -2,10 +2,10 @@
 // POST /api/send-magic-link
 // Generates a magic link token and emails it via Resend
 
-import crypto from 'crypto';
-
 function generateToken() {
-  return crypto.randomBytes(24).toString('hex');
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function getExpiryTime() {
