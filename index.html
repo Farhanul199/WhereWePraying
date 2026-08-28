@@ -2199,6 +2199,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .auth-friend-item-actions {
@@ -2211,6 +2215,33 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   padding: 5px 10px;
   font-size: 11px;
   border-radius: 5px;
+}
+
+.auth-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: var(--surface-alt);
+}
+
+.auth-avatar-supporter {
+  box-shadow: 0 0 0 2px #F4C542, 0 0 6px rgba(244, 197, 66, 0.6);
+}
+
+.username-supporter {
+  background: linear-gradient(90deg, #fceabb, #f8b500, #fceabb, #f8b500);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+  animation: usernameShine 3s linear infinite;
+}
+
+@keyframes usernameShine {
+  to { background-position: 300% center; }
 }
 
 .auth-btn-google {
@@ -2483,6 +2514,27 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
             <span id="settingsLocationLabel">Not set</span>
             <button class="auth-btn auth-btn-secondary" id="manageLocationBtn" type="button">Change</button>
           </div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Recovery Email</label>
+          <p class="auth-popup-text" style="margin-bottom:8px;">A backup email that can also sign you in if you lose access to your main one.</p>
+          <div class="auth-form-group">
+            <input
+              type="email"
+              id="recoveryEmailInput"
+              class="auth-form-input"
+              placeholder="backup@email.com"
+              autocomplete="off"
+            />
+            <button class="auth-btn auth-btn-primary" id="saveRecoveryEmailBtn">Save</button>
+          </div>
+          <div class="auth-popup-message hidden" id="recoveryEmailMessage"></div>
+          <div class="auth-popup-error hidden" id="recoveryEmailError"></div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Notifications</label>
+          <label class="auth-settings-location" style="cursor:pointer;">
+            <span>Email me when someone sends a friend request</span>
+            <input type="checkbox" id="notifyFriendRequestsToggle" style="flex:none;width:16px;height:16px;" />
+          </label>
         </div>
 
         <!-- Friends tab -->
@@ -7353,6 +7405,7 @@ const state = {
   deeds:{},              // dateKey -> [{id,label,done}]
   mistakes:{},          // dateKey -> [{note,ts}]
   streakDays:0,
+  streakFreezeMonth:null, // 'YYYY-MM' of the last month a freeze was used, or null
   calMonth:new Date(today.getFullYear(), today.getMonth(), 1),
   routines:[
     {id:'r1', name:'Morning Routine', icon:'sun', steps:['Fajr','Qur\'an','Dhikr','Set intention']},
@@ -7374,10 +7427,36 @@ ensureDay(todayKey);
    (anonymous device-id-first — see shared WWP module at top).
    ============================================================ */
 function recomputeStreak(){
-  // Count today (if logged) plus consecutive prior days with a saved reflection.
-  let s=0, cursor=new Date(today);
-  while(state.reflections[dkey(cursor)]){ s++; cursor = addDays(cursor,-1); }
+  // Count today (if logged) plus consecutive prior days with a saved
+  // reflection — but allow ONE gap day per calendar month to pass
+  // through without breaking the chain (a streak freeze, Duolingo-
+  // style), so one missed day doesn't wipe out a long streak.
+  let s=0, freezeUsedThisPass=false, cursor=new Date(today);
+  const monthKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+  const freezeAvailable = state.streakFreezeMonth !== monthKey;
+
+  while(true){
+    const key = dkey(cursor);
+    if(state.reflections[key]){
+      s++;
+      cursor = addDays(cursor,-1);
+      continue;
+    }
+    if(s>0 && freezeAvailable && !freezeUsedThisPass){
+      freezeUsedThisPass = true;
+      cursor = addDays(cursor,-1);
+      continue;
+    }
+    break;
+  }
+
   state.streakDays = s;
+  if(freezeUsedThisPass) state.streakFreezeMonth = monthKey;
+}
+
+function streakFreezeStatus(){
+  const monthKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+  return state.streakFreezeMonth === monthKey ? 'used' : 'available';
 }
 
 // Debounced write of everything worth persisting for this device.
@@ -7388,7 +7467,8 @@ function persistJournal(){
     deeds: state.deeds,
     mistakes: state.mistakes,
     routines: state.routines,
-    heartSaved: state.heartSaved
+    heartSaved: state.heartSaved,
+    streakFreezeMonth: state.streakFreezeMonth
   });
 }
 
@@ -7404,6 +7484,7 @@ async function loadJournalFromBackend(){
     if(saved.mistakes) state.mistakes = saved.mistakes;
     if(Array.isArray(saved.routines)) state.routines = saved.routines;
     if(typeof saved.heartSaved==='boolean') state.heartSaved = saved.heartSaved;
+    if(saved.streakFreezeMonth !== undefined) state.streakFreezeMonth = saved.streakFreezeMonth;
   }
   ensureDay(todayKey);
   recomputeStreak();
@@ -7443,7 +7524,8 @@ function renderSummaryLine(){
 
 function renderStats(){
   $('#streakVal').textContent = `${state.streakDays} day${state.streakDays===1?'':'s'}`;
-  $('#streakSub').textContent = state.reflections[todayKey] ? 'Logged today ✓' : 'Save today\'s reflection to keep it going';
+  const freezeNote = streakFreezeStatus()==='available' ? ' · ❄️ freeze available' : ' · ❄️ freeze used this month';
+  $('#streakSub').textContent = (state.reflections[todayKey] ? 'Logged today ✓' : 'Save today\'s reflection to keep it going') + (state.streakDays>0 ? freezeNote : '');
 
   const wk = weekDates();
   const pcts = wk.map(d=> dkey(d)<=todayKey || dkey(d)===todayKey ? prayerConsistencyPct(dkey(d)) : null);
@@ -11044,6 +11126,12 @@ init();
         if (input) input.disabled = false;
         if (saveBtn) saveBtn.disabled = false;
       }
+
+      const recoveryInput = document.getElementById('recoveryEmailInput');
+      if (recoveryInput) recoveryInput.value = data.recoveryEmail || '';
+
+      const notifyToggle = document.getElementById('notifyFriendRequestsToggle');
+      if (notifyToggle) notifyToggle.checked = !!data.notifyFriendRequests;
     } catch (e) {
       console.error('loadProfile error:', e);
     }
@@ -11116,6 +11204,35 @@ init();
       manageLocationBtn.addEventListener('click', () => {
         closeAuthPopup();
         if (typeof window.switchPage === 'function') window.switchPage('prayertimes');
+      });
+    }
+
+    const saveRecoveryEmailBtn = document.getElementById('saveRecoveryEmailBtn');
+    if (saveRecoveryEmailBtn) saveRecoveryEmailBtn.addEventListener('click', saveRecoveryEmail);
+
+    const recoveryEmailInput = document.getElementById('recoveryEmailInput');
+    if (recoveryEmailInput) {
+      recoveryEmailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveRecoveryEmail();
+      });
+    }
+
+    const notifyToggle = document.getElementById('notifyFriendRequestsToggle');
+    if (notifyToggle) {
+      notifyToggle.addEventListener('change', async () => {
+        try {
+          await fetch('/api/user/profile', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Device-Id': window.WWP?.deviceId || '',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ notifyFriendRequests: notifyToggle.checked }),
+          });
+        } catch (e) {
+          console.error('notifyFriendRequests toggle error:', e);
+        }
       });
     }
 
@@ -11212,19 +11329,19 @@ init();
           data.incoming.forEach((req) => {
             const item = document.createElement('div');
             item.className = 'auth-friend-item';
-            item.innerHTML = `<span class="auth-friend-item-name">${escapeHtml(req.username || req.email)}</span>`;
+            item.innerHTML = `<span class="auth-friend-item-name">${renderAvatarAndName(req)}</span>`;
             const actions = document.createElement('div');
             actions.className = 'auth-friend-item-actions';
 
             const acceptBtn = document.createElement('button');
             acceptBtn.className = 'auth-btn auth-btn-primary auth-btn-tiny';
             acceptBtn.textContent = 'Accept';
-            acceptBtn.addEventListener('click', () => respondToRequest(req.request_id, 'accept'));
+            acceptBtn.addEventListener('click', () => respondToRequest(req.requestId, 'accept'));
 
             const declineBtn = document.createElement('button');
             declineBtn.className = 'auth-btn auth-btn-secondary auth-btn-tiny';
             declineBtn.textContent = 'Decline';
-            declineBtn.addEventListener('click', () => respondToRequest(req.request_id, 'decline'));
+            declineBtn.addEventListener('click', () => respondToRequest(req.requestId, 'decline'));
 
             actions.appendChild(acceptBtn);
             actions.appendChild(declineBtn);
@@ -11242,7 +11359,7 @@ init();
           data.friends.forEach((f) => {
             const item = document.createElement('div');
             item.className = 'auth-friend-item';
-            item.innerHTML = `<span class="auth-friend-item-name">${escapeHtml(f.username || f.email)}</span>`;
+            item.innerHTML = `<span class="auth-friend-item-name">${renderAvatarAndName(f)}</span>`;
             const removeBtn = document.createElement('button');
             removeBtn.className = 'auth-btn auth-btn-secondary auth-btn-tiny';
             removeBtn.textContent = 'Remove';
@@ -11282,8 +11399,8 @@ init();
         const item = document.createElement('div');
         item.className = 'auth-friend-item';
         const rank = i + 1;
-        const label = entry.isYou ? `${escapeHtml(entry.username)} (You)` : escapeHtml(entry.username);
-        item.innerHTML = `<span class="auth-friend-item-name">#${rank} ${label}</span><span>${entry.score}</span>`;
+        const extra = entry.isYou ? ' (You)' : '';
+        item.innerHTML = `<span class="auth-friend-item-name">#${rank} ${renderAvatarAndName(entry, extra)}</span><span>${entry.score}</span>`;
         listEl.appendChild(item);
       });
     } catch (e) {
@@ -11316,7 +11433,7 @@ init();
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'auth-friend-item-name';
-        nameSpan.textContent = f.username;
+        nameSpan.innerHTML = renderAvatarAndName(f);
         item.appendChild(nameSpan);
 
         if (f.followingBack) {
@@ -11391,10 +11508,10 @@ init();
       data.entries.forEach((entry) => {
         const item = document.createElement('div');
         item.className = 'auth-friend-item';
-        const label = entry.isYou ? `${escapeHtml(entry.username)} (You)` : escapeHtml(entry.username);
+        const extra = entry.isYou ? ' (You)' : '';
         const nameSpan = document.createElement('span');
         nameSpan.className = 'auth-friend-item-name';
-        nameSpan.textContent = `#${entry.rank} ${label} — ${entry.score}`;
+        nameSpan.innerHTML = `#${entry.rank} ${renderAvatarAndName(entry, extra)} — ${entry.score}`;
         item.appendChild(nameSpan);
 
         if (!entry.isYou) {
@@ -11445,6 +11562,41 @@ init();
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  // Deterministic watercolour-style avatar for anyone without a real
+  // profile picture (i.e. not signed in via Google) — same seed always
+  // produces the same soft gradient blob, so it feels personal rather
+  // than random on every render.
+  function generateAvatarDataUri(seed) {
+    seed = String(seed || 'wwp');
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+    const abs = Math.abs(hash);
+    const hue1 = abs % 360;
+    const hue2 = (hue1 + 45 + ((abs >> 3) % 70)) % 360;
+    const cx = 32 + (abs % 20);
+    const cy = 32 + ((abs >> 5) % 20);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="hsl(${hue1},60%,80%)"/>
+        <stop offset="100%" stop-color="hsl(${hue2},55%,68%)"/>
+      </linearGradient></defs>
+      <circle cx="50" cy="50" r="50" fill="url(#g)"/>
+      <circle cx="${cx}" cy="${cy}" r="20" fill="rgba(255,255,255,0.28)"/>
+    </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  // Renders the avatar + username markup used consistently across
+  // friends, followers, and both leaderboards — Google picture (or a
+  // generated blob) plus a golden ring/shine for supporters.
+  function renderAvatarAndName(entry, extraLabel) {
+    const src = entry.avatarUrl || generateAvatarDataUri(entry.username || entry.userId || entry.email || 'x');
+    const avatarClass = 'auth-avatar' + (entry.isSupporter ? ' auth-avatar-supporter' : '');
+    const nameClass = entry.isSupporter ? 'username-supporter' : '';
+    const label = escapeHtml(entry.username || entry.email || 'Unnamed') + (extraLabel || '');
+    return `<img src="${src}" class="${avatarClass}" alt=""><span class="${nameClass}">${label}</span>`;
   }
 
   async function addFriend() {
@@ -11577,6 +11729,48 @@ init();
       loadProfile(); // re-checks canChangeUsername and locks the field if that was the one allowed change
     } catch (e) {
       console.error('saveUsername error:', e);
+      if (errEl) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+      }
+    }
+  }
+
+  async function saveRecoveryEmail() {
+    const input = document.getElementById('recoveryEmailInput');
+    const msgEl = document.getElementById('recoveryEmailMessage');
+    const errEl = document.getElementById('recoveryEmailError');
+    const recoveryEmail = input?.value?.trim() || '';
+
+    msgEl?.classList.add('hidden');
+    errEl?.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ recoveryEmail }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = data.error || 'Failed to save recovery email';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (msgEl) {
+        msgEl.textContent = recoveryEmail ? 'Recovery email saved!' : 'Recovery email removed.';
+        msgEl.classList.remove('hidden');
+      }
+    } catch (e) {
+      console.error('saveRecoveryEmail error:', e);
       if (errEl) {
         errEl.textContent = 'Network error. Please try again.';
         errEl.classList.remove('hidden');
