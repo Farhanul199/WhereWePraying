@@ -2179,6 +2179,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   overflow-y: auto;
 }
 
+.auth-friend-list-tall {
+  max-height: 280px;
+}
+
 .auth-friend-item {
   display: flex;
   align-items: center;
@@ -2513,11 +2517,21 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
             <span class="auth-popup-text">No friends yet.</span>
           </div>
 
+          <div id="followersSection" class="hidden">
+            <label class="auth-settings-label" style="margin-top:16px;">Follows You</label>
+            <div id="followersList" class="auth-friend-list"></div>
+          </div>
+
           <label class="auth-settings-label" style="margin-top:16px;">Leaderboard</label>
           <p class="auth-popup-text" style="margin-bottom:8px;">Based on streak, prayer consistency and deeds logged.</p>
           <div id="leaderboardList" class="auth-friend-list">
             <span class="auth-popup-text">Add friends to see the leaderboard.</span>
           </div>
+
+          <button class="auth-btn auth-btn-secondary" id="toggleGlobalBtn" type="button" style="width:100%;margin-top:16px;">
+            Show Global Top 100
+          </button>
+          <div id="globalLeaderboardList" class="auth-friend-list auth-friend-list-tall hidden" style="margin-top:8px;"></div>
         </div>
       </div>
 
@@ -11092,6 +11106,22 @@ init();
         setTimeout(() => { copyFriendCodeBtn.textContent = original; }, 1500);
       });
     }
+
+    const toggleGlobalBtn = document.getElementById('toggleGlobalBtn');
+    if (toggleGlobalBtn) {
+      toggleGlobalBtn.addEventListener('click', () => {
+        const listEl = document.getElementById('globalLeaderboardList');
+        const isHidden = listEl.classList.contains('hidden');
+        if (isHidden) {
+          listEl.classList.remove('hidden');
+          toggleGlobalBtn.textContent = 'Hide Global Top 100';
+          loadGlobalLeaderboard();
+        } else {
+          listEl.classList.add('hidden');
+          toggleGlobalBtn.textContent = 'Show Global Top 100';
+        }
+      });
+    }
   }
 
   function switchAuthTab(tab) {
@@ -11114,6 +11144,7 @@ init();
       panelFriends.classList.remove('hidden');
       loadFriends();
       loadLeaderboard();
+      loadFollowers();
     } else {
       tabAccount.classList.add('active');
       panelAccount.classList.remove('hidden');
@@ -11219,6 +11250,156 @@ init();
       });
     } catch (e) {
       console.error('loadLeaderboard error:', e);
+    }
+  }
+
+  async function loadFollowers() {
+    const sectionEl = document.getElementById('followersSection');
+    const listEl = document.getElementById('followersList');
+    if (!sectionEl || !listEl) return;
+
+    try {
+      const res = await fetch('/api/follow', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.followers || !data.followers.length) {
+        sectionEl.classList.add('hidden');
+        return;
+      }
+
+      sectionEl.classList.remove('hidden');
+      listEl.innerHTML = '';
+
+      data.followers.forEach((f) => {
+        const item = document.createElement('div');
+        item.className = 'auth-friend-item';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'auth-friend-item-name';
+        nameSpan.textContent = f.username;
+        item.appendChild(nameSpan);
+
+        if (f.followingBack) {
+          const badge = document.createElement('span');
+          badge.className = 'auth-popup-text';
+          badge.textContent = 'Following';
+          item.appendChild(badge);
+        } else {
+          const followBackBtn = document.createElement('button');
+          followBackBtn.className = 'auth-btn auth-btn-primary auth-btn-tiny';
+          followBackBtn.textContent = 'Follow Back';
+          followBackBtn.addEventListener('click', () => {
+            followBackBtn.disabled = true;
+            fetch('/api/follow', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Device-Id': window.WWP?.deviceId || '',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ action: 'follow', targetUserId: f.userId }),
+            })
+              .then((r) => r.json())
+              .then((data) => {
+                if (data.success) {
+                  item.removeChild(followBackBtn);
+                  const badge = document.createElement('span');
+                  badge.className = 'auth-popup-text';
+                  badge.textContent = 'Following';
+                  item.appendChild(badge);
+                  loadLeaderboard();
+                }
+              })
+              .catch((e) => console.error('followBack error:', e))
+              .finally(() => { followBackBtn.disabled = false; });
+          });
+          item.appendChild(followBackBtn);
+        }
+
+        listEl.appendChild(item);
+      });
+    } catch (e) {
+      console.error('loadFollowers error:', e);
+      sectionEl.classList.add('hidden');
+    }
+  }
+
+  async function loadGlobalLeaderboard() {
+    const listEl = document.getElementById('globalLeaderboardList');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<span class="auth-popup-text">Loading…</span>';
+
+    try {
+      const res = await fetch('/api/leaderboard/global', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        listEl.innerHTML = '<span class="auth-popup-text">Could not load rankings.</span>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+
+      if (!data.entries || !data.entries.length) {
+        listEl.innerHTML = '<span class="auth-popup-text">No scores yet.</span>';
+        return;
+      }
+
+      data.entries.forEach((entry) => {
+        const item = document.createElement('div');
+        item.className = 'auth-friend-item';
+        const label = entry.isYou ? `${escapeHtml(entry.username)} (You)` : escapeHtml(entry.username);
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'auth-friend-item-name';
+        nameSpan.textContent = `#${entry.rank} ${label} — ${entry.score}`;
+        item.appendChild(nameSpan);
+
+        if (!entry.isYou) {
+          const followBtn = document.createElement('button');
+          followBtn.className = 'auth-btn auth-btn-tiny ' + (entry.isFollowing ? 'auth-btn-secondary' : 'auth-btn-primary');
+          followBtn.textContent = entry.isFollowing ? 'Following' : 'Follow';
+          followBtn.addEventListener('click', () => toggleFollow(entry.userId, entry.isFollowing, followBtn));
+          item.appendChild(followBtn);
+        }
+
+        listEl.appendChild(item);
+      });
+    } catch (e) {
+      console.error('loadGlobalLeaderboard error:', e);
+      listEl.innerHTML = '<span class="auth-popup-text">Could not load rankings.</span>';
+    }
+  }
+
+  async function toggleFollow(targetUserId, currentlyFollowing, buttonEl) {
+    const action = currentlyFollowing ? 'unfollow' : 'follow';
+    buttonEl.disabled = true;
+
+    try {
+      const res = await fetch('/api/follow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action, targetUserId }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        buttonEl.textContent = data.following ? 'Following' : 'Follow';
+        buttonEl.className = 'auth-btn auth-btn-tiny ' + (data.following ? 'auth-btn-secondary' : 'auth-btn-primary');
+        loadLeaderboard(); // personal ranking now includes/excludes this user
+      }
+    } catch (e) {
+      console.error('toggleFollow error:', e);
+    } finally {
+      buttonEl.disabled = false;
     }
   }
 
