@@ -95,16 +95,15 @@ export async function onRequestGet(context) {
       { expirationTtl: 7 * 24 * 60 * 60 }
     );
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `${url.origin}/?signed_in=1`,
-        'Set-Cookie': [
-          `wwp_session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`,
-          `wwp_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
-        ].join(', '),
-      },
-    });
+    const headers = new Headers();
+    headers.set('Location', `${url.origin}/?signed_in=1`);
+    headers.append(
+      'Set-Cookie',
+      `wwp_session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`
+    );
+    headers.append('Set-Cookie', `wwp_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
+
+    return new Response(null, { status: 302, headers });
   } catch (err) {
     console.error('google callback error:', err);
     const origin = new URL(context.request.url).origin;
