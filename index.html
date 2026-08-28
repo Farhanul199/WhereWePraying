@@ -2171,6 +2171,44 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   color: var(--text);
 }
 
+.auth-friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.auth-friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-alt);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.auth-friend-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-friend-item-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.auth-btn-tiny {
+  padding: 5px 10px;
+  font-size: 11px;
+  border-radius: 5px;
+}
+
 .auth-btn-google {
   display: flex;
   align-items: center;
@@ -2410,6 +2448,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
         <div class="auth-tabs">
           <button class="auth-tab active" id="authTabAccount" type="button">Account</button>
           <button class="auth-tab" id="authTabSettings" type="button">Settings</button>
+          <button class="auth-tab" id="authTabFriends" type="button">Friends</button>
         </div>
 
         <!-- Account tab -->
@@ -2439,6 +2478,39 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
           <div class="auth-settings-location">
             <span id="settingsLocationLabel">Not set</span>
             <button class="auth-btn auth-btn-secondary" id="manageLocationBtn" type="button">Change</button>
+          </div>
+        </div>
+
+        <!-- Friends tab -->
+        <div class="auth-tab-panel hidden" id="authPanelFriends">
+          <label class="auth-settings-label">Your Friend ID</label>
+          <div class="auth-settings-location">
+            <span id="friendCodeLabel">—</span>
+            <button class="auth-btn auth-btn-secondary" id="copyFriendCodeBtn" type="button">Copy</button>
+          </div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Add a Friend</label>
+          <div class="auth-form-group">
+            <input
+              type="text"
+              id="addFriendInput"
+              class="auth-form-input"
+              placeholder="username, email, or friend ID"
+              autocomplete="off"
+            />
+            <button class="auth-btn auth-btn-primary" id="addFriendBtn">Add</button>
+          </div>
+          <div class="auth-popup-message hidden" id="friendMessage"></div>
+          <div class="auth-popup-error hidden" id="friendError"></div>
+
+          <div id="friendIncomingSection" class="hidden">
+            <label class="auth-settings-label" style="margin-top:16px;">Requests</label>
+            <div id="friendIncomingList" class="auth-friend-list"></div>
+          </div>
+
+          <label class="auth-settings-label" style="margin-top:16px;">Friends</label>
+          <div id="friendList" class="auth-friend-list">
+            <span class="auth-popup-text">No friends yet.</span>
           </div>
         </div>
       </div>
@@ -10962,25 +11034,218 @@ init();
         if (typeof window.switchPage === 'function') window.switchPage('prayertimes');
       });
     }
+
+    const tabFriends = document.getElementById('authTabFriends');
+    if (tabFriends) tabFriends.addEventListener('click', () => switchAuthTab('friends'));
+
+    const addFriendBtn = document.getElementById('addFriendBtn');
+    if (addFriendBtn) addFriendBtn.addEventListener('click', addFriend);
+
+    const addFriendInput = document.getElementById('addFriendInput');
+    if (addFriendInput) {
+      addFriendInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addFriend();
+      });
+    }
+
+    const copyFriendCodeBtn = document.getElementById('copyFriendCodeBtn');
+    if (copyFriendCodeBtn) {
+      copyFriendCodeBtn.addEventListener('click', () => {
+        const label = document.getElementById('friendCodeLabel');
+        const code = label?.textContent?.trim();
+        if (!code || code === '—') return;
+        navigator.clipboard?.writeText(code);
+        const original = copyFriendCodeBtn.textContent;
+        copyFriendCodeBtn.textContent = 'Copied!';
+        setTimeout(() => { copyFriendCodeBtn.textContent = original; }, 1500);
+      });
+    }
   }
 
   function switchAuthTab(tab) {
     const tabAccount = document.getElementById('authTabAccount');
     const tabSettings = document.getElementById('authTabSettings');
+    const tabFriends = document.getElementById('authTabFriends');
     const panelAccount = document.getElementById('authPanelAccount');
     const panelSettings = document.getElementById('authPanelSettings');
+    const panelFriends = document.getElementById('authPanelFriends');
+
+    [tabAccount, tabSettings, tabFriends].forEach((t) => t?.classList.remove('active'));
+    [panelAccount, panelSettings, panelFriends].forEach((p) => p?.classList.add('hidden'));
 
     if (tab === 'settings') {
-      tabAccount.classList.remove('active');
       tabSettings.classList.add('active');
-      panelAccount.classList.add('hidden');
       panelSettings.classList.remove('hidden');
       loadSettingsLocation();
+    } else if (tab === 'friends') {
+      tabFriends.classList.add('active');
+      panelFriends.classList.remove('hidden');
+      loadFriends();
     } else {
-      tabSettings.classList.remove('active');
       tabAccount.classList.add('active');
-      panelSettings.classList.add('hidden');
       panelAccount.classList.remove('hidden');
+    }
+  }
+
+  async function loadFriends() {
+    const codeLabel = document.getElementById('friendCodeLabel');
+    const listEl = document.getElementById('friendList');
+    const incomingSection = document.getElementById('friendIncomingSection');
+    const incomingListEl = document.getElementById('friendIncomingList');
+
+    try {
+      const res = await fetch('/api/friends', {
+        credentials: 'include',
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+      });
+      const data = await res.json();
+      if (!res.ok) return;
+
+      if (codeLabel) codeLabel.textContent = data.code || '—';
+
+      if (incomingListEl) {
+        incomingListEl.innerHTML = '';
+        if (data.incoming && data.incoming.length) {
+          incomingSection?.classList.remove('hidden');
+          data.incoming.forEach((req) => {
+            const item = document.createElement('div');
+            item.className = 'auth-friend-item';
+            item.innerHTML = `<span class="auth-friend-item-name">${escapeHtml(req.username || req.email)}</span>`;
+            const actions = document.createElement('div');
+            actions.className = 'auth-friend-item-actions';
+
+            const acceptBtn = document.createElement('button');
+            acceptBtn.className = 'auth-btn auth-btn-primary auth-btn-tiny';
+            acceptBtn.textContent = 'Accept';
+            acceptBtn.addEventListener('click', () => respondToRequest(req.request_id, 'accept'));
+
+            const declineBtn = document.createElement('button');
+            declineBtn.className = 'auth-btn auth-btn-secondary auth-btn-tiny';
+            declineBtn.textContent = 'Decline';
+            declineBtn.addEventListener('click', () => respondToRequest(req.request_id, 'decline'));
+
+            actions.appendChild(acceptBtn);
+            actions.appendChild(declineBtn);
+            item.appendChild(actions);
+            incomingListEl.appendChild(item);
+          });
+        } else {
+          incomingSection?.classList.add('hidden');
+        }
+      }
+
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (data.friends && data.friends.length) {
+          data.friends.forEach((f) => {
+            const item = document.createElement('div');
+            item.className = 'auth-friend-item';
+            item.innerHTML = `<span class="auth-friend-item-name">${escapeHtml(f.username || f.email)}</span>`;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'auth-btn auth-btn-secondary auth-btn-tiny';
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => removeFriend(f.id));
+            item.appendChild(removeBtn);
+            listEl.appendChild(item);
+          });
+        } else {
+          listEl.innerHTML = '<span class="auth-popup-text">No friends yet.</span>';
+        }
+      }
+    } catch (e) {
+      console.error('loadFriends error:', e);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function addFriend() {
+    const input = document.getElementById('addFriendInput');
+    const msgEl = document.getElementById('friendMessage');
+    const errEl = document.getElementById('friendError');
+    const identifier = input?.value?.trim();
+
+    msgEl?.classList.add('hidden');
+    errEl?.classList.add('hidden');
+
+    if (!identifier) {
+      if (errEl) {
+        errEl.textContent = 'Enter a username, email, or friend ID';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/friends', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'add', identifier }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = data.error || 'Could not send request';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (msgEl) {
+        msgEl.textContent = data.message || 'Friend request sent!';
+        msgEl.classList.remove('hidden');
+      }
+      if (input) input.value = '';
+      loadFriends();
+    } catch (e) {
+      console.error('addFriend error:', e);
+      if (errEl) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+      }
+    }
+  }
+
+  async function respondToRequest(requestId, action) {
+    try {
+      await fetch('/api/friends', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action, requestId }),
+      });
+      loadFriends();
+    } catch (e) {
+      console.error('respondToRequest error:', e);
+    }
+  }
+
+  async function removeFriend(friendUserId) {
+    try {
+      await fetch('/api/friends', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'remove', friendUserId }),
+      });
+      loadFriends();
+    } catch (e) {
+      console.error('removeFriend error:', e);
     }
   }
 
