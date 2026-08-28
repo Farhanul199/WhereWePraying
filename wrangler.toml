@@ -14,3 +14,7 @@ database_id = "d38751de-0d94-4ccb-9c15-e3b1f94de6ee"
 [[kv_namespaces]]
 binding = "TAFSIR_KV"
 id = "4945c6a85835456881bdcf45bfdf09dc"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "e732aee122aa45d9898e6bf3373b18d3"
