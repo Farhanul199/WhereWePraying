@@ -66,14 +66,19 @@ export async function onRequestGet(context) {
     }
 
     const db = context.env.DB;
+    const picture = claims.picture || null;
 
     // Find or create user (same users table magic-link sign-in uses).
-    let user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    let user = await db.prepare('SELECT id, avatar_url FROM users WHERE email = ?').bind(email).first();
 
     if (!user) {
       const userId = crypto.randomUUID();
-      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(userId, email).run();
+      await db.prepare('INSERT INTO users (id, email, avatar_url) VALUES (?, ?, ?)').bind(userId, email, picture).run();
       user = { id: userId };
+    } else if (picture && !user.avatar_url) {
+      // Only fill it in if they don't already have one — don't clobber
+      // a picture they might set some other way later.
+      await db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').bind(picture, user.id).run();
     }
 
     const now = new Date().toISOString();
