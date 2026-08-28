@@ -505,6 +505,30 @@ body #page-quran{
 #page-quran .surah-title-row h2{font-size:21px;font-weight:800;}
 #page-quran .surah-title-ar{font-family:'Amiri',serif;font-size:23px;color:var(--text-dim);}
 #page-quran .surah-meta{font-size:12.5px;color:var(--text-dim);margin-top:4px;}
+/* Quick-jump pills — surah-specific direct links to notable ayah
+   ranges (Al-Kahf's first/last 10, Al-Baqarah's last 10 + Ayat
+   al-Kursi). Empty/hidden on every other surah. Two color families:
+   sage-green for Al-Kahf (echoes the Jummah theme's sage accent,
+   since Kahf is the Friday recommendation), amber/gold for
+   Al-Baqarah's ayahs — kept visually distinct per your request. */
+#page-quran .surah-quick-jumps{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+#page-quran .sqj-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;
+  cursor:pointer;border:1.5px solid transparent;white-space:nowrap;
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+#page-quran .sqj-pill:hover{transform:translateY(-1px);}
+#page-quran .sqj-pill.sqj-kahf{
+  background:linear-gradient(135deg, rgba(126,156,121,.16), rgba(126,156,121,.28));
+  border-color:rgba(126,156,121,.55); color:#5C7A59;
+}
+[data-theme="dark"] #page-quran .sqj-pill.sqj-kahf, [data-theme="amoled"] #page-quran .sqj-pill.sqj-kahf{color:#9AC090;}
+#page-quran .sqj-pill.sqj-baqarah{
+  background:linear-gradient(135deg, rgba(216,168,78,.16), rgba(216,168,78,.28));
+  border-color:rgba(216,168,78,.55); color:#A87A1E;
+}
+[data-theme="dark"] #page-quran .sqj-pill.sqj-baqarah, [data-theme="amoled"] #page-quran .sqj-pill.sqj-baqarah{color:#D8A84E;}
 #page-quran .surah-actions{display:flex;gap:8px;flex:none;position:relative;}
 #page-quran .pill-btn{
   display:flex;align-items:center;gap:7px;background:var(--surface-alt);border:1px solid var(--border);
@@ -2332,6 +2356,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
             <span class="surah-title-ar" id="rHeaderAr">البقرة</span>
           </div>
           <div class="surah-meta" id="rHeaderMeta">Juz 3 · Page 40 · Madani · 286 Ayahs</div>
+          <div class="surah-quick-jumps" id="surahQuickJumps"></div>
         </div>
         <div class="surah-actions">
           <button class="pill-btn icon-only active-state" id="toolbarToggle" title="Reading settings">
@@ -5722,6 +5747,44 @@ function renderReaderHeader(){
   const juz = getJuz(state.currentSurah, state.currentAyah);
   const page = approxPage(state.currentSurah, state.currentAyah);
   $('#rHeaderMeta').textContent = `Juz ${juz} · Page ${page} · ${s.type} · ${s.ayahs} Ayahs`;
+  renderSurahQuickJumps();
+}
+
+// Direct-jump pills for a small set of notable ayah ranges, shown
+// right under the surah title — Al-Kahf's first/last 10 (the Jummah
+// recommendation) and Al-Baqarah's last 10 + Ayat al-Kursi. Empty for
+// every other surah.
+function renderSurahQuickJumps(){
+  const wrap = $('#surahQuickJumps');
+  if(!wrap) return;
+  const num = state.currentSurah;
+  let pills = [];
+  if(num === 18){ // Al-Kahf, 110 ayahs
+    pills = [
+      {cls:'sqj-kahf', ayah:1, label:'First 10 Ayah'},
+      {cls:'sqj-kahf', ayah:101, label:'Last 10 Ayah'}
+    ];
+  }else if(num === 2){ // Al-Baqarah, 286 ayahs
+    pills = [
+      {cls:'sqj-baqarah', ayah:255, label:'Ayat al-Kursi'},
+      {cls:'sqj-baqarah', ayah:277, label:'Last 10 Ayah'}
+    ];
+  }
+  if(!pills.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = pills.map(p=>
+    `<button type="button" class="sqj-pill ${p.cls}" data-jump-ayah="${p.ayah}">${p.label}</button>`
+  ).join('');
+  $$('.sqj-pill', wrap).forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ayah = parseInt(btn.dataset.jumpAyah, 10);
+      state.currentAyah = ayah;
+      Services.saveLastRead(num, ayah);
+      Services.persist();
+      if(!scrollToAyahCard(num, ayah)){
+        ensureSurahLoaded(num, ayah);
+      }
+    });
+  });
 }
 
 // Builds the markup for one ayah — used when rendering the full,
