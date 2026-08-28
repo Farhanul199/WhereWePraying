@@ -2252,6 +2252,11 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 
     if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
     else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
+
+    // Stash the computed values so the banner-visibility script just
+    // below the banners (they don't exist in the DOM yet at this point)
+    // can reuse them without recomputing.
+    window.__wwpEarlyEvent = {ramadanActive: ramadanActive, isFriday: isFriday, todayKey: todayKey};
   }catch(e){}
 })();
 </script>
@@ -2342,6 +2347,35 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   </div>
   <button class="ramadan-banner-close" aria-label="Dismiss">&times;</button>
 </div>
+
+<script>
+// Early banner-visibility resolver — runs right after the banners exist
+// in the DOM but before the hero content below is parsed/painted, so a
+// banner appearing doesn't push the hero image down after first paint.
+(function(){
+  try{
+    var early = window.__wwpEarlyEvent;
+    if(!early) return; // preview mode or resolver bailed out — leave as-is
+
+    if(!early.ramadanActive && early.isFriday){
+      var jd = false;
+      try{ jd = localStorage.getItem('jummahBannerDismissed') === early.todayKey; }catch(e){}
+      if(!jd){
+        var jb = document.getElementById('jummah-banner');
+        if(jb) jb.classList.remove('hidden');
+      }
+    }
+    if(early.ramadanActive){
+      var rd = false;
+      try{ rd = localStorage.getItem('ramadanBannerDismissed') === early.todayKey; }catch(e){}
+      if(!rd){
+        var rb = document.getElementById('ramadan-banner');
+        if(rb) rb.classList.remove('hidden');
+      }
+    }
+  }catch(e){}
+})();
+</script>
 
 <div id="page-home" class="app-page">
 <main class="page">
