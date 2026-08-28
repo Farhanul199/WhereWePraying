@@ -44,8 +44,11 @@ export async function onRequestPost(context) {
       .bind(crypto.randomUUID(), user.id, token, expiresAt)
       .run();
 
-    // Send email via Resend
+    // Send email via Resend — branded template matching broadcast emails
     const magicLink = `${new URL(context.request.url).origin}/verify?token=${token}`;
+    const html = buildMagicLinkHtml(magicLink);
+    const text = `Assalamu alaikum,\n\nClick the link below to sign in to your WhereWePraying? account:\n${magicLink}\n\nThis link expires in 24 hours. If you didn't request this, you can safely ignore this email.`;
+
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -55,14 +58,9 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         from: 'noreply@wherewepraying.com',
         to: email,
-        subject: 'Your Magic Link — WhereWePraying?',
-        html: `
-          <p>Assalamu alaikum,</p>
-          <p>Click the link below to sign in to your WhereWePraying? account:</p>
-          <p><a href="${magicLink}" style="display:inline-block;padding:12px 24px;background:#F4714E;color:white;text-decoration:none;border-radius:6px;font-weight:600;">Sign In</a></p>
-          <p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>
-          <p style="color:#999;font-size:12px;">Where we praying? — Find out. Get there. Catch the Jama'ah.</p>
-        `,
+        subject: 'Your Sign-In Link — WhereWePraying?',
+        html,
+        text,
       }),
     });
 
@@ -91,4 +89,92 @@ export async function onRequestPost(context) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+}
+
+function buildMagicLinkHtml(magicLink) {
+  const iconUrl = 'https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-icon.png';
+
+  return `<html>
+<body style="margin:0; padding:24px 16px; background-color:#fbe4d8; font-family:'Manrope',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; margin:0 auto;">
+    <tr>
+      <td style="padding:4px;">
+        <!-- outer border -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid #f4a184; border-radius:28px;">
+          <tr>
+            <td style="padding:6px;">
+              <!-- inner border -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f4c2ab; border-radius:22px; background-color:#fdf6f0;">
+                <tr>
+                  <td style="padding:44px 36px 36px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                      <!-- icon -->
+                      <tr>
+                        <td align="center">
+                          <img src="${iconUrl}" alt="WhereWePraying" width="88" style="display:block; width:88px; height:auto; border-radius:20px;">
+                        </td>
+                      </tr>
+
+                      <!-- heart divider -->
+                      <tr>
+                        <td align="center" style="padding:28px 0 30px;">
+                          <span style="color:#f4a184; font-size:14px; letter-spacing:2px;">&mdash; &#10084; &mdash;</span>
+                        </td>
+                      </tr>
+
+                      <!-- message -->
+                      <tr>
+                        <td align="center" style="text-align:center;">
+                          <p style="margin:0 0 16px; font-size:15px; color:#5c4033; line-height:1.7;">Assalamu alaikum,</p>
+                          <p style="margin:0 0 16px; font-size:15px; color:#5c4033; line-height:1.7;">Click the button below to sign in to your WhereWePraying? account.</p>
+                        </td>
+                      </tr>
+
+                      <!-- sign in button -->
+                      <tr>
+                        <td align="center" style="padding-top:8px; padding-bottom:8px;">
+                          <a href="${magicLink}" style="display:inline-block; background-color:#f4714e; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:13px 32px; border-radius:999px; font-family:'Manrope',Arial,sans-serif;">Sign In</a>
+                        </td>
+                      </tr>
+
+                      <!-- expiry note -->
+                      <tr>
+                        <td align="center" style="padding-top:24px;">
+                          <p style="margin:0; font-size:13px; color:#a88f7d; line-height:1.6;">This link expires in 24 hours.<br>If you didn't request this, you can safely ignore this email.</p>
+                        </td>
+                      </tr>
+
+                      <!-- dot divider -->
+                      <tr>
+                        <td align="center" style="padding:34px 0 26px;">
+                          <span style="color:#f4c2ab; font-size:12px; letter-spacing:2px;">&mdash; &#8226; &mdash;</span>
+                        </td>
+                      </tr>
+
+                      <!-- url pill -->
+                      <tr>
+                        <td align="center">
+                          <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+                            <tr>
+                              <td style="background-color:#fbe4d8; border-radius:999px; padding:10px 22px;">
+                                <span style="color:#f4714e; font-weight:700; font-size:14px; text-decoration:none;">wherewepraying.com</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
