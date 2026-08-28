@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
   // unnamed row on a public list isn't useful to anyone.
   const rows = await db
     .prepare(
-      `SELECT u.id, u.username, ls.score
+      `SELECT u.id, u.username, u.avatar_url, u.is_supporter, ls.score
        FROM leaderboard_scores ls
        JOIN users u ON u.id = ls.user_id
        WHERE u.username IS NOT NULL
@@ -53,6 +53,8 @@ export async function onRequestGet(context) {
     rank: i + 1,
     userId: r.id,
     username: r.username,
+    avatarUrl: r.avatar_url || null,
+    isSupporter: !!r.is_supporter,
     score: r.score,
     isYou: r.id === session.userId,
     isFollowing: followingSet.has(r.id),
