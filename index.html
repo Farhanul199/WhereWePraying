@@ -22,6 +22,15 @@ window.__wwpAuthToken = (function(){
     return p.get('token');
   }catch(e){ return null; }
 })();
+
+// Same early-capture for the Google sign-in redirect (?signed_in=1 or
+// ?auth_error=...), which lands here after /api/auth/google/callback.
+window.__wwpGoogleAuthResult = (function(){
+  try{
+    var p = new URLSearchParams(location.search);
+    return { signedIn: p.get('signed_in') === '1', error: p.get('auth_error') };
+  }catch(e){ return { signedIn:false, error:null }; }
+})();
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2096,6 +2105,42 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   cursor: not-allowed;
 }
 
+.auth-btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-btn-google:hover {
+  background: var(--active-bg, var(--surface-alt));
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .auth-popup-message {
   padding: 10px 12px;
   background: rgba(78, 138, 99, 0.1);
@@ -2303,6 +2348,14 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
       <!-- Sign-in state (when not authenticated) -->
       <div class="auth-popup-sign-in">
         <h3 class="auth-popup-title">Sign In</h3>
+
+        <a href="/api/auth/google" class="auth-btn auth-btn-google" id="googleSignInBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.92l-3.88-3.01c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.95H1.26v3.11C3.24 21.3 7.29 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.62H1.26C.46 8.24 0 10.06 0 12s.46 3.76 1.26 5.38l4.01-3.11z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0 7.29 0 3.24 2.7 1.26 6.62l4.01 3.11c.95-2.84 3.6-4.98 6.73-4.98z"/></svg>
+          Continue with Google
+        </a>
+
+        <div class="auth-divider"><span>or</span></div>
+
         <p class="auth-popup-text">Enter your email to get a sign-in link.</p>
 
         <div class="auth-form-group">
@@ -10668,6 +10721,20 @@ init();
     await checkSession();
     setupEventListeners();
     handleVerifyRedirect();
+    handleGoogleRedirect();
+  }
+
+  function handleGoogleRedirect() {
+    const result = window.__wwpGoogleAuthResult;
+    if (!result) return;
+
+    if (result.signedIn) {
+      // checkSession() above already picked up the session cookie the
+      // callback set server-side, so authState is current — just confirm.
+      showAuthToast("You're signed in!", 'success');
+    } else if (result.error) {
+      showAuthToast('Google sign-in failed. Please try again.', 'error');
+    }
   }
 
   async function checkSession() {
