@@ -2414,26 +2414,30 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 </style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
-<div id="offline-banner" class="offline-banner" style="display:none;position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,0.20);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,0.4);border-radius:16px;color:#2C2C2C;padding:12px 20px;text-align:center;font-weight:500;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.1);animation:slideDown 0.3s ease;max-width:90%;width:fit-content;">
-  <span>📡 Internet took a break. We'll auto-refresh soon.</span>
+<div id="offline-banner" class="offline-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,0.20);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,0.4);border-radius:16px;color:#2C2C2C;padding:10px 16px;font-weight:500;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.1);animation:slideUp 0.3s ease;width:fit-content;max-width:calc(100% - 32px);cursor:pointer;user-select:none;touch-action:pan-y;">
+  <span style="display:flex;align-items:center;gap:8px;"><span>📡</span><span>Internet took a break. We'll auto-refresh soon.</span><button type="button" style="background:none;border:none;color:inherit;font-size:16px;padding:0;margin-left:8px;cursor:pointer;opacity:0.7;" id="offlineBannerClose">✕</button></span>
 </div>
 <style>
-@keyframes slideDown{from{transform:translateX(-50%) translateY(-120%);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
-.offline-banner{display:flex!important;align-items:center;justify-content:center;gap:8px;}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(120%);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
+@keyframes slideDown{from{transform:translateX(-50%) translateY(0);opacity:1;}to{transform:translateX(-50%) translateY(120%);opacity:0;}}
+.offline-banner{display:none!important;}
+.offline-banner.show{display:flex!important;align-items:center;justify-content:center;}
+.offline-banner.hide{animation:slideDown 0.3s ease forwards;}
+@media(max-width:480px){.offline-banner{bottom:60px;max-width:calc(100% - 16px);}}
 </style>
 <script>
 (function OfflineDetection(){
   const b=document.getElementById('offline-banner');
-  const u=()=>{
-    if(navigator.onLine){
-      b.style.display='none';
-    } else {
-      b.style.display='flex';
-    }
-  };
-  u();
-  window.addEventListener('online',u);
-  window.addEventListener('offline',u);
+  const closeBtn=document.getElementById('offlineBannerClose');
+  let touchStart=0;
+  const dismiss=()=>{b.classList.add('hide');setTimeout(()=>{b.classList.remove('show','hide');},300);};
+  const show=()=>{b.classList.remove('hide');b.classList.add('show');};
+  closeBtn.addEventListener('click',dismiss);
+  b.addEventListener('click',dismiss);
+  b.addEventListener('touchstart',(e)=>{touchStart=e.touches[0].clientY;},{passive:true});
+  b.addEventListener('touchend',(e)=>{const touchEnd=e.changedTouches[0].clientY;if(touchEnd-touchStart>50){dismiss;}},{passive:true});
+  window.addEventListener('offline',show);
+  window.addEventListener('online',dismiss);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('data:text/javascript;base64,'+btoa(`const CACHE_NAME='wwp-v1';const URLS=['/','/index.html','https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css'];const DUA_IMAGES=['assets/dua/tile/morning.webp','assets/dua/tile/evening.webp','assets/dua/tile/salah.webp','assets/dua/tile/sleep.webp','assets/dua/tile/praise.webp','assets/dua/tile/qurandua.webp','assets/dua/tile/istighfar.webp','assets/dua/tile/ummah.webp','assets/dua/tile/names.webp','assets/dua/tile/other.webp','assets/dua/banner/morning.webp','assets/dua/banner/evening.webp','assets/dua/banner/salah.webp','assets/dua/banner/sleep.webp','assets/dua/banner/praise.webp','assets/dua/banner/qurandua.webp','assets/dua/banner/istighfar.webp','assets/dua/banner/ummah.webp','assets/dua/banner/names.webp','assets/dua/banner/other.webp'];const ALL_URLS=[...URLS,...DUA_IMAGES];self.addEventListener('install',(e)=>{e.waitUntil(caches.open(CACHE_NAME).then((c)=>{return Promise.all(ALL_URLS.map(u=>c.add(u).catch(()=>0)))}).then(()=>self.skipWaiting()))});self.addEventListener('activate',(e)=>{e.waitUntil(caches.keys().then(n=>Promise.all(n.filter(x=>x!==CACHE_NAME).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});self.addEventListener('fetch',(e)=>{if(e.request.method!=='GET')return;const url=new URL(e.request.url);if(url.hostname==='api.aladhan.com'||url.hostname==='api.alquran.cloud'||url.hostname==='everyayah.com'){e.respondWith(caches.open(CACHE_NAME).then(c=>c.match(e.request).then(cached=>{const fp=fetch(e.request).then(r=>{if(r.status===200)c.put(e.request,r.clone());return r}).catch(()=>cached||new Response('',{status:503}));return cached||fp})));return}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(resp.status===200)caches.open(CACHE_NAME).then(c=>c.put(e.request,resp.clone()));return resp}).catch(()=>null)))});`)).catch(()=>0)}
 })();
 </script>
