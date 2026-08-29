@@ -1847,6 +1847,24 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 /* ---------- Day & Night World Map (Prayer Times page) ---------- */
 .pt-map-card{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:8px;}
 .pt-map-header{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;position:relative;}
+.pt-qibla-card{display:block;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 18px;margin:14px auto 0;max-width:504px;text-align:center;cursor:pointer;font:inherit;color:inherit;}
+.pt-qibla-header{margin-bottom:2px;}
+.pt-qibla-title{font-size:13px;font-weight:800;color:var(--text);}
+.pt-qibla-compass{width:150px;height:150px;border-radius:50%;position:relative;margin:10px auto 6px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:radial-gradient(circle at 32% 26%,color-mix(in srgb,var(--coral) 40%,transparent),color-mix(in srgb,var(--coral) 8%,transparent) 68%);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.pt-qibla-compass:before{content:"";position:absolute;inset:13px;border-radius:50%;border:1px dashed var(--border);}
+.pt-qibla-compass:after{content:"";position:absolute;inset:29px;border-radius:50%;background:linear-gradient(135deg,var(--border),transparent);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
+.pt-qibla-compass .pqc-n,.pt-qibla-compass .pqc-e,.pt-qibla-compass .pqc-s,.pt-qibla-compass .pqc-w{position:absolute;font-size:13px;color:var(--text-dim);}
+.pt-qibla-compass .pqc-n{top:-8px;left:50%;transform:translateX(-50%);font-size:18px;color:var(--coral);}
+.pt-qibla-compass .pqc-e{right:-6px;top:50%;}
+.pt-qibla-compass .pqc-s{bottom:-6px;left:50%;transform:translateX(-50%);}
+.pt-qibla-compass .pqc-w{left:-6px;top:50%;}
+.pt-qibla-readout{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.pt-qibla-readout strong{font-family:'Lora',serif;font-size:26px;font-weight:600;color:var(--text);}
+.pt-qibla-readout b{font-size:14px;font-weight:600;color:var(--text-dim);}
+.pt-qibla-needle{position:absolute;top:50%;left:50%;width:0;height:0;z-index:2;transform-origin:0 0;transform:rotate(0deg);transition:transform .12s linear;pointer-events:none;}
+.pt-qibla-needle .qc-tip{position:absolute;left:-7px;top:-62px;width:14px;height:16px;clip-path:polygon(50% 0,100% 100%,0 100%);background:var(--coral);}
+.pt-qibla-needle .qc-tail{position:absolute;left:-5px;top:48px;width:10px;height:14px;clip-path:polygon(50% 100%,100% 0,0 0);background:var(--text-dim);opacity:.5;}
+.pt-qibla-status{display:block;font-size:12.5px;color:var(--text-dim);margin-top:6px;}
 .pt-map-title{font-size:13px;font-weight:700;color:var(--text-dim);}
 .pt-map-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text-faint);padding:0;}
 .pt-map-toggle-track{width:32px;height:18px;border-radius:999px;background:var(--border);position:relative;transition:background .2s ease;}
@@ -2516,7 +2534,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-setting-toggle-row small{display:block;font-size:10px;margin-top:3px;}
 #page-travel .tm-qibla-card{cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;}
 #page-travel .tm-qibla-card .tm-card-title{align-self:flex-start;}
-#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;}
+#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;background:radial-gradient(circle at 32% 26%,color-mix(in srgb,var(--coral) 40%,transparent),color-mix(in srgb,var(--coral) 8%,transparent) 68%);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 #page-travel .tm-compass:before{content:"";position:absolute;inset:14px;border-radius:50%;border-style:dashed;border-width:1px;}
 #page-travel .tm-compass:after{content:"";position:absolute;inset:31px;border-radius:50%;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
 #page-travel .tm-compass-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
@@ -4556,6 +4574,19 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         </div>
       </div>
 
+      <button type="button" class="pt-qibla-card wwp-qibla-card wwp-qibla-trigger" id="ptQiblaCard">
+        <div class="pt-qibla-header"><span class="pt-qibla-title">Qiblah Direction</span></div>
+        <div class="pt-qibla-compass">
+          <span class="pqc-n">▲</span><span class="pqc-e">+</span><span class="pqc-s">◦</span><span class="pqc-w">+</span>
+          <div class="pt-qibla-needle wwp-qc-needle" id="ptQcNeedle">
+            <span class="qc-tip"></span>
+            <span class="qc-tail"></span>
+          </div>
+          <div class="pt-qibla-readout"><strong id="ptQiblaDeg">—°</strong><b id="ptQiblaDir">—</b></div>
+        </div>
+        <span class="pt-qibla-status wwp-qibla-status" id="ptQiblaStatusLine">Tap to activate compass</span>
+      </button>
+
       <div id="ptNextCard" class="pt-next-card"><!-- populated by JS: next prayer, big --></div>
       <div id="ptPrayerQuote" class="pt-prayer-quote"><!-- populated by JS: prayer virtue quote --></div>
       <div id="ptAfterNextCard" class="pt-afternext-card"><!-- populated by JS: prayer after next, small --></div>
@@ -4741,17 +4772,17 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <button class="tm-link" id="tmTimetableBtn" type="button">View Today's Timetable <span>→</span></button>
         </article>
 
-        <button class="tm-card tm-qibla-card" id="tmQiblaBtn" type="button">
+        <button class="tm-card tm-qibla-card wwp-qibla-card wwp-qibla-trigger" id="tmQiblaBtn" type="button">
           <div class="tm-card-title">Qiblah Direction</div>
           <div class="tm-compass" aria-hidden="true">
             <span class="tm-compass-n">▲</span><span class="tm-compass-e">+</span><span class="tm-compass-s">◦</span><span class="tm-compass-w">+</span>
-            <div class="tm-compass-needle" id="tmQcNeedle">
+            <div class="tm-compass-needle wwp-qc-needle" id="tmQcNeedle">
               <span class="tm-qc-tip"></span>
               <span class="tm-qc-tail"></span>
             </div>
             <div class="tm-compass-inner"><strong id="tmQiblaDeg">—°</strong><b id="tmQiblaDir">—</b></div>
           </div>
-          <span class="tm-link" id="tmQiblaStatusLine">Tap to activate compass</span>
+          <span class="tm-link wwp-qibla-status" id="tmQiblaStatusLine">Tap to activate compass</span>
         </button>
 
         <article class="tm-card tm-guide-card">
@@ -4802,7 +4833,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 
         <article class="tm-card tm-actions-card">
           <div class="tm-card-title">Quick Actions</div>
-          <button class="tm-action" id="tmOpenQibla" type="button"><span>◉</span>Open Qiblah Compass</button>
+          <button class="tm-action wwp-qibla-trigger" id="tmOpenQibla" type="button"><span>◉</span>Open Qiblah Compass</button>
           <button class="tm-action" id="tmFindSpaces" type="button"><span>⌕</span>Find Prayer Spaces</button>
           <button class="tm-action" id="tmOfflineTimes" type="button"><span>↓</span>Download Offline Times</button>
           <button class="tm-action" id="tmShareLocation" type="button"><span>↗</span>Share Location</button>
@@ -6106,6 +6137,26 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
       + '<div class="pac-time">'+PrayerTimes.to12h(state.timings[stack.afterNext.name])+'</div>';
   }
 
+  function qiblaBearing(lat,lon){
+    const KAABA_LAT=21.4225, KAABA_LON=39.8262;
+    const φ1=lat*Math.PI/180, φ2=KAABA_LAT*Math.PI/180, Δλ=(KAABA_LON-lon)*Math.PI/180;
+    const y=Math.sin(Δλ)*Math.cos(φ2);
+    const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  function qiblaBearingDir(d){
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(d/22.5)%16];
+  }
+  function renderQibla(){
+    const loc=PrayerTimes.getState().location||{};
+    const q=qiblaBearing(Number(loc.lat||51.5074),Number(loc.lon||-0.1278));
+    const deg=document.getElementById('ptQiblaDeg');
+    const dir=document.getElementById('ptQiblaDir');
+    if(deg) deg.textContent=Math.round(q)+'°';
+    if(dir) dir.textContent=qiblaBearingDir(q);
+  }
+
   function renderFullPage(){
     const state = PrayerTimes.getState();
 
@@ -6118,6 +6169,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     renderDayRow();
     renderNextCards();
     renderMap();
+    renderQibla();
   }
 
   function renderAll(){ renderHome(); renderFullPage(); }
@@ -13569,12 +13621,10 @@ window.WWP_TravelHome = (function(){
 
   function qcApplyHeading(heading){
     const rel=((qcCurrentQibla-heading)%360+360)%360;
-    const needle=$('#tmQcNeedle');
-    if(needle) needle.style.transform='rotate('+rel+'deg)';
     const aligned=Math.min(rel,360-rel)<5;
-    const line=$('#tmQiblaStatusLine');
-    if(line) line.textContent = aligned ? 'Aligned — facing the Qiblah' : 'Rotate until the marker points up';
-    $('#tmQiblaBtn')?.classList.toggle('tm-qc-aligned',aligned);
+    document.querySelectorAll('.wwp-qc-needle').forEach(n=>{ n.style.transform='rotate('+rel+'deg)'; });
+    document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent = aligned ? 'Aligned — facing the Qiblah' : 'Rotate until the marker points up'; });
+    document.querySelectorAll('.wwp-qibla-card').forEach(c=>{ c.classList.toggle('tm-qc-aligned',aligned); });
   }
 
   function qcOnOrientation(e){
@@ -13600,10 +13650,10 @@ window.WWP_TravelHome = (function(){
     if(qcWatchdog) clearTimeout(qcWatchdog);
     qcWatchdog=setTimeout(()=>{
       if(!qcGotReading){
-        const line=$('#tmQiblaStatusLine');
-        if(line) line.textContent = location.protocol!=='https:'
+        const msg = location.protocol!=='https:'
           ? 'Compass needs https to work.'
           : 'No compass sensor found on this device.';
+        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent=msg; });
       }
     },2500);
   }
@@ -13635,8 +13685,7 @@ window.WWP_TravelHome = (function(){
       }catch(err){/* ignore — user can tap again */}
     }
   }
-  $('#tmQiblaBtn')?.addEventListener('click', qcHandleTap);
-  $('#tmOpenQibla')?.addEventListener('click', qcHandleTap);
+  document.querySelectorAll('.wwp-qibla-trigger').forEach(btn=>btn.addEventListener('click', qcHandleTap));
 
   qcAutoStart();
   $('#tmOfflineTimes')?.addEventListener('click',()=>{try{localStorage.setItem('wwp:travel:offline-times',JSON.stringify(PrayerTimes.getState().timings||{}));showToast('Today’s prayer times saved for offline use.');}catch(e){showToast('Offline saving is unavailable on this device.');}});
