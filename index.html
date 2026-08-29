@@ -2516,8 +2516,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-setting-toggle-row small{display:block;font-size:10px;margin-top:3px;}
 #page-travel .tm-qibla-card{cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;}
 #page-travel .tm-qibla-card .tm-card-title{align-self:flex-start;}
-#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;}
-#page-travel .tm-compass:before,#page-travel .tm-compass:after{content:"";position:absolute;inset:14px;border-radius:50%;}
+#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;}
+#page-travel .tm-compass:before,#page-travel .tm-compass:after{content:"";position:absolute;inset:14px;border-radius:50%;border-style:dashed;border-width:1px;}
 #page-travel .tm-compass:after{inset:31px;border-style:solid;}
 #page-travel .tm-compass-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
 #page-travel .tm-compass-inner strong{font-family:'Lora',serif;font-size:28px;font-weight:600;}
@@ -2527,8 +2527,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-compass-e{right:-7px;top:50%;}
 #page-travel .tm-compass-s{bottom:-7px;left:50%;transform:translateX(-50%);}
 #page-travel .tm-compass-w{left:-7px;top:50%;}
-#page-travel .tm-compass-needle{position:absolute;top:50%;left:50%;z-index:3;transform-origin:50% 50%;transform:translate(-50%,-50%) rotate(0deg);color:#20343c;transition:transform .12s linear;pointer-events:none;}
-body[data-theme="dark"] #page-travel .tm-compass-needle,body[data-theme="amoled"] #page-travel .tm-compass-needle{color:#d5d5d5;}
+#page-travel .tm-compass-needle{position:absolute;top:50%;left:50%;width:0;height:0;z-index:2;transform-origin:0 0;transform:rotate(0deg);transition:transform .12s linear;pointer-events:none;}
+#page-travel .tm-qc-tip{position:absolute;left:-7px;top:-71px;width:14px;height:19px;clip-path:polygon(50% 0,100% 100%,0 100%);background:#F4714E;}
+#page-travel .tm-qc-tail{position:absolute;left:-5px;top:52px;width:10px;height:14px;clip-path:polygon(50% 100%,100% 0,0 0);background:#20343c;opacity:.3;}
+body[data-theme="dark"] #page-travel .tm-qc-tail,body[data-theme="amoled"] #page-travel .tm-qc-tail{background:#d5d5d5;}
 #page-travel .tm-qibla-card>.tm-link{position:absolute;bottom:18px;left:0;right:0;}
 #page-travel .tm-card-desc{font-size:11px;line-height:1.55;margin:0 0 12px;}
 #page-travel .tm-guide-row{width:100%;display:flex;align-items:center;gap:11px;text-align:left;padding:7px 0;cursor:pointer;}
@@ -2683,7 +2685,7 @@ body[data-theme="dark"] #page-travel .tm-link{border:0;background:none;color:#ef
 body[data-theme="dark"] #page-travel .tm-setting-toggle-row small{color:#b3a9cf;}
 body[data-theme="dark"] #page-travel .tm-compass{border:1px solid rgba(117,109,166,.4);box-shadow:inset 0 0 0 12px rgba(242,209,179,.02);}
 body[data-theme="dark"] #page-travel .tm-compass:before, body[data-theme="dark"] #page-travel .tm-compass:after{border:1px dashed rgba(117,109,166,.3);}
-body[data-theme="dark"] #page-travel .tm-compass:after{border-color:rgba(117,109,166,.14);}
+body[data-theme="dark"] #page-travel .tm-compass:after{border-color:rgba(117,109,166,.14);border-image:linear-gradient(135deg,rgba(117,109,166,.3),rgba(117,109,166,.04)) 1;}
 body[data-theme="dark"] #page-travel .tm-compass-n, body[data-theme="dark"] #page-travel .tm-compass-e, body[data-theme="dark"] #page-travel .tm-compass-s, body[data-theme="dark"] #page-travel .tm-compass-w{color:#e5deef;}
 body[data-theme="dark"] #page-travel .tm-compass-n{color:#F2D1B3;}
 body[data-theme="dark"] #page-travel .tm-card-desc{color:#b3a9cf;}
@@ -2761,7 +2763,7 @@ body[data-theme="amoled"] #page-travel .tm-link{border:0;background:none;color:#
 body[data-theme="amoled"] #page-travel .tm-setting-toggle-row small{color:#909090;}
 body[data-theme="amoled"] #page-travel .tm-compass{border:1px solid rgba(255,255,255,.14);box-shadow:none;}
 body[data-theme="amoled"] #page-travel .tm-compass:before, body[data-theme="amoled"] #page-travel .tm-compass:after{border:1px dashed rgba(255,255,255,.12);}
-body[data-theme="amoled"] #page-travel .tm-compass:after{border-color:rgba(255,255,255,.06);}
+body[data-theme="amoled"] #page-travel .tm-compass:after{border-color:rgba(255,255,255,.06);border-image:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.015)) 1;}
 body[data-theme="amoled"] #page-travel .tm-compass-n, body[data-theme="amoled"] #page-travel .tm-compass-e, body[data-theme="amoled"] #page-travel .tm-compass-s, body[data-theme="amoled"] #page-travel .tm-compass-w{color:#d5d5d5;}
 body[data-theme="amoled"] #page-travel .tm-compass-n{color:#f5f5f5;}
 body[data-theme="amoled"] #page-travel .tm-card-desc{color:#a8a8a8;}
@@ -2834,9 +2836,10 @@ body[data-theme="sepia"] #page-travel .tm-location-row, body[data-theme="sepia"]
 body[data-theme="sepia"] #page-travel .tm-location-row small{color:#8a7360;}
 body[data-theme="sepia"] #page-travel .tm-mini-icon, body[data-theme="sepia"] #page-travel .tm-pin-icon{color:#3a2a18;}
 body[data-theme="sepia"] #page-travel .tm-compass-n, body[data-theme="sepia"] #page-travel .tm-compass-e, body[data-theme="sepia"] #page-travel .tm-compass-s, body[data-theme="sepia"] #page-travel .tm-compass-w{color:#3a2a18;}
-body[data-theme="sepia"] #page-travel .tm-compass{border-color:rgba(89,63,39,.35);}
-body[data-theme="sepia"] #page-travel .tm-compass:before{border-color:rgba(89,63,39,.2);}
-body[data-theme="sepia"] #page-travel .tm-compass:after{border-color:rgba(89,63,39,.09);}
+body[data-theme="sepia"] #page-travel .tm-compass{border-color:rgba(89,63,39,.55);}
+body[data-theme="sepia"] #page-travel .tm-compass:before{border-color:rgba(89,63,39,.4);}
+body[data-theme="sepia"] #page-travel .tm-qc-tail{background:#3a2a18;}
+body[data-theme="sepia"] #page-travel .tm-compass:after{border-color:rgba(89,63,39,.22);border-image:linear-gradient(135deg,rgba(89,63,39,.32),rgba(89,63,39,.05)) 1;}
 body[data-theme="sepia"] #page-travel .tm-card{
   background:rgba(255,250,242,.32);
   backdrop-filter:blur(22px) saturate(165%);
@@ -2920,9 +2923,10 @@ body[data-theme="light"] #page-travel .tm-location-row,body[data-theme="light"] 
 body[data-theme="light"] #page-travel .tm-location-row small{color:#7688a3;}
 body[data-theme="light"] #page-travel .tm-mini-icon,body[data-theme="light"] #page-travel .tm-pin-icon{color:#252b40;}
 body[data-theme="light"] #page-travel .tm-compass-n,body[data-theme="light"] #page-travel .tm-compass-e,body[data-theme="light"] #page-travel .tm-compass-s,body[data-theme="light"] #page-travel .tm-compass-w{color:#252b40;}
-body[data-theme="light"] #page-travel .tm-compass{border-color:rgba(46,36,32,.28);}
-body[data-theme="light"] #page-travel .tm-compass:before{border-color:rgba(46,36,32,.16);}
-body[data-theme="light"] #page-travel .tm-compass:after{border-color:rgba(46,36,32,.07);}
+body[data-theme="light"] #page-travel .tm-compass{border-color:rgba(46,36,32,.45);}
+body[data-theme="light"] #page-travel .tm-compass:before{border-color:rgba(46,36,32,.32);}
+body[data-theme="light"] #page-travel .tm-qc-tail{background:#252b40;}
+body[data-theme="light"] #page-travel .tm-compass:after{border-color:rgba(46,36,32,.18);border-image:linear-gradient(135deg,rgba(46,36,32,.28),rgba(46,36,32,.04)) 1;}
 
 /* ---- Glass cards (light theme) ---- */
 body[data-theme="light"] #page-travel .tm-card{
@@ -4742,7 +4746,8 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="tm-compass" aria-hidden="true">
             <span class="tm-compass-n">▲</span><span class="tm-compass-e">+</span><span class="tm-compass-s">◦</span><span class="tm-compass-w">+</span>
             <div class="tm-compass-needle" id="tmQcNeedle">
-              <svg viewBox="0 0 24 80" width="18" height="60"><path d="M12 0 L20 26 L12 19 L4 26 Z" fill="#F4714E"/><path d="M12 80 L17 50 L12 55 L7 50 Z" fill="currentColor" opacity=".35"/></svg>
+              <span class="tm-qc-tip"></span>
+              <span class="tm-qc-tail"></span>
             </div>
             <div class="tm-compass-inner"><strong id="tmQiblaDeg">—°</strong><b id="tmQiblaDir">—</b></div>
           </div>
@@ -13565,7 +13570,7 @@ window.WWP_TravelHome = (function(){
   function qcApplyHeading(heading){
     const rel=((qcCurrentQibla-heading)%360+360)%360;
     const needle=$('#tmQcNeedle');
-    if(needle) needle.style.transform='translate(-50%,-50%) rotate('+rel+'deg)';
+    if(needle) needle.style.transform='rotate('+rel+'deg)';
     const aligned=Math.min(rel,360-rel)<5;
     const line=$('#tmQiblaStatusLine');
     if(line) line.textContent = aligned ? 'Aligned — facing the Qiblah' : 'Rotate until the marker points up';
