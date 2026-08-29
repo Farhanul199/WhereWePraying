@@ -2029,6 +2029,13 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   min-width: 280px;
   padding: 20px;
   font-family: 'Manrope', sans-serif;
+
+  /* Let the panel scroll internally instead of the page behind it */
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .auth-popup.hidden {
@@ -2407,11 +2414,12 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 
 @media (max-width: 480px) {
   .auth-popup {
-    top: auto;
+    top: 16px;
     bottom: 16px;
     right: 16px;
     left: 16px;
     max-width: none;
+    max-height: calc(100vh - 32px);
   }
 }
 
@@ -12461,6 +12469,10 @@ init();
       }
     });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAuthPopup();
+    });
+
     const emailInput = document.getElementById(EMAIL_INPUT_ID);
     if (emailInput) {
       emailInput.addEventListener('keydown', (e) => {
@@ -13062,19 +13074,47 @@ init();
     }
   }
 
+  let __wwpAuthPopupScrollY = 0;
+
+  function lockBodyScroll() {
+    __wwpAuthPopupScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${__wwpAuthPopupScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  function unlockBodyScroll() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, __wwpAuthPopupScrollY);
+  }
+
   function toggleAuthPopup() {
     const popup = document.getElementById(AUTH_POPUP_ID);
     if (popup) {
       popup.classList.toggle('hidden');
-      if (!popup.classList.contains('hidden') && window.WWP_Twinkle) {
-        window.WWP_Twinkle.syncRadioUI();
+      if (popup.classList.contains('hidden')) {
+        unlockBodyScroll();
+      } else {
+        lockBodyScroll();
+        if (window.WWP_Twinkle) {
+          window.WWP_Twinkle.syncRadioUI();
+        }
       }
     }
   }
 
   function closeAuthPopup() {
     const popup = document.getElementById(AUTH_POPUP_ID);
-    if (popup) popup.classList.add('hidden');
+    if (popup && !popup.classList.contains('hidden')) {
+      popup.classList.add('hidden');
+      unlockBodyScroll();
+    }
   }
 
   async function sendMagicLink() {
