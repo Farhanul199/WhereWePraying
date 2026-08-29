@@ -2029,13 +2029,6 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   min-width: 280px;
   padding: 20px;
   font-family: 'Manrope', sans-serif;
-
-  /* Let the panel scroll internally instead of the page behind it */
-  max-height: calc(100vh - 72px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
 }
 
 .auth-popup.hidden {
@@ -2414,12 +2407,11 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 
 @media (max-width: 480px) {
   .auth-popup {
-    top: 16px;
+    top: auto;
     bottom: 16px;
     right: 16px;
     left: 16px;
     max-width: none;
-    max-height: calc(100vh - 32px);
   }
 }
 
@@ -2492,6 +2484,46 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .offline-banner.hide{animation:slideDown 0.3s ease forwards;}
 @media(max-width:480px){.offline-banner{bottom:60px;max-width:calc(100% - 16px);}}
 </style>
+
+<!-- Install App banner -->
+<div id="installBanner" class="wwp-toast-banner" style="display:none;">
+  <div class="wwp-toast-icon">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+  </div>
+  <div class="wwp-toast-body">
+    <div class="wwp-toast-title">Install WhereWePraying?</div>
+    <div class="wwp-toast-sub">Add it to your home screen for quick, full-screen access.</div>
+  </div>
+  <button type="button" id="installBannerAction" class="wwp-toast-cta">Install</button>
+  <button type="button" id="installBannerClose" class="wwp-toast-x" aria-label="Dismiss">✕</button>
+</div>
+
+<!-- Push notifications opt-in banner -->
+<div id="pushBanner" class="wwp-toast-banner" style="display:none;">
+  <div class="wwp-toast-icon">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+  </div>
+  <div class="wwp-toast-body">
+    <div class="wwp-toast-title">Prayer time reminders</div>
+    <div class="wwp-toast-sub">Get a gentle notification when it's time to pray.</div>
+  </div>
+  <button type="button" id="pushBannerAction" class="wwp-toast-cta">Enable</button>
+  <button type="button" id="pushBannerClose" class="wwp-toast-x" aria-label="Dismiss">✕</button>
+</div>
+
+<style>
+.wwp-toast-banner{display:none;position:fixed;left:16px;right:16px;bottom:20px;z-index:9998;max-width:420px;margin:0 auto;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:14px 14px;animation:slideUp .3s ease;}
+.wwp-toast-banner.show{display:flex;}
+.wwp-toast-banner.hide{animation:slideDown .3s ease forwards;}
+.wwp-toast-icon{flex:none;width:36px;height:36px;border-radius:11px;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;}
+.wwp-toast-body{flex:1;min-width:0;}
+.wwp-toast-title{font-weight:700;font-size:13.5px;color:var(--text);}
+.wwp-toast-sub{font-size:12px;color:var(--text-dim);margin-top:1px;}
+.wwp-toast-cta{flex:none;background:var(--coral);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer;}
+.wwp-toast-x{flex:none;background:none;border:none;color:var(--text-faint);font-size:14px;cursor:pointer;padding:4px;}
+@media(max-width:480px){.wwp-toast-banner{bottom:64px;padding:12px;}.wwp-toast-sub{display:none;}}
+</style>
+
 <style>
 /* ============================================================
    TRAVEL MODE :: dashboard styling
@@ -3134,6 +3166,136 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 })();
 </script>
 <script>
+// ---- Install banner (custom "Add to Home Screen") ----
+(function(){
+  var deferredPrompt = null;
+  var banner = document.getElementById('installBanner');
+  var actionBtn = document.getElementById('installBannerAction');
+  var closeBtn = document.getElementById('installBannerClose');
+  var DISMISS_KEY = 'wwp_install_dismissed_at';
+
+  function alreadyInstalled(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function recentlyDismissed(){
+    var t = localStorage.getItem(DISMISS_KEY);
+    if(!t) return false;
+    return (Date.now() - Number(t)) < 1000*60*60*24*14; // 14 days
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    if(!alreadyInstalled() && !recentlyDismissed() && banner){
+      setTimeout(function(){ banner.style.display='flex'; banner.classList.add('show'); }, 2500);
+    }
+  });
+  if(actionBtn) actionBtn.addEventListener('click', function(){
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.finally(function(){
+      deferredPrompt = null;
+      banner.classList.add('hide');
+      setTimeout(function(){ banner.style.display='none'; }, 300);
+    });
+  });
+  if(closeBtn) closeBtn.addEventListener('click', function(){
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    banner.classList.add('hide');
+    setTimeout(function(){ banner.style.display='none'; }, 300);
+  });
+  window.addEventListener('appinstalled', function(){
+    if(banner){ banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
+    deferredPrompt = null;
+  });
+})();
+
+// ---- Share target receiver (manifest share_target -> /share-target) ----
+(function(){
+  if(location.pathname !== '/share-target') return;
+  var p = new URLSearchParams(location.search);
+  var title = p.get('title')||'', text = p.get('text')||'', url = p.get('url')||'';
+  var content = [title, text, url].filter(Boolean).join('\n');
+  if(!content) return;
+  window.addEventListener('DOMContentLoaded', function(){
+    var box = document.createElement('div');
+    box.setAttribute('style','position:fixed;inset:0;z-index:99999;background:rgba(20,15,10,.45);display:flex;align-items:center;justify-content:center;padding:20px;');
+    box.innerHTML = '<div style="background:var(--surface);border-radius:18px;max-width:420px;width:100%;padding:20px;box-shadow:var(--shadow);">'
+      + '<div style="font-weight:700;font-size:15px;margin-bottom:8px;color:var(--text);">Shared to WhereWePraying?</div>'
+      + '<div style="font-size:13px;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;margin-bottom:14px;">'+content.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</div>'
+      + '<button id="shareTargetClose" style="background:var(--coral);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;">Close</button></div>';
+    document.body.appendChild(box);
+    document.getElementById('shareTargetClose').addEventListener('click', function(){
+      box.remove();
+      history.replaceState({}, '', '/');
+    });
+  });
+})();
+
+// ---- Push notification opt-in (foundation) ----
+(function(){
+  var VAPID_PUBLIC_KEY = 'BNEn3Oo2NbDK2qR0BdI6xoPAkSbjma6vNK4VFS4CV2-zTuzM5feJ_DyE3umSPCEEGllTu_NFEVjcTeroQhyC7Sc';
+  var banner = document.getElementById('pushBanner');
+  var actionBtn = document.getElementById('pushBannerAction');
+  var closeBtn = document.getElementById('pushBannerClose');
+  var DISMISS_KEY = 'wwp_push_dismissed_at';
+
+  function urlBase64ToUint8Array(base64String){
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function recentlyDismissed(){
+    var t = localStorage.getItem(DISMISS_KEY);
+    if(!t) return false;
+    return (Date.now() - Number(t)) < 1000*60*60*24*14;
+  }
+  function maybeShowBanner(){
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if(Notification.permission !== 'default') return;
+    if(recentlyDismissed()) return;
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.getSubscription();
+    }).then(function(sub){
+      if(sub) return;
+      setTimeout(function(){ if(banner){ banner.style.display='flex'; banner.classList.add('show'); } }, 6000);
+    }).catch(function(){});
+  }
+  function subscribe(){
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }).then(function(sub){
+      var deviceId = (window.WWP && window.WWP.deviceId) ? window.WWP.deviceId : null;
+      return fetch('/api/push/subscribe', {
+        method:'POST',
+        headers:Object.assign({'Content-Type':'application/json'}, deviceId?{'X-Device-Id':deviceId}:{}),
+        body: JSON.stringify({ subscription: sub, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })
+      });
+    }).catch(function(){}).finally(function(){
+      if(banner){ banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
+    });
+  }
+  if(actionBtn) actionBtn.addEventListener('click', function(){
+    Notification.requestPermission().then(function(perm){
+      if(perm === 'granted') subscribe();
+      else { banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
+    });
+  });
+  if(closeBtn) closeBtn.addEventListener('click', function(){
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    banner.classList.add('hide');
+    setTimeout(function(){ banner.style.display='none'; }, 300);
+  });
+  window.addEventListener('load', maybeShowBanner);
+})();
+</script>
+<script>
+
 // Early event-theme resolver — runs before any header/content is painted,
 // so Jummah/Ramadan styling is already in place on first paint instead of
 // flashing standard theme first. Mirrors the cache/Friday logic in the
@@ -12469,10 +12631,6 @@ init();
       }
     });
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeAuthPopup();
-    });
-
     const emailInput = document.getElementById(EMAIL_INPUT_ID);
     if (emailInput) {
       emailInput.addEventListener('keydown', (e) => {
@@ -13074,47 +13232,19 @@ init();
     }
   }
 
-  let __wwpAuthPopupScrollY = 0;
-
-  function lockBodyScroll() {
-    __wwpAuthPopupScrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${__wwpAuthPopupScrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-  }
-
-  function unlockBodyScroll() {
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, __wwpAuthPopupScrollY);
-  }
-
   function toggleAuthPopup() {
     const popup = document.getElementById(AUTH_POPUP_ID);
     if (popup) {
       popup.classList.toggle('hidden');
-      if (popup.classList.contains('hidden')) {
-        unlockBodyScroll();
-      } else {
-        lockBodyScroll();
-        if (window.WWP_Twinkle) {
-          window.WWP_Twinkle.syncRadioUI();
-        }
+      if (!popup.classList.contains('hidden') && window.WWP_Twinkle) {
+        window.WWP_Twinkle.syncRadioUI();
       }
     }
   }
 
   function closeAuthPopup() {
     const popup = document.getElementById(AUTH_POPUP_ID);
-    if (popup && !popup.classList.contains('hidden')) {
-      popup.classList.add('hidden');
-      unlockBodyScroll();
-    }
+    if (popup) popup.classList.add('hidden');
   }
 
   async function sendMagicLink() {

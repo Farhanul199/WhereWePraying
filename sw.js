@@ -3,6 +3,7 @@ const OFFLINE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css'
 ];
 const DUA_IMAGES = [
@@ -40,6 +41,33 @@ self.addEventListener('message', (e) => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// Prayer-time / general push notifications.
+self.addEventListener('push', (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) { data = { title: 'WhereWePraying?', body: e.data ? e.data.text() : '' }; }
+  const title = data.title || 'WhereWePraying?';
+  const options = {
+    body: data.body || '',
+    icon: '/assets/icons/icon-192.png',
+    badge: '/assets/icons/icon-96.png',
+    tag: data.tag || 'wwp-notification',
+    data: { url: data.url || '/' },
+    vibrate: [80, 40, 80]
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) { if ('focus' in c) { c.navigate(target).catch(()=>0); return c.focus(); } }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
+});
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
@@ -67,7 +95,7 @@ self.addEventListener('fetch', (e) => {
       fetch(e.request).then(resp => {
         if (resp.status === 200) caches.open(CACHE_NAME).then(c => c.put(e.request, resp.clone()));
         return resp;
-      }).catch(() => caches.match(e.request).then(r => r || caches.match('/index.html')))
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('/index.html')).then(r => r || caches.match('/offline.html')))
     );
     return;
   }

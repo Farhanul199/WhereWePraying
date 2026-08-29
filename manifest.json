@@ -22,5 +22,49 @@
     { "src": "/assets/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Prayer Times",
+      "short_name": "Prayer Times",
+      "description": "Today's prayer times and Qiblah",
+      "url": "/prayer-times?source=shortcut",
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Qur'an",
+      "short_name": "Qur'an",
+      "description": "Read and listen to the Qur'an",
+      "url": "/quran?source=shortcut",
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Du'a & Dhikr",
+      "short_name": "Du'a & Dhikr",
+      "description": "Daily supplications and remembrance",
+      "url": "/dua-dhikr?source=shortcut",
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "description": "Track your salah and good deeds",
+      "url": "/journal?source=shortcut",
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    { "src": "/assets/screenshots/mobile-home.png", "sizes": "390x844", "type": "image/png", "form_factor": "narrow", "label": "Home screen with prayer times" },
+    { "src": "/assets/screenshots/mobile-quran.png", "sizes": "390x844", "type": "image/png", "form_factor": "narrow", "label": "Qur'an reader" },
+    { "src": "/assets/screenshots/desktop-home.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "WhereWePraying? home" }
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
