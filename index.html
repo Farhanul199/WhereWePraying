@@ -2517,8 +2517,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-qibla-card{cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;}
 #page-travel .tm-qibla-card .tm-card-title{align-self:flex-start;}
 #page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;}
-#page-travel .tm-compass:before,#page-travel .tm-compass:after{content:"";position:absolute;inset:14px;border-radius:50%;border-style:dashed;border-width:1px;}
-#page-travel .tm-compass:after{inset:31px;border-style:solid;}
+#page-travel .tm-compass:before{content:"";position:absolute;inset:14px;border-radius:50%;border-style:dashed;border-width:1px;}
+#page-travel .tm-compass:after{content:"";position:absolute;inset:31px;border-radius:50%;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
 #page-travel .tm-compass-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
 #page-travel .tm-compass-inner strong{font-family:'Lora',serif;font-size:28px;font-weight:600;}
 #page-travel .tm-compass-inner b{font-size:15px;}
@@ -2685,7 +2685,7 @@ body[data-theme="dark"] #page-travel .tm-link{border:0;background:none;color:#ef
 body[data-theme="dark"] #page-travel .tm-setting-toggle-row small{color:#b3a9cf;}
 body[data-theme="dark"] #page-travel .tm-compass{border:1px solid rgba(117,109,166,.4);box-shadow:inset 0 0 0 12px rgba(242,209,179,.02);}
 body[data-theme="dark"] #page-travel .tm-compass:before, body[data-theme="dark"] #page-travel .tm-compass:after{border:1px dashed rgba(117,109,166,.3);}
-body[data-theme="dark"] #page-travel .tm-compass:after{border-color:rgba(117,109,166,.14);border-image:linear-gradient(135deg,rgba(117,109,166,.3),rgba(117,109,166,.04)) 1;}
+body[data-theme="dark"] #page-travel .tm-compass:after{background:linear-gradient(135deg,rgba(117,109,166,.3),rgba(117,109,166,.04));}
 body[data-theme="dark"] #page-travel .tm-compass-n, body[data-theme="dark"] #page-travel .tm-compass-e, body[data-theme="dark"] #page-travel .tm-compass-s, body[data-theme="dark"] #page-travel .tm-compass-w{color:#e5deef;}
 body[data-theme="dark"] #page-travel .tm-compass-n{color:#F2D1B3;}
 body[data-theme="dark"] #page-travel .tm-card-desc{color:#b3a9cf;}
@@ -2763,7 +2763,7 @@ body[data-theme="amoled"] #page-travel .tm-link{border:0;background:none;color:#
 body[data-theme="amoled"] #page-travel .tm-setting-toggle-row small{color:#909090;}
 body[data-theme="amoled"] #page-travel .tm-compass{border:1px solid rgba(255,255,255,.14);box-shadow:none;}
 body[data-theme="amoled"] #page-travel .tm-compass:before, body[data-theme="amoled"] #page-travel .tm-compass:after{border:1px dashed rgba(255,255,255,.12);}
-body[data-theme="amoled"] #page-travel .tm-compass:after{border-color:rgba(255,255,255,.06);border-image:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.015)) 1;}
+body[data-theme="amoled"] #page-travel .tm-compass:after{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.015));}
 body[data-theme="amoled"] #page-travel .tm-compass-n, body[data-theme="amoled"] #page-travel .tm-compass-e, body[data-theme="amoled"] #page-travel .tm-compass-s, body[data-theme="amoled"] #page-travel .tm-compass-w{color:#d5d5d5;}
 body[data-theme="amoled"] #page-travel .tm-compass-n{color:#f5f5f5;}
 body[data-theme="amoled"] #page-travel .tm-card-desc{color:#a8a8a8;}
@@ -2839,7 +2839,7 @@ body[data-theme="sepia"] #page-travel .tm-compass-n, body[data-theme="sepia"] #p
 body[data-theme="sepia"] #page-travel .tm-compass{border-color:rgba(89,63,39,.55);}
 body[data-theme="sepia"] #page-travel .tm-compass:before{border-color:rgba(89,63,39,.4);}
 body[data-theme="sepia"] #page-travel .tm-qc-tail{background:#3a2a18;}
-body[data-theme="sepia"] #page-travel .tm-compass:after{border-color:rgba(89,63,39,.22);border-image:linear-gradient(135deg,rgba(89,63,39,.32),rgba(89,63,39,.05)) 1;}
+body[data-theme="sepia"] #page-travel .tm-compass:after{background:linear-gradient(135deg,rgba(89,63,39,.32),rgba(89,63,39,.05));}
 body[data-theme="sepia"] #page-travel .tm-card{
   background:rgba(255,250,242,.32);
   backdrop-filter:blur(22px) saturate(165%);
@@ -2926,7 +2926,7 @@ body[data-theme="light"] #page-travel .tm-compass-n,body[data-theme="light"] #pa
 body[data-theme="light"] #page-travel .tm-compass{border-color:rgba(46,36,32,.45);}
 body[data-theme="light"] #page-travel .tm-compass:before{border-color:rgba(46,36,32,.32);}
 body[data-theme="light"] #page-travel .tm-qc-tail{background:#252b40;}
-body[data-theme="light"] #page-travel .tm-compass:after{border-color:rgba(46,36,32,.18);border-image:linear-gradient(135deg,rgba(46,36,32,.28),rgba(46,36,32,.04)) 1;}
+body[data-theme="light"] #page-travel .tm-compass:after{background:linear-gradient(135deg,rgba(46,36,32,.28),rgba(46,36,32,.04));}
 
 /* ---- Glass cards (light theme) ---- */
 body[data-theme="light"] #page-travel .tm-card{
