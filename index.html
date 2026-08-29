@@ -70,7 +70,7 @@ svg{display:block;}
 
 :root, [data-theme="light"]{
   --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
-  --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
   --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896;
   --border:#EFE1CC; --shadow:0 10px 28px rgba(60,42,24,.07);
   --ring-track:#F1E4CE; --active-bg:#FDEEE2; --arabic-color:#2B2016;
@@ -88,7 +88,7 @@ svg{display:block;}
 }
 [data-theme="sepia"]{
   --bg:#EFE3C6; --surface:#F8EFD9; --surface-alt:#F1E4C4;
-  --coral:#E76A46; --coral-dark:#C55632; --coral-soft:#E9D2AA; --beam:#EFC298;
+  --coral:#E76A46; --coral-rgb:231,106,70; --coral-dark:#C55632; --coral-soft:#E9D2AA; --beam:#EFC298;
   --text:#3A2C18; --text-dim:#7C6A48; --text-faint:#9C8A66;
   --border:#DFCB9C; --shadow:0 10px 26px rgba(58,44,24,.10);
   --ring-track:#E4D3A8; --active-bg:#E9D6AE; --arabic-color:#2E2110;
@@ -105,7 +105,7 @@ svg{display:block;}
 }
 [data-theme="dark"]{
   --bg:#121010; --surface:#1B1816; --surface-alt:#211D1A;
-  --coral:#F4714E; --coral-dark:#FF8B69; --coral-soft:#3A2620; --beam:#5A3729;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#3A2620; --beam:#5A3729;
   --text:#F3EAE0; --text-dim:#A79A8C; --text-faint:#726657;
   --border:#332C26; --shadow:0 10px 30px rgba(0,0,0,.35);
   --ring-track:#2C2622; --active-bg:#2A211C; --arabic-color:#F7EFE5;
@@ -122,7 +122,7 @@ svg{display:block;}
 }
 [data-theme="amoled"]{
   --bg:#000000; --surface:#0A0A0A; --surface-alt:#121212;
-  --coral:#F4714E; --coral-dark:#FF8B69; --coral-soft:#2B1712; --beam:#3D2015;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#2B1712; --beam:#3D2015;
   --text:#EDEAE5; --text-dim:#948A7D; --text-faint:#5E564B;
   --border:#1E1E1E; --shadow:0 10px 30px rgba(0,0,0,.6);
   --ring-track:#1A1A1A; --active-bg:#171717; --arabic-color:#F7EFE5;
@@ -143,7 +143,7 @@ svg{display:block;}
    Applied via body[data-event-theme="jummah"], set by JS date resolver
    below. Layers on top of whichever base data-theme is active. */
 body[data-event-theme="jummah"]{
-  --coral:#7E9C79; --coral-dark:#5C7A59; --coral-soft:#E1E9DA; --beam:#AFC7A2;
+  --coral:#7E9C79; --coral-rgb:126,156,121; --coral-dark:#5C7A59; --coral-soft:#E1E9DA; --beam:#AFC7A2;
 }
 body[data-theme="light"][data-event-theme="jummah"],
 body[data-theme="sepia"][data-event-theme="jummah"]{
@@ -167,7 +167,7 @@ body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
    Applied via body[data-event-theme="ramadan"], set by JS date resolver
    below. Layers on top of whichever base data-theme is active. */
 body[data-event-theme="ramadan"]{
-  --coral:#A671A3; --coral-dark:#7E5182; --coral-soft:#EBDCEA; --beam:#CBA2C8;
+  --coral:#A671A3; --coral-rgb:166,113,163; --coral-dark:#7E5182; --coral-soft:#EBDCEA; --beam:#CBA2C8;
 }
 body[data-theme="light"][data-event-theme="ramadan"],
 body[data-theme="sepia"][data-event-theme="ramadan"]{
@@ -1850,7 +1850,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-qibla-card{display:block;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 18px;margin:14px auto 0;max-width:504px;text-align:center;cursor:pointer;font:inherit;color:inherit;}
 .pt-qibla-header{margin-bottom:2px;}
 .pt-qibla-title{font-size:13px;font-weight:800;color:var(--text);}
-.pt-qibla-compass{width:150px;height:150px;border-radius:50%;position:relative;margin:10px auto 6px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:radial-gradient(circle at 32% 26%,color-mix(in srgb,var(--coral) 40%,transparent),color-mix(in srgb,var(--coral) 8%,transparent) 68%);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.pt-qibla-compass{width:150px;height:150px;border-radius:50%;position:relative;margin:10px auto 6px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:radial-gradient(circle at 32% 26%,rgba(var(--coral-rgb),.4),rgba(var(--coral-rgb),.08) 68%);backdrop-filter:blur(4px) saturate(160%);-webkit-backdrop-filter:blur(4px) saturate(160%);box-shadow:inset 0 1px 1px rgba(255,255,255,.5),inset 0 -10px 16px rgba(0,0,0,.06);}
 .pt-qibla-compass:before{content:"";position:absolute;inset:13px;border-radius:50%;border:1px dashed var(--border);}
 .pt-qibla-compass:after{content:"";position:absolute;inset:29px;border-radius:50%;background:linear-gradient(135deg,var(--border),transparent);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
 .pt-qibla-compass .pqc-n,.pt-qibla-compass .pqc-e,.pt-qibla-compass .pqc-s,.pt-qibla-compass .pqc-w{position:absolute;font-size:13px;color:var(--text-dim);}
@@ -2534,7 +2534,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-setting-toggle-row small{display:block;font-size:10px;margin-top:3px;}
 #page-travel .tm-qibla-card{cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;}
 #page-travel .tm-qibla-card .tm-card-title{align-self:flex-start;}
-#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;background:radial-gradient(circle at 32% 26%,color-mix(in srgb,var(--coral) 40%,transparent),color-mix(in srgb,var(--coral) 8%,transparent) 68%);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+#page-travel .tm-compass{width:160px;height:160px;border-radius:50%;position:relative;margin:7px auto 0;display:flex;align-items:center;justify-content:center;border-style:solid;border-width:1px;border-color:transparent;background:radial-gradient(circle at 32% 26%,rgba(var(--coral-rgb),.4),rgba(var(--coral-rgb),.08) 68%);backdrop-filter:blur(4px) saturate(160%);-webkit-backdrop-filter:blur(4px) saturate(160%);box-shadow:inset 0 1px 1px rgba(255,255,255,.35),inset 0 -10px 16px rgba(0,0,0,.1);}
 #page-travel .tm-compass:before{content:"";position:absolute;inset:14px;border-radius:50%;border-style:dashed;border-width:1px;}
 #page-travel .tm-compass:after{content:"";position:absolute;inset:31px;border-radius:50%;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
 #page-travel .tm-compass-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
