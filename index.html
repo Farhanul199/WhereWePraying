@@ -3271,11 +3271,24 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
       });
     }).then(function(sub){
       var deviceId = (window.WWP && window.WWP.deviceId) ? window.WWP.deviceId : null;
-      return fetch('/api/push/subscribe', {
-        method:'POST',
-        headers:Object.assign({'Content-Type':'application/json'}, deviceId?{'X-Device-Id':deviceId}:{}),
-        body: JSON.stringify({ subscription: sub, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })
-      });
+      function send(lat, lon){
+        return fetch('/api/push/subscribe', {
+          method:'POST',
+          headers:Object.assign({'Content-Type':'application/json'}, deviceId?{'X-Device-Id':deviceId}:{}),
+          body: JSON.stringify({
+            subscription: sub,
+            tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            lat: lat, lon: lon
+          })
+        });
+      }
+      if('geolocation' in navigator){
+        navigator.geolocation.getCurrentPosition(
+          function(pos){ send(pos.coords.latitude, pos.coords.longitude); },
+          function(){ send(null, null); },
+          { timeout: 6000, maximumAge: 600000 }
+        );
+      } else { send(null, null); }
     }).catch(function(){}).finally(function(){
       if(banner){ banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
     });
