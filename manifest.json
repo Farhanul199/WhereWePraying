@@ -1,0 +1,26 @@
+{
+  "name": "WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More",
+  "short_name": "WhereWePraying?",
+  "description": "Find out. Get there. Catch the Jama'ah. Prayer times, mosque finder, Qur'an reader, du'a & dhikr, and Islamic guides.",
+  "start_url": "/?source=pwa",
+  "id": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FBF3EC",
+  "theme_color": "#F4714E",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["lifestyle", "utilities", "religion"],
+  "icons": [
+    { "src": "/assets/icons/icon-48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
