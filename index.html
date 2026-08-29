@@ -2527,6 +2527,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 #page-travel .tm-compass-e{right:-7px;top:50%;}
 #page-travel .tm-compass-s{bottom:-7px;left:50%;transform:translateX(-50%);}
 #page-travel .tm-compass-w{left:-7px;top:50%;}
+#page-travel .tm-compass-needle{position:absolute;top:50%;left:50%;z-index:3;transform-origin:50% 50%;transform:translate(-50%,-50%) rotate(0deg);color:#20343c;transition:transform .12s linear;pointer-events:none;}
+body[data-theme="dark"] #page-travel .tm-compass-needle,body[data-theme="amoled"] #page-travel .tm-compass-needle{color:#d5d5d5;}
 #page-travel .tm-qibla-card>.tm-link{position:absolute;bottom:18px;left:0;right:0;}
 #page-travel .tm-card-desc{font-size:11px;line-height:1.55;margin:0 0 12px;}
 #page-travel .tm-guide-row{width:100%;display:flex;align-items:center;gap:11px;text-align:left;padding:7px 0;cursor:pointer;}
@@ -4739,9 +4741,12 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="tm-card-title">Qiblah Direction</div>
           <div class="tm-compass" aria-hidden="true">
             <span class="tm-compass-n">▲</span><span class="tm-compass-e">+</span><span class="tm-compass-s">◦</span><span class="tm-compass-w">+</span>
+            <div class="tm-compass-needle" id="tmQcNeedle">
+              <svg viewBox="0 0 24 80" width="18" height="60"><path d="M12 0 L20 26 L12 19 L4 26 Z" fill="#F4714E"/><path d="M12 80 L17 50 L12 55 L7 50 Z" fill="currentColor" opacity=".35"/></svg>
+            </div>
             <div class="tm-compass-inner"><strong id="tmQiblaDeg">—°</strong><b id="tmQiblaDir">—</b></div>
           </div>
-          <span class="tm-link">Tap to open Qiblah Compass</span>
+          <span class="tm-link" id="tmQiblaStatusLine">Tap to activate compass</span>
         </button>
 
         <article class="tm-card tm-guide-card">
@@ -13454,6 +13459,7 @@ window.WWP_TravelHome = (function(){
     const q=qiblaBearing(Number(loc.lat||51.5074),Number(loc.lon||-0.1278));
     $('#tmQiblaDeg').textContent=Math.round(q)+'°';
     $('#tmQiblaDir').textContent=bearingDir(q);
+    qcCurrentQibla=q;
 
     const next=PrayerTimes.getNextPrayer();
     if(next){
@@ -13548,8 +13554,86 @@ window.WWP_TravelHome = (function(){
   $('#tmTimetableBtn')?.addEventListener('click',()=>window.switchPage('prayertimes'));
   $('#tmFullTimesBtn')?.addEventListener('click',()=>window.switchPage('prayertimes'));
   $('#tmFindSpaces')?.addEventListener('click',()=>window.switchPage('mosque'));
-  $('#tmQiblaBtn')?.addEventListener('click',()=>showToast('Qiblah compass is ready to connect to device orientation.'));
-  $('#tmOpenQibla')?.addEventListener('click',()=>showToast('Qiblah compass is ready to connect to device orientation.'));
+  // ---- Qiblah compass: real device orientation, live and popup-free ----
+  // Matches the Pillars-app UX: tap Qiblah, it just works. The one thing
+  // no web or native app can skip is iOS's own one-time system permission
+  // dialog for motion sensors — that's Apple's OS prompt, not ours, and
+  // it only ever appears once per browser. We trigger it directly from
+  // the tap itself so there's no extra step, modal, or toast in between.
+  let qcWatching=false, qcHeadingHandler=null, qcCurrentQibla=0, qcGotReading=false, qcWatchdog=null;
+
+  function qcApplyHeading(heading){
+    const rel=((qcCurrentQibla-heading)%360+360)%360;
+    const needle=$('#tmQcNeedle');
+    if(needle) needle.style.transform='translate(-50%,-50%) rotate('+rel+'deg)';
+    const aligned=Math.min(rel,360-rel)<5;
+    const line=$('#tmQiblaStatusLine');
+    if(line) line.textContent = aligned ? 'Aligned — facing the Qiblah' : 'Rotate until the marker points up';
+    $('#tmQiblaBtn')?.classList.toggle('tm-qc-aligned',aligned);
+  }
+
+  function qcOnOrientation(e){
+    let heading=null;
+    if(typeof e.webkitCompassHeading==='number'){
+      heading=e.webkitCompassHeading;
+    }else if(typeof e.alpha==='number'){
+      heading=(360-e.alpha)%360;
+    }
+    if(heading===null||isNaN(heading)) return;
+    qcGotReading=true;
+    if(qcWatchdog){clearTimeout(qcWatchdog);qcWatchdog=null;}
+    qcApplyHeading(heading);
+  }
+
+  function qcBeginListening(){
+    if(qcWatching) return;
+    qcGotReading=false;
+    qcHeadingHandler=qcOnOrientation;
+    const evt=('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(evt,qcHeadingHandler,true);
+    qcWatching=true;
+    if(qcWatchdog) clearTimeout(qcWatchdog);
+    qcWatchdog=setTimeout(()=>{
+      if(!qcGotReading){
+        const line=$('#tmQiblaStatusLine');
+        if(line) line.textContent = location.protocol!=='https:'
+          ? 'Compass needs https to work.'
+          : 'No compass sensor found on this device.';
+      }
+    },2500);
+  }
+
+  function qcRefreshBearing(){
+    const st=window.PrayerTimes?.getState?.()||{};
+    const loc=st.location||{};
+    qcCurrentQibla=qiblaBearing(Number(loc.lat||51.5074),Number(loc.lon||-0.1278));
+  }
+
+  // Runs once, automatically, no tap required — works immediately on
+  // Android/desktop browsers that don't gate the sensor behind permission.
+  function qcAutoStart(){
+    qcRefreshBearing();
+    if(typeof window.DeviceOrientationEvent==='undefined') return;
+    if(typeof DeviceOrientationEvent.requestPermission==='function') return; // iOS: wait for the tap
+    qcBeginListening();
+  }
+
+  // iOS Safari only: the tap on the card itself doubles as the required
+  // user gesture, so the browser's one-time system prompt fires right
+  // here — no separate "Enable" step, no in-app modal.
+  async function qcHandleTap(){
+    if(typeof window.DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function' && !qcWatching){
+      try{
+        qcRefreshBearing();
+        const res=await DeviceOrientationEvent.requestPermission();
+        if(res==='granted') qcBeginListening();
+      }catch(err){/* ignore — user can tap again */}
+    }
+  }
+  $('#tmQiblaBtn')?.addEventListener('click', qcHandleTap);
+  $('#tmOpenQibla')?.addEventListener('click', qcHandleTap);
+
+  qcAutoStart();
   $('#tmOfflineTimes')?.addEventListener('click',()=>{try{localStorage.setItem('wwp:travel:offline-times',JSON.stringify(PrayerTimes.getState().timings||{}));showToast('Today’s prayer times saved for offline use.');}catch(e){showToast('Offline saving is unavailable on this device.');}});
   $('#tmShareLocation')?.addEventListener('click',()=>{
     const text='I’m travelling in '+(PrayerTimes.getState().location?.label||'my current location')+'.';
