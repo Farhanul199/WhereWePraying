@@ -4468,7 +4468,13 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
         Private to you
       </div>
-      <div><span class="summary-line" id="summaryLine">Loading today's summary…</span></div>
+      <div class="summary-line-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="summary-line" id="summaryLine">Loading today's summary…</span>
+        <button class="pill-btn" id="journalShareBtn" title="Share your streak" style="display:flex;align-items:center;gap:6px;background:var(--surface-alt);border:1px solid var(--border);border-radius:11px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6 15.4 6.4M8.6 13.4l6.8 4.2"/></svg>
+          Share
+        </button>
+      </div>
     </div>
   </div>
 
@@ -9329,6 +9335,11 @@ async function init(){
   $('#addDeedBtn').addEventListener('click', addCustomDeed);
   $('#newDeedInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addCustomDeed(); });
   $('#logMistakeBtn').addEventListener('click', logMistake);
+  $('#journalShareBtn')?.addEventListener('click', ()=>{
+    const text = `${state.streakDays} day${state.streakDays===1?'':'s'} streak on WhereWePraying? 🕌 Tracking my prayers and good deeds — join me!`;
+    if(navigator.share){ navigator.share({title:'My WhereWePraying? Streak', text}).catch(()=>{}); }
+    else { navigator.clipboard?.writeText(text).then(()=>showToast('Streak copied to clipboard.')).catch(()=>showToast('Sharing is unavailable.')); }
+  });
   $('#mistakeInput').addEventListener('input', ()=> $('#mistakeCharCount').textContent = $('#mistakeInput').value.length);
 
   $('#calPrev').addEventListener('click', ()=>{ state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth()-1, 1); renderCalendar(); });
