@@ -874,6 +874,13 @@ body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 #page-quran .ayah-nav{flex-wrap:wrap;}
 #page-quran .nav-btn.mid{order:3;flex:1 0 100%;}
 #page-quran .reader-layout{grid-template-columns:1fr;gap:14px;}
+/* Audio/Reciter panel used to sit last in DOM order, which on a single-
+   column mobile layout meant scrolling past the entire surah's ayahs to
+   reach it. Reorder it (grid items respect `order` like flex) to sit
+   right after the collapsible surah picker, before the ayah list. */
+#page-quran .surah-sidebar{order:1;}
+#page-quran .audio-tools-pane{order:2;}
+#page-quran .reader-pane{order:3;}
 #page-quran .search-row{gap:10px;}
 #page-quran .surah-sidebar{position:static;height:auto;}
 #page-quran .sidebar-head{padding:12px 12px 6px;}
@@ -10376,7 +10383,7 @@ const ITEMS = {
    OFFLINE SYNC :: Cache categories and guides to IndexedDB
    for offline access to Dua/Dhikr and Guides
    ============================================================ */
-const OfflineSync = (function(){
+window.OfflineSync = (function(){
   const syncCategories = async (categories) => {
     try{
       await OfflineData.set('metadata', { key:'categories_timestamp', value: Date.now() });
@@ -10399,7 +10406,7 @@ const OfflineSync = (function(){
 })();
 
 
-const CATEGORIES = [
+window.CATEGORIES = [
   {id:'morning', title:"Morning", icon:'sun', theme:'theme-morning', light:false,
     desc:"Adhkar to start your day with light and protection.",
     items:['morning-dhikr','ayat-al-kursi','sayyidul-istighfar','morning-wellbeing','morning-sufficient','three-quls','hundred-hasanat','two-light-words','four-witnesses-morning','fitrah-morning','blessing-from-you','afw-afiyah','witness-unseen-seen','bismillah-protection','ya-hayyu-ya-qayyum','khayra-hadhal-yawm','subhanallahi-hundred','subhanallahi-extended']},
