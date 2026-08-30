@@ -33,7 +33,7 @@ window.__wwpGoogleAuthResult = (function(){
 })();
 </script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More</title>
 <meta name="description" content="WhereWePraying? is your all-in-one Islamic companion: find nearby mosques and Jama'ah times, check accurate prayer times, read the Qur'an with translation and recitation, track good deeds in your Islamic journal, and explore du'a, dhikr and worship guides.">
 <link rel="canonical" href="https://wherewepraying.com/">
@@ -51,7 +51,7 @@ window.__wwpGoogleAuthResult = (function(){
 <meta name="apple-mobile-web-app-title" content="WhereWePraying?">
 <style>
 
-*{box-sizing:border-box;margin:0;padding:0;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{-webkit-text-size-adjust:100%;}
 body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);transition:background .25s ease,color .25s ease;min-height:100vh;}
 button, select, input, textarea{font-family:inherit;}
@@ -304,8 +304,12 @@ body{padding-top:78px;}
 .icon-btn.account-signed-in{background:var(--coral-soft);border-color:var(--coral-soft);color:var(--coral-dark);}
 .icon-btn.account-signed-in:hover{border-color:var(--coral);}
 
-.app-page{position:relative;}
+.app-page{position:relative;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease;}
 .app-page.hidden{display:none;}
+.app-page.page-enter{opacity:0;transform:translateY(8px);}
+@media (prefers-reduced-motion: reduce){
+  .app-page{transition:none;}
+}
 
 .site-footer{background:var(--surface);border-top:1px solid var(--border);margin-top:20px;}
 .site-footer-inner{max-width:1360px;margin:0 auto;padding:32px 32px 26px;display:flex;flex-wrap:wrap;gap:28px;justify-content:space-between;align-items:flex-start;}
@@ -7044,6 +7048,15 @@ function switchPage(id, opts){
   PAGES.forEach(p=>{
     document.getElementById('page-'+p).classList.toggle('hidden', p!==id);
   });
+  const activePage = document.getElementById('page-'+id);
+  if(activePage){
+    activePage.classList.add('page-enter');
+    // Force a reflow so the browser registers the 'page-enter' start
+    // state before we remove it — otherwise the transition is skipped
+    // because both class changes land in the same paint frame.
+    void activePage.offsetWidth;
+    requestAnimationFrame(()=> activePage.classList.remove('page-enter'));
+  }
   document.querySelectorAll('.nav a[data-page]').forEach(a=>{
     a.classList.toggle('active', a.dataset.page===id);
   });
