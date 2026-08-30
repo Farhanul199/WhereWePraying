@@ -2046,7 +2046,12 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   gap: 16px;
   max-height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 4px;
+}
+
+body.auth-popup-open {
+  overflow: hidden;
 }
 
 .auth-popup-close {
@@ -13263,6 +13268,7 @@ init();
     const popup = document.getElementById(AUTH_POPUP_ID);
     if (popup) {
       popup.classList.toggle('hidden');
+      document.body.classList.toggle('auth-popup-open', !popup.classList.contains('hidden'));
       if (!popup.classList.contains('hidden') && window.WWP_Twinkle) {
         window.WWP_Twinkle.syncRadioUI();
       }
@@ -13272,6 +13278,7 @@ init();
   function closeAuthPopup() {
     const popup = document.getElementById(AUTH_POPUP_ID);
     if (popup) popup.classList.add('hidden');
+    document.body.classList.remove('auth-popup-open');
   }
 
   async function sendMagicLink() {
