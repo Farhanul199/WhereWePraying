@@ -2027,6 +2027,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   box-shadow: var(--shadow, 0 4px 16px rgba(0, 0, 0, 0.1));
   z-index: 1000;
   min-width: 280px;
+  max-height: calc(100vh - 88px);
   padding: 20px;
   font-family: 'Manrope', sans-serif;
 }
@@ -2039,6 +2040,9 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .auth-popup-close {
@@ -2083,6 +2087,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 }
 
 .auth-popup-signed-in.hidden {
+  display: none;
+}
+
+.auth-popup-sign-in.hidden {
   display: none;
 }
 
@@ -2407,11 +2415,12 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 
 @media (max-width: 480px) {
   .auth-popup {
-    top: auto;
+    top: 56px;
     bottom: 16px;
     right: 16px;
     left: 16px;
     max-width: none;
+    max-height: calc(100vh - 72px);
   }
 }
 
