@@ -593,6 +593,23 @@ body #page-quran{
 #page-quran .switch.on{background:var(--coral);}
 #page-quran .switch.on::after{left:16px;}
 #page-quran .ayah-list{padding:26px;display:flex;flex-direction:column;gap:22px;min-height:220px;}
+#page-quran .qr-scroll-top-btn{
+  position:fixed;right:18px;bottom:22px;width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.37);
+  background:color-mix(in srgb, var(--surface) 37%, transparent);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border:1px solid var(--border);color:var(--text-dim);
+  box-shadow:var(--shadow, 0 4px 16px rgba(0,0,0,.14));
+  cursor:pointer;z-index:60;
+  opacity:0;transform:translateY(12px);pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease, border-color .2s, color .2s;
+}
+#page-quran .qr-scroll-top-btn.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+#page-quran .qr-scroll-top-btn:hover{border-color:var(--coral);color:var(--coral);}
+@media (max-width:820px){
+  #page-quran .qr-scroll-top-btn{right:14px;bottom:18px;width:42px;height:42px;}
+}
 #page-quran .ayah-card{padding-bottom:20px;border-bottom:1px dashed var(--border);}
 #page-quran .ayah-card.playing{
   background:var(--coral-soft);border-radius:12px;box-shadow:inset 4px 0 0 var(--coral);
@@ -1727,16 +1744,19 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-day-card.active .pdc-name{color:var(--coral);}
 .pt-day-card .pdc-time{font-size:10px;color:var(--text-dim);font-weight:600;white-space:nowrap;}
 .pt-day-card.active .pdc-time{color:var(--coral-dark);}
+.pt-day-card .pdc-time-alt{font-size:9px;color:var(--coral);font-weight:600;white-space:nowrap;margin-top:1px;opacity:.85;}
 @media (max-width:620px){
   .pt-day-row{gap:5px;}
   .pt-day-card{padding:6px 4px;gap:4px;}
   .pt-day-card .pdc-icon{width:20px;height:20px;}
   .pt-day-card .pdc-name{font-size:10.5px;}
   .pt-day-card .pdc-time{font-size:8.5px;}
+  .pt-day-card .pdc-time-alt{font-size:7.5px;}
 }
 @media (max-width:420px){
   .pt-day-card{flex-direction:column;text-align:center;padding:8px 2px;gap:3px;}
   .pt-day-card .pdc-time{white-space:normal;}
+  .pt-day-card .pdc-time-alt{white-space:normal;}
 }
 
 /* ---------- World clocks (Prayer Times page) ---------- */
@@ -4029,6 +4049,9 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 </div>
 
 <div id="page-quran" class="app-page hidden">
+<button type="button" class="qr-scroll-top-btn" id="qrScrollTopBtn" title="Back to top" aria-label="Scroll to top of the surah">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+</button>
 <main class="page">
 
   <div class="qh-hero">
@@ -5509,6 +5532,16 @@ const PrayerTimes = (function(){
               const t = data.data.timings;
               const timings = {};
               PRAYER_ORDER.forEach(p=>{ timings[p] = (t[p]||'').split(' ')[0]; });
+              try{
+                const hanafiUrl = API_BASE+'/timings/'+dateStr+'?latitude='+loc.lat+'&longitude='+loc.lon+'&method='+state.method+'&school=1';
+                const hRes = await fetch(hanafiUrl);
+                if(hRes.ok){
+                  const hData = await hRes.json();
+                  if(hData.data && hData.data.timings && hData.data.timings.Asr){
+                    timings.AsrHanafi = hData.data.timings.Asr.split(' ')[0];
+                  }
+                }
+              }catch(e){ /* best-effort */ }
               const cacheKey = 'pt:'+dateStr+':'+loc.lat.toFixed(2)+','+loc.lon.toFixed(2)+':'+state.method;
               await OfflineData.set('metadata', {key:cacheKey, value:JSON.stringify({timings, hijri:data.data.date?.hijri})});
             }
@@ -5655,6 +5688,22 @@ const PrayerTimes = (function(){
       const t = data.data.timings;
       const timings = {};
       PRAYER_ORDER.forEach(p=>{ timings[p] = (t[p]||'').split(' ')[0]; });
+
+      // Asr is the one prayer whose start genuinely differs by school
+      // of thought (shadow-length factor 1 vs 2), so fetch the Hanafi
+      // Asr time alongside the default (Shafi'i/Maliki/Hanbali) one
+      // and show both. Best-effort — never blocks the main timings.
+      try{
+        const hanafiUrl = API_BASE+'/timings/'+dateStr+'?latitude='+state.location.lat+'&longitude='+state.location.lon+'&method='+state.method+'&school=1';
+        const hRes = await fetch(hanafiUrl);
+        if(hRes.ok){
+          const hData = await hRes.json();
+          if(hData.data && hData.data.timings && hData.data.timings.Asr){
+            timings.AsrHanafi = hData.data.timings.Asr.split(' ')[0];
+          }
+        }
+      }catch(e){ /* Hanafi Asr is a nice-to-have; ignore failures */ }
+
       const hijri = data.data.date && data.data.date.hijri
         ? (data.data.date.hijri.day+' '+data.data.date.hijri.month.en+' '+data.data.date.hijri.year+' AH')
         : null;
@@ -6441,11 +6490,15 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
       const active = stack && stack.current.name === name;
       const nextName = PT_STACK_ORDER[i+1];
       const finish = nextName ? PrayerTimes.to12h(state.timings[nextName]) : '—';
+      const asrAlt = (name === 'Asr' && state.timings.AsrHanafi)
+        ? '<div class="pdc-time-alt">Hanafi '+PrayerTimes.to12h(state.timings.AsrHanafi)+'</div>'
+        : '';
       return '<div class="pt-day-card'+(active?' active':'')+'">'
         + '<div class="pdc-icon">'+ptIconMarkup(name,32)+'</div>'
         + '<div class="pdc-body">'
           + '<div class="pdc-name">'+name+'</div>'
           + '<div class="pdc-time">'+PrayerTimes.to12h(state.timings[name])+' – '+finish+'</div>'
+          + asrAlt
         + '</div>'
       + '</div>';
     }).join('');
@@ -12241,7 +12294,14 @@ async function init(){
 window.WWP_openGuide = function(guideId, opts){
   opts = opts || {};
   if(guideId) selectGuide(guideId, {skipRoute:true});
-  window.switchPage('guides', {guide: guideId||null, skipHistory: !!opts.skipRoute});
+  // Pass the *post-toggle* current guide (not the raw guideId argument)
+  // on to switchPage. selectGuide() above toggles closed if guideId was
+  // already open, setting __WWP_currentGuide back to null — passing the
+  // original guideId here instead would make switchPage think a new
+  // guide selection is needed and immediately reopen the one we just
+  // closed, which is why a second tap on an open guide used to do
+  // nothing (open -> close -> instant reopen).
+  window.switchPage('guides', {guide: window.__WWP_currentGuide, skipHistory: !!opts.skipRoute});
 };
 
 init();
@@ -14305,6 +14365,28 @@ window.WWP_TravelHome = (function(){
   });
 
   renderFlights();
+})();
+</script>
+<script>
+/* Qur'an reader — floating "back to top" button. The whole reading
+   pane scrolls with the page (no inner scroll container), so this is
+   a simple fixed-position button toggled by window scroll position,
+   scoped to only act while the Qur'an page is the visible one. */
+(function(){
+  var btn = document.getElementById('qrScrollTopBtn');
+  var page = document.getElementById('page-quran');
+  if(!btn || !page) return;
+
+  function onScroll(){
+    if(page.classList.contains('hidden')){ btn.classList.remove('show'); return; }
+    if(window.scrollY > 400) btn.classList.add('show');
+    else btn.classList.remove('show');
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  btn.addEventListener('click', function(){
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
 })();
 </script>
 </body>
