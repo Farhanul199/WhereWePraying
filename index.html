@@ -3532,8 +3532,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     <a data-page="community" class="nav-travel-icon" id="navCommunityIcon" title="The Community Ideas" aria-label="The Community Ideas">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M15.09 14c.36-.68.9-1.24 1.46-1.8A6 6 0 1 0 6.35 9.2c0 1.5.5 2.5 1.1 3.3.6.7 1.19 1.32 1.55 2.2"/></svg>
     </a>
-  </nav>
-  <span id="ramadan-source-note" class="ramadan-source-note hidden">Based on the Ramadan start time in Saudi Arabia</span>
+  </nav>  <span id="ramadan-source-note" class="ramadan-source-note hidden">Based on the Ramadan start time in Saudi Arabia</span>
   <div class="topbar-icons">
     <button class="icon-btn" id="sharedThemeToggle" title="Theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -3745,6 +3744,106 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     <button class="auth-popup-close" id="closeAuthPopupBtn">&times;</button>
   </div>
 </header>
+
+<style>
+.bottom-nav{display:none;}
+.bn-sheet-backdrop{display:none;}
+@media (max-width:768px){
+  .topbar .nav > a[data-page]:not(.nav-travel-icon){display:none;}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom));}
+  .bottom-nav{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:150;
+    background:var(--surface);border-top:1px solid var(--border);
+    padding:6px max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+    justify-content:space-around;align-items:stretch;
+  }
+  .bn-item{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    flex:1;min-width:0;padding:6px 2px;border-radius:12px;color:var(--text-dim);
+    background:none;border:none;font-family:inherit;cursor:pointer;
+  }
+  .bn-item svg{flex:none;}
+  .bn-item span{font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .bn-item.active{color:var(--coral);}
+  .bn-sheet-backdrop{
+    display:none;position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.35);
+  }
+  .bn-sheet-backdrop.open{display:block;}
+  .bn-sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:161;background:var(--surface);
+    border-radius:20px 20px 0 0;padding:10px 14px max(18px,env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .22s ease;
+  }
+  .bn-sheet-backdrop.open .bn-sheet{transform:translateY(0);}
+  .bn-sheet-handle{width:36px;height:4px;border-radius:3px;background:var(--border);margin:6px auto 14px;}
+  .bn-sheet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .bn-sheet-item{
+    display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 6px;
+    border-radius:16px;background:var(--surface-alt);border:1px solid var(--border);
+    color:var(--text);text-decoration:none;cursor:pointer;font-size:12.5px;font-weight:700;
+  }
+  .bn-sheet-item svg{flex:none;}
+}
+</style>
+
+<nav class="bottom-nav" id="bottomNav">
+  <a class="bn-item" data-page="mosque">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 5 8v13h5v-6h4v6h5V8z"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/></svg>
+    <span>Mosque</span>
+  </a>
+  <a class="bn-item" data-page="prayertimes">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+    <span>Prayer</span>
+  </a>
+  <a class="bn-item" data-page="quran">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 5v14c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5Z"/><path d="M12 6.5V20.5"/></svg>
+    <span>Qur'an</span>
+  </a>
+  <a class="bn-item" data-page="journal">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+    <span>Journal</span>
+  </a>
+  <a class="bn-item" data-page="travel">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1 0-1.3.4l-.7.7c-.4.4-.3 1 .2 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.4 5.8c.3.5.9.6 1.3.2l.7-.7c.4-.3.5-.8.4-1.3Z"/></svg>
+    <span>Travel</span>
+  </a>
+  <button class="bn-item" id="bnMoreBtn" type="button">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
+    <span>More</span>
+  </button>
+</nav>
+
+<div class="bn-sheet-backdrop" id="bnSheetBackdrop">
+  <div class="bn-sheet">
+    <div class="bn-sheet-handle"></div>
+    <div class="bn-sheet-grid">
+      <a class="bn-sheet-item" data-page="dua" data-bn-close>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-4-3-8-6.5-8-10.5A5 5 0 0 1 12 7a5 5 0 0 1 8 3.5C20 14.5 16 18 12 21Z"/></svg>
+        Du'a &amp; Dhikr
+      </a>
+      <a class="bn-sheet-item" data-page="guides" data-bn-close>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4Z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H20Z"/></svg>
+        Guides
+      </a>
+      <a class="bn-sheet-item" data-page="community" data-bn-close>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M15.09 14c.36-.68.9-1.24 1.46-1.8A6 6 0 1 0 6.35 9.2c0 1.5.5 2.5 1.1 3.3.6.7 1.19 1.32 1.55 2.2"/></svg>
+        Community
+      </a>
+      <a class="bn-sheet-item" data-page="home" data-bn-close>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+        Home
+      </a>
+      <button class="bn-sheet-item" id="bnAccountBtn" type="button" data-bn-close>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Account
+      </button>
+      <button class="bn-sheet-item" id="bnThemeBtn" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        Theme
+      </button>
+    </div>
+  </div>
+</div>
 
 <div id="jummah-banner" class="jummah-banner hidden">
   <img src="assets/home/hero-arch-jummah.webp" alt="" class="jummah-banner-img">
@@ -7057,7 +7156,7 @@ function switchPage(id, opts){
     void activePage.offsetWidth;
     requestAnimationFrame(()=> activePage.classList.remove('page-enter'));
   }
-  document.querySelectorAll('.nav a[data-page]').forEach(a=>{
+  document.querySelectorAll('.nav a[data-page], .bottom-nav a[data-page]').forEach(a=>{
     a.classList.toggle('active', a.dataset.page===id);
   });
   document.body.classList.toggle('tm-mode', id==='travel');
@@ -7119,6 +7218,30 @@ document.querySelectorAll('a[data-soon]').forEach(a=>{
   a.addEventListener('click', ()=> showToast(a.dataset.soon));
 });
 document.getElementById('sharedThemeToggle').addEventListener('click', cycleTheme);
+
+// ---- Mobile bottom nav: "More" sheet ----
+(function(){
+  const backdrop = document.getElementById('bnSheetBackdrop');
+  const moreBtn = document.getElementById('bnMoreBtn');
+  const accountBtn = document.getElementById('bnAccountBtn');
+  const themeBtn = document.getElementById('bnThemeBtn');
+  if(!backdrop || !moreBtn) return;
+
+  function openSheet(){ backdrop.classList.add('open'); }
+  function closeSheet(){ backdrop.classList.remove('open'); }
+
+  moreBtn.addEventListener('click', openSheet);
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closeSheet(); });
+  backdrop.querySelectorAll('[data-bn-close]').forEach(el=> el.addEventListener('click', closeSheet));
+
+  accountBtn?.addEventListener('click', ()=>{
+    closeSheet();
+    if(window.AuthSystem && window.AuthSystem.toggleAuthPopup) window.AuthSystem.toggleAuthPopup();
+  });
+  themeBtn?.addEventListener('click', ()=>{
+    cycleTheme();
+  });
+})();
 
 const headerHelpBtn = document.getElementById('headerHelpBtn');
 const helpPopup = document.getElementById('helpPopup');
