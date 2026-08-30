@@ -2032,6 +2032,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   z-index: 1000;
   min-width: 280px;
   max-height: calc(100vh - 88px);
+  overflow: hidden;
   padding: 20px;
   font-family: 'Manrope', sans-serif;
 }
@@ -2044,7 +2045,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: 100%;
+  max-height: calc(100vh - 128px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
@@ -2430,6 +2431,9 @@ body.auth-popup-open {
     left: 16px;
     max-width: none;
     max-height: calc(100vh - 72px);
+  }
+  .auth-popup-content {
+    max-height: calc(100vh - 112px);
   }
 }
 
