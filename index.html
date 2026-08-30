@@ -298,18 +298,6 @@ body{padding-top:78px;}
 .topbar-icons{display:flex;align-items:center;gap:clamp(6px,1vw,14px);margin-left:auto;flex:none;}
 .icon-btn{width:clamp(30px,2.4vw,36px);height:clamp(30px,2.4vw,36px);border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;}
 .icon-btn:hover{border-color:var(--coral);color:var(--coral);}
-
-/* PWA install hint callout */
-#pwaInstallHint{position:fixed;top:64px;right:18px;z-index:2000;max-width:230px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:12px 14px;font-size:12.5px;line-height:1.45;color:var(--text);animation:pwaHintIn .35s ease;}
-#pwaInstallHint::before{content:"";position:absolute;top:-9px;right:22px;width:14px;height:14px;background:var(--surface);border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg);}
-#pwaInstallHint .pwa-hint-arrow{position:fixed;top:44px;right:26px;width:1px;height:16px;background:var(--coral);opacity:.55;z-index:2000;}
-#pwaInstallHint .pwa-hint-arrow::after{content:"";position:absolute;top:-5px;left:-3.5px;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:6px solid var(--coral);opacity:.6;}
-#pwaInstallHint .pwa-hint-close{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:2px;}
-#pwaInstallHint .pwa-hint-title{font-weight:700;margin-bottom:4px;padding-right:14px;}
-#pwaInstallHint ul{margin:4px 0 0;padding-left:16px;}
-#pwaInstallHint li{margin-bottom:2px;}
-@keyframes pwaHintIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
-@media (max-width:520px){#pwaInstallHint{right:10px;max-width:190px;}#pwaInstallHint .pwa-hint-arrow{right:16px;}}
 /* Signed-in account icon — background auto-matches the active theme's
    accent tint (light peach normally, sage green in Jummah, lilac in
    Ramadan) since --coral-soft already swaps per theme. */
@@ -2012,9 +2000,8 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
     body { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
     .topbar { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
     .site-footer { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
-    #page-travel { margin-left: calc(-1 * max(16px, env(safe-area-inset-left))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right))); }
   }
-  #page-travel { margin-left: -16px; margin-right: -16px; }
+  body.tm-mode { padding-left: 0 !important; padding-right: 0 !important; }
 }
 
 @media (min-width: 768px) {
@@ -2035,7 +2022,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   position: fixed;
   top: 56px;
   right: 16px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.37);
+  background: color-mix(in srgb, var(--surface) 37%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow, 0 4px 16px rgba(0, 0, 0, 0.1));
@@ -2430,7 +2420,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 @media (max-width: 480px) {
   .auth-popup {
     top: 56px;
-    bottom: 16px;
+    bottom: auto;
     right: 16px;
     left: 16px;
     max-width: none;
@@ -3405,17 +3395,6 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     </button>
   </div>
 
-  <!-- PWA install hint (shown once) -->
-  <div class="pwa-hint-arrow" id="pwaHintArrow" hidden></div>
-  <div id="pwaInstallHint" hidden>
-    <button class="pwa-hint-close" id="pwaHintClose" type="button" aria-label="Dismiss">&times;</button>
-    <div class="pwa-hint-title">Install this app 📲</div>
-    <ul>
-      <li id="pwaHintIOS">iPhone: tap Share, then "Add to Home Screen"</li>
-      <li id="pwaHintAndroid" hidden>Android: tap this menu, then "Install app"</li>
-    </ul>
-  </div>
-
   <!-- Account popup modal -->
   <div id="accountPopup" class="auth-popup hidden">
     <div class="auth-popup-content">
@@ -3574,46 +3553,6 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     <button class="auth-popup-close" id="closeAuthPopupBtn">&times;</button>
   </div>
 </header>
-<script>
-(function(){
-  try{
-    if(localStorage.getItem('pwaHintDismissed')) return;
-    var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if(isStandalone) return; // already installed
-    var ua = navigator.userAgent || '';
-    var isIOS = /iPhone|iPad|iPod/.test(ua);
-    var isAndroid = /Android/.test(ua);
-    if(!isIOS && !isAndroid) return; // only show on mobile
-
-    var hint = document.getElementById('pwaInstallHint');
-    var arrow = document.getElementById('pwaHintArrow');
-    var iosLi = document.getElementById('pwaHintIOS');
-    var androidLi = document.getElementById('pwaHintAndroid');
-    if(!hint) return;
-
-    iosLi.hidden = !isIOS;
-    androidLi.hidden = !isAndroid;
-
-    var dismiss = function(){
-      hint.hidden = true;
-      arrow.hidden = true;
-      localStorage.setItem('pwaHintDismissed', '1');
-    };
-
-    setTimeout(function(){
-      hint.hidden = false;
-      arrow.hidden = false;
-    }, 1200);
-
-    document.getElementById('pwaHintClose').addEventListener('click', dismiss);
-    var accountBtn = document.querySelector('.topbar-icons button[title="Account"]');
-    if(accountBtn) accountBtn.addEventListener('click', dismiss, { once:true });
-
-    // auto-dismiss after a while so it doesn't linger forever
-    setTimeout(dismiss, 15000);
-  }catch(e){}
-})();
-</script>
 
 <div id="jummah-banner" class="jummah-banner hidden">
   <img src="assets/home/hero-arch-jummah.webp" alt="" class="jummah-banner-img">
