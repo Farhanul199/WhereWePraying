@@ -18,3 +18,7 @@ id = "4945c6a85835456881bdcf45bfdf09dc"
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "e732aee122aa45d9898e6bf3373b18d3"
+
+[[r2_buckets]]
+binding = "MASJID_PHOTOS"
+bucket_name = "wherewepraying-masjid-photos"
