@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>WhereWePraying — Broadcast Admin</title>
+<title>WhereWePraying — Admin</title>
 <style>
   :root{
     --coral:#F4714E;
@@ -25,7 +25,7 @@
   }
   .card{
     width:100%;
-    max-width:560px;
+    max-width:640px;
     background:#fff;
     border:1px solid var(--border);
     border-radius:20px;
@@ -112,16 +112,81 @@
     width:auto;
     padding:0 20px;
   }
+  .tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab{
+    background:none;
+    border:none;
+    margin:0;
+    width:auto;
+    padding:10px 4px;
+    margin-right:20px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--muted);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active{
+    color:var(--coral);
+    border-bottom-color:var(--coral);
+  }
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .photo-card{
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:14px;
+    display:flex;
+    gap:12px;
+  }
+  .photo-card img{
+    width:96px;
+    height:96px;
+    object-fit:cover;
+    border-radius:10px;
+    flex:none;
+    background:var(--cream);
+  }
+  .photo-card .pinfo{flex:1;min-width:0;}
+  .photo-card .pname{font-weight:700;font-size:14px;}
+  .photo-card .pnote{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:pre-wrap;}
+  .photo-card .pmeta{font-size:11.5px;color:var(--muted);margin-top:6px;}
+  .photo-actions{display:flex;gap:8px;margin-top:10px;}
+  .photo-actions button{
+    margin-top:0;
+    width:auto;
+    padding:7px 14px;
+    font-size:12.5px;
+  }
+  .btn-approve{background:#1F7A3E;}
+  .btn-reject{background:#B3261E;}
+  .empty-note{color:var(--muted);font-size:13.5px;text-align:center;padding:24px 0;}
+  .refresh-row{display:flex;justify-content:flex-end;margin-bottom:4px;}
+  .refresh-row button{
+    margin-top:0;
+    width:auto;
+    padding:8px 14px;
+    font-size:12.5px;
+    background:var(--cream);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h1>Broadcast Admin</h1>
-  <p class="sub">Send an email to everyone on the WhereWePraying subscriber list.</p>
+  <h1>WhereWePraying — Admin</h1>
+  <p class="sub">Broadcast emails and review community-submitted masjid photos.</p>
 
   <div id="lockScreen">
-    <label for="secretInput">Broadcast key</label>
+    <label for="secretInput">Admin key</label>
     <div class="lockrow">
       <input type="password" id="secretInput" placeholder="Paste your BROADCAST_SECRET">
       <button id="unlockBtn">Unlock</button>
@@ -129,29 +194,43 @@
     <p class="hint">This is the value you set in Cloudflare → Settings → Variables and secrets.</p>
   </div>
 
-  <div id="formScreen" style="display:none;">
-    <label for="subjectInput">Subject</label>
-    <input type="text" id="subjectInput" placeholder="e.g. New feature: Prayer Times world clocks">
+  <div id="mainScreen" style="display:none;">
+    <div class="tabs">
+      <button class="tab active" data-tab="broadcast">Broadcast</button>
+      <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
+    </div>
 
-    <label for="messageInput">Message</label>
-    <textarea id="messageInput" placeholder="Write your update here..."></textarea>
-    <p class="hint">Plain text — each line becomes its own paragraph. Matches the style of your welcome email.</p>
+    <div class="panel active" id="panelBroadcast">
+      <label for="subjectInput">Subject</label>
+      <input type="text" id="subjectInput" placeholder="e.g. New feature: Prayer Times world clocks">
 
-    <label for="buttonTextInput">Button text (optional)</label>
-    <input type="text" id="buttonTextInput" placeholder="e.g. Check it out">
+      <label for="messageInput">Message</label>
+      <textarea id="messageInput" placeholder="Write your update here..."></textarea>
+      <p class="hint">Plain text — each line becomes its own paragraph. Matches the style of your welcome email.</p>
 
-    <label for="buttonUrlInput">Button link (optional)</label>
-    <input type="text" id="buttonUrlInput" placeholder="https://wherewepraying.com/...">
+      <label for="buttonTextInput">Button text (optional)</label>
+      <input type="text" id="buttonTextInput" placeholder="e.g. Check it out">
 
-    <button id="sendBtn">Send to all subscribers</button>
+      <label for="buttonUrlInput">Button link (optional)</label>
+      <input type="text" id="buttonUrlInput" placeholder="https://wherewepraying.com/...">
+
+      <button id="sendBtn">Send to all subscribers</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="panel" id="panelPhotos">
+      <div class="refresh-row">
+        <button id="refreshPhotosBtn">Refresh</button>
+      </div>
+      <div id="photosList"><p class="empty-note">Loading…</p></div>
+      <div id="photoStatus"></div>
+    </div>
   </div>
-
-  <div id="status"></div>
 </div>
 
 <script>
   const lockScreen = document.getElementById('lockScreen');
-  const formScreen = document.getElementById('formScreen');
+  const mainScreen = document.getElementById('mainScreen');
   const secretInput = document.getElementById('secretInput');
   const unlockBtn = document.getElementById('unlockBtn');
   const subjectInput = document.getElementById('subjectInput');
@@ -166,11 +245,22 @@
     if(!val){ return; }
     broadcastKey = val;
     lockScreen.style.display = 'none';
-    formScreen.style.display = 'block';
+    mainScreen.style.display = 'block';
+    loadPendingPhotos();
   });
 
   secretInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter') unlockBtn.click();
+  });
+
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('panelBroadcast').classList.toggle('active', tab.dataset.tab === 'broadcast');
+      document.getElementById('panelPhotos').classList.toggle('active', tab.dataset.tab === 'photos');
+      if(tab.dataset.tab === 'photos') loadPendingPhotos();
+    });
   });
 
   sendBtn.addEventListener('click', async function(){
@@ -229,6 +319,95 @@
     statusEl.className = type;
     statusEl.style.display = 'block';
   }
+
+  // ---- Masjid photo review queue ----
+  const photosList = document.getElementById('photosList');
+  const photoStatusEl = document.getElementById('photoStatus');
+  const pendingBadge = document.getElementById('pendingBadge');
+  document.getElementById('refreshPhotosBtn').addEventListener('click', loadPendingPhotos);
+
+  function showPhotoStatus(msg, type){
+    photoStatusEl.textContent = msg;
+    photoStatusEl.className = type;
+    photoStatusEl.style.display = 'block';
+    setTimeout(function(){ photoStatusEl.style.display = 'none'; }, 3500);
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : String(str);
+    return d.innerHTML;
+  }
+
+  async function loadPendingPhotos(){
+    if(!broadcastKey) return;
+    photosList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const res = await fetch('/api/community/photos?status=pending', {
+        headers: { 'X-Broadcast-Key': broadcastKey }
+      });
+      const data = await res.json();
+      if(!res.ok){
+        photosList.innerHTML = '<p class="empty-note">Error: ' + escapeHtml(data.error || 'Request failed') + '</p>';
+        return;
+      }
+      const photos = data.photos || [];
+      pendingBadge.textContent = photos.length ? '(' + photos.length + ')' : '';
+      if(!photos.length){
+        photosList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
+        return;
+      }
+      photosList.innerHTML = photos.map(function(p){
+        return '<div class="photo-card" data-id="' + p.id + '">' +
+          '<img src="' + escapeHtml(p.url) + '" alt="">' +
+          '<div class="pinfo">' +
+            '<div class="pname">' + escapeHtml(p.masjid_name || 'Unnamed masjid') + '</div>' +
+            (p.note ? '<div class="pnote">' + escapeHtml(p.note) + '</div>' : '') +
+            '<div class="pmeta">Submitted by ' + escapeHtml(p.username || p.email || 'a user') + ' · ' + new Date(p.created_at).toLocaleString() + '</div>' +
+            '<div class="photo-actions">' +
+              '<button class="btn-approve" data-action="approve" data-id="' + p.id + '">Approve</button>' +
+              '<button class="btn-reject" data-action="reject" data-id="' + p.id + '">Reject</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }catch(err){
+      photosList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  photosList.addEventListener('click', async function(e){
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/community/photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Broadcast-Key': broadcastKey
+        },
+        body: JSON.stringify({ action: 'review', photoId: id, status: status })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        showPhotoStatus('Error: ' + (data.error || 'Request failed'), 'err');
+        btn.disabled = false;
+        return;
+      }
+      showPhotoStatus(status === 'approved' ? 'Photo approved.' : 'Photo rejected.', 'ok');
+      const card = photosList.querySelector('.photo-card[data-id="' + id + '"]');
+      if(card) card.remove();
+      const remaining = photosList.querySelectorAll('.photo-card').length;
+      pendingBadge.textContent = remaining ? '(' + remaining + ')' : '';
+      if(!remaining) photosList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
+    }catch(err){
+      showPhotoStatus('Network error — please try again.', 'err');
+      btn.disabled = false;
+    }
+  });
 </script>
 
 </body>
