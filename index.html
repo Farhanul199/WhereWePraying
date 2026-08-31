@@ -7037,10 +7037,14 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     renderQibla();
   }
 
-  function renderAll(){ renderHome(); renderFullPage(); }
+  function isPrayerTimesPageVisible(){
+    const el = document.getElementById('page-prayertimes');
+    return !!el && !el.classList.contains('hidden');
+  }
+  function renderAll(){ renderHome(); if(isPrayerTimesPageVisible()) renderFullPage(); }
   // Clock faces tick every second independent of the 15s prayer-time
   // refresh, so hands move smoothly while the page is open.
-  setInterval(function(){ if(!ptClockPickerOpen) renderClocks(); }, 1000);
+  setInterval(function(){ if(!ptClockPickerOpen && isPrayerTimesPageVisible()) renderClocks(); }, 1000);
 
   // ---- Location popover wiring (shared by both entry points) ----
   // Opt-in only: nothing here runs until the person explicitly clicks
