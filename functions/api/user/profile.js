@@ -96,7 +96,7 @@ export async function onRequestPut(context) {
 
     if (responses.username === undefined) {
       const existing = await db
-        .prepare('SELECT id FROM users WHERE username = ? AND id != ?')
+        .prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?')
         .bind(username, session.userId)
         .first();
       if (existing) return json({ error: 'That username is already taken' }, 409);
