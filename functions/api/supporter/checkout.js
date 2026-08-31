@@ -54,51 +54,56 @@ function toFormBody(obj, prefix) {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  if (!env.STRIPE_SECRET_KEY) {
-    return json({ error: 'Supporter payments are not configured yet.' }, 500);
-  }
-
-  const session = await resolveSession(context);
-  if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
-
-  let body;
   try {
-    body = await request.json();
-  } catch (e) {
-    return json({ error: 'Invalid request body.' }, 400);
-  }
+    if (!env.STRIPE_SECRET_KEY) {
+      return json({ error: 'Supporter payments are not configured yet.' }, 500);
+    }
 
-  const amount = Math.round(Number(body.amount));
-  const mode = body.mode === 'subscription' ? 'subscription' : 'payment';
+    const session = await resolveSession(context);
+    if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
 
-  if (!Number.isFinite(amount) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) {
-    return json({ error: `Please choose an amount between $${MIN_AMOUNT} and $${MAX_AMOUNT}.` }, 400);
-  }
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return json({ error: 'Invalid request body.' }, 400);
+    }
 
-  const user = await env.DB.prepare(`SELECT email FROM users WHERE id = ?1`).bind(session.userId).first();
+    const amount = Math.round(Number(body.amount));
+    const mode = body.mode === 'subscription' ? 'subscription' : 'payment';
 
-  const origin = new URL(request.url).origin;
+    if (!Number.isFinite(amount) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) {
+      return json({ error: `Please choose an amount between $${MIN_AMOUNT} and $${MAX_AMOUNT}.` }, 400);
+    }
 
-  const priceData = {
-    currency: 'usd',
-    unit_amount: amount * 100,
-    product_data: { name: 'WhereWePraying? Supporter' },
-  };
-  if (mode === 'subscription') {
-    priceData.recurring = { interval: 'month' };
-  }
+    let user = null;
+    try {
+      user = await env.DB.prepare(`SELECT email FROM users WHERE id = ?1`).bind(session.userId).first();
+    } catch (dbErr) {
+      console.error('DB lookup failed', dbErr);
+    }
 
-  const payload = {
-    mode,
-    'automatic_payment_methods[enabled]': 'true',
-    client_reference_id: String(session.userId),
-    customer_email: user ? user.email : undefined,
-    success_url: `${origin}/?supporter_success=1`,
-    cancel_url: `${origin}/?supporter_cancel=1`,
-    line_items: [{ quantity: 1, price_data: priceData }],
-  };
+    const origin = new URL(request.url).origin;
 
-  try {
+    const priceData = {
+      currency: 'usd',
+      unit_amount: amount * 100,
+      product_data: { name: 'WhereWePraying? Supporter' },
+    };
+    if (mode === 'subscription') {
+      priceData.recurring = { interval: 'month' };
+    }
+
+    const payload = {
+      mode,
+      'automatic_payment_methods[enabled]': 'true',
+      client_reference_id: String(session.userId),
+      customer_email: user ? user.email : undefined,
+      success_url: `${origin}/?supporter_success=1`,
+      cancel_url: `${origin}/?supporter_cancel=1`,
+      line_items: [{ quantity: 1, price_data: priceData }],
+    };
+
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: {
@@ -116,7 +121,7 @@ export async function onRequestPost(context) {
 
     return json({ url: data.url });
   } catch (e) {
-    console.error('Stripe request failed', e);
-    return json({ error: 'Network error contacting Stripe.' }, 502);
+    console.error('Unhandled error in /api/supporter/checkout', e);
+    return json({ error: 'Something went wrong starting checkout. Please try again.' }, 500);
   }
 }
