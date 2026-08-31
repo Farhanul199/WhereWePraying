@@ -7416,6 +7416,13 @@ function switchPage(id, opts){
   }
 
   window.scrollTo({top:0, behavior:'auto'});
+
+  // Lets sections load their own data whenever they become the visible
+  // page — not just on a nav-link click. Direct loads/refreshes and
+  // popstate (back/forward) call switchPage() directly, so anything
+  // that only listened for nav clicks (e.g. Community Ideas) would
+  // silently never fetch its data on those paths.
+  window.dispatchEvent(new CustomEvent('wwp-page-shown', {detail:{id:id}}));
 }
 window.switchPage = switchPage;
 
@@ -14913,14 +14920,30 @@ init();
     }catch(e){ /* silent */ }
   }
 
-  // ---- Init on first visit to the tab ----
+  // ---- Init whenever the Community page becomes visible ----
+  // Covers: clicking the nav icon, a direct load/refresh landing on
+  // /community-ideas, and browser back/forward — not just the click
+  // case, which was the original bug (data never loaded on refresh).
   let cmInitialized = false;
+  function onCommunityShown(){
+    refreshSignInNotes();
+    cmInitialized = true;
+    loadIdeas();
+    if($('#cmPanelBugs')?.classList.contains('active')) loadMyBugs();
+    if($('#cmPanelPhotos')?.classList.contains('active')) loadMyPhotos();
+  }
   document.querySelectorAll('a[data-page="community"]').forEach(a=>{
-    a.addEventListener('click', ()=>{
-      refreshSignInNotes();
-      if(!cmInitialized){ cmInitialized = true; loadIdeas(); }
-    });
+    a.addEventListener('click', onCommunityShown);
   });
+  window.addEventListener('wwp-page-shown', (e)=>{
+    if(e.detail && e.detail.id === 'community') onCommunityShown();
+  });
+  // Covers the very first page load landing directly on /community-ideas:
+  // switchPage() already ran (earlier in the document) before this
+  // listener above existed, so check current visibility once at parse time.
+  if(!document.getElementById('page-community')?.classList.contains('hidden')){
+    onCommunityShown();
+  }
 })();
 </script>
 
