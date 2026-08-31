@@ -198,6 +198,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="broadcast">Broadcast</button>
       <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
+      <button class="tab" data-tab="bugs">Bugs <span id="bugsBadge"></span></button>
     </div>
 
     <div class="panel active" id="panelBroadcast">
@@ -225,6 +226,14 @@
       <div id="photosList"><p class="empty-note">Loading…</p></div>
       <div id="photoStatus"></div>
     </div>
+
+    <div class="panel" id="panelBugs">
+      <div class="refresh-row">
+        <button id="refreshBugsBtn">Refresh</button>
+      </div>
+      <div id="bugsList"><p class="empty-note">Loading…</p></div>
+      <div id="bugStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -247,6 +256,7 @@
     lockScreen.style.display = 'none';
     mainScreen.style.display = 'block';
     loadPendingPhotos();
+    loadOpenBugs();
   });
 
   secretInput.addEventListener('keydown', function(e){
@@ -259,7 +269,9 @@
       tab.classList.add('active');
       document.getElementById('panelBroadcast').classList.toggle('active', tab.dataset.tab === 'broadcast');
       document.getElementById('panelPhotos').classList.toggle('active', tab.dataset.tab === 'photos');
+      document.getElementById('panelBugs').classList.toggle('active', tab.dataset.tab === 'bugs');
       if(tab.dataset.tab === 'photos') loadPendingPhotos();
+      if(tab.dataset.tab === 'bugs') loadOpenBugs();
     });
   });
 
@@ -405,6 +417,86 @@
       if(!remaining) photosList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
     }catch(err){
       showPhotoStatus('Network error — please try again.', 'err');
+      btn.disabled = false;
+    }
+  });
+
+  // ---- Bug reports ----
+  const bugsList = document.getElementById('bugsList');
+  const bugStatusEl = document.getElementById('bugStatus');
+  const bugsBadge = document.getElementById('bugsBadge');
+  document.getElementById('refreshBugsBtn').addEventListener('click', loadOpenBugs);
+
+  function showBugStatus(msg, type){
+    bugStatusEl.textContent = msg;
+    bugStatusEl.className = type;
+    bugStatusEl.style.display = 'block';
+    setTimeout(function(){ bugStatusEl.style.display = 'none'; }, 3500);
+  }
+
+  async function loadOpenBugs(){
+    if(!broadcastKey) return;
+    bugsList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const res = await fetch('/api/community/bugs?status=open', {
+        headers: { 'X-Broadcast-Key': broadcastKey }
+      });
+      const data = await res.json();
+      if(!res.ok){
+        bugsList.innerHTML = '<p class="empty-note">Error: ' + escapeHtml(data.error || 'Request failed') + '</p>';
+        return;
+      }
+      const bugs = data.bugs || [];
+      bugsBadge.textContent = bugs.length ? '(' + bugs.length + ')' : '';
+      if(!bugs.length){
+        bugsList.innerHTML = '<p class="empty-note">No open bug reports. 🎉</p>';
+        return;
+      }
+      bugsList.innerHTML = bugs.map(function(b){
+        return '<div class="photo-card" data-id="' + b.id + '" style="display:block;">' +
+          '<div class="pname">' + escapeHtml(b.title) + '</div>' +
+          (b.body ? '<div class="pnote">' + escapeHtml(b.body) + '</div>' : '') +
+          '<div class="pmeta">Reported by ' + escapeHtml(b.username || b.email || 'a user') + ' · ' + new Date(b.created_at).toLocaleString() + '</div>' +
+          '<div class="photo-actions">' +
+            '<button class="btn-approve" data-bugaction="resolved" data-id="' + b.id + '">Mark Resolved</button>' +
+            '<button class="btn-reject" data-bugaction="dismissed" data-id="' + b.id + '">Dismiss</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }catch(err){
+      bugsList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  bugsList.addEventListener('click', async function(e){
+    const btn = e.target.closest('button[data-bugaction]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const status = btn.dataset.bugaction;
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/community/bugs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Broadcast-Key': broadcastKey
+        },
+        body: JSON.stringify({ action: 'review', bugId: id, status: status })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        showBugStatus('Error: ' + (data.error || 'Request failed'), 'err');
+        btn.disabled = false;
+        return;
+      }
+      showBugStatus(status === 'resolved' ? 'Marked resolved.' : 'Dismissed.', 'ok');
+      const card = bugsList.querySelector('.photo-card[data-id="' + id + '"]');
+      if(card) card.remove();
+      const remaining = bugsList.querySelectorAll('.photo-card').length;
+      bugsBadge.textContent = remaining ? '(' + remaining + ')' : '';
+      if(!remaining) bugsList.innerHTML = '<p class="empty-note">No open bug reports. 🎉</p>';
+    }catch(err){
+      showBugStatus('Network error — please try again.', 'err');
       btn.disabled = false;
     }
   });
