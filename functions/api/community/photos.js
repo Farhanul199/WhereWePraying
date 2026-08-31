@@ -49,31 +49,35 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   const db = env.DB;
 
-  if (isAdmin(context)) {
-    const status = url.searchParams.get('status') || 'pending';
-    let query = `SELECT p.id, p.r2_key, p.masjid_name, p.note, p.status, p.created_at, p.reviewed_at, u.username, u.email
-                 FROM masjid_photos p LEFT JOIN users u ON u.id = p.user_id`;
-    const binds = [];
-    if (status !== 'all') {
-      query += ` WHERE p.status = ?1`;
-      binds.push(status);
+  try {
+    if (isAdmin(context)) {
+      const status = url.searchParams.get('status') || 'pending';
+      let query = `SELECT p.id, p.r2_key, p.masjid_name, p.note, p.status, p.created_at, p.reviewed_at, u.username, u.email
+                   FROM masjid_photos p LEFT JOIN users u ON u.id = p.user_id`;
+      const binds = [];
+      if (status !== 'all') {
+        query += ` WHERE p.status = ?1`;
+        binds.push(status);
+      }
+      query += ` ORDER BY p.created_at DESC LIMIT 200`;
+      const { results } = await db.prepare(query).bind(...binds).all();
+      const photos = (results || []).map((p) => ({ ...p, url: `/api/community/photo/${p.r2_key}` }));
+      return json({ photos });
     }
-    query += ` ORDER BY p.created_at DESC LIMIT 200`;
-    const { results } = await db.prepare(query).bind(...binds).all();
+
+    const session = await resolveSession(context);
+    if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
+
+    const { results } = await db.prepare(
+      `SELECT id, r2_key, masjid_name, note, status, created_at, reviewed_at
+       FROM masjid_photos WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 50`
+    ).bind(session.userId).all();
+
     const photos = (results || []).map((p) => ({ ...p, url: `/api/community/photo/${p.r2_key}` }));
     return json({ photos });
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
   }
-
-  const session = await resolveSession(context);
-  if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
-
-  const { results } = await db.prepare(
-    `SELECT id, r2_key, masjid_name, note, status, created_at, reviewed_at
-     FROM masjid_photos WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 50`
-  ).bind(session.userId).all();
-
-  const photos = (results || []).map((p) => ({ ...p, url: `/api/community/photo/${p.r2_key}` }));
-  return json({ photos });
 }
 
 export async function onRequestPost(context) {
@@ -94,9 +98,13 @@ export async function onRequestPost(context) {
       return json({ error: 'Invalid review request.' }, 400);
     }
 
-    await db.prepare(
-      `UPDATE masjid_photos SET status = ?1, reviewed_at = ?2 WHERE id = ?3`
-    ).bind(status, Date.now(), photoId).run();
+    try {
+      await db.prepare(
+        `UPDATE masjid_photos SET status = ?1, reviewed_at = ?2 WHERE id = ?3`
+      ).bind(status, Date.now(), photoId).run();
+    } catch (e) {
+      return json({ error: 'db_error', message: String(e) }, 500);
+    }
 
     return json({ success: true });
   }
@@ -132,10 +140,17 @@ export async function onRequestPost(context) {
     return json({ error: 'Upload failed. Please try again.' }, 500);
   }
 
-  const result = await db.prepare(
-    `INSERT INTO masjid_photos (user_id, r2_key, masjid_name, note, status, created_at)
-     VALUES (?1, ?2, ?3, ?4, 'pending', ?5)`
-  ).bind(session.userId, key, masjidName, note, Date.now()).run();
+  try {
+    const result = await db.prepare(
+      `INSERT INTO masjid_photos (user_id, r2_key, masjid_name, note, status, created_at)
+       VALUES (?1, ?2, ?3, ?4, 'pending', ?5)`
+    ).bind(session.userId, key, masjidName, note, Date.now()).run();
 
-  return json({ success: true, id: result.meta.last_row_id, url: `/api/community/photo/${key}` });
+    return json({ success: true, id: result.meta.last_row_id, url: `/api/community/photo/${key}` });
+  } catch (e) {
+    // The R2 object above is already uploaded but orphaned (no DB row) —
+    // acceptable: better than crashing after a successful upload, and it
+    // just won't show up anywhere since nothing references that key.
+    return json({ error: 'db_error', message: String(e) }, 500);
+  }
 }
