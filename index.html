@@ -833,11 +833,19 @@ body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 #page-quran .day-dot{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-faint);}
 #page-quran .day-dot.done{background:var(--coral);border-color:var(--coral);color:#fff;}
 #page-quran .day-dot.today{border-color:var(--coral);border-style:dashed;}
+#page-quran .poke-panel{margin-top:2px;}
+#page-quran .poke-panel-msg{font-size:12px;color:var(--text-faint);text-align:center;padding:8px 0;}
+#page-quran .poke-panel-link{color:var(--coral);font-weight:700;cursor:pointer;text-decoration:underline;}
+#page-quran .poke-friend-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--border);}
+#page-quran .poke-friend-item:last-child{border-bottom:none;}
+#page-quran .poke-friend-name{font-size:12.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
+#page-quran .poke-friend-streak{font-size:11px;color:var(--text-dim);font-weight:600;}
 #page-quran .poke-btn{
-  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
-  background:var(--surface-alt);border:1px dashed var(--border);border-radius:10px;padding:9px;
-  font-size:12px;font-weight:700;color:var(--text-faint);cursor:not-allowed;
+  display:flex;align-items:center;justify-content:center;gap:6px;flex:none;
+  background:var(--coral-soft);border:none;border-radius:9px;padding:6px 12px;
+  font-size:11.5px;font-weight:700;color:var(--coral);cursor:pointer;
 }
+#page-quran .poke-btn:disabled{background:var(--surface-alt);color:var(--text-faint);cursor:default;}
 #page-quran .continue-body{display:flex;flex-direction:column;gap:4px;}
 #page-quran .continue-surah{font-size:16px;font-weight:800;}
 #page-quran .continue-loc{font-size:12.5px;color:var(--text-dim);}
@@ -3442,7 +3450,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 
 // ---- Push notification opt-in (foundation) ----
 (function(){
-  var VAPID_PUBLIC_KEY = 'BNEn3Oo2NbDK2qR0BdI6xoPAkSbjma6vNK4VFS4CV2-zTuzM5feJ_DyE3umSPCEEGllTu_NFEVjcTeroQhyC7Sc';
+  var VAPID_PUBLIC_KEY = 'BEGcvPtMd1YMXHZBml_Ugb5_mUHmAmP-o3p_WJxqyELkxIoRMM5yFQIMQ8o-u0Fm3uzM9jr0xMMji2SbyH_aWQs';
   var banner = document.getElementById('pushBanner');
   var actionBtn = document.getElementById('pushBannerAction');
   var closeBtn = document.getElementById('pushBannerClose');
@@ -4641,10 +4649,10 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <div><div class="streak-num" id="streakNum">12</div><div class="streak-lbl">Days in a row</div><div class="streak-lbl" id="streakFreezeNote"></div></div>
       </div>
       <div class="week-row" id="weekRow"></div>
-      <button class="poke-btn" title="Coming soon: see friends' streaks and send a reminder poke" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-        Friends &amp; poke — coming soon
-      </button>
+      <div class="poke-panel" id="pokePanel">
+        <div class="poke-panel-msg" id="pokePanelMsg">Sign in to see friends' streaks.</div>
+        <div id="pokeFriendsList"></div>
+      </div>
     </div>
 
     <!-- Continue reading -->
@@ -8585,6 +8593,101 @@ function renderStreak(){
     const isToday = i===state.todayIdx;
     row.innerHTML += `<div class="week-day"><span>${d}</span><div class="day-dot ${done?'done':''} ${isToday && !done?'today':''}">${done?'✓':''}</div></div>`;
   });
+  submitQuranStreak(state.streak.days);
+  loadQuranPokePanel();
+}
+
+// Debounced, fire-and-forget — mirrors the Journal leaderboard-score
+// submission pattern. Only signed-in users have a row here at all.
+let quranStreakSubmitTimer = null;
+function submitQuranStreak(days){
+  clearTimeout(quranStreakSubmitTimer);
+  quranStreakSubmitTimer = setTimeout(async ()=>{
+    try{
+      await fetch('/api/quran-streak', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+        credentials: 'include',
+        body: JSON.stringify({ streakDays: days })
+      });
+    }catch(e){ /* silent — nice-to-have, not critical */ }
+  }, 1500);
+}
+
+// Friends' Qur'an reading streaks + poke panel. Self-contained here
+// (not sharing helpers with the auth/friends IIFE — top-level consts
+// there are invisible from this script) — keeps its own tiny renderer.
+let pokePanelLastLoad = 0;
+function escapeHtmlQ(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function loadQuranPokePanel(force){
+  if(!force && Date.now()-pokePanelLastLoad<30000) return;
+  pokePanelLastLoad = Date.now();
+  const msgEl = $('#pokePanelMsg');
+  const listEl = $('#pokeFriendsList');
+  if(!msgEl || !listEl) return;
+  try{
+    const res = await fetch('/api/quran-streak', {
+      credentials:'include',
+      headers:{ 'X-Device-Id': window.WWP?.deviceId || '' }
+    });
+    if(res.status===401){
+      msgEl.style.display='block';
+      msgEl.innerHTML = 'Sign in to see friends\' streaks.';
+      listEl.innerHTML='';
+      return;
+    }
+    const data = await res.json();
+    if(!res.ok) return;
+    listEl.innerHTML='';
+    if(!data.entries || !data.entries.length){
+      msgEl.style.display='block';
+      msgEl.textContent = 'Add friends to see their streaks here.';
+      return;
+    }
+    msgEl.style.display='none';
+    data.entries.forEach(entry=>{
+      const item = document.createElement('div');
+      item.className='poke-friend-item';
+      item.innerHTML = `
+        <span class="poke-friend-name">${escapeHtmlQ(entry.username)} <span class="poke-friend-streak">${entry.streakDays}d</span></span>
+        <button class="poke-btn" ${entry.pokedToday?'disabled':''} data-friend="${entry.userId}">
+          ${entry.pokedToday ? 'Poked ✓' : 'Poke'}
+        </button>`;
+      const btn = item.querySelector('.poke-btn');
+      btn.addEventListener('click', ()=> sendQuranPoke(entry.userId, btn));
+      listEl.appendChild(item);
+    });
+  }catch(e){ console.warn('loadQuranPokePanel failed', e); }
+}
+async function sendQuranPoke(friendUserId, btn){
+  btn.disabled = true;
+  const original = btn.textContent;
+  try{
+    const res = await fetch('/api/push/poke', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+      credentials:'include',
+      body: JSON.stringify({ friendUserId })
+    });
+    const data = await res.json();
+    if(res.ok && data.success){
+      btn.textContent = 'Poked ✓';
+      showToast(data.delivered ? 'Poke sent!' : 'Poked — they haven\'t enabled notifications');
+    } else if(res.status===409){
+      btn.textContent = 'Poked ✓';
+      showToast('Already poked them today');
+    } else {
+      btn.textContent = original;
+      btn.disabled = false;
+      showToast('Could not send poke');
+    }
+  }catch(e){
+    btn.textContent = original;
+    btn.disabled = false;
+    showToast('Could not send poke');
+  }
 }
 
 function renderPlan(){
