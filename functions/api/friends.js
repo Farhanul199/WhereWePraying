@@ -190,15 +190,28 @@ export async function onRequestPost(context) {
   const action = body.action;
 
   if (action === 'add') {
-    const identifier = (body.identifier || '').trim();
-    if (!identifier) return json({ error: 'Enter a username, email, or friend code' }, 400);
+    let target;
 
-    const target = await db
-      .prepare('SELECT id, username, email FROM users WHERE username = ?1 OR email = ?1 OR friend_code = ?1')
-      .bind(identifier)
-      .first();
+    if (body.targetUserId) {
+      // Direct add by id — used when the person is clicked from a list
+      // that already has their user id (global leaderboard, followers),
+      // skipping the username/email/code lookup below.
+      target = await db
+        .prepare('SELECT id, username, email FROM users WHERE id = ?')
+        .bind(body.targetUserId)
+        .first();
+      if (!target) return json({ error: 'User not found' }, 404);
+    } else {
+      const identifier = (body.identifier || '').trim();
+      if (!identifier) return json({ error: 'Enter a username, email, or friend code' }, 400);
 
-    if (!target) return json({ error: 'No user found with that username, email, or code' }, 404);
+      target = await db
+        .prepare('SELECT id, username, email FROM users WHERE username = ?1 OR email = ?1 OR friend_code = ?1')
+        .bind(identifier)
+        .first();
+      if (!target) return json({ error: 'No user found with that username, email, or code' }, 404);
+    }
+
     if (target.id === session.userId) return json({ error: "That's your own account" }, 400);
 
     const existing = await db
