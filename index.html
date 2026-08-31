@@ -2073,7 +2073,10 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   z-index: 1000;
   min-width: 280px;
   max-height: calc(100vh - 88px);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 20px;
   font-family: 'Manrope', sans-serif;
 }
@@ -3667,7 +3670,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="auth-popup-error hidden" id="backupError"></div>
 
           <label class="auth-settings-label" style="margin-top:16px;">Support the App</label>
-          <p class="auth-popup-text" style="margin-bottom:8px;" id="supporterIntroText">WhereWePraying? is free and always will be. If it's been useful, you can chip in to help cover hosting and keep new features coming — totally optional.</p>
+          <p class="auth-popup-text" style="margin-bottom:8px;" id="supporterIntroText">Support the Effort — earn the reward today! ✨</p>
           <div id="supporterAlreadyBox" class="auth-settings-location hidden">
             <span>You're a Supporter — jazakAllah khair! 🤍</span>
           </div>
@@ -14463,9 +14466,7 @@ init();
     if(!already || !form) return;
     already.classList.toggle('hidden', !isSupporter);
     form.classList.toggle('hidden', isSupporter);
-    if(intro) intro.textContent = isSupporter
-      ? "You've already helped support WhereWePraying? — thank you for keeping this free for everyone."
-      : "WhereWePraying? is free and always will be. If it's been useful, you can chip in to help cover hosting and keep new features coming — totally optional.";
+    if(intro) intro.classList.toggle('hidden', isSupporter);
   }
 
   document.querySelectorAll('input[name="supporterAmount"]').forEach(radio=>{
