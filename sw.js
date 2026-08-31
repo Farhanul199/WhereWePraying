@@ -100,6 +100,18 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Same-origin API calls (friends, leaderboard, streaks, pokes, etc.):
+  // always network, never cached. This data is personal and changes from
+  // actions taken elsewhere (a friend accepting a request, another device
+  // poking you) — serving a stale cached copy here, even briefly before
+  // the background refresh lands, would show outdated social/streak state.
+  // Mutations (non-GET) already skip the whole handler above; this covers
+  // the GET side of the same endpoints.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
   // Everything else (images, fonts, third-party CSS): stale-while-revalidate.
   // Serve the cached copy instantly, then refresh the cache in the
   // background so the *next* load auto-picks up any change — no manual
