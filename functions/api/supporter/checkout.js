@@ -96,7 +96,6 @@ export async function onRequestPost(context) {
 
     const payload = {
       mode,
-      'automatic_payment_methods[enabled]': 'true',
       client_reference_id: String(session.userId),
       customer_email: user ? user.email : undefined,
       success_url: `${origin}/?supporter_success=1`,
