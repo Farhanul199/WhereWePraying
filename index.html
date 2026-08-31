@@ -55,7 +55,7 @@ window.__wwpGoogleAuthResult = (function(){
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html{-webkit-text-size-adjust:100%;}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden;}
 /* Global fallback: any element carrying just the "hidden" class gets
    hidden, regardless of what other classes it also has. Several
    scoped .foo.hidden rules exist elsewhere for specific components,
@@ -2026,6 +2026,14 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
   .topbar { flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 16px !important; }
   .brand { flex: 0 0 auto; font-size: 16px !important; }
   .brand-mark { width: 32px !important; height: 32px !important; }
+
+  /* Ultra-narrow screens (folded flip phones, small/older devices):
+     drop the wordmark and help badge entirely rather than let them
+     compete for space with the theme/language/account buttons — those
+     three are the ones that actually need to stay reachable. */
+  @media (max-width:380px){
+    .brand-text, .help-badge-btn { display:none !important; }
+  }
   .nav { flex: 1 1 100% !important; order: 3; overflow-x: visible !important; gap: 2px !important; justify-content: space-between; }
   .nav a { flex: 1; min-width: 0; text-align: center; font-size: 11px !important; line-height: 1.2; padding: 4px 1px !important; white-space: normal !important; }
   .nav a.active::after { bottom: 2px !important; }
@@ -3624,7 +3632,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 
   <div class="brand" data-page="home" style="cursor:pointer;">
     <span class="brand-mark"><img src="/assets/logo.png" alt="WhereWePraying? logo" width="34" height="34"></span>
-    WhereWePraying?<button class="help-badge-btn" id="headerHelpBtn" title="Help" type="button">
+    <span class="brand-text">WhereWePraying?</span><button class="help-badge-btn" id="headerHelpBtn" title="Help" type="button">
       <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="6.2" r="1" fill="currentColor" stroke="none"/></svg>
     </button>
   </div>
@@ -13010,7 +13018,9 @@ init();
 </script>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js" defer></script>
+<!-- Bootstrap JS bundle removed — confirmed zero usage anywhere in the
+     app (no bootstrap.* API calls, no data-bs-* attributes). Only the
+     CSS is actually used for utility classes, which needs no JS. -->
 
 <script>
 // ==> GUIDES DISPLAY OVERRIDE
