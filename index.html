@@ -4638,7 +4638,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <span class="streak-flame">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c1 4-2 5-2 9a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 4 3 6a6 6 0 0 1-12 0c0-5 3-7 4-12Z"/></svg>
         </span>
-        <div><div class="streak-num" id="streakNum">12</div><div class="streak-lbl">Days in a row</div></div>
+        <div><div class="streak-num" id="streakNum">12</div><div class="streak-lbl">Days in a row</div><div class="streak-lbl" id="streakFreezeNote"></div></div>
       </div>
       <div class="week-row" id="weekRow"></div>
       <button class="poke-btn" title="Coming soon: see friends' streaks and send a reminder poke" disabled>
@@ -8096,6 +8096,7 @@ const state = {
   physicalBookmark:null,          // {surah, ayah, ts} | null — where the person is in their paper mushaf; optional, manual, unrelated to streak
   readDates:{},                   // dateKey -> true; drives the real streak below
   streak:{days:0, week:[false,false,false,false,false,false,false]}, // Mon..Sun
+  streakFreezeMonth:null,         // 'YYYY-MM' of the last month a freeze was used, or null
   todayIdx:(new Date().getDay()+6)%7,
   dailyGoal:{amount:1,unit:'page(s)',freq:'Every day'},
   todayProgress:0,
@@ -8224,15 +8225,38 @@ const Services = {
     const today = new Date(); today.setHours(0,0,0,0);
     let cursor = new Date(today);
     if(!state.readDates[dkey(today)]) cursor.setDate(cursor.getDate()-1); // today not logged yet — don't zero the streak early
-    let days = 0;
-    while(state.readDates[dkey(cursor)]){ days++; cursor.setDate(cursor.getDate()-1); }
+    // One gap day per calendar month can pass through without breaking
+    // the chain (a streak freeze, Duolingo-style) — mirrors the
+    // Journal section's freeze logic.
+    const monthKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+    const freezeAvailable = state.streakFreezeMonth !== monthKey;
+    let days = 0, freezeUsedThisPass = false;
+    while(true){
+      if(state.readDates[dkey(cursor)]){
+        days++;
+        cursor.setDate(cursor.getDate()-1);
+        continue;
+      }
+      if(days>0 && freezeAvailable && !freezeUsedThisPass){
+        freezeUsedThisPass = true;
+        cursor.setDate(cursor.getDate()-1);
+        continue;
+      }
+      break;
+    }
     state.streak.days = days;
+    if(freezeUsedThisPass) state.streakFreezeMonth = monthKey;
     const dow = (today.getDay()+6)%7; // Mon=0..Sun=6
     const monday = new Date(today); monday.setDate(monday.getDate()-dow);
     const week = [];
     for(let i=0;i<7;i++){ const d=new Date(monday); d.setDate(d.getDate()+i); week.push(!!state.readDates[dkey(d)]); }
     state.streak.week = week;
     state.todayIdx = dow;
+  },
+  streakFreezeStatus(){
+    const today = new Date();
+    const monthKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+    return state.streakFreezeMonth === monthKey ? 'used' : 'available';
   },
   // Debounced write of everything worth persisting for this device.
   persist(){
@@ -8245,6 +8269,7 @@ const Services = {
       lastRead: state.lastRead,
       physicalBookmark: state.physicalBookmark,
       readDates: state.readDates,
+      streakFreezeMonth: state.streakFreezeMonth,
       dailyGoal: state.dailyGoal,
       todayProgress: state.todayProgress,
       progress: state.progress
@@ -8264,6 +8289,7 @@ const Services = {
     if(saved.lastRead) state.lastRead = saved.lastRead;
     if(saved.physicalBookmark) state.physicalBookmark = saved.physicalBookmark;
     if(saved.readDates) state.readDates = saved.readDates;
+    if(saved.streakFreezeMonth !== undefined) state.streakFreezeMonth = saved.streakFreezeMonth;
     if(saved.dailyGoal) state.dailyGoal = saved.dailyGoal;
     if(typeof saved.todayProgress==='number') state.todayProgress = saved.todayProgress;
     if(saved.progress) state.progress = saved.progress;
@@ -8547,6 +8573,10 @@ function renderProgressRing(){
 
 function renderStreak(){
   $('#streakNum').textContent = state.streak.days;
+  const freezeNote = $('#streakFreezeNote');
+  if(freezeNote){
+    freezeNote.textContent = Services.streakFreezeStatus()==='available' ? '❄️ freeze available' : '❄️ freeze used this month';
+  }
   const days = ['M','T','W','T','F','S','S'];
   const row = $('#weekRow');
   row.innerHTML='';
