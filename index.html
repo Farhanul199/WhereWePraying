@@ -8593,44 +8593,58 @@ function renderReader(){
   $('#nextSurahBtn').style.opacity = nextS ? 1 : .45;
   initNotesAutoLoad();
   if(playingAyah) highlightPlayingAyah(state.currentSurah, playingAyah); // survive re-renders mid-playback
-  initActiveReadTracking();
+  activeReadAyah = null;
+  computeActiveReadAyah();
 }
 
 // Reading-position tracking: as the user scrolls through a surah, the
-// ayah nearest the vertical center of the viewport becomes the "active"
-// one — a subtle border glow (see .ayah-card.active-read), and after a
-// short settle it's saved as the real Continue Reading position and
-// counts toward today's reading streak. Re-initialised on every
-// renderReader() call since the ayah cards are replaced wholesale.
-let activeReadObserver = null;
+// ayah whose midpoint is nearest the vertical center of the viewport
+// becomes the "active" one — a subtle border glow (see
+// .ayah-card.active-read), and after a short settle it's saved as the
+// real Continue Reading position and counts toward today's reading
+// streak.
+//
+// This deliberately measures directly (getBoundingClientRect on every
+// scroll tick, rAF-throttled) rather than using IntersectionObserver.
+// A narrow-band IntersectionObserver only fires when an element's edge
+// crosses the band boundary between two browser-computed frames — with
+// fast or discrete scrolling (mouse-wheel ticks, arrow keys, a finger
+// flick), a short ayah card can move from below the band to above it
+// without ever registering as "intersecting", so the highlight skips
+// it entirely. Directly measuring the closest card on every tick always
+// finds the true nearest ayah regardless of how the scroll happened.
 let activeReadAyah = null;
 let activeReadSaveTimer = null;
+let activeReadTicking = false;
 
-function initActiveReadTracking(){
-  if(activeReadObserver) activeReadObserver.disconnect();
-  activeReadAyah = null;
-  const list = $('#ayahList');
-  const cards = list ? $$('.ayah-card', list) : [];
+function computeActiveReadAyah(){
+  const list = document.getElementById('ayahList');
+  if(!list) return;
+  const cards = list.querySelectorAll('.ayah-card');
   if(!cards.length) return;
-
-  activeReadObserver = new IntersectionObserver((entries)=>{
-    // Among cards currently intersecting the center band, pick the one
-    // whose midpoint sits closest to the viewport's vertical center —
-    // keeps fast scrolling from settling on whichever card merely
-    // fired last.
-    let best = null, bestDist = Infinity;
-    entries.forEach(entry=>{
-      if(!entry.isIntersecting) return;
-      const rect = entry.boundingClientRect;
-      const mid = rect.top + rect.height/2;
-      const dist = Math.abs(mid - window.innerHeight/2);
-      if(dist < bestDist){ bestDist = dist; best = entry.target; }
-    });
-    if(best) setActiveReadAyah(parseInt(best.dataset.surah,10), parseInt(best.dataset.ayah,10));
-  }, { root:null, rootMargin:'-45% 0px -45% 0px', threshold:0 });
-
-  cards.forEach(c=> activeReadObserver.observe(c));
+  const centerY = window.innerHeight/2;
+  let best = null, bestDist = Infinity;
+  cards.forEach(card=>{
+    const rect = card.getBoundingClientRect();
+    if(rect.bottom < -200 || rect.top > window.innerHeight+200) return; // cheap reject, well off-screen
+    const mid = rect.top + rect.height/2;
+    const dist = Math.abs(mid - centerY);
+    if(dist < bestDist){ bestDist = dist; best = card; }
+  });
+  if(best) setActiveReadAyah(parseInt(best.dataset.surah,10), parseInt(best.dataset.ayah,10));
 }
+
+function onActiveReadScroll(){
+  if(activeReadTicking) return;
+  activeReadTicking = true;
+  requestAnimationFrame(()=>{
+    activeReadTicking = false;
+    const page = document.getElementById('page-quran');
+    if(!page || page.classList.contains('hidden')) return;
+    computeActiveReadAyah();
+  });
+}
+window.addEventListener('scroll', onActiveReadScroll, {passive:true});
 
 function setActiveReadAyah(surah, ayah){
   if(ayah===activeReadAyah) return;
