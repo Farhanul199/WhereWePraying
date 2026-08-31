@@ -12,6 +12,14 @@
   "lang": "en",
   "dir": "ltr",
   "categories": ["lifestyle", "utilities", "religion"],
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "scope_extensions": [
+    { "origin": "wherewepraying.com" }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
   "icons": [
     { "src": "/assets/icons/icon-48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icons/icon-72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
