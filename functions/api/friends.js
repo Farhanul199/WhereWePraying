@@ -206,7 +206,7 @@ export async function onRequestPost(context) {
       if (!identifier) return json({ error: 'Enter a username, email, or friend code' }, 400);
 
       target = await db
-        .prepare('SELECT id, username, email FROM users WHERE username = ?1 OR email = ?1 OR friend_code = ?1')
+        .prepare('SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?1) OR LOWER(email) = LOWER(?1) OR UPPER(friend_code) = UPPER(?1)')
         .bind(identifier)
         .first();
       if (!target) return json({ error: 'No user found with that username, email, or code' }, 404);
