@@ -49,15 +49,20 @@ export async function onRequestPost(context) {
 
   const db = context.env.DB;
 
-  // Only accepted friends can be poked — prevents poking arbitrary users.
-  const isFriend = await db
-    .prepare(
-      `SELECT 1 FROM friendships
-       WHERE status = 'accepted'
-         AND ((requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1))`
-    )
-    .bind(session.userId, friendUserId)
-    .first();
+  let isFriend;
+  try {
+    // Only accepted friends can be poked — prevents poking arbitrary users.
+    isFriend = await db
+      .prepare(
+        `SELECT 1 FROM friendships
+         WHERE status = 'accepted'
+           AND ((requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1))`
+      )
+      .bind(session.userId, friendUserId)
+      .first();
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
+  }
   if (!isFriend) return json({ error: 'Not friends with this user' }, 403);
 
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -71,18 +76,28 @@ export async function onRequestPost(context) {
       .bind(session.userId, friendUserId, todayKey)
       .run();
   } catch (e) {
-    // UNIQUE(from_user_id, to_user_id, poke_date) — already poked them today.
-    return json({ error: 'Already poked today' }, 409);
+    const msg = String(e);
+    // A UNIQUE constraint violation means they were already poked today —
+    // anything else is a real failure, not a "already poked" state.
+    if (/unique/i.test(msg)) return json({ error: 'Already poked today' }, 409);
+    return json({ error: 'db_error', message: msg }, 500);
   }
 
-  const pokerName =
-    (await db.prepare('SELECT username FROM users WHERE id = ?').bind(session.userId).first())
-      ?.username || 'A friend';
-
-  const subs = await db
-    .prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?')
-    .bind(friendUserId)
-    .all();
+  let pokerName = 'A friend';
+  let subs = { results: [] };
+  try {
+    pokerName =
+      (await db.prepare('SELECT username FROM users WHERE id = ?').bind(session.userId).first())
+        ?.username || 'A friend';
+    subs = await db
+      .prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?')
+      .bind(friendUserId)
+      .all();
+  } catch (e) {
+    // The poke itself is already recorded at this point — a lookup failure
+    // here just means we can't push-notify, not that the poke failed.
+    return json({ success: true, delivered: false, pushLookupError: String(e) });
+  }
 
   let delivered = false;
   for (const sub of subs.results || []) {
