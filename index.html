@@ -1105,6 +1105,8 @@ body #page-journal{font-family:'Manrope',sans-serif;background:var(--bg);color:v
 #page-journal .cal-cell.okay{background:var(--amber-soft);color:var(--amber);}
 #page-journal .cal-cell.missed{background:var(--red-soft);color:var(--red);}
 #page-journal .cal-cell.today-cell{border-color:var(--coral);}
+#page-journal .cal-cell.active-cell{box-shadow:0 0 0 2px var(--coral);}
+#page-journal .cal-cell.future-cell{opacity:.4;cursor:not-allowed;}
 #page-journal .cal-legend{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;}
 #page-journal .leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);font-weight:600;}
 #page-journal .leg-dot{width:10px;height:10px;border-radius:50%;}
@@ -4800,6 +4802,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>Daily Reflection</div>
           <div class="card-sub" id="reflectionDateLbl">—</div>
         </div>
+        <button class="ghost-btn" id="backToTodayBtn" style="display:none;">Back to Today</button>
       </div>
       <div class="reflection-fields">
           <div class="field-grid3">
@@ -9628,6 +9631,13 @@ const DEED_PRESETS = ['Read Qur\'an','Dhikr','Charity / Sadaqah','Helped Family'
 const today = new Date(); today.setHours(0,0,0,0);
 const todayKey = dkey(today);
 
+// The "active" day is whichever day's entries are being viewed/edited —
+// defaults to today, but the calendar lets you jump to any past day
+// (e.g. logging last night after midnight) without touching the real
+// streak/stats math, which always keys off todayKey.
+let activeDate = new Date(today);
+let activeKey = todayKey;
+
 const state = {
   theme:'light',
   reflections:{},      // dateKey -> {mood,gratitude,intention,dua,reflection,savedAt}
@@ -9746,10 +9756,11 @@ function prayerConsistencyPct(key){
    UI :: render
    ============================================================ */
 function renderSummaryLine(){
-  const p = state.prayers[todayKey];
+  const p = state.prayers[activeKey];
   const prayedCount = PRAYER_ORDER.filter(x=> p[x]==='ontime'||p[x]==='congregation').length;
-  const deedsDone = state.deeds[todayKey].filter(x=>x.done).length;
-  $('#summaryLine').textContent = `Alhamdulillah — ${prayedCount} of 5 prayers and ${deedsDone} good deed${deedsDone===1?'':'s'} logged today.`;
+  const deedsDone = state.deeds[activeKey].filter(x=>x.done).length;
+  const dayWord = activeKey===todayKey ? 'today' : fmtLong(activeDate);
+  $('#summaryLine').textContent = `Alhamdulillah — ${prayedCount} of 5 prayers and ${deedsDone} good deed${deedsDone===1?'':'s'} logged ${dayWord}.`;
 }
 
 function renderStats(){
@@ -9814,8 +9825,10 @@ function submitLeaderboardScore(score){
 }
 
 function renderReflectionForm(){
-  $('#reflectionDateLbl').textContent = fmtLong(today);
-  const r = state.reflections[todayKey];
+  const isToday = activeKey===todayKey;
+  $('#reflectionDateLbl').textContent = fmtLong(activeDate) + (isToday ? '' : ' · editing a past day');
+  $('#backToTodayBtn').style.display = isToday ? 'none' : '';
+  const r = state.reflections[activeKey];
   $('#moodSelect').value = r? (r.mood||'') : '';
   $('#gratitudeInput').value = r? (r.gratitude||'') : '';
   $('#intentionInput').value = r? (r.intention||'') : '';
@@ -9825,7 +9838,7 @@ function renderReflectionForm(){
 
 function renderSalah(){
   const list = $('#salahList'); list.innerHTML='';
-  const p = state.prayers[todayKey];
+  const p = state.prayers[activeKey];
   PRAYER_ORDER.forEach(name=>{
     const status = p[name];
     const row = document.createElement('div');
@@ -9847,7 +9860,7 @@ function renderSalah(){
 
 function renderDeeds(){
   const wrap = $('#deedsWrap'); wrap.innerHTML='';
-  state.deeds[todayKey].forEach(deed=>{
+  state.deeds[activeKey].forEach(deed=>{
     const pill = document.createElement('div');
     pill.className = 'deed-pill'+(deed.done?' done':'');
     pill.innerHTML = `<span class="deed-check">${deed.done?'✓':''}</span>${deed.label}`;
@@ -9857,8 +9870,8 @@ function renderDeeds(){
 }
 
 function renderBalance(){
-  const deedsDone = state.deeds[todayKey].filter(x=>x.done).length;
-  const mistakeCount = state.mistakes[todayKey].length;
+  const deedsDone = state.deeds[activeKey].filter(x=>x.done).length;
+  const mistakeCount = state.mistakes[activeKey].length;
   $('#goodDeedsNum').textContent = deedsDone;
   $('#mistakesNum').textContent = mistakeCount;
   const total = deedsDone+mistakeCount;
@@ -9894,15 +9907,18 @@ function renderCalendar(){
     const q = computeQuality(key);
     const cls = q ? q : '';
     const isToday = key===todayKey;
+    const isActive = key===activeKey;
+    const isFuture = d.getTime() > today.getTime();
     const cell = document.createElement('div');
-    cell.className = 'cal-cell '+cls+(isToday?' today-cell':'');
+    cell.className = 'cal-cell '+cls+(isToday?' today-cell':'')+(isActive?' active-cell':'')+(isFuture?' future-cell':'');
     cell.textContent = day;
+    cell.title = isFuture ? "Can't log a future day" : 'Tap to view/edit this day';
     cell.addEventListener('click', ()=>{
-      const p = state.prayers[key];
-      if(!p){ showToast(d.toLocaleDateString()+': no data logged'); return; }
-      const prayed = PRAYER_ORDER.filter(x=>p[x]==='ontime'||p[x]==='congregation').length;
-      const deeds = state.deeds[key]? state.deeds[key].filter(x=>x.done).length : 0;
-      showToast(`${d.toLocaleDateString(undefined,{day:'numeric',month:'short'})}: ${prayed}/5 prayers, ${deeds} good deed${deeds===1?'':'s'}`);
+      if(isFuture){ showToast("Can't log a future day yet."); return; }
+      activeDate = d; activeKey = key;
+      ensureDay(activeKey);
+      renderAll();
+      showToast(`Now editing ${d.toLocaleDateString(undefined,{day:'numeric',month:'short'})}`);
     });
     grid.appendChild(cell);
   }
@@ -9963,7 +9979,7 @@ function renderAll(){
    Actions
    ============================================================ */
 function saveReflection(){
-  state.reflections[todayKey] = {
+  state.reflections[activeKey] = {
     mood: $('#moodSelect').value,
     gratitude: $('#gratitudeInput').value.trim(),
     intention: $('#intentionInput').value.trim(),
@@ -9973,7 +9989,7 @@ function saveReflection(){
   };
   recomputeStreak();
   persistJournal();
-  showToast('Reflection saved. JazakAllah khayr.');
+  showToast(activeKey===todayKey ? 'Reflection saved. JazakAllah khayr.' : `Saved for ${fmtLong(activeDate)}. JazakAllah khayr.`);
   renderAll();
 }
 
@@ -9986,18 +10002,18 @@ function addCustomDeed(){
   const input = $('#newDeedInput');
   const val = input.value.trim();
   if(!val) return;
-  state.deeds[todayKey].push({id:'custom-'+Date.now(), label:val, done:true});
+  state.deeds[activeKey].push({id:'custom-'+Date.now(), label:val, done:true});
   input.value='';
   persistJournal();
   renderAll();
-  showToast('Added "'+val+'" to today\'s deeds');
+  showToast('Added "'+val+'" to '+(activeKey===todayKey?"today's":fmtLong(activeDate)+"'s")+' deeds');
 }
 
 function logMistake(){
   const ta = $('#mistakeInput');
   const val = ta.value.trim();
   if(!val){ showToast('Write a line first, then log it.'); return; }
-  state.mistakes[todayKey].push({note:val, ts:Date.now()});
+  state.mistakes[activeKey].push({note:val, ts:Date.now()});
   ta.value='';
   persistJournal();
   renderAll();
@@ -10024,6 +10040,10 @@ async function init(){
   $('#addDeedBtn').addEventListener('click', addCustomDeed);
   $('#newDeedInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addCustomDeed(); });
   $('#logMistakeBtn').addEventListener('click', logMistake);
+  $('#backToTodayBtn').addEventListener('click', ()=>{
+    activeDate = new Date(today); activeKey = todayKey;
+    renderAll();
+  });
   $('#journalShareBtn')?.addEventListener('click', ()=>{
     const text = `${state.streakDays} day${state.streakDays===1?'':'s'} streak on WhereWePraying? 🕌 Tracking my prayers and good deeds — join me!`;
     if(navigator.share){ navigator.share({title:'My WhereWePraying? Streak', text}).catch(()=>{}); }
