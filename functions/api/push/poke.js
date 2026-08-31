@@ -3,6 +3,12 @@
 // Records a poke (once per pair per UTC day, enforced by a UNIQUE index)
 // and, if the friend has a push subscription on file, sends them a Web
 // Push notification nudging them about their Qur'an reading streak.
+//
+// Additionally: the FIRST poke a person receives on a given day (from
+// whoever sends it first) also triggers a short reminder email, styled
+// like the newsletter subscribe-confirmation email (see subscribe.js).
+// If a second or third friend pokes the same person later that day,
+// no further email goes out — only the push/in-app notification.
 
 import { sendWebPush } from './_webpush.js';
 
@@ -26,6 +32,29 @@ async function resolveSession(context) {
   } catch (e) {
     return null;
   }
+}
+
+// Same layout/palette as the subscribe.js welcome email (cream page
+// background, centered 600px card, muted-brown body text, coral CTA) —
+// just a coral banner instead of the welcome image, since there's no
+// dedicated poke graphic.
+function buildPokeReminderEmailHtml(pokerName) {
+  return `<html>
+<body style="margin:0;padding:20px;background-color:#fbf3ec;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="background:#f4714e;border-radius:24px;padding:32px 24px;text-align:center;">
+      <div style="font-size:38px;line-height:1;margin-bottom:8px;">📖</div>
+      <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;">${pokerName} is thinking of you</p>
+    </div>
+    <p style="margin-top:24px;font-size:14px;color:#5c4033;line-height:1.6;text-align:center;">
+      Just a gentle nudge — take a few quiet minutes today for the Qur'an. Even a page or two counts.
+    </p>
+    <p style="margin-top:16px;text-align:center;">
+      <a href="https://wherewepraying.com/#quran" style="color:#f4714e;text-decoration:none;font-weight:600;">Open the Qur'an →</a>
+    </p>
+  </div>
+</body>
+</html>`;
 }
 
 export async function onRequestPost(context) {
@@ -85,6 +114,7 @@ export async function onRequestPost(context) {
 
   let pokerName = 'A friend';
   let subs = { results: [] };
+  let isFirstPokeToday = false;
   try {
     pokerName =
       (await db.prepare('SELECT username FROM users WHERE id = ?').bind(session.userId).first())
@@ -93,10 +123,45 @@ export async function onRequestPost(context) {
       .prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?')
       .bind(friendUserId)
       .all();
+
+    const countRow = await db
+      .prepare('SELECT COUNT(*) AS c FROM quran_pokes WHERE to_user_id = ? AND poke_date = ?')
+      .bind(friendUserId, todayKey)
+      .first();
+    isFirstPokeToday = !!countRow && countRow.c === 1;
   } catch (e) {
     // The poke itself is already recorded at this point — a lookup failure
-    // here just means we can't push-notify, not that the poke failed.
+    // here just means we can't push-notify/email, not that the poke failed.
     return json({ success: true, delivered: false, pushLookupError: String(e) });
+  }
+
+  // Fire-and-forget — only for the first poke this person received today,
+  // regardless of who sent it, so a busy day of multiple pokers doesn't
+  // turn into a stack of near-identical emails.
+  if (isFirstPokeToday && context.env.RESEND_API_KEY) {
+    try {
+      const recipient = await db.prepare('SELECT email FROM users WHERE id = ?').bind(friendUserId).first();
+      if (recipient && recipient.email) {
+        context.waitUntil(
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${context.env.RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: 'noreply@wherewepraying.com',
+              to: recipient.email,
+              subject: `${pokerName} sent you a gentle reminder 📖`,
+              html: buildPokeReminderEmailHtml(pokerName),
+              text: `${pokerName} is thinking of you. Just a gentle nudge — take a few quiet minutes today for the Qur'an. Even a page or two counts.\n\nOpen the Qur'an: https://wherewepraying.com/#quran`,
+            }),
+          })
+        );
+      }
+    } catch (e) {
+      console.error('poke reminder email failed:', e);
+    }
   }
 
   let delivered = false;
