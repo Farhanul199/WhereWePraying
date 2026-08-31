@@ -7335,7 +7335,8 @@ document.getElementById('sharedThemeToggle').addEventListener('click', cycleThem
   backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closeSheet(); });
   backdrop.querySelectorAll('[data-bn-close]').forEach(el=> el.addEventListener('click', closeSheet));
 
-  accountBtn?.addEventListener('click', ()=>{
+  accountBtn?.addEventListener('click', (e)=>{
+    e.stopPropagation();
     closeSheet();
     if(window.AuthSystem && window.AuthSystem.toggleAuthPopup) window.AuthSystem.toggleAuthPopup();
   });
