@@ -218,7 +218,9 @@ body[data-event-theme="ramadan"] .home-hero-art .hero-img-ramadan{display:block;
    brighter + a soft ambient halo kicks in on dark/AMOLED for an
    atmospheric night-time feel. Position each .wwp-lamp-glow via
    inline left/top (and optional --wwp-delay to desync multiples). */
-.wwp-lamp-fx{position:absolute;inset:0;pointer-events:none;z-index:1;}
+.wwp-lamp-fx{position:absolute;inset:0;pointer-events:none;z-index:1;
+  opacity:0;transition:opacity .35s ease;}
+.wwp-lamp-fx.wwp-loaded{opacity:1;}
 .wwp-lamp-fx.wwp-standard-only{display:block;}
 body[data-event-theme="jummah"] .wwp-lamp-fx.wwp-standard-only,
 body[data-event-theme="ramadan"] .wwp-lamp-fx.wwp-standard-only{display:none;}
@@ -16003,6 +16005,45 @@ window.WWP_TravelHome = (function(){
 
   document.addEventListener('wwp-auth-ready', function(e){
     if(e.detail && e.detail.authenticated) checkPokesOnLogin();
+  });
+})();
+</script>
+
+<!-- Lantern glow effects (.wwp-lamp-fx) are pure CSS — no image to wait
+     for — so without this they paint the instant the CSS is parsed,
+     well before their hero artwork's <img> has actually downloaded and
+     rendered. That produced a jarring "glowing dots floating on nothing,
+     then the artwork pops in underneath" flash. This waits for each
+     hero's actual image(s) to finish loading (or confirms they're
+     already cached) before revealing the matching glow. */
+<script>
+(function(){
+  function revealLampFxWhenLoaded(containers){
+    containers.forEach(function(container){
+      if(!container) return;
+      var imgs = Array.prototype.filter.call(container.children, function(el){ return el.tagName === 'IMG'; });
+      var fx = Array.prototype.filter.call(container.children, function(el){ return el.classList && el.classList.contains('wwp-lamp-fx'); });
+      if(!imgs.length || !fx.length) return;
+
+      var reveal = function(){ fx.forEach(function(f){ f.classList.add('wwp-loaded'); }); };
+      var pending = 0;
+      imgs.forEach(function(img){
+        if(img.complete) return; // already loaded (cache, or arrived before this ran)
+        pending++;
+        var done = function(){ pending--; if(pending<=0) reveal(); };
+        img.addEventListener('load', done, {once:true});
+        img.addEventListener('error', done, {once:true}); // don't hide the glow forever if the image fails
+      });
+      if(pending===0) reveal();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    revealLampFxWhenLoaded([
+      document.querySelector('.home-hero-art'),
+      document.querySelector('.qh-hero-art'),
+      document.querySelector('.dd-hero-inner')
+    ]);
   });
 })();
 </script>
