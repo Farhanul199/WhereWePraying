@@ -3724,26 +3724,32 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
             </div>
           </details>
 
-          <label class="auth-settings-label" style="margin-top:16px;">Support the App</label>
-          <p class="auth-popup-text" style="margin-bottom:8px;" id="supporterIntroText">Support the Effort — earn the reward today! ✨</p>
-          <div id="supporterAlreadyBox" class="auth-settings-location hidden">
-            <span>You're a Supporter — jazakAllah khair! 🤍</span>
-          </div>
-          <div id="supporterForm">
-            <div class="auth-settings-radio-group" id="supporterModeGroup">
-              <label class="auth-settings-radio"><input type="radio" name="supporterMode" value="payment" checked><span>One-time</span></label>
-              <label class="auth-settings-radio"><input type="radio" name="supporterMode" value="subscription"><span>Monthly</span></label>
+          <!-- Supporter tier: fully built, deliberately hidden from users until
+               there's an established user base to introduce it to. To turn
+               it back on later, remove class="hidden" from #supporterSection
+               below — nothing else needs to change. -->
+          <div id="supporterSection" class="hidden">
+            <label class="auth-settings-label" style="margin-top:16px;">Support the App</label>
+            <p class="auth-popup-text" style="margin-bottom:8px;" id="supporterIntroText">Support the Effort — earn the reward today! ✨</p>
+            <div id="supporterAlreadyBox" class="auth-settings-location hidden">
+              <span>You're a Supporter — jazakAllah khair! 🤍</span>
             </div>
-            <div class="auth-settings-radio-group" id="supporterAmountGroup" style="margin-top:8px;">
-              <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="3"><span>$3</span></label>
-              <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="5" checked><span>$5</span></label>
-              <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="10"><span>$10</span></label>
-              <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="custom"><span>Custom</span></label>
+            <div id="supporterForm">
+              <div class="auth-settings-radio-group" id="supporterModeGroup">
+                <label class="auth-settings-radio"><input type="radio" name="supporterMode" value="payment" checked><span>One-time</span></label>
+                <label class="auth-settings-radio"><input type="radio" name="supporterMode" value="subscription"><span>Monthly</span></label>
+              </div>
+              <div class="auth-settings-radio-group" id="supporterAmountGroup" style="margin-top:8px;">
+                <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="3"><span>$3</span></label>
+                <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="5" checked><span>$5</span></label>
+                <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="10"><span>$10</span></label>
+                <label class="auth-settings-radio"><input type="radio" name="supporterAmount" value="custom"><span>Custom</span></label>
+              </div>
+              <input type="number" id="supporterCustomAmount" class="auth-form-input hidden" placeholder="Amount in USD" min="1" max="500" style="margin-top:8px;">
+              <button class="auth-btn auth-btn-primary" id="supporterCheckoutBtn" style="margin-top:10px;" type="button">Continue to checkout</button>
             </div>
-            <input type="number" id="supporterCustomAmount" class="auth-form-input hidden" placeholder="Amount in USD" min="1" max="500" style="margin-top:8px;">
-            <button class="auth-btn auth-btn-primary" id="supporterCheckoutBtn" style="margin-top:10px;" type="button">Continue to checkout</button>
+            <div class="auth-popup-error hidden" id="supporterError"></div>
           </div>
-          <div class="auth-popup-error hidden" id="supporterError"></div>
         </div>
 
         <!-- Friends tab -->
