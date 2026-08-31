@@ -1,8 +1,9 @@
 // functions/api/push/poke.js
 // POST /api/push/poke  body: { friendUserId }
-// Records a poke (once per pair per UTC day, enforced by a UNIQUE index)
-// and, if the friend has a push subscription on file, sends them a Web
-// Push notification nudging them about their Qur'an reading streak.
+// Records a poke (once per pair per recipient-local day, enforced by a
+// UNIQUE index) and, if the friend has a push subscription on file,
+// sends them a Web Push notification nudging them about their Qur'an
+// reading streak.
 //
 // Additionally: the FIRST poke a person receives on a given day (from
 // whoever sends it first) also triggers a short reminder email, styled
@@ -11,6 +12,28 @@
 // no further email goes out — only the push/in-app notification.
 
 import { sendWebPush } from './_webpush.js';
+
+// Same convention used consistently across poke.js and quran-streak.js
+// for "what day is it": the recipient's own local date if we know their
+// timezone (stored on their push subscription at subscribe-time),
+// falling back to UTC for someone who's never enabled push. A flat UTC
+// day would put the boundary at a different real-world moment than the
+// streak tracking (which uses the browser's local date), causing
+// edge-case mismatches for anyone not near UTC.
+async function localDateKeyFor(db, userId) {
+  try {
+    const sub = await db
+      .prepare('SELECT tz FROM push_subscriptions WHERE user_id = ? AND tz IS NOT NULL LIMIT 1')
+      .bind(userId)
+      .first();
+    if (sub && sub.tz) {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: sub.tz }).format(new Date());
+    }
+  } catch (e) {
+    // fall through to UTC below
+  }
+  return new Date().toISOString().slice(0, 10);
+}
 
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
@@ -94,7 +117,7 @@ export async function onRequestPost(context) {
   }
   if (!isFriend) return json({ error: 'Not friends with this user' }, 403);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = await localDateKeyFor(db, friendUserId);
 
   try {
     await db
