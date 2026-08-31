@@ -39,33 +39,37 @@ export async function onRequestGet(context) {
   const session = await resolveSession(context);
   if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
 
-  const user = await env.DB.prepare(
-    `SELECT email, username FROM users WHERE id = ?1`
-  ).bind(session.userId).first();
+  try {
+    const user = await env.DB.prepare(
+      `SELECT email, username FROM users WHERE id = ?1`
+    ).bind(session.userId).first();
 
-  const sections = {};
-  for (const section of ALLOWED_SECTIONS) {
-    const row = await env.DB.prepare(
-      `SELECT data FROM app_state WHERE user_id = ?1 AND section = ?2 ORDER BY updated_at DESC LIMIT 1`
-    ).bind(session.userId, section).first();
+    const sections = {};
+    for (const section of ALLOWED_SECTIONS) {
+      const row = await env.DB.prepare(
+        `SELECT data FROM app_state WHERE user_id = ?1 AND section = ?2 ORDER BY updated_at DESC LIMIT 1`
+      ).bind(session.userId, section).first();
 
-    if (row) {
-      try {
-        sections[section] = JSON.parse(row.data);
-      } catch (e) {
-        sections[section] = null;
+      if (row) {
+        try {
+          sections[section] = JSON.parse(row.data);
+        } catch (e) {
+          sections[section] = null;
+        }
       }
     }
-  }
 
-  return json({
-    app: 'wherewepraying',
-    version: 1,
-    exportedAt: Date.now(),
-    email: user ? user.email : null,
-    username: user ? user.username : null,
-    sections,
-  });
+    return json({
+      app: 'wherewepraying',
+      version: 1,
+      exportedAt: Date.now(),
+      email: user ? user.email : null,
+      username: user ? user.username : null,
+      sections,
+    });
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
+  }
 }
 
 export async function onRequestPost(context) {
@@ -90,25 +94,29 @@ export async function onRequestPost(context) {
   const now = Date.now();
   const restored = [];
 
-  for (const section of ALLOWED_SECTIONS) {
-    if (!(section in body.sections)) continue;
-    const value = body.sections[section];
-    if (value === null || value === undefined) continue;
+  try {
+    for (const section of ALLOWED_SECTIONS) {
+      if (!(section in body.sections)) continue;
+      const value = body.sections[section];
+      if (value === null || value === undefined) continue;
 
-    const serialized = JSON.stringify(value);
-    if (serialized.length > MAX_SECTION_BYTES) {
-      return json({ error: `The "${section}" section in this backup is too large.` }, 413);
+      const serialized = JSON.stringify(value);
+      if (serialized.length > MAX_SECTION_BYTES) {
+        return json({ error: `The "${section}" section in this backup is too large.` }, 413);
+      }
+
+      await env.DB.prepare(
+        `INSERT INTO app_state (device_id, section, data, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(device_id, section) DO UPDATE SET
+           data = excluded.data,
+           updated_at = excluded.updated_at,
+           user_id = excluded.user_id`
+      ).bind(data.deviceId, section, serialized, now, session.userId).run();
+
+      restored.push(section);
     }
-
-    await env.DB.prepare(
-      `INSERT INTO app_state (device_id, section, data, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?5)
-       ON CONFLICT(device_id, section) DO UPDATE SET
-         data = excluded.data,
-         updated_at = excluded.updated_at,
-         user_id = excluded.user_id`
-    ).bind(data.deviceId, section, serialized, now, session.userId).run();
-
-    restored.push(section);
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
   }
 
   if (!restored.length) {
