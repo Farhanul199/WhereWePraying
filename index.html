@@ -633,6 +633,15 @@ body #page-quran{
   background:var(--coral-soft);border-radius:12px;border-bottom-color:transparent;
   transition:background 1.4s ease;
 }
+/* Subtle marker for the ayah currently in view while scrolling — tracks
+   reading position for the Continue Reading widget without competing
+   visually with .playing (audio) or .jump-highlight (quick-jump flash). */
+#page-quran .ayah-card.active-read{
+  border-radius:12px;border-bottom-color:transparent;
+  box-shadow:inset 3px 0 0 rgba(var(--coral-rgb), .45);
+  background:rgba(var(--coral-rgb), .04);
+  transition:background .4s ease, box-shadow .4s ease;
+}
 /* Surah Al-Kahf (18): first 10 and last 10 ayahs get a subtle,
    theme-matched background tint — light peach normally, light sage
    green during Jummah, light lilac during Ramadan. Same rounded
@@ -896,13 +905,30 @@ body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 #page-quran .ayah-nav{flex-wrap:wrap;}
 #page-quran .nav-btn.mid{order:3;flex:1 0 100%;}
 #page-quran .reader-layout{grid-template-columns:1fr;gap:14px;}
-/* Audio/Reciter panel used to sit last in DOM order, which on a single-
-   column mobile layout meant scrolling past the entire surah's ayahs to
-   reach it. Reorder it (grid items respect `order` like flex) to sit
-   right after the collapsible surah picker, before the ayah list. */
+/* Mobile reading order: Surah list, Continue Reading, the actual Qur'an
+   ayahs, then Audio, Reading Streak, Your Progress, Reading Plan,
+   Estimated Completion, Tools, Explore More — collapsing the three
+   desktop containers (reader-layout, audio-tools-pane, progress-footer)
+   into one flex column via display:contents so their children can be
+   freely interleaved by `order`, rather than only reordering within
+   each container separately. */
+#page-quran .page{display:flex;flex-direction:column;gap:14px;}
+#page-quran .reader-layout{display:contents;}
+#page-quran .audio-tools-pane{display:contents;}
+#page-quran .progress-footer{display:contents;}
+#page-quran .atp-card{flex:none;}
+#page-quran .foot-card{height:auto;}
+
 #page-quran .surah-sidebar{order:1;}
-#page-quran .audio-tools-pane{order:2;}
+#page-quran .foot-continue{order:2;}
 #page-quran .reader-pane{order:3;}
+#page-quran .atp-audio{order:4;}
+#page-quran .foot-streak{order:5;}
+#page-quran .foot-progress{order:6;}
+#page-quran .foot-plan{order:7;}
+#page-quran .atp-estimate{order:8;}
+#page-quran .atp-tools{order:9;}
+#page-quran .atp-explore{order:10;}
 #page-quran .search-row{gap:10px;}
 #page-quran .surah-sidebar{position:static;height:auto;}
 #page-quran .sidebar-head{padding:12px 12px 6px;}
@@ -4375,7 +4401,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="surah-quick-jumps" id="surahQuickJumps"></div>
         </div>
         <div class="surah-actions">
-          <button class="pill-btn icon-only active-state" id="toolbarToggle" title="Reading settings">
+          <button class="pill-btn icon-only" id="toolbarToggle" title="Reading settings">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
           </button>
           <button class="pill-btn" id="bookmarkBtn">
@@ -4393,8 +4419,8 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         </div>
       </div>
 
-      <!-- Reading settings — shown by default; toggled via the gear icon above -->
-      <div class="reader-toolbar" id="readerToolbar">
+      <!-- Reading settings — closed by default; opened via the gear icon above -->
+      <div class="reader-toolbar closed" id="readerToolbar">
         <div class="tool-group">
           <span class="tool-label">Translation</span>
           <select id="translationSelect">
@@ -4470,7 +4496,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 
     <!-- Audio & Tools pane -->
     <aside class="audio-tools-pane" id="audioToolsPane">
-      <div class="atp-card">
+      <div class="atp-card atp-audio">
         <div class="atp-head">Audio</div>
         <div class="atp-reciter">
           <span class="tool-label">Reciter</span>
@@ -4518,7 +4544,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <div class="est-sub" id="estSub">Set a reading plan to see this</div>
       </div>
 
-      <div class="atp-card">
+      <div class="atp-card atp-tools">
         <div class="atp-head">Tools</div>
         <div class="tool-list">
           <button class="tool-row" id="toolTafsir" type="button">
@@ -4547,7 +4573,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         </div>
       </div>
 
-      <div class="atp-card">
+      <div class="atp-card atp-explore">
         <div class="atp-head">Explore More</div>
         <div class="tool-list">
           <button class="tool-row" id="exploreDua1" type="button">
@@ -4581,7 +4607,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
   <div class="progress-footer">
 
     <!-- Progress overview -->
-    <div class="foot-card">
+    <div class="foot-card foot-progress">
       <div class="foot-head"><span class="foot-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
         Your Progress</span></div>
@@ -4603,7 +4629,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     </div>
 
     <!-- Reading plan -->
-    <div class="foot-card">
+    <div class="foot-card foot-plan">
       <div class="foot-head">
         <span class="foot-title">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -4635,7 +4661,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     </div>
 
     <!-- Streak -->
-    <div class="foot-card">
+    <div class="foot-card foot-streak">
       <div class="foot-head">
         <span class="foot-title">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c1 4-2 5-2 9a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 4 3 6a6 6 0 0 1-12 0c0-5 3-7 4-12Z"/></svg>
@@ -4656,7 +4682,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     </div>
 
     <!-- Continue reading -->
-    <div class="foot-card">
+    <div class="foot-card foot-continue">
       <div class="foot-head"><span class="foot-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h13v16H7a2 2 0 0 0-2 2Z"/><path d="M18 3v18"/></svg>
         Continue Reading</span></div>
@@ -8567,6 +8593,64 @@ function renderReader(){
   $('#nextSurahBtn').style.opacity = nextS ? 1 : .45;
   initNotesAutoLoad();
   if(playingAyah) highlightPlayingAyah(state.currentSurah, playingAyah); // survive re-renders mid-playback
+  initActiveReadTracking();
+}
+
+// Reading-position tracking: as the user scrolls through a surah, the
+// ayah nearest the vertical center of the viewport becomes the "active"
+// one — a subtle border glow (see .ayah-card.active-read), and after a
+// short settle it's saved as the real Continue Reading position and
+// counts toward today's reading streak. Re-initialised on every
+// renderReader() call since the ayah cards are replaced wholesale.
+let activeReadObserver = null;
+let activeReadAyah = null;
+let activeReadSaveTimer = null;
+
+function initActiveReadTracking(){
+  if(activeReadObserver) activeReadObserver.disconnect();
+  activeReadAyah = null;
+  const list = $('#ayahList');
+  const cards = list ? $$('.ayah-card', list) : [];
+  if(!cards.length) return;
+
+  activeReadObserver = new IntersectionObserver((entries)=>{
+    // Among cards currently intersecting the center band, pick the one
+    // whose midpoint sits closest to the viewport's vertical center —
+    // keeps fast scrolling from settling on whichever card merely
+    // fired last.
+    let best = null, bestDist = Infinity;
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting) return;
+      const rect = entry.boundingClientRect;
+      const mid = rect.top + rect.height/2;
+      const dist = Math.abs(mid - window.innerHeight/2);
+      if(dist < bestDist){ bestDist = dist; best = entry.target; }
+    });
+    if(best) setActiveReadAyah(parseInt(best.dataset.surah,10), parseInt(best.dataset.ayah,10));
+  }, { root:null, rootMargin:'-45% 0px -45% 0px', threshold:0 });
+
+  cards.forEach(c=> activeReadObserver.observe(c));
+}
+
+function setActiveReadAyah(surah, ayah){
+  if(ayah===activeReadAyah) return;
+  activeReadAyah = ayah;
+
+  $$('.ayah-card.active-read').forEach(el=> el.classList.remove('active-read'));
+  const card = document.getElementById(`ayah-${surah}-${ayah}`);
+  if(card) card.classList.add('active-read');
+
+  state.currentAyah = ayah;
+  clearTimeout(activeReadSaveTimer);
+  activeReadSaveTimer = setTimeout(()=>{
+    Services.logHistory(surah, ayah);
+    Services.saveLastRead(surah, ayah);
+    Services.markReadToday();
+    Services.persist();
+    renderContinueCard();
+    renderProgressRing();
+    renderStreak();
+  }, 900);
 }
 
 function renderProgressRing(){
@@ -8638,8 +8722,14 @@ async function loadQuranPokePanel(force){
       listEl.innerHTML='';
       return;
     }
+    if(!res.ok){
+      console.warn('loadQuranPokePanel: request failed', res.status, await res.text().catch(()=>''));
+      msgEl.style.display='block';
+      msgEl.textContent = 'Couldn\'t load friends\' streaks — try again shortly.';
+      listEl.innerHTML='';
+      return;
+    }
     const data = await res.json();
-    if(!res.ok) return;
     listEl.innerHTML='';
     if(!data.entries || !data.entries.length){
       msgEl.style.display='block';
@@ -8659,7 +8749,12 @@ async function loadQuranPokePanel(force){
       btn.addEventListener('click', ()=> sendQuranPoke(entry.userId, btn));
       listEl.appendChild(item);
     });
-  }catch(e){ console.warn('loadQuranPokePanel failed', e); }
+  }catch(e){
+    console.warn('loadQuranPokePanel failed', e);
+    msgEl.style.display='block';
+    msgEl.textContent = 'Couldn\'t load friends\' streaks — try again shortly.';
+    listEl.innerHTML='';
+  }
 }
 async function sendQuranPoke(friendUserId, btn){
   btn.disabled = true;
@@ -15599,19 +15694,29 @@ window.WWP_TravelHome = (function(){
 })();
 </script>
 <script>
-/* Qur'an reader — floating "back to top" button. The whole reading
-   pane scrolls with the page (no inner scroll container), so this is
-   a simple fixed-position button toggled by window scroll position,
-   scoped to only act while the Qur'an page is the visible one. */
+/* Qur'an reader — floating "back to top" button. Only relevant while
+   scrolling through the ayahs themselves: hidden above the reading pane
+   (nothing to scroll back up to yet) and hidden again once scrolled
+   past it into the prev/next-surah nav and footer widgets, which
+   already have their own "Back to Top" text button. */
 (function(){
   var btn = document.getElementById('qrScrollTopBtn');
   var page = document.getElementById('page-quran');
   if(!btn || !page) return;
 
+  var ticking = false;
   function onScroll(){
-    if(page.classList.contains('hidden')){ btn.classList.remove('show'); return; }
-    if(window.scrollY > 400) btn.classList.add('show');
-    else btn.classList.remove('show');
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){
+      ticking = false;
+      if(page.classList.contains('hidden')){ btn.classList.remove('show'); return; }
+      var list = document.getElementById('ayahList');
+      if(!list){ btn.classList.remove('show'); return; }
+      var rect = list.getBoundingClientRect();
+      var insideReadingArea = rect.top <= 0 && rect.bottom > 0;
+      btn.classList.toggle('show', insideReadingArea);
+    });
   }
   window.addEventListener('scroll', onScroll, {passive:true});
 
