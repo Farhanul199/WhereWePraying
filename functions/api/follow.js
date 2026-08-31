@@ -35,30 +35,34 @@ export async function onRequestGet(context) {
 
   const db = context.env.DB;
 
-  const rows = await db
-    .prepare(
-      `SELECT u.id, u.username, u.avatar_url, u.is_supporter,
-              EXISTS(
-                SELECT 1 FROM follows fb
-                WHERE fb.follower_id = ?1 AND fb.followed_id = u.id
-              ) AS following_back
-       FROM follows f
-       JOIN users u ON u.id = f.follower_id
-       WHERE f.followed_id = ?1
-       ORDER BY f.created_at DESC`
-    )
-    .bind(session.userId)
-    .all();
+  try {
+    const rows = await db
+      .prepare(
+        `SELECT u.id, u.username, u.avatar_url, u.is_supporter,
+                EXISTS(
+                  SELECT 1 FROM follows fb
+                  WHERE fb.follower_id = ?1 AND fb.followed_id = u.id
+                ) AS following_back
+         FROM follows f
+         JOIN users u ON u.id = f.follower_id
+         WHERE f.followed_id = ?1
+         ORDER BY f.created_at DESC`
+      )
+      .bind(session.userId)
+      .all();
 
-  const followers = (rows.results || []).map((r) => ({
-    userId: r.id,
-    username: r.username || 'Unnamed',
-    avatarUrl: r.avatar_url || null,
-    isSupporter: !!r.is_supporter,
-    followingBack: !!r.following_back,
-  }));
+    const followers = (rows.results || []).map((r) => ({
+      userId: r.id,
+      username: r.username || 'Unnamed',
+      avatarUrl: r.avatar_url || null,
+      isSupporter: !!r.is_supporter,
+      followingBack: !!r.following_back,
+    }));
 
-  return json({ followers });
+    return json({ followers });
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
+  }
 }
 
 export async function onRequestPost(context) {
@@ -78,26 +82,30 @@ export async function onRequestPost(context) {
 
   const db = context.env.DB;
 
-  if (action === 'follow') {
-    const target = await db.prepare('SELECT id FROM users WHERE id = ?').bind(targetUserId).first();
-    if (!target) return json({ error: 'User not found' }, 404);
+  try {
+    if (action === 'follow') {
+      const target = await db.prepare('SELECT id FROM users WHERE id = ?').bind(targetUserId).first();
+      if (!target) return json({ error: 'User not found' }, 404);
 
-    await db
-      .prepare('INSERT OR IGNORE INTO follows (follower_id, followed_id) VALUES (?, ?)')
-      .bind(session.userId, targetUserId)
-      .run();
+      await db
+        .prepare('INSERT OR IGNORE INTO follows (follower_id, followed_id) VALUES (?, ?)')
+        .bind(session.userId, targetUserId)
+        .run();
 
-    return json({ success: true, following: true });
+      return json({ success: true, following: true });
+    }
+
+    if (action === 'unfollow') {
+      await db
+        .prepare('DELETE FROM follows WHERE follower_id = ? AND followed_id = ?')
+        .bind(session.userId, targetUserId)
+        .run();
+
+      return json({ success: true, following: false });
+    }
+
+    return json({ error: 'Unknown action' }, 400);
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
   }
-
-  if (action === 'unfollow') {
-    await db
-      .prepare('DELETE FROM follows WHERE follower_id = ? AND followed_id = ?')
-      .bind(session.userId, targetUserId)
-      .run();
-
-    return json({ success: true, following: false });
-  }
-
-  return json({ error: 'Unknown action' }, 400);
 }
