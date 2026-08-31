@@ -15508,7 +15508,7 @@ window.WWP_TravelHome = (function(){
   // dialog for motion sensors — that's Apple's OS prompt, not ours, and
   // it only ever appears once per browser. We trigger it directly from
   // the tap itself so there's no extra step, modal, or toast in between.
-  let qcWatching=false, qcHeadingHandler=null, qcCurrentQibla=0, qcGotReading=false, qcWatchdog=null;
+  let qcWatching=false, qcHeadingHandler=null, qcCurrentQibla=0, qcGotReading=false, qcWatchdog=null, qcSmoothedHeading=null;
 
   function qcApplyHeading(heading){
     const rel=((qcCurrentQibla-heading)%360+360)%360;
@@ -15521,19 +15521,43 @@ window.WWP_TravelHome = (function(){
   function qcOnOrientation(e){
     let heading=null;
     if(typeof e.webkitCompassHeading==='number'){
-      heading=e.webkitCompassHeading;
-    }else if(typeof e.alpha==='number'){
+      heading=e.webkitCompassHeading; // iOS: already a true, north-referenced compass heading
+    }else if(typeof e.alpha==='number' && e.absolute===true){
+      // Only trust alpha as a true heading when the browser confirms the
+      // reading is absolute (north-referenced). Plain `deviceorientation`
+      // on many Android browsers fires with absolute:false — alpha there
+      // is relative to an arbitrary starting angle, not north, so using
+      // it unconditionally silently points somewhere confidently wrong
+      // rather than just being unavailable.
       heading=(360-e.alpha)%360;
     }
-    if(heading===null||isNaN(heading)) return;
+    if(heading===null||isNaN(heading)){
+      if(!qcGotReading){
+        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent='This device can\'t give a true compass heading — try a dedicated compass app.'; });
+      }
+      return;
+    }
     qcGotReading=true;
     if(qcWatchdog){clearTimeout(qcWatchdog);qcWatchdog=null;}
-    qcApplyHeading(heading);
+
+    // Smooth noisy raw sensor readings with a circular exponential moving
+    // average — naive numeric averaging breaks at the 0°/360° wrap (e.g.
+    // 350° and 10° would naively average to 180°, the opposite direction).
+    if(qcSmoothedHeading===null){
+      qcSmoothedHeading=heading;
+    }else{
+      const rad=Math.PI/180;
+      const sx=Math.sin(qcSmoothedHeading*rad)*0.8 + Math.sin(heading*rad)*0.2;
+      const cx=Math.cos(qcSmoothedHeading*rad)*0.8 + Math.cos(heading*rad)*0.2;
+      qcSmoothedHeading=(Math.atan2(sx,cx)*180/Math.PI+360)%360;
+    }
+    qcApplyHeading(qcSmoothedHeading);
   }
 
   function qcBeginListening(){
     if(qcWatching) return;
     qcGotReading=false;
+    qcSmoothedHeading=null;
     qcHeadingHandler=qcOnOrientation;
     const evt=('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
     window.addEventListener(evt,qcHeadingHandler,true);
