@@ -3724,6 +3724,34 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
             </div>
           </details>
 
+          <details class="auth-collapsible">
+            <summary class="auth-collapsible-summary">
+              <span>Danger Zone</span>
+              <svg class="auth-collapsible-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </summary>
+            <div class="auth-collapsible-body">
+              <p class="auth-popup-text" style="margin-bottom:8px;">Permanently delete your account, journal, and submitted content. This cannot be undone.</p>
+              <div id="deleteAccountStep1">
+                <button class="auth-btn auth-btn-secondary" id="deleteAccountBtn" type="button" style="color:#c0392b;border-color:#c0392b;">Delete Account</button>
+              </div>
+              <div id="deleteAccountStep2" class="hidden">
+                <p class="auth-popup-text" style="margin-bottom:8px;">Type <strong>DELETE</strong> to confirm. This is permanent.</p>
+                <div class="auth-form-group">
+                  <input
+                    type="text"
+                    id="deleteAccountConfirmInput"
+                    class="auth-form-input"
+                    placeholder="Type DELETE"
+                    autocomplete="off"
+                  />
+                  <button class="auth-btn auth-btn-primary" id="deleteAccountConfirmBtn" type="button" style="background:#c0392b;border-color:#c0392b;">Confirm Delete</button>
+                </div>
+                <button class="auth-btn auth-btn-secondary" id="deleteAccountCancelBtn" type="button" style="margin-top:8px;">Cancel</button>
+              </div>
+              <div class="auth-popup-error hidden" id="deleteAccountError"></div>
+            </div>
+          </details>
+
           <!-- Supporter tier: fully built, deliberately hidden from users until
                there's an established user base to introduce it to. To turn
                it back on later, remove class="hidden" from #supporterSection
@@ -5688,7 +5716,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
       </div>
     </div>
   </div>
-  <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time.</div>
+  <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a></div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -13301,6 +13329,7 @@ init();
 
     const signOutBtn = document.getElementById(SIGN_OUT_BTN_ID);
     if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+    wireDeleteAccountUI();
 
     const closeBtn = document.getElementById(CLOSE_POPUP_BTN_ID);
     if (closeBtn) closeBtn.addEventListener('click', closeAuthPopup);
@@ -13995,6 +14024,72 @@ init();
       console.error('signOut error:', err);
       showAuthError('Network error. Please try again.');
     }
+  }
+
+  function wireDeleteAccountUI() {
+    const step1 = document.getElementById('deleteAccountStep1');
+    const step2 = document.getElementById('deleteAccountStep2');
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    const cancelBtn = document.getElementById('deleteAccountCancelBtn');
+    const confirmBtn = document.getElementById('deleteAccountConfirmBtn');
+    const confirmInput = document.getElementById('deleteAccountConfirmInput');
+    const errorBox = document.getElementById('deleteAccountError');
+    if (!deleteBtn || !step1 || !step2 || !confirmBtn || !cancelBtn || !confirmInput) return;
+
+    deleteBtn.addEventListener('click', () => {
+      step1.classList.add('hidden');
+      step2.classList.remove('hidden');
+      confirmInput.value = '';
+      if (errorBox) errorBox.classList.add('hidden');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      step2.classList.add('hidden');
+      step1.classList.remove('hidden');
+      if (errorBox) errorBox.classList.add('hidden');
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      if (errorBox) errorBox.classList.add('hidden');
+      if (confirmInput.value.trim().toUpperCase() !== 'DELETE') {
+        if (errorBox) {
+          errorBox.textContent = 'Please type DELETE to confirm.';
+          errorBox.classList.remove('hidden');
+        }
+        return;
+      }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting…';
+      try {
+        const res = await fetch('/api/user/delete', {
+          method: 'POST',
+          headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (errorBox) {
+            errorBox.textContent = data.error || 'Failed to delete account. Please try again.';
+            errorBox.classList.remove('hidden');
+          }
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Confirm Delete';
+          return;
+        }
+        authState = { authenticated: false, email: null };
+        closeAuthPopup();
+        renderAuthUI('sign-in');
+        window.location.reload();
+      } catch (err) {
+        console.error('deleteAccount error:', err);
+        if (errorBox) {
+          errorBox.textContent = 'Network error. Please try again.';
+          errorBox.classList.remove('hidden');
+        }
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Delete';
+      }
+    });
   }
 
   async function handleVerifyRedirect() {
