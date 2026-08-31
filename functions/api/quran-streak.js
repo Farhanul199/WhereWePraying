@@ -12,6 +12,26 @@ function json(payload, status) {
   });
 }
 
+// Same convention used in poke.js for "what day is it": a user's own
+// local date if we know their timezone (stored on their push
+// subscription at subscribe-time), falling back to UTC otherwise. Keeps
+// "poked today" checks here consistent with the day poke.js actually
+// wrote the row against.
+async function localDateKeyFor(db, userId) {
+  try {
+    const sub = await db
+      .prepare('SELECT tz FROM push_subscriptions WHERE user_id = ? AND tz IS NOT NULL LIMIT 1')
+      .bind(userId)
+      .first();
+    if (sub && sub.tz) {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: sub.tz }).format(new Date());
+    }
+  } catch (e) {
+    // fall through to UTC below
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
 async function resolveSession(context) {
   try {
     const cookies = context.request.headers.get('cookie') || '';
@@ -63,16 +83,11 @@ export async function onRequestGet(context) {
 
   try {
     const db = context.env.DB;
-    const todayKey = new Date().toISOString().slice(0, 10);
 
     const rows = await db
       .prepare(
         `SELECT u.id, u.username, u.avatar_url, u.is_supporter,
-                COALESCE(qs.streak_days, 0) AS streak_days,
-                EXISTS(
-                  SELECT 1 FROM quran_pokes p
-                  WHERE p.from_user_id = ?1 AND p.to_user_id = u.id AND p.poke_date = ?2
-                ) AS poked_today
+                COALESCE(qs.streak_days, 0) AS streak_days
          FROM users u
          LEFT JOIN quran_streaks qs ON qs.user_id = u.id
          WHERE u.id IN (
@@ -82,17 +97,36 @@ export async function onRequestGet(context) {
          )
          ORDER BY streak_days DESC`
       )
-      .bind(session.userId, todayKey)
+      .bind(session.userId)
       .all();
 
-    const entries = (rows.results || []).map((r) => ({
-      userId: r.id,
-      username: r.username || 'Unnamed',
-      avatarUrl: r.avatar_url || null,
-      isSupporter: !!r.is_supporter,
-      streakDays: r.streak_days,
-      pokedToday: !!r.poked_today,
-    }));
+    const friendRows = rows.results || [];
+
+    // "Poked today" has to match each *friend's own* local day, since
+    // that's the day poke.js recorded the row against when it wrote it
+    // — comparing against a single UTC or viewer-local day here would
+    // occasionally disagree with what was actually stored, right around
+    // a day boundary.
+    const entries = await Promise.all(
+      friendRows.map(async (r) => {
+        const friendTodayKey = await localDateKeyFor(db, r.id);
+        const poked = await db
+          .prepare(
+            'SELECT 1 FROM quran_pokes WHERE from_user_id = ? AND to_user_id = ? AND poke_date = ?'
+          )
+          .bind(session.userId, r.id, friendTodayKey)
+          .first();
+
+        return {
+          userId: r.id,
+          username: r.username || 'Unnamed',
+          avatarUrl: r.avatar_url || null,
+          isSupporter: !!r.is_supporter,
+          streakDays: r.streak_days,
+          pokedToday: !!poked,
+        };
+      })
+    );
 
     return json({ entries });
   } catch (e) {
