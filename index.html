@@ -5730,7 +5730,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <button class="cm-btn" id="cmSubmitBugBtn">Submit bug report</button>
       </div>
     </div>
-    <p style="font-size:12.5px;color:var(--text-dim);margin:6px 0 16px;">Bug reports go straight to the dev team — jazakAllah khair for helping squash them!</p>
+    <p style="font-size:12.5px;color:var(--text-dim);margin:6px 0 16px;">Bug reports are visible to the whole community, and go straight to the dev team too — jazakAllah khair for helping squash them!</p>
     <div id="cmMyBugsList"></div>
   </div>
 
@@ -14899,25 +14899,23 @@ init();
   });
 
   async function loadMyBugs(){
-    if(!isSignedIn()) return;
     const holder = $('#cmMyBugsList');
     if(!holder) return;
     try{
       const res = await fetch('/api/community/bugs', { credentials: 'include', headers: deviceHeaders() });
       const data = await res.json();
       const bugs = data.bugs || [];
-      if(!bugs.length){ holder.innerHTML = ''; return; }
-      holder.innerHTML = `<div style="font-size:12.5px;font-weight:700;color:var(--text-dim);margin:6px 0 10px;">Your reports</div>` +
-        bugs.map(b => `
+      if(!bugs.length){ holder.innerHTML = `<div class="cm-empty">No bugs reported yet — you're either very lucky or very forgiving.</div>`; return; }
+      holder.innerHTML = bugs.map(b => `
           <div class="cm-card">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
               <div style="font-weight:700;font-size:13px;color:var(--text);">${escapeHtml(b.title)}</div>
               <span class="cm-photo-status ${b.status}">${b.status}</span>
             </div>
             ${b.body ? `<div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;white-space:pre-wrap;">${escapeHtml(b.body)}</div>` : ''}
-            <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;">${timeAgo(b.created_at)}</div>
+            <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;">${escapeHtml(b.username || 'Someone')} · ${timeAgo(b.created_at)}</div>
           </div>`).join('');
-    }catch(e){ /* silent */ }
+    }catch(e){ holder.innerHTML = `<div class="cm-empty">Couldn't load bug reports right now.</div>`; }
   }
 
   // ---- Init whenever the Community page becomes visible ----
