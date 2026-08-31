@@ -30,35 +30,39 @@ export async function onRequestGet(context) {
 
   const db = context.env.DB;
 
-  // Top 100 by score. Only users with a username set show up — an
-  // unnamed row on a public list isn't useful to anyone.
-  const rows = await db
-    .prepare(
-      `SELECT u.id, u.username, u.avatar_url, u.is_supporter, ls.score
-       FROM leaderboard_scores ls
-       JOIN users u ON u.id = ls.user_id
-       WHERE u.username IS NOT NULL
-       ORDER BY ls.score DESC
-       LIMIT 100`
-    )
-    .all();
+  try {
+    // Top 100 by score. Only users with a username set show up — an
+    // unnamed row on a public list isn't useful to anyone.
+    const rows = await db
+      .prepare(
+        `SELECT u.id, u.username, u.avatar_url, u.is_supporter, ls.score
+         FROM leaderboard_scores ls
+         JOIN users u ON u.id = ls.user_id
+         WHERE u.username IS NOT NULL
+         ORDER BY ls.score DESC
+         LIMIT 100`
+      )
+      .all();
 
-  const following = await db
-    .prepare('SELECT followed_id FROM follows WHERE follower_id = ?')
-    .bind(session.userId)
-    .all();
-  const followingSet = new Set((following.results || []).map((r) => r.followed_id));
+    const following = await db
+      .prepare('SELECT followed_id FROM follows WHERE follower_id = ?')
+      .bind(session.userId)
+      .all();
+    const followingSet = new Set((following.results || []).map((r) => r.followed_id));
 
-  const entries = (rows.results || []).map((r, i) => ({
-    rank: i + 1,
-    userId: r.id,
-    username: r.username,
-    avatarUrl: r.avatar_url || null,
-    isSupporter: !!r.is_supporter,
-    score: r.score,
-    isYou: r.id === session.userId,
-    isFollowing: followingSet.has(r.id),
-  }));
+    const entries = (rows.results || []).map((r, i) => ({
+      rank: i + 1,
+      userId: r.id,
+      username: r.username,
+      avatarUrl: r.avatar_url || null,
+      isSupporter: !!r.is_supporter,
+      score: r.score,
+      isYou: r.id === session.userId,
+      isFollowing: followingSet.has(r.id),
+    }));
 
-  return json({ entries });
+    return json({ entries });
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
+  }
 }
