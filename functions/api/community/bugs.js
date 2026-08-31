@@ -1,7 +1,7 @@
 // functions/api/community/bugs.js
 // POST /api/community/bugs   body: { title, body }              -> signed-in only, creates a bug report
 // POST /api/community/bugs   body: { action:'review', bugId, status } -> admin only (X-Broadcast-Key)
-// GET  /api/community/bugs                                       -> signed-in: your own reports
+// GET  /api/community/bugs                                       -> public feed, all bug reports (like ideas)
 // GET  /api/community/bugs?status=open|resolved|dismissed|all    -> admin: full queue (X-Broadcast-Key)
 
 function json(payload, status) {
@@ -51,13 +51,14 @@ export async function onRequestGet(context) {
       return json({ bugs: results || [] });
     }
 
-    const session = await resolveSession(context);
-    if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
-
+    // ---- Public community feed ----
+    // Everyone's bug reports, newest first — visible to all, same as
+    // the Feature Ideas feed. Sign-in is only required to submit one.
     const { results } = await db.prepare(
-      `SELECT id, title, body, status, created_at, reviewed_at
-       FROM community_bugs WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 50`
-    ).bind(session.userId).all();
+      `SELECT b.id, b.title, b.body, b.status, b.created_at, u.username
+       FROM community_bugs b LEFT JOIN users u ON u.id = b.user_id
+       ORDER BY b.created_at DESC LIMIT 100`
+    ).all();
 
     return json({ bugs: results || [] });
   } catch (e) {
