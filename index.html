@@ -53,6 +53,14 @@ window.__wwpGoogleAuthResult = (function(){
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{-webkit-text-size-adjust:100%;}
+/* Global fallback: any element carrying just the "hidden" class gets
+   hidden, regardless of what other classes it also has. Several
+   scoped .foo.hidden rules exist elsewhere for specific components,
+   but new UI (Supporter box, Community sign-in notes, etc.) relied on
+   this generic rule existing -- it didn't, so toggling "hidden" alone
+   silently did nothing. This is a safe, low-specificity fallback: any
+   more specific .foo.hidden rule elsewhere still wins as before. */
+.hidden{display:none;}
 body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);transition:background .25s ease,color .25s ease;min-height:100vh;display:flex;flex-direction:column;}
 .app-page{flex:1 0 auto;}
 .site-footer{flex:none;}
