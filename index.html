@@ -2535,6 +2535,22 @@ body.auth-popup-open {
   box-shadow: 0 0 0 2px #F4C542, 0 0 6px rgba(244, 197, 66, 0.6);
 }
 
+/* Clicking a name/avatar in the followers or global-leaderboard lists
+   sends a friend request directly — an easy add-friend path for people
+   you already follow or who follow you, without typing their username. */
+.af-target {
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background .15s ease;
+}
+.af-target:hover {
+  background: rgba(var(--coral-rgb), .08);
+}
+.af-target[data-requested="true"] {
+  cursor: default;
+  opacity: .7;
+}
+
 .username-supporter {
   background: linear-gradient(90deg, #fceabb, #f8b500, #fceabb, #f8b500);
   background-size: 300% auto;
@@ -13840,7 +13856,9 @@ init();
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'auth-friend-item-name';
-        nameSpan.innerHTML = renderAvatarAndName(f);
+        nameSpan.innerHTML = `<span class="af-target" data-user-id="${f.userId}" title="Send friend request">${renderAvatarAndName(f)}</span>`;
+        const afTarget = nameSpan.querySelector('.af-target');
+        if (afTarget) afTarget.addEventListener('click', () => sendFriendRequestTo(f.userId, afTarget));
         item.appendChild(nameSpan);
 
         if (f.followingBack) {
@@ -13918,14 +13936,21 @@ init();
         const extra = entry.isYou ? ' (You)' : '';
         const nameSpan = document.createElement('span');
         nameSpan.className = 'auth-friend-item-name';
-        nameSpan.innerHTML = `#${entry.rank} ${renderAvatarAndName(entry, extra)} — ${entry.score}`;
+        const avatarHtml = renderAvatarAndName(entry, extra);
+        nameSpan.innerHTML = entry.isYou
+          ? `#${entry.rank} ${avatarHtml} — ${entry.score}`
+          : `#${entry.rank} <span class="af-target" data-user-id="${entry.userId}" title="Send friend request">${avatarHtml}</span> — ${entry.score}`;
         item.appendChild(nameSpan);
 
         if (!entry.isYou) {
+          const afTarget = nameSpan.querySelector('.af-target');
+          if (afTarget) afTarget.addEventListener('click', () => sendFriendRequestTo(entry.userId, afTarget));
+
           const followBtn = document.createElement('button');
           followBtn.className = 'auth-btn auth-btn-tiny ' + (entry.isFollowing ? 'auth-btn-secondary' : 'auth-btn-primary');
           followBtn.textContent = entry.isFollowing ? 'Following' : 'Follow';
-          followBtn.addEventListener('click', () => toggleFollow(entry.userId, entry.isFollowing, followBtn));
+          followBtn.dataset.following = entry.isFollowing ? 'true' : 'false';
+          followBtn.addEventListener('click', () => toggleFollow(entry.userId, followBtn));
           item.appendChild(followBtn);
         }
 
@@ -13937,7 +13962,12 @@ init();
     }
   }
 
-  async function toggleFollow(targetUserId, currentlyFollowing, buttonEl) {
+  async function toggleFollow(targetUserId, buttonEl) {
+    // Read current state from the button itself rather than a value
+    // captured when the listener was first attached — otherwise every
+    // click after the first re-sends the same original action (e.g.
+    // "Following" never actually unfollows on a second click).
+    const currentlyFollowing = buttonEl.dataset.following === 'true';
     const action = currentlyFollowing ? 'unfollow' : 'follow';
     buttonEl.disabled = true;
 
@@ -13954,6 +13984,7 @@ init();
       const data = await res.json();
 
       if (res.ok) {
+        buttonEl.dataset.following = data.following ? 'true' : 'false';
         buttonEl.textContent = data.following ? 'Following' : 'Follow';
         buttonEl.className = 'auth-btn auth-btn-tiny ' + (data.following ? 'auth-btn-secondary' : 'auth-btn-primary');
         loadLeaderboard(); // personal ranking now includes/excludes this user
@@ -13962,6 +13993,38 @@ init();
       console.error('toggleFollow error:', e);
     } finally {
       buttonEl.disabled = false;
+    }
+  }
+
+  async function sendFriendRequestTo(targetUserId, wrapperEl) {
+    if (wrapperEl.dataset.requested === 'true') return;
+    wrapperEl.dataset.requested = 'true';
+    const prevTitle = wrapperEl.title;
+    wrapperEl.title = 'Sending friend request…';
+
+    try {
+      const res = await fetch('/api/friends', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': window.WWP?.deviceId || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'add', targetUserId }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        wrapperEl.title = 'Friend request sent';
+      } else {
+        // Already friends / already pending isn't a failure worth
+        // retrying — leave it marked as requested either way.
+        wrapperEl.title = data.error || 'Friend request sent';
+      }
+    } catch (e) {
+      console.error('sendFriendRequestTo error:', e);
+      wrapperEl.dataset.requested = 'false';
+      wrapperEl.title = prevTitle;
     }
   }
 
