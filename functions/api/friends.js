@@ -125,54 +125,59 @@ export async function onRequestGet(context) {
   if (!session) return json({ error: 'Not signed in' }, 401);
 
   const db = context.env.DB;
-  const code = await ensureFriendCode(db, session.userId);
 
-  const friends = await db
-    .prepare(
-      `SELECT u.id, u.username, u.email, u.avatar_url, u.is_supporter
-       FROM friendships f
-       JOIN users u ON u.id = CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
-       WHERE (f.requester_id = ?1 OR f.addressee_id = ?1) AND f.status = 'accepted'`
-    )
-    .bind(session.userId)
-    .all();
+  try {
+    const code = await ensureFriendCode(db, session.userId);
 
-  const incoming = await db
-    .prepare(
-      `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
-       FROM friendships f
-       JOIN users u ON u.id = f.requester_id
-       WHERE f.addressee_id = ?1 AND f.status = 'pending'`
-    )
-    .bind(session.userId)
-    .all();
+    const friends = await db
+      .prepare(
+        `SELECT u.id, u.username, u.email, u.avatar_url, u.is_supporter
+         FROM friendships f
+         JOIN users u ON u.id = CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
+         WHERE (f.requester_id = ?1 OR f.addressee_id = ?1) AND f.status = 'accepted'`
+      )
+      .bind(session.userId)
+      .all();
 
-  const outgoing = await db
-    .prepare(
-      `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
-       FROM friendships f
-       JOIN users u ON u.id = f.addressee_id
-       WHERE f.requester_id = ?1 AND f.status = 'pending'`
-    )
-    .bind(session.userId)
-    .all();
+    const incoming = await db
+      .prepare(
+        `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
+         FROM friendships f
+         JOIN users u ON u.id = f.requester_id
+         WHERE f.addressee_id = ?1 AND f.status = 'pending'`
+      )
+      .bind(session.userId)
+      .all();
 
-  function mapUserRow(r) {
-    return {
-      id: r.id,
-      username: r.username,
-      email: r.email,
-      avatarUrl: r.avatar_url || null,
-      isSupporter: !!r.is_supporter,
-    };
+    const outgoing = await db
+      .prepare(
+        `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
+         FROM friendships f
+         JOIN users u ON u.id = f.addressee_id
+         WHERE f.requester_id = ?1 AND f.status = 'pending'`
+      )
+      .bind(session.userId)
+      .all();
+
+    function mapUserRow(r) {
+      return {
+        id: r.id,
+        username: r.username,
+        email: r.email,
+        avatarUrl: r.avatar_url || null,
+        isSupporter: !!r.is_supporter,
+      };
+    }
+
+    return json({
+      code,
+      friends: (friends.results || []).map(mapUserRow),
+      incoming: (incoming.results || []).map((r) => ({ requestId: r.request_id, ...mapUserRow(r) })),
+      outgoing: (outgoing.results || []).map((r) => ({ requestId: r.request_id, ...mapUserRow(r) })),
+    });
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
   }
-
-  return json({
-    code,
-    friends: (friends.results || []).map(mapUserRow),
-    incoming: (incoming.results || []).map((r) => ({ requestId: r.request_id, ...mapUserRow(r) })),
-    outgoing: (outgoing.results || []).map((r) => ({ requestId: r.request_id, ...mapUserRow(r) })),
-  });
 }
 
 export async function onRequestPost(context) {
@@ -189,123 +194,127 @@ export async function onRequestPost(context) {
 
   const action = body.action;
 
-  if (action === 'add') {
-    let target;
+  try {
+    if (action === 'add') {
+      let target;
 
-    if (body.targetUserId) {
-      // Direct add by id — used when the person is clicked from a list
-      // that already has their user id (global leaderboard, followers),
-      // skipping the username/email/code lookup below.
-      target = await db
-        .prepare('SELECT id, username, email FROM users WHERE id = ?')
-        .bind(body.targetUserId)
-        .first();
-      if (!target) return json({ error: 'User not found' }, 404);
-    } else {
-      const identifier = (body.identifier || '').trim();
-      if (!identifier) return json({ error: 'Enter a username, email, or friend code' }, 400);
+      if (body.targetUserId) {
+        // Direct add by id — used when the person is clicked from a list
+        // that already has their user id (global leaderboard, followers),
+        // skipping the username/email/code lookup below.
+        target = await db
+          .prepare('SELECT id, username, email FROM users WHERE id = ?')
+          .bind(body.targetUserId)
+          .first();
+        if (!target) return json({ error: 'User not found' }, 404);
+      } else {
+        const identifier = (body.identifier || '').trim();
+        if (!identifier) return json({ error: 'Enter a username, email, or friend code' }, 400);
 
-      target = await db
-        .prepare('SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?1) OR LOWER(email) = LOWER(?1) OR UPPER(friend_code) = UPPER(?1)')
-        .bind(identifier)
-        .first();
-      if (!target) return json({ error: 'No user found with that username, email, or code' }, 404);
-    }
-
-    if (target.id === session.userId) return json({ error: "That's your own account" }, 400);
-
-    const existing = await db
-      .prepare(
-        `SELECT id, status FROM friendships
-         WHERE (requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1)`
-      )
-      .bind(session.userId, target.id)
-      .first();
-
-    if (existing) {
-      if (existing.status === 'accepted') return json({ error: 'Already friends' }, 409);
-      if (existing.status === 'pending') return json({ error: 'Friend request already pending' }, 409);
-    }
-
-    const id = crypto.randomUUID();
-    await db
-      .prepare('INSERT INTO friendships (id, requester_id, addressee_id, status) VALUES (?, ?, ?, ?)')
-      .bind(id, session.userId, target.id, 'pending')
-      .run();
-
-    // Fire-and-forget email if they've opted in — never block the
-    // response on this, a failed send shouldn't fail the request.
-    try {
-      const addressee = await db
-        .prepare('SELECT email, notify_friend_requests FROM users WHERE id = ?')
-        .bind(target.id)
-        .first();
-
-      if (addressee && addressee.notify_friend_requests && context.env.RESEND_API_KEY) {
-        const me = await db.prepare('SELECT username, email FROM users WHERE id = ?').bind(session.userId).first();
-        const fromLabel = (me && (me.username || me.email)) || 'Someone';
-        const siteUrl = new URL(context.request.url).origin;
-
-        context.waitUntil(
-          fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${context.env.RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-              from: 'noreply@wherewepraying.com',
-              to: addressee.email,
-              subject: `${fromLabel} sent you a friend request — WhereWePraying?`,
-              html: buildFriendRequestEmailHtml(fromLabel, siteUrl),
-            }),
-          })
-        );
+        target = await db
+          .prepare('SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?1) OR LOWER(email) = LOWER(?1) OR UPPER(friend_code) = UPPER(?1)')
+          .bind(identifier)
+          .first();
+        if (!target) return json({ error: 'No user found with that username, email, or code' }, 404);
       }
-    } catch (e) {
-      console.error('friend request email failed:', e);
+
+      if (target.id === session.userId) return json({ error: "That's your own account" }, 400);
+
+      const existing = await db
+        .prepare(
+          `SELECT id, status FROM friendships
+           WHERE (requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1)`
+        )
+        .bind(session.userId, target.id)
+        .first();
+
+      if (existing) {
+        if (existing.status === 'accepted') return json({ error: 'Already friends' }, 409);
+        if (existing.status === 'pending') return json({ error: 'Friend request already pending' }, 409);
+      }
+
+      const id = crypto.randomUUID();
+      await db
+        .prepare('INSERT INTO friendships (id, requester_id, addressee_id, status) VALUES (?, ?, ?, ?)')
+        .bind(id, session.userId, target.id, 'pending')
+        .run();
+
+      // Fire-and-forget email if they've opted in — never block the
+      // response on this, a failed send shouldn't fail the request.
+      try {
+        const addressee = await db
+          .prepare('SELECT email, notify_friend_requests FROM users WHERE id = ?')
+          .bind(target.id)
+          .first();
+
+        if (addressee && addressee.notify_friend_requests && context.env.RESEND_API_KEY) {
+          const me = await db.prepare('SELECT username, email FROM users WHERE id = ?').bind(session.userId).first();
+          const fromLabel = (me && (me.username || me.email)) || 'Someone';
+          const siteUrl = new URL(context.request.url).origin;
+
+          context.waitUntil(
+            fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${context.env.RESEND_API_KEY}`,
+              },
+              body: JSON.stringify({
+                from: 'noreply@wherewepraying.com',
+                to: addressee.email,
+                subject: `${fromLabel} sent you a friend request — WhereWePraying?`,
+                html: buildFriendRequestEmailHtml(fromLabel, siteUrl),
+              }),
+            })
+          );
+        }
+      } catch (e) {
+        console.error('friend request email failed:', e);
+      }
+
+      return json({ success: true, message: `Friend request sent to ${target.username || target.email}` });
     }
 
-    return json({ success: true, message: `Friend request sent to ${target.username || target.email}` });
+    if (action === 'accept' || action === 'decline') {
+      const requestId = body.requestId;
+      if (!requestId) return json({ error: 'Missing requestId' }, 400);
+
+      const request = await db
+        .prepare('SELECT id, addressee_id, status FROM friendships WHERE id = ?')
+        .bind(requestId)
+        .first();
+
+      if (!request) return json({ error: 'Request not found' }, 404);
+      if (request.addressee_id !== session.userId) return json({ error: 'Not your request to respond to' }, 403);
+      if (request.status !== 'pending') return json({ error: 'Request already handled' }, 409);
+
+      const newStatus = action === 'accept' ? 'accepted' : 'declined';
+      await db
+        .prepare("UPDATE friendships SET status = ?, responded_at = datetime('now') WHERE id = ?")
+        .bind(newStatus, requestId)
+        .run();
+
+      return json({ success: true });
+    }
+
+    if (action === 'remove') {
+      const friendUserId = body.friendUserId;
+      if (!friendUserId) return json({ error: 'Missing friendUserId' }, 400);
+
+      await db
+        .prepare(
+          `DELETE FROM friendships
+           WHERE ((requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1))
+           AND status = 'accepted'`
+        )
+        .bind(session.userId, friendUserId)
+        .run();
+
+      return json({ success: true });
+    }
+
+    return json({ error: 'Unknown action' }, 400);
+  } catch (e) {
+    return json({ error: 'db_error', message: String(e) }, 500);
   }
-
-  if (action === 'accept' || action === 'decline') {
-    const requestId = body.requestId;
-    if (!requestId) return json({ error: 'Missing requestId' }, 400);
-
-    const request = await db
-      .prepare('SELECT id, addressee_id, status FROM friendships WHERE id = ?')
-      .bind(requestId)
-      .first();
-
-    if (!request) return json({ error: 'Request not found' }, 404);
-    if (request.addressee_id !== session.userId) return json({ error: 'Not your request to respond to' }, 403);
-    if (request.status !== 'pending') return json({ error: 'Request already handled' }, 409);
-
-    const newStatus = action === 'accept' ? 'accepted' : 'declined';
-    await db
-      .prepare("UPDATE friendships SET status = ?, responded_at = datetime('now') WHERE id = ?")
-      .bind(newStatus, requestId)
-      .run();
-
-    return json({ success: true });
-  }
-
-  if (action === 'remove') {
-    const friendUserId = body.friendUserId;
-    if (!friendUserId) return json({ error: 'Missing friendUserId' }, 400);
-
-    await db
-      .prepare(
-        `DELETE FROM friendships
-         WHERE ((requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1))
-         AND status = 'accepted'`
-      )
-      .bind(session.userId, friendUserId)
-      .run();
-
-    return json({ success: true });
-  }
-
-  return json({ error: 'Unknown action' }, 400);
 }
