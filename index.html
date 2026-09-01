@@ -1582,6 +1582,17 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .mq-time-cell .mq-prayer-time{font-size:11.5px;}
 }
 
+/* ---------- Find a Mosque :: static prayer header + ranked widgets ---------- */
+.mq-prayer-header{display:grid;grid-template-columns:repeat(5,1fr);border-radius:14px;overflow:hidden;margin-bottom:14px;background:rgba(140,120,100,.35);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
+.mq-prayer-header span{text-align:center;padding:9px 4px;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--text);text-transform:uppercase;}
+.mq-prayer-header span+span{border-left:1px solid rgba(255,255,255,.18);}
+.mq-prayer-header span.is-active{color:var(--coral);}
+.mq-rank-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:12px;transition:transform .45s cubic-bezier(.4,0,.2,1);will-change:transform;}
+.mq-rank-card.mq-tied{border-color:rgba(244,113,78,.55);box-shadow:0 0 0 1px rgba(244,113,78,.35), var(--shadow);}
+.mq-rank-name{font-weight:700;font-size:14.5px;color:var(--text);}
+.mq-rank-meta{font-size:11px;color:var(--text-dim);margin-top:2px;text-transform:uppercase;letter-spacing:.02em;}
+.mq-rank-time{font-weight:800;font-size:16px;color:var(--coral);flex-shrink:0;}
+
 /* ---------- Find a Mosque :: "screen protector" sneak-peek overlay ---------- */
 /* .app-page's transform:translateY(...) (used for the page-switch slide
    animation) creates a new CSS containing block for any position:fixed
@@ -5242,6 +5253,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
       <p class="mq-sub">Real Jama'ah times set by each mosque's own committee — not an estimate.</p>
       <button type="button" id="mqHideBtn" class="mq-hide-btn hidden">Hide preview</button>
     </div>
+    <div id="mqPrayerHeader" class="mq-prayer-header"></div>
     <div id="mqStatus" class="mq-status"></div>
     <div id="mqList" class="mq-list"></div>
   </div>
@@ -15047,14 +15059,18 @@ init();
 
 <script>
 /* ============================================================
-   FIND A MOSQUE :: MVP list view. Fetches today's Jama'ah times
-   from /api/mosques/list and renders a simple sorted list (soonest
-   next Jama'ah first). Full search/map/feasibility ranking is a
-   later build - this just gets real data on screen.
+   FIND A MOSQUE :: ranked-by-Jama'ah view. A static header bar
+   lists the 5 prayer names. Below it, each mosque is its own
+   widget, ordered ascending by whichever prayer is currently
+   "live" (the earliest prayer whose last mosque + 10min buffer
+   hasn't passed yet). Mosques tied on the same time get a
+   coloured tie border. Once every mosque's Isha + buffer has
+   passed for today, ranking loops to tomorrow's Fajr.
    ============================================================ */
 (function(){
-  const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Zuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
+  const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
   const PRAYER_ORDER = ['fajr','zuhr','asr','maghrib','isha'];
+  const BUFFER_MIN = 10;
 
   function deviceHeaders(){
     return { 'X-Device-Id': window.WWP?.deviceId || '' };
@@ -15066,59 +15082,144 @@ init();
     }[c]));
   }
 
-  function renderMosqueCard(m){
-    const timesHtml = PRAYER_ORDER.map(p => {
-      const isNext = m.next && m.next.prayer === p;
+  function londonNow(){
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date());
+    const get = t => parts.find(p => p.type === t)?.value;
+    return {
+      dateIso: `${get('year')}-${get('month')}-${get('day')}`,
+      minutes: parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10),
+    };
+  }
+
+  function parseTimeToMinutes(prayer, raw){
+    if (!raw) return null;
+    const cleaned = raw.replace('.', ':').trim();
+    const m = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    let h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if (prayer !== 'fajr' && h >= 1 && h <= 11) h += 12;
+    return h * 60 + min;
+  }
+
+  function addDaysIso(iso, days){
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function fetchMosques(dateIso){
+    const res = await fetch('/api/mosques/list?date=' + dateIso, { headers: deviceHeaders() });
+    if (!res.ok) throw new Error('Request failed: ' + res.status);
+    const data = await res.json();
+    return data.mosques || [];
+  }
+
+  // Finds the earliest prayer whose last mosque + buffer hasn't passed
+  // yet. If every prayer today is done, loops to tomorrow's Fajr.
+  async function resolveTarget(){
+    const { dateIso, minutes: nowMinutes } = londonNow();
+    const mosques = await fetchMosques(dateIso);
+    if (!mosques.length) return { mosques: [], prayer: 'fajr' };
+
+    for (const prayer of PRAYER_ORDER) {
+      const times = mosques
+        .map(m => parseTimeToMinutes(prayer, m.jamaah[prayer]))
+        .filter(t => t !== null);
+      if (!times.length) continue;
+      if (nowMinutes < Math.max(...times) + BUFFER_MIN) {
+        return { mosques, prayer };
+      }
+    }
+
+    const tomorrowIso = addDaysIso(dateIso, 1);
+    const tomorrowMosques = await fetchMosques(tomorrowIso);
+    return { mosques: tomorrowMosques, prayer: 'fajr' };
+  }
+
+  function renderHeader(activePrayer){
+    const header = document.getElementById('mqPrayerHeader');
+    if (!header) return;
+    header.innerHTML = PRAYER_ORDER.map(p =>
+      `<span${p === activePrayer ? ' class="is-active"' : ''}>${PRAYER_LABELS[p]}</span>`
+    ).join('');
+  }
+
+  function renderRankList(mosques, prayer){
+    const list = document.getElementById('mqList');
+    const status = document.getElementById('mqStatus');
+    if (!list || !status) return;
+
+    const ranked = mosques
+      .map(m => ({ m, mins: parseTimeToMinutes(prayer, m.jamaah[prayer]) }))
+      .filter(r => r.mins !== null)
+      .sort((a, b) => a.mins - b.mins);
+
+    if (!ranked.length) {
+      list.innerHTML = '';
+      status.textContent = 'No ' + PRAYER_LABELS[prayer] + " Jama'ah times available right now.";
+      return;
+    }
+    status.textContent = '';
+
+    // FLIP: capture current on-screen positions before re-render so the
+    // widgets can animate into their new ranked positions.
+    const before = new Map();
+    list.querySelectorAll('[data-slug]').forEach(el => before.set(el.dataset.slug, el.getBoundingClientRect()));
+
+    const counts = {};
+    ranked.forEach(r => { counts[r.mins] = (counts[r.mins] || 0) + 1; });
+
+    list.innerHTML = ranked.map(r => {
+      const tied = counts[r.mins] > 1;
       return `
-        <div class="mq-time-cell${isNext ? ' is-next' : ''}">
-          <div class="mq-prayer-label">${PRAYER_LABELS[p]}</div>
-          <div class="mq-prayer-time">${escapeHtml(m.jamaah[p] || '—')}</div>
+        <div class="mq-rank-card${tied ? ' mq-tied' : ''}" data-slug="${escapeHtml(r.m.slug)}">
+          <div>
+            <div class="mq-rank-name">${escapeHtml(r.m.name)}</div>
+            <div class="mq-rank-meta">${PRAYER_LABELS[prayer]}</div>
+          </div>
+          <div class="mq-rank-time">${escapeHtml(r.m.jamaah[prayer])}</div>
         </div>`;
     }).join('');
 
-    const nextHtml = m.next
-      ? `<div class="mq-card-next">
-           <div class="mq-next-label">Next Jama'ah</div>
-           <div class="mq-next-time">${escapeHtml(m.next.time)}</div>
-           <div class="mq-next-mins">in ${m.next.minutesUntil < 60
-              ? m.next.minutesUntil + ' min'
-              : Math.floor(m.next.minutesUntil/60) + 'h ' + (m.next.minutesUntil%60) + 'm'}</div>
-         </div>`
-      : `<div class="mq-card-next"><div class="mq-next-label">No more today</div></div>`;
-
-    return `
-      <div class="mq-card">
-        <div class="mq-card-top">
-          <div class="mq-card-name">${escapeHtml(m.name)}</div>
-          ${nextHtml}
-        </div>
-        <div class="mq-times">${timesHtml}</div>
-      </div>`;
+    list.querySelectorAll('[data-slug]').forEach(el => {
+      const prev = before.get(el.dataset.slug);
+      if (!prev) return;
+      const now = el.getBoundingClientRect();
+      const dx = prev.left - now.left, dy = prev.top - now.top;
+      if (dx || dy) {
+        el.style.transition = 'none';
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          el.style.transition = '';
+          el.style.transform = '';
+        });
+      }
+    });
   }
 
   let mqInitialized = false;
+  let mqTimer = null;
+
   async function loadMosqueList(){
     const status = document.getElementById('mqStatus');
-    const list = document.getElementById('mqList');
-    if(!status || !list) return;
+    if (!status) return;
+    if (!mqInitialized) status.textContent = "Loading Jama'ah times…";
 
-    status.textContent = 'Loading Jama\'ah times…';
-    list.innerHTML = '';
-
-    try{
-      const res = await fetch('/api/mosques/list', { headers: deviceHeaders() });
-      if(!res.ok) throw new Error('Request failed: ' + res.status);
-      const data = await res.json();
-      const mosques = data.mosques || [];
-
-      if(!mosques.length){
+    try {
+      const { mosques, prayer } = await resolveTarget();
+      renderHeader(prayer);
+      if (!mosques.length) {
         status.textContent = 'No mosque data available right now.';
+        document.getElementById('mqList').innerHTML = '';
         return;
       }
-
-      status.textContent = '';
-      list.innerHTML = mosques.map(renderMosqueCard).join('');
-    }catch(e){
+      renderRankList(mosques, prayer);
+    } catch (e) {
       status.textContent = "Couldn't load mosque times right now — please try again shortly.";
     }
   }
@@ -15126,6 +15227,8 @@ init();
   function onMosqueShown(){
     mqInitialized = true;
     loadMosqueList();
+    clearInterval(mqTimer);
+    mqTimer = setInterval(loadMosqueList, 30000);
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
