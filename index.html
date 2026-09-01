@@ -5404,11 +5404,22 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <!-- populated by JS: Fajr / Dhuhr / Asr / Maghrib / Isha, each a start–end range, active highlighted -->
       </div>
 
-      <div class="pt-clocks-card">
-        <div class="pt-clocks" id="ptClocks">
-          <!-- 5 world clocks populated by JS: GMT-2, GMT-1, London (GMT+0, anchor), GMT+1, GMT+2 -->
+      <button type="button" class="pt-qibla-card wwp-qibla-card wwp-qibla-trigger" id="ptQiblaCard">
+        <div class="pt-qibla-header"><span class="pt-qibla-title">Qiblah Direction</span></div>
+        <div class="pt-qibla-compass">
+          <span class="pqc-n">▲</span><span class="pqc-e">+</span><span class="pqc-s">◦</span><span class="pqc-w">+</span>
+          <div class="pt-qibla-needle wwp-qc-needle" id="ptQcNeedle">
+            <span class="qc-tip"></span>
+            <span class="qc-tail"></span>
+          </div>
+          <div class="pt-qibla-readout"><strong id="ptQiblaDeg">—°</strong><b id="ptQiblaDir">—</b></div>
         </div>
-      </div>
+        <span class="pt-qibla-status wwp-qibla-status" id="ptQiblaStatusLine">Tap to activate compass</span>
+      </button>
+
+      <div id="ptNextCard" class="pt-next-card"><!-- populated by JS: next prayer, big --></div>
+      <div id="ptPrayerQuote" class="pt-prayer-quote"><!-- populated by JS: prayer virtue quote --></div>
+      <div id="ptAfterNextCard" class="pt-afternext-card"><!-- populated by JS: prayer after next, small --></div>
 
       <div class="pt-map-card">
         <div class="pt-map-header">
@@ -5460,23 +5471,6 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           </div>
         </div>
       </div>
-
-      <button type="button" class="pt-qibla-card wwp-qibla-card wwp-qibla-trigger" id="ptQiblaCard">
-        <div class="pt-qibla-header"><span class="pt-qibla-title">Qiblah Direction</span></div>
-        <div class="pt-qibla-compass">
-          <span class="pqc-n">▲</span><span class="pqc-e">+</span><span class="pqc-s">◦</span><span class="pqc-w">+</span>
-          <div class="pt-qibla-needle wwp-qc-needle" id="ptQcNeedle">
-            <span class="qc-tip"></span>
-            <span class="qc-tail"></span>
-          </div>
-          <div class="pt-qibla-readout"><strong id="ptQiblaDeg">—°</strong><b id="ptQiblaDir">—</b></div>
-        </div>
-        <span class="pt-qibla-status wwp-qibla-status" id="ptQiblaStatusLine">Tap to activate compass</span>
-      </button>
-
-      <div id="ptNextCard" class="pt-next-card"><!-- populated by JS: next prayer, big --></div>
-      <div id="ptPrayerQuote" class="pt-prayer-quote"><!-- populated by JS: prayer virtue quote --></div>
-      <div id="ptAfterNextCard" class="pt-afternext-card"><!-- populated by JS: prayer after next, small --></div>
 
       <div class="pt-two-col-section">
         <div class="pt-hadith-section open" id="ptHadithSection">
