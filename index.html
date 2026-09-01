@@ -1557,6 +1557,31 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .mosque-backdrop{height:360px;}
 }
 
+/* ---------- Find a Mosque :: MVP list (real data) ---------- */
+.mq-wrap{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:64px 24px 56px;}
+.mq-header{text-align:center;margin-bottom:24px;}
+.mq-header h1{font-size:28px;font-weight:800;margin-bottom:8px;color:var(--text);}
+.mq-sub{color:var(--text-dim);font-size:14px;max-width:440px;margin:0 auto;line-height:1.5;}
+.mq-status{text-align:center;color:var(--text-dim);font-size:13.5px;padding:20px 0;}
+.mq-list{display:flex;flex-direction:column;gap:12px;}
+.mq-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);}
+.mq-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.mq-card-name{font-weight:700;font-size:15.5px;color:var(--text);}
+.mq-card-next{flex-shrink:0;text-align:right;}
+.mq-card-next .mq-next-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;}
+.mq-card-next .mq-next-time{font-weight:800;color:var(--coral);font-size:16px;}
+.mq-card-next .mq-next-mins{font-size:11.5px;color:var(--text-dim);}
+.mq-times{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;border-top:1px solid var(--border);padding-top:10px;}
+.mq-time-cell{text-align:center;}
+.mq-time-cell .mq-prayer-label{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.02em;margin-bottom:2px;}
+.mq-time-cell .mq-prayer-time{font-size:13px;font-weight:700;color:var(--text);}
+.mq-time-cell.is-next .mq-prayer-time{color:var(--coral);}
+@media (max-width:600px){
+  .mq-wrap{padding:44px 16px 40px;}
+  .mq-times{grid-template-columns:repeat(5,1fr);gap:3px;}
+  .mq-time-cell .mq-prayer-time{font-size:11.5px;}
+}
+
 /* ---------- Homepage ---------- */
 #page-home .home-font{font-family:'Lora',serif;}
 #page-home .page{padding:0;max-width:none;}
@@ -5154,42 +5179,13 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
   <img src="assets/mosque/coming-soon-backdrop.webp" alt="" aria-hidden="true">
 </div>
 <main class="page">
-  <div class="cs-grid cs-grid-single">
-
-    <div class="cs-card">
-      <div class="cs-art">
-        <img src="assets/coming-soon/find-a-mosque.webp" alt="Illustrated oasis with a mosque at sunset" width="900" height="770">
-      </div>
-      <div class="cs-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-      </div>
-      <span class="cs-badge"><span class="dot"></span>Coming Soon</span>
-      <h2>Find a Mosque</h2>
-      <p class="cs-desc">We're building a simple way to find nearby mosques and the next available Jama'ah.</p>
-      <div class="cs-features">
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
-          Find mosques near you
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M2 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M12 20c0-3.3 2.7-5.5 6-5.5s4 2 4 5.5"/></svg></span>
-          Check next Jama'ah time
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 6h5a4 4 0 0 1 4 4v4"/></svg></span>
-          Get the fastest route
-        </div>
-        <div class="cs-feature">
-          <span class="cs-feature-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-5-9.5-9.3C.9 8.1 3 4.5 6.6 4.5c1.9 0 3.4 1 4.4 2.5 1-1.5 2.5-2.5 4.4-2.5 3.6 0 5.7 3.6 4.1 7.2C19.5 16 12 21 12 21Z"/></svg></span>
-          Save your favourites
-        </div>
-      </div>
+  <div class="mq-wrap">
+    <div class="mq-header">
+      <h1>Find a Mosque</h1>
+      <p class="mq-sub">Real Jama'ah times set by each mosque's own committee — not an estimate.</p>
     </div>
-
-  </div>
-  <div class="cs-footnote">
-    <span aria-hidden="true">🕌</span>
-    In the meantime, explore the <a data-page="quran">Qur'an</a>, <a data-page="dua">Du'a</a>, <a data-page="journal">Journal</a> and more.
+    <div id="mqStatus" class="mq-status"></div>
+    <div id="mqList" class="mq-list"></div>
   </div>
 </main>
 </div>
@@ -14941,6 +14937,103 @@ init();
   // listener above existed, so check current visibility once at parse time.
   if(!document.getElementById('page-community')?.classList.contains('hidden')){
     onCommunityShown();
+  }
+})();
+</script>
+
+<script>
+/* ============================================================
+   FIND A MOSQUE :: MVP list view. Fetches today's Jama'ah times
+   from /api/mosques/list and renders a simple sorted list (soonest
+   next Jama'ah first). Full search/map/feasibility ranking is a
+   later build - this just gets real data on screen.
+   ============================================================ */
+(function(){
+  const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Zuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
+  const PRAYER_ORDER = ['fajr','zuhr','asr','maghrib','isha'];
+
+  function deviceHeaders(){
+    return { 'X-Device-Id': window.WWP?.deviceId || '' };
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+
+  function renderMosqueCard(m){
+    const timesHtml = PRAYER_ORDER.map(p => {
+      const isNext = m.next && m.next.prayer === p;
+      return `
+        <div class="mq-time-cell${isNext ? ' is-next' : ''}">
+          <div class="mq-prayer-label">${PRAYER_LABELS[p]}</div>
+          <div class="mq-prayer-time">${escapeHtml(m.jamaah[p] || '—')}</div>
+        </div>`;
+    }).join('');
+
+    const nextHtml = m.next
+      ? `<div class="mq-card-next">
+           <div class="mq-next-label">Next Jama'ah</div>
+           <div class="mq-next-time">${escapeHtml(m.next.time)}</div>
+           <div class="mq-next-mins">in ${m.next.minutesUntil < 60
+              ? m.next.minutesUntil + ' min'
+              : Math.floor(m.next.minutesUntil/60) + 'h ' + (m.next.minutesUntil%60) + 'm'}</div>
+         </div>`
+      : `<div class="mq-card-next"><div class="mq-next-label">No more today</div></div>`;
+
+    return `
+      <div class="mq-card">
+        <div class="mq-card-top">
+          <div class="mq-card-name">${escapeHtml(m.name)}</div>
+          ${nextHtml}
+        </div>
+        <div class="mq-times">${timesHtml}</div>
+      </div>`;
+  }
+
+  let mqInitialized = false;
+  async function loadMosqueList(){
+    const status = document.getElementById('mqStatus');
+    const list = document.getElementById('mqList');
+    if(!status || !list) return;
+
+    status.textContent = 'Loading Jama\'ah times…';
+    list.innerHTML = '';
+
+    try{
+      const res = await fetch('/api/mosques/list', { headers: deviceHeaders() });
+      if(!res.ok) throw new Error('Request failed: ' + res.status);
+      const data = await res.json();
+      const mosques = data.mosques || [];
+
+      if(!mosques.length){
+        status.textContent = 'No mosque data available right now.';
+        return;
+      }
+
+      status.textContent = '';
+      list.innerHTML = mosques.map(renderMosqueCard).join('');
+    }catch(e){
+      status.textContent = "Couldn't load mosque times right now — please try again shortly.";
+    }
+  }
+
+  function onMosqueShown(){
+    mqInitialized = true;
+    loadMosqueList();
+  }
+
+  window.addEventListener('wwp-page-shown', (e)=>{
+    if(e.detail && e.detail.id === 'mosque') onMosqueShown();
+  });
+  document.querySelectorAll('a[data-page="mosque"]').forEach(a=>{
+    a.addEventListener('click', onMosqueShown);
+  });
+  // Covers a direct load/refresh landing on /find-a-mosque, same pattern
+  // as Community Ideas above.
+  if(!document.getElementById('page-mosque')?.classList.contains('hidden')){
+    onMosqueShown();
   }
 })();
 </script>
