@@ -52,9 +52,10 @@ export async function onRequestGet(context) {
 
   try {
     const { results } = await env.DB.prepare(
-      `SELECT m.slug, m.name, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah
+      `SELECT m.slug, m.name, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
        FROM mosques m
        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
+       LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
        WHERE m.active = 1
        ORDER BY m.name ASC`
     )
@@ -69,6 +70,7 @@ export async function onRequestGet(context) {
         maghrib: row.maghrib_jamaah || null,
         isha: row.isha_jamaah || null,
       };
+      const photoUrl = row.photo_key ? `/api/community/photo/${row.photo_key}` : null;
 
       let next = null;
       if (isToday) {
@@ -81,7 +83,7 @@ export async function onRequestGet(context) {
         }
       }
 
-      return { slug: row.slug, name: row.name, jamaah, next };
+      return { slug: row.slug, name: row.name, jamaah, next, photoUrl };
     });
 
     mosques.sort((a, b) => {
