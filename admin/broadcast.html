@@ -404,7 +404,7 @@
     photosList.innerHTML = '<p class="empty-note">Loading…</p>';
     try{
       const res = await fetch('/api/community/photos?status=pending', {
-        headers: { 'X-Broadcast-Key': broadcastKey }
+        headers: { 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' }
       });
       const data = await res.json();
       if(!res.ok){
@@ -447,7 +447,8 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Broadcast-Key': broadcastKey
+          'X-Broadcast-Key': broadcastKey,
+          'X-Device-Id': 'admin-broadcast-panel'
         },
         body: JSON.stringify({ action: 'review', photoId: id, status: status })
       });
@@ -492,7 +493,7 @@
     bugsList.innerHTML = '<p class="empty-note">Loading…</p>';
     try{
       const res = await fetch('/api/community/bugs?status=all', {
-        headers: { 'X-Broadcast-Key': broadcastKey }
+        headers: { 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' }
       });
       const data = await res.json();
       if(!res.ok){
@@ -537,7 +538,8 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Broadcast-Key': broadcastKey
+          'X-Broadcast-Key': broadcastKey,
+          'X-Device-Id': 'admin-broadcast-panel'
         },
         body: JSON.stringify({ action: 'review', bugId: id, status: status })
       });
