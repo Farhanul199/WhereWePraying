@@ -1,13 +1,14 @@
 // functions/api/community/bugs.js
 // POST /api/community/bugs   body: { title, body }              -> signed-in only, creates a bug report
 // POST /api/community/bugs   body: { action:'review', bugId, status } -> admin only (X-Broadcast-Key)
+//      status: 'open' | 'resolved' (shown as "Solved") | 'postponed'
 // GET  /api/community/bugs                                       -> public feed, all bug reports (like ideas)
-// GET  /api/community/bugs?status=open|resolved|dismissed|all    -> admin: full queue (X-Broadcast-Key)
+// GET  /api/community/bugs?status=open|resolved|postponed|all    -> admin: full queue (X-Broadcast-Key)
 
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 }
 
@@ -83,7 +84,7 @@ export async function onRequestPost(context) {
       if (!isAdmin(context)) return json({ error: 'Unauthorized' }, 401);
       const bugId = parseInt(body.bugId, 10);
       const status = body.status;
-      if (!Number.isInteger(bugId) || !['resolved', 'dismissed', 'open'].includes(status)) {
+      if (!Number.isInteger(bugId) || !['open', 'resolved', 'postponed'].includes(status)) {
         return json({ error: 'Invalid review request.' }, 400);
       }
       await db.prepare(
