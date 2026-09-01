@@ -1943,6 +1943,16 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 
 .pt-location-pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:999px;padding:10px 18px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;box-shadow:var(--shadow);}
 .pt-location-pill:hover{border-color:var(--coral);color:var(--coral);}
+.pt-location-accuracy{display:inline-flex;align-items:center;gap:5px;margin-top:7px;font-size:11px;font-weight:700;color:var(--coral-dark);background:var(--coral-soft);border:1px solid var(--coral);border-radius:999px;padding:5px 11px;cursor:pointer;}
+.pt-location-accuracy.hidden{display:none;}
+.pt-location-accuracy::before{content:"⚠";font-size:11px;}
+.pt-geo-explainer{text-align:center;max-width:340px;}
+.pge-icon{width:52px;height:52px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.pt-geo-explainer h3{margin-bottom:8px;}
+.pt-geo-explainer .sub{margin-bottom:16px;}
+.pt-geo-explainer .pt-geo-btn{margin-bottom:8px;background:var(--coral);border-color:var(--coral);color:#fff;}
+.pt-geo-explainer-later{width:100%;background:none;border:none;padding:8px;font-size:12.5px;font-weight:700;color:var(--text-faint);cursor:pointer;font-family:inherit;}
+.pt-geo-explainer-later:hover{color:var(--text-dim);}
 
 /* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha — compact 2-row cards, mobile-first */
 .pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:14px 0;}
@@ -5415,6 +5425,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <span id="ptLocationLabel">Set your location</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
       </button>
+      <div id="ptLocationAccuracyBadge" class="pt-location-accuracy hidden" role="button" tabindex="0"></div>
     </div>
 
     <div id="ptContent">
@@ -5565,6 +5576,19 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
     </div>
   </div>
 </div>
+
+<div id="ptGeoExplainerBackdrop" class="pt-popover-backdrop" style="display:none;">
+  <div class="pt-popover pt-geo-explainer">
+    <div class="pge-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    </div>
+    <h3>Accurate prayer times &amp; Qiblah</h3>
+    <p class="sub">Fajr, Jama'ah times and your Qiblah direction all depend on precisely where you are. Allow location access so we can get this right — it stays on your device and is never shared.</p>
+    <button class="pt-geo-btn" id="ptGeoExplainerAllow" type="button">Allow location access</button>
+    <button class="pt-geo-explainer-later" id="ptGeoExplainerLater" type="button">Not now — set my city manually</button>
+  </div>
+</div>
+
 
 <div id="page-travel" class="app-page hidden">
   <main class="tm-page">
@@ -6137,13 +6161,18 @@ const PrayerTimes = (function(){
     return CACHE_PREFIX+todayKey()+':'+lat+','+lon+':'+state.method;
   }
 
-  function detectGeolocation(){
+  function detectGeolocation(opts){
+    const options = Object.assign({
+      enableHighAccuracy:false,   // network/cell-assisted — works far better indoors & underground than raw GPS
+      timeout:12000,
+      maximumAge:21600000         // accept a fix up to 6h old rather than block waiting for a fresh one that may never arrive underground
+    }, opts||{});
     return new Promise((resolve,reject)=>{
       if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
       navigator.geolocation.getCurrentPosition(
         pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
         err => reject(err),
-        {timeout:10000, maximumAge:600000}
+        options
       );
     });
   }
@@ -6336,10 +6365,68 @@ const PrayerTimes = (function(){
     return h12+':'+String(m).padStart(2,'0')+' '+period;
   }
 
-  // Rough network-based location — no permission prompt, works the
-  // moment the page loads. Used as the first-run fallback so a fresh
-  // visitor (or one whose local storage got cleared) still gets a
-  // real nearby location instead of always landing on London.
+  // ---- Location fallback chain ----
+  // Ordered from most-accurate to least, each one only attempted if
+  // the previous failed. Prayer times and Qiblah direction are core
+  // to the app, so this is deliberately layered with redundancy for
+  // poor cellular coverage, being underground/on the tube, or a
+  // completely fresh install with no cached data yet.
+
+  // 1. Silent GPS — fires instantly if permission was already granted
+  // in a past session, no prompt shown. Accepts a fix up to 6h old so
+  // a last-known position from before losing signal still resolves.
+  async function detectSilentGeolocation(){
+    try{
+      if(!navigator.permissions || !navigator.permissions.query) return null;
+      const status = await navigator.permissions.query({name:'geolocation'});
+      if(status.state !== 'granted') return null;
+      const coords = await detectGeolocation();
+      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
+      let tz = null;
+      try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+    }catch(e){ return null; }
+  }
+
+  // 2. Active GPS request — used the first time permission hasn't been
+  // decided yet. Shown after a brief explainer (see requestGeoWithExplainer
+  // below) so the person understands why it matters before the native
+  // OS prompt appears.
+  async function detectActiveGeolocation(){
+    try{
+      const coords = await detectGeolocation();
+      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
+      let tz = null;
+      try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+    }catch(e){ return null; }
+  }
+
+  // 3. Same-origin network geolocation — a tiny Pages Function
+  // (functions/api/geo.js) that reads Cloudflare's own edge geo data
+  // for the request, derived from IP. No third-party domain, no CORS,
+  // no separate rate limit — the most reliable fallback when GPS is
+  // denied or unavailable, since it's just one small same-domain
+  // request that tends to succeed even on a weak connection.
+  async function detectCloudflareGeo(){
+    try{
+      const res = await fetch('/api/geo', {cache:'no-store'});
+      if(!res.ok) throw new Error('cf geo failed');
+      const d = await res.json();
+      if(d && typeof d.lat === 'number' && typeof d.lon === 'number'){
+        return {
+          lat: d.lat, lon: d.lon,
+          label: [d.city, d.region, d.country].filter(Boolean).join(', '),
+          tz: d.timezone || null,
+          source: 'network'
+        };
+      }
+    }catch(e){ /* function not deployed yet, or offline — fall through */ }
+    return null;
+  }
+
+  // 4. Third-party IP geolocation — extra redundancy in case the
+  // Cloudflare function above isn't deployed yet or is briefly down.
   async function detectRoughLocationByIP(){
     try{
       const res = await fetch('https://ipapi.co/json/');
@@ -6357,33 +6444,80 @@ const PrayerTimes = (function(){
     return null;
   }
 
-  // Silent GPS — only fires if the browser already has geolocation
-  // permission granted from a previous explicit "Use my location" tap,
-  // so this never surprises a first-time visitor with a permission
-  // prompt on page load.
-  async function detectSilentGeolocation(){
-    try{
-      if(!navigator.permissions || !navigator.permissions.query) return null;
-      const status = await navigator.permissions.query({name:'geolocation'});
-      if(status.state !== 'granted') return null;
-      const coords = await detectGeolocation();
-      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
-      let tz = null;
-      try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
-      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
-    }catch(e){ return null; }
+  const GEO_EXPLAINER_KEY = 'wwp:geo:explainerAnswered';
+  // Shows the "why we need this" explainer once, waits for the tap,
+  // then makes the real (native-prompting) GPS request if allowed.
+  // Never shown again once answered either way — a decline is
+  // respected, not re-asked on every visit.
+  function requestGeoWithExplainer(){
+    return new Promise((resolve)=>{
+      const backdrop = document.getElementById('ptGeoExplainerBackdrop');
+      const allowBtn = document.getElementById('ptGeoExplainerAllow');
+      const laterBtn = document.getElementById('ptGeoExplainerLater');
+      if(!backdrop || !allowBtn || !laterBtn){ resolve(null); return; }
+      let answered = false;
+      const cleanup = ()=>{ backdrop.style.display = 'none'; allowBtn.onclick = null; laterBtn.onclick = null; };
+      allowBtn.onclick = async ()=>{
+        if(answered) return; answered = true;
+        try{ localStorage.setItem(GEO_EXPLAINER_KEY, '1'); }catch(e){}
+        cleanup();
+        const loc = await detectActiveGeolocation();
+        resolve(loc);
+      };
+      laterBtn.onclick = ()=>{
+        if(answered) return; answered = true;
+        try{ localStorage.setItem(GEO_EXPLAINER_KEY, '1'); }catch(e){}
+        cleanup();
+        resolve(null);
+      };
+      backdrop.style.display = 'flex';
+    });
+  }
+
+  async function resolveInitialLocation(){
+    // Already permitted — instant, no UI.
+    let loc = await detectSilentGeolocation();
+    if(loc) return loc;
+
+    // Permission not yet decided, and we haven't asked before —
+    // actively request it, since accurate timings & Qiblah depend on it.
+    let alreadyAsked = false;
+    try{ alreadyAsked = localStorage.getItem(GEO_EXPLAINER_KEY) === '1'; }catch(e){}
+    if(!alreadyAsked){
+      loc = await requestGeoWithExplainer();
+      if(loc) return loc;
+    }
+
+    // GPS denied, timed out, or unavailable — same-origin network geo.
+    loc = await detectCloudflareGeo();
+    if(loc) return loc;
+
+    // Extra redundancy via a third-party IP lookup.
+    loc = await detectRoughLocationByIP();
+    if(loc) return loc;
+
+    return null;
+  }
+
+  function updateLocationAccuracyBadge(){
+    const badge = document.getElementById('ptLocationAccuracyBadge');
+    if(!badge) return;
+    const loc = state.location;
+    const degraded = loc && (loc.source === 'default' || loc.source === 'ip' || loc.source === 'network');
+    if(!degraded){ badge.classList.add('hidden'); badge.textContent=''; return; }
+    badge.classList.remove('hidden');
+    badge.textContent = loc.source === 'default'
+      ? 'Location unavailable — using London. Tap to set your real location.'
+      : 'Approximate location — tap to set your exact address for accurate Qiblah.';
   }
 
   async function init(){
     await loadSavedLocation();
     if(!state.location){
       // No saved location yet (first visit, or local storage was
-      // cleared). Try to auto-detect rather than forcing the person
-      // to pick a city by hand every time: silent GPS if already
-      // permitted, otherwise a rough IP-based estimate, otherwise the
-      // London default (still overridable any time via the location
-      // pill).
-      const loc = (await detectSilentGeolocation()) || (await detectRoughLocationByIP());
+      // cleared). Work through the fallback chain rather than forcing
+      // the person to pick a city by hand every time.
+      const loc = await resolveInitialLocation();
       state.location = loc || {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
       saveLocation(state.location);
     }
@@ -6392,7 +6526,7 @@ const PrayerTimes = (function(){
   }
 
   return {
-    subscribe, init,
+    subscribe, init, updateLocationAccuracyBadge,
     useGeolocation, useManualLocation, usePresetCity, setMethod, fetchTimings,
     getNextPrayer, formatRemaining, to12h,
     getState: ()=> state,
@@ -7361,6 +7495,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     const state = PrayerTimes.getState();
     const label = document.getElementById('ptLocationLabel');
     if(label) label.textContent = (state.location && state.location.source !== 'default') ? state.location.label : 'Set your location';
+    PrayerTimes.updateLocationAccuracyBadge();
   }
   function renderCityList(filter){
     const list = document.getElementById('ptCityList');
@@ -7388,7 +7523,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   function closePopover(){ if(backdrop) backdrop.style.display = 'none'; }
 
   document.addEventListener('click', function(e){
-    const trigger = e.target.closest('#ptLocationBtn, #ptChangeMethodBtn, .home-next-prayer');
+    const trigger = e.target.closest('#ptLocationBtn, #ptChangeMethodBtn, .home-next-prayer, #ptLocationAccuracyBadge');
     if(trigger){ openPopover(); }
   });
 
