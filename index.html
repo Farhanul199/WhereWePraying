@@ -1548,7 +1548,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 /* ---------- Find a Mosque :: backdrop + polaroid card ---------- */
 #page-mosque{position:relative;overflow:hidden;}
 #page-mosque .page{position:relative;z-index:1;}
-.mosque-backdrop{position:absolute;top:0;left:0;width:100%;height:520px;z-index:0;pointer-events:none;overflow:hidden;}
+.mosque-backdrop{position:absolute;top:0;left:50%;right:auto;width:100vw;margin-left:-50vw;height:520px;z-index:0;pointer-events:none;overflow:hidden;}
 .mosque-backdrop img{width:100%;height:100%;object-fit:cover;object-position:center 35%;}
 .mosque-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(251,243,230,0) 0%, var(--bg) 92%);}
 #page-mosque .cs-grid{position:relative;padding-top:64px;}
@@ -1818,7 +1818,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
    the theme's real --bg colour underneath, so dark/AMOLED themes don't
    get stuck showing the light watercolour art as the page backdrop. */
 #page-prayertimes{position:relative;overflow:hidden;}
-#page-prayertimes .pt-backdrop{position:absolute;top:0;left:0;width:100%;height:420px;z-index:0;pointer-events:none;overflow:hidden;}
+#page-prayertimes .pt-backdrop{position:absolute;top:0;left:50%;right:auto;width:100vw;margin-left:-50vw;height:420px;z-index:0;pointer-events:none;overflow:hidden;}
 #page-prayertimes .pt-backdrop img{width:100%;height:100%;object-fit:cover;object-position:center;opacity:.9;}
 #page-prayertimes .pt-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,var(--bg) 92%);}
 #page-prayertimes .page{position:relative;z-index:1;}
@@ -5685,7 +5685,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 
 <div id="page-community" class="app-page hidden">
 <style>
-#page-community{font-family:'Manrope',sans-serif;position:relative;background-image:url('/assets/hero/community-bg.webp');background-size:cover;background-position:center;background-repeat:no-repeat;background-attachment:fixed;}
+#page-community{font-family:'Manrope',sans-serif;position:relative;}
 #page-community .cm-wrap{max-width:820px;margin:0 auto;padding:28px 20px 60px;}
 #page-community .cm-hero h1{font-size:28px;font-weight:800;letter-spacing:-.01em;color:var(--text);}
 #page-community .cm-hero p{color:var(--text-dim);font-size:14.5px;margin-top:6px;max-width:520px;}
@@ -5717,6 +5717,8 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 #page-community .cm-comment-author{font-weight:700;color:var(--text);font-size:12.5px;}
 #page-community .cm-comment-body{color:var(--text-dim);margin-top:2px;}
 #page-community .cm-reply-btn{background:none;border:none;color:var(--coral);font-size:11.5px;font-weight:700;cursor:pointer;padding:0;margin-top:4px;}
+#page-community .cm-mod-delete{background:none;border:none;color:var(--text-faint);cursor:pointer;padding:2px;margin-left:6px;vertical-align:middle;border-radius:4px;}
+#page-community .cm-mod-delete:hover{color:#c23636;}
 #page-community .cm-reply-row{padding-left:16px;margin-top:6px;border-left:2px solid var(--border);}
 #page-community .cm-comment-form{display:flex;gap:8px;margin-top:10px;}
 #page-community .cm-comment-form input{flex:1;margin-bottom:0;}
@@ -5733,7 +5735,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 @media(max-width:760px){
   #page-community .cm-hero{min-height:320px;padding:60px 20px 46px;background-position:center 58%;}
 }
-#page-community .cm-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.16) 0%, rgba(0,0,0,.04) 18%, rgba(0,0,0,0) 32%);pointer-events:none;}
+#page-community .cm-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.16) 0%, rgba(0,0,0,.04) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 74%, var(--bg) 100%);pointer-events:none;}
 #page-community .cm-hero h1,#page-community .cm-hero p{position:relative;z-index:1;}
 </style>
 <div class="cm-wrap">
@@ -13560,7 +13562,7 @@ init();
   const CLOSE_POPUP_BTN_ID = 'closeAuthPopupBtn';
   const ACCOUNT_BTN_SELECTOR = '.topbar-icons button[title="Account"]';
 
-  let authState = { authenticated: false, email: null };
+  let authState = { authenticated: false, email: null, role: null };
 
   const $ = (sel) => sel.startsWith('#') || sel.startsWith('.') ? document.querySelector(sel) : document.getElementById(sel);
 
@@ -13593,10 +13595,10 @@ init();
       const data = await res.json();
 
       if (data.authenticated) {
-        authState = { authenticated: true, email: data.email, userId: data.userId };
+        authState = { authenticated: true, email: data.email, userId: data.userId, role: data.role || 'user' };
         renderAuthUI('signed-in');
       } else {
-        authState = { authenticated: false, email: null };
+        authState = { authenticated: false, email: null, role: null };
         renderAuthUI('sign-in');
       }
       window.WWP_authState = authState;
@@ -14427,7 +14429,7 @@ init();
       });
 
       if (res.ok) {
-        authState = { authenticated: false, email: null };
+        authState = { authenticated: false, email: null, role: null };
         renderAuthUI('sign-in');
         closeAuthPopup();
       } else {
@@ -14489,7 +14491,7 @@ init();
           confirmBtn.textContent = 'Confirm Delete';
           return;
         }
-        authState = { authenticated: false, email: null };
+        authState = { authenticated: false, email: null, role: null };
         closeAuthPopup();
         renderAuthUI('sign-in');
         window.location.reload();
@@ -14519,10 +14521,11 @@ init();
       const data = await res.json();
 
       if (res.ok) {
-        authState = { authenticated: true, email: data.email, userId: data.userId };
+        authState = { authenticated: true, email: data.email, userId: data.userId, role: data.role || 'user' };
         renderAuthUI('signed-in');
         window.history.replaceState({}, document.title, '/');
         showAuthToast("You're signed in!", 'success');
+        checkSession();
       } else {
         window.history.replaceState({}, document.title, '/');
         showAuthToast(data.error || 'Sign-in failed', 'error');
@@ -14754,10 +14757,22 @@ init();
     }
   }
 
+  function isModerator(){
+    const s = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+    return !!(s && (s.role === 'admin' || s.role === 'moderator'));
+  }
+
+  function modDeleteBtn(commentId){
+    if(!isModerator()) return '';
+    return `<button class="cm-mod-delete" data-action="delete-comment" data-comment="${commentId}" title="Remove this comment" aria-label="Remove this comment">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+    </button>`;
+  }
+
   function commentHTML(c, ideaId){
     return `
     <div class="cm-comment" data-comment-id="${c.id}">
-      <div class="cm-comment-author">${escapeHtml(c.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(c.created_at)}</span></div>
+      <div class="cm-comment-author">${escapeHtml(c.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(c.created_at)}</span>${modDeleteBtn(c.id)}</div>
       <div class="cm-comment-body">${escapeHtml(c.body)}</div>
       <button class="cm-reply-btn" data-action="show-reply" data-id="${ideaId}" data-parent="${c.id}">Reply</button>
       <div class="cm-reply-row hidden" id="cmReplyRow-${c.id}">
@@ -14769,7 +14784,7 @@ init();
       <div class="cm-reply-row" data-role="replies-${c.id}">
         ${(c.replies || []).map(r => `
           <div class="cm-comment">
-            <div class="cm-comment-author">${escapeHtml(r.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(r.created_at)}</span></div>
+            <div class="cm-comment-author">${escapeHtml(r.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(r.created_at)}</span>${modDeleteBtn(r.id)}</div>
             <div class="cm-comment-body">${escapeHtml(r.body)}</div>
           </div>`).join('')}
       </div>
@@ -14854,6 +14869,21 @@ init();
       if(!isSignedIn()){ window.WWP_promptSignIn && window.WWP_promptSignIn(); return; }
       const row = $('#cmReplyRow-'+replyBtn.dataset.parent);
       row?.classList.toggle('hidden');
+      return;
+    }
+    const delBtn = e.target.closest('[data-action="delete-comment"]');
+    if(delBtn){
+      if(!confirm('Remove this comment? This can\'t be undone.')) return;
+      delBtn.disabled = true;
+      fetch('/api/community/ideas', {
+        method: 'POST', credentials: 'include',
+        headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action: 'delete-comment', commentId: delBtn.dataset.comment })
+      }).then(r=>r.json()).then(data=>{
+        if(data.error){ showToast(data.error); delBtn.disabled = false; return; }
+        delBtn.closest('.cm-comment')?.remove();
+        showToast('Comment removed.');
+      }).catch(()=>{ showToast('Network error. Please try again.'); delBtn.disabled = false; });
       return;
     }
   });
@@ -14996,6 +15026,22 @@ init();
   if(!document.getElementById('page-community')?.classList.contains('hidden')){
     onCommunityShown();
   }
+
+  // ---- Keep-fresh polling ----
+  // API responses are always fetched live (see /api/community/* — no
+  // caching), but without this, someone else's new idea/comment/bug report
+  // only ever shows up if you switch tabs or reload. Refresh the panel
+  // that's actually on screen every 20s while Community is open and the
+  // browser tab is visible, plus immediately when you switch back to this
+  // browser tab after being away.
+  function refreshActiveCmPanel(){
+    const communityShown = !document.getElementById('page-community')?.classList.contains('hidden');
+    if(!communityShown || document.visibilityState !== 'visible') return;
+    if($('#cmPanelIdeas')?.classList.contains('active')) loadIdeas();
+    else if($('#cmPanelBugs')?.classList.contains('active')) loadMyBugs();
+  }
+  setInterval(refreshActiveCmPanel, 20000);
+  document.addEventListener('visibilitychange', refreshActiveCmPanel);
 })();
 </script>
 
