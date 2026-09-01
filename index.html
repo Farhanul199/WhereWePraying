@@ -2795,6 +2795,30 @@ body.auth-popup-open {
 </style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
+<script>
+(function(){
+  // Restore the saved theme immediately (before the rest of the page
+  // parses) to avoid a flash of the default theme on load.
+  try{
+    var saved = localStorage.getItem('wwp:theme');
+    if(saved && ['light','sepia','dark','amoled'].indexOf(saved) !== -1){
+      document.body.setAttribute('data-theme', saved);
+    }
+  }catch(e){}
+  // There are several setTheme()/cycleTheme() functions across the app
+  // (topbar toggle, Qur'an reader, Journal, Du'a) that all just set
+  // body[data-theme] directly. Rather than editing each one, watch the
+  // attribute itself so every theme change — current and future — gets
+  // saved the same way, from whichever section triggered it (including
+  // Travel Mode).
+  try{
+    new MutationObserver(function(){
+      var val = document.body.getAttribute('data-theme');
+      if(val){ try{ localStorage.setItem('wwp:theme', val); }catch(e){} }
+    }).observe(document.body, {attributes:true, attributeFilter:['data-theme']});
+  }catch(e){}
+})();
+</script>
 <div id="offline-banner" class="offline-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,0.20);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,0.4);border-radius:16px;color:#2C2C2C;padding:10px 16px;font-weight:500;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.1);animation:slideUp 0.3s ease;width:fit-content;max-width:calc(100% - 32px);cursor:pointer;user-select:none;touch-action:pan-y;">
   <span style="display:flex;align-items:center;gap:8px;"><span>📡</span><span>Internet took a break. We'll auto-refresh soon.</span><button type="button" style="background:none;border:none;color:inherit;font-size:16px;padding:0;margin-left:8px;cursor:pointer;opacity:0.7;" id="offlineBannerClose">✕</button></span>
 </div>
