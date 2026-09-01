@@ -1647,15 +1647,29 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .mq-prayer-header span:hover{color:var(--coral);}
 .mq-live-toggle{display:block;text-align:center;font-size:11.5px;color:var(--coral);margin:-6px 0 14px;cursor:pointer;font-weight:700;}
 .mq-live-toggle.hidden{display:none;}
+
+/* ---------- Find a Mosque :: time groups, favourites, address ---------- */
+.mq-time-group{margin-bottom:18px;}
+.mq-time-group-header{display:flex;align-items:baseline;gap:8px;margin:0 4px 8px;}
+.mq-time-group-time{font-weight:800;font-size:15px;color:var(--text);}
+.mq-time-group-count{font-size:11.5px;color:var(--text-dim);}
+.mq-time-group-cards{display:flex;flex-direction:column;gap:10px;}
+.mq-group-toggle{display:block;width:100%;text-align:center;margin-top:8px;padding:8px;font-size:12.5px;font-weight:700;color:var(--coral);background:none;border:1px dashed var(--border);border-radius:12px;cursor:pointer;}
+.mq-group-toggle:hover{background:var(--coral-soft);}
+.mq-fav-btn{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text-faint);font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+.mq-fav-btn.is-fav{color:#fff;background:#E0546B;border-color:#E0546B;}
+.mq-rank-address{font-size:11.5px;color:var(--text-dim);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);cursor:default;}
+.mq-rank-address.hidden{display:none;}
+.mq-rank-card{cursor:pointer;}
 .mq-tomorrow-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:999px;background:var(--coral-soft);color:var(--coral-dark);margin-left:6px;}
 .mq-rank-ref{font-size:10.5px;color:var(--text-dim);margin-top:2px;opacity:.75;}
 .mq-rank-card{background:rgba(255,255,255,0.45);backdrop-filter:blur(10px) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);border:1px solid rgba(255,255,255,.65);border-radius:16px;padding:12px 18px;box-shadow:0 8px 24px rgba(65,74,104,.10), inset 0 1.5px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(65,74,104,.05);display:flex;align-items:center;justify-content:space-between;gap:12px;transition:transform .45s cubic-bezier(.4,0,.2,1);will-change:transform;}
-.mq-rank-card.mq-tie-0{background:linear-gradient(145deg,rgba(196,140,118,.22),rgba(196,140,118,.1)),rgba(255,255,255,.45);border-color:rgba(196,140,118,.4);}
-.mq-rank-card.mq-tie-1{background:linear-gradient(145deg,rgba(120,158,145,.22),rgba(120,158,145,.1)),rgba(255,255,255,.45);border-color:rgba(120,158,145,.4);}
-.mq-rank-card.mq-tie-2{background:linear-gradient(145deg,rgba(150,138,180,.22),rgba(150,138,180,.1)),rgba(255,255,255,.45);border-color:rgba(150,138,180,.4);}
-.mq-rank-card.mq-tie-3{background:linear-gradient(145deg,rgba(190,161,110,.22),rgba(190,161,110,.1)),rgba(255,255,255,.45);border-color:rgba(190,161,110,.4);}
-.mq-rank-card.mq-tie-4{background:linear-gradient(145deg,rgba(124,150,190,.22),rgba(124,150,190,.1)),rgba(255,255,255,.45);border-color:rgba(124,150,190,.4);}
-.mq-rank-card.mq-tie-5{background:linear-gradient(145deg,rgba(190,140,156,.22),rgba(190,140,156,.1)),rgba(255,255,255,.45);border-color:rgba(190,140,156,.4);}
+.mq-rank-card.mq-tie-0{background:linear-gradient(145deg,var(--fajr-2),var(--fajr-1)),rgba(255,255,255,.45);border-color:var(--fajr-border);}
+.mq-rank-card.mq-tie-1{background:linear-gradient(145deg,var(--dhuhr-2),var(--dhuhr-1)),rgba(255,255,255,.45);border-color:var(--dhuhr-border);}
+.mq-rank-card.mq-tie-2{background:linear-gradient(145deg,var(--asr-2),var(--asr-1)),rgba(255,255,255,.45);border-color:var(--asr-border);}
+.mq-rank-card.mq-tie-3{background:linear-gradient(145deg,var(--maghrib-2),var(--maghrib-1)),rgba(255,255,255,.45);border-color:var(--maghrib-border);}
+.mq-rank-card.mq-tie-4{background:linear-gradient(145deg,var(--isha-2),var(--isha-1)),rgba(255,255,255,.45);border-color:var(--isha-border);}
+.mq-rank-card.mq-tie-5{background:linear-gradient(145deg,var(--general-2),var(--general-1)),rgba(255,255,255,.45);border-color:var(--general-border);}
 .mq-rank-left{display:flex;align-items:center;gap:12px;min-width:0;}
 .mq-rank-photo{position:relative;flex:none;width:44px;height:44px;border-radius:50%;overflow:visible;}
 .mq-rank-photo img{width:44px;height:44px;border-radius:50%;object-fit:cover;display:block;background:var(--cream);}
@@ -15312,7 +15326,54 @@ init();
     }).join('');
   }
 
+  function renderCard(r, prayer, isJummah, isTomorrow, tieClass, refBySlug){
+    const initial = escapeHtml((r.m.name || '?').trim().charAt(0).toUpperCase());
+    const photoHtml = r.m.photoUrl
+      ? `<img src="${escapeHtml(r.m.photoUrl)}" alt="">`
+      : `<span class="mq-rank-photo-fallback">${initial}</span>`;
+
+    const typeBadge = isJummah
+      ? `<span class="mq-type-badge">${escapeHtml(TYPE_LABELS[r.m.type] || 'Mosque')}</span>`
+      : '';
+    const tomorrowTag = isTomorrow ? `<span class="mq-tomorrow-tag">Tomorrow</span>` : '';
+    const refMins = refBySlug.get(r.m.slug);
+    const refHtml = (isTomorrow && refMins !== undefined)
+      ? `<div class="mq-rank-ref">Today was ${formatMinutes(refMins)}</div>`
+      : '';
+
+    const metaHtml = isJummah
+      ? `<div class="mq-rank-meta">Jummah${typeBadge}${tomorrowTag}</div>
+         <div class="mq-slot-chips">${r.m.slots.map(s =>
+           `<span class="mq-slot-chip${s.minutes === r.m.firstMinutes ? ' is-first' : ''}">${formatMinutes(s.minutes)}</span>`
+         ).join('')}</div>${refHtml}`
+      : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}${tomorrowTag}</div>${refHtml}`;
+
+    const isFav = mqFavorites.has(r.m.slug);
+    const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}</div>`;
+
+    return `
+      <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
+        <div class="mq-rank-left">
+          <div class="mq-rank-photo">
+            ${photoHtml}
+            <button type="button" class="mq-fav-btn${isFav ? ' is-fav' : ''}" data-slug="${escapeHtml(r.m.slug)}" aria-label="Favourite ${escapeHtml(r.m.name)}">♥</button>
+            <button type="button" class="mq-photo-add" data-slug="${escapeHtml(r.m.slug)}" data-name="${escapeHtml(r.m.name)}" aria-label="Add a photo of ${escapeHtml(r.m.name)}">+</button>
+          </div>
+          <div style="min-width:0;flex:1;">
+            <div class="mq-rank-name">${escapeHtml(r.m.name)}</div>
+            ${metaHtml}
+            ${addressHtml}
+          </div>
+        </div>
+        <div class="mq-rank-time">${formatMinutes(r.mins)}</div>
+      </div>`;
+  }
+
+  const DEFAULT_GROUP_VISIBLE = 3;
+  let mqLastRenderArgs = null;
+
   function renderRankList(items, prayer, isJummah, isTomorrow, referenceItems, referenceIsJummah){
+    mqLastRenderArgs = { items, prayer, isJummah, isTomorrow, referenceItems, referenceIsJummah };
     const list = document.getElementById('mqList');
     const status = document.getElementById('mqStatus');
     if (!list || !status) return;
@@ -15344,52 +15405,40 @@ init();
     list.querySelectorAll('[data-slug]').forEach(el => before.set(el.dataset.slug, el.getBoundingClientRect()));
 
     // Group ascending times into distinct clusters (earliest group
-    // first) so every card gets a soft colour wash showing which time
-    // group it belongs to — mosques sharing a time share a colour.
-    const tieColorBySlug = new Map();
-    let groupIndex = -1, lastMins = null;
+    // first). Each group gets its own colour wash and, once it has
+    // more than a few mosques, only shows the first few by default so
+    // the person doesn't have to scroll through everything to see
+    // which time is next.
+    const groups = [];
+    let lastMins = null;
     ranked.forEach(r => {
-      if (r.mins !== lastMins) { groupIndex++; lastMins = r.mins; }
-      tieColorBySlug.set(r.m.slug, groupIndex % 6);
+      if (r.mins !== lastMins) { groups.push({ mins: r.mins, items: [] }); lastMins = r.mins; }
+      groups[groups.length - 1].items.push(r);
     });
 
-    list.innerHTML = ranked.map(r => {
-      const tieIdx = tieColorBySlug.get(r.m.slug);
-      const tieClass = tieIdx !== undefined ? ` mq-tie-${tieIdx}` : '';
-      const initial = escapeHtml((r.m.name || '?').trim().charAt(0).toUpperCase());
-      const photoHtml = r.m.photoUrl
-        ? `<img src="${escapeHtml(r.m.photoUrl)}" alt="">`
-        : `<span class="mq-rank-photo-fallback">${initial}</span>`;
+    list.innerHTML = groups.map((group, groupIdx) => {
+      const groupKey = prayer + ':' + group.mins;
+      const expanded = mqExpandedGroups.has(groupKey);
+      const showCount = (group.items.length <= DEFAULT_GROUP_VISIBLE || expanded) ? group.items.length : DEFAULT_GROUP_VISIBLE;
+      const hiddenCount = group.items.length - showCount;
+      const tieClass = ` mq-tie-${groupIdx % 6}`;
 
-      const typeBadge = isJummah
-        ? `<span class="mq-type-badge">${escapeHtml(TYPE_LABELS[r.m.type] || 'Mosque')}</span>`
-        : '';
-      const tomorrowTag = isTomorrow ? `<span class="mq-tomorrow-tag">Tomorrow</span>` : '';
-      const refMins = refBySlug.get(r.m.slug);
-      const refHtml = (isTomorrow && refMins !== undefined)
-        ? `<div class="mq-rank-ref">Today was ${formatMinutes(refMins)}</div>`
-        : '';
+      const cardsHtml = group.items.slice(0, showCount)
+        .map(r => renderCard(r, prayer, isJummah, isTomorrow, tieClass, refBySlug))
+        .join('');
 
-      const metaHtml = isJummah
-        ? `<div class="mq-rank-meta">Jummah${typeBadge}${tomorrowTag}</div>
-           <div class="mq-slot-chips">${r.m.slots.map(s =>
-             `<span class="mq-slot-chip${s.minutes === r.m.firstMinutes ? ' is-first' : ''}">${formatMinutes(s.minutes)}</span>`
-           ).join('')}</div>${refHtml}`
-        : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}${tomorrowTag}</div>${refHtml}`;
+      const toggleHtml = group.items.length > DEFAULT_GROUP_VISIBLE
+        ? `<button type="button" class="mq-group-toggle" data-group-key="${escapeHtml(groupKey)}">${expanded ? 'Show less' : 'Show ' + hiddenCount + ' more'}</button>`
+        : '';
 
       return `
-        <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
-          <div class="mq-rank-left">
-            <div class="mq-rank-photo">
-              ${photoHtml}
-              <button type="button" class="mq-photo-add" data-slug="${escapeHtml(r.m.slug)}" data-name="${escapeHtml(r.m.name)}" aria-label="Add a photo of ${escapeHtml(r.m.name)}">+</button>
-            </div>
-            <div>
-              <div class="mq-rank-name">${escapeHtml(r.m.name)}</div>
-              ${metaHtml}
-            </div>
+        <div class="mq-time-group">
+          <div class="mq-time-group-header">
+            <span class="mq-time-group-time">${formatMinutes(group.mins)}</span>
+            <span class="mq-time-group-count">${group.items.length} location${group.items.length > 1 ? 's' : ''}</span>
           </div>
-          <div class="mq-rank-time">${formatMinutes(r.mins)}</div>
+          <div class="mq-time-group-cards">${cardsHtml}</div>
+          ${toggleHtml}
         </div>`;
     }).join('');
 
@@ -15407,6 +15456,12 @@ init();
         });
       }
     });
+  }
+
+  function reRenderList(){
+    if (!mqLastRenderArgs) return;
+    const a = mqLastRenderArgs;
+    renderRankList(a.items, a.prayer, a.isJummah, a.isTomorrow, a.referenceItems, a.referenceIsJummah);
   }
 
   // ---- Add a photo (signed-in users submit for review; admin flow
@@ -15428,24 +15483,90 @@ init();
       });
   }
 
-  document.getElementById('mqList')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.mq-photo-add');
-    if (!btn) return;
+  // ---- Favourites (signed-in only) ----
+  let mqFavorites = new Set();
+  let mqExpandedGroups = new Set();
+
+  async function fetchFavorites(){
     const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    if (!authState || !authState.authenticated) {
-      window.WWP_promptSignIn && window.WWP_promptSignIn();
+    if (!authState || !authState.authenticated) { mqFavorites = new Set(); return; }
+    try {
+      const res = await fetch('/api/mosques/favorites', { headers: deviceHeaders() });
+      if (!res.ok) { mqFavorites = new Set(); return; }
+      const data = await res.json();
+      mqFavorites = new Set(data.slugs || []);
+    } catch (e) {
+      mqFavorites = new Set();
+    }
+  }
+
+  async function toggleFavorite(slug, btn){
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/mosques/favorites', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+        body: JSON.stringify({ mosque: slug }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (data.favorited) mqFavorites.add(slug); else mqFavorites.delete(slug);
+        btn.classList.toggle('is-fav', !!data.favorited);
+      }
+    } catch (e) {
+      // leave state as-is; next refresh will resync
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('mqList')?.addEventListener('click', (e) => {
+    const photoBtn = e.target.closest('.mq-photo-add');
+    if (photoBtn) {
+      const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+      if (!authState || !authState.authenticated) {
+        window.WWP_promptSignIn && window.WWP_promptSignIn();
+        return;
+      }
+      const slug = photoBtn.dataset.slug;
+      const name = photoBtn.dataset.name || 'this mosque';
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (file) uploadMosquePhoto(slug, name, file);
+      });
+      input.click();
       return;
     }
-    const slug = btn.dataset.slug;
-    const name = btn.dataset.name || 'this mosque';
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-    input.addEventListener('change', () => {
-      const file = input.files && input.files[0];
-      if (file) uploadMosquePhoto(slug, name, file);
-    });
-    input.click();
+
+    const favBtn = e.target.closest('.mq-fav-btn');
+    if (favBtn) {
+      const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+      if (!authState || !authState.authenticated) {
+        window.WWP_promptSignIn && window.WWP_promptSignIn();
+        return;
+      }
+      toggleFavorite(favBtn.dataset.slug, favBtn);
+      return;
+    }
+
+    const toggleBtn = e.target.closest('.mq-group-toggle');
+    if (toggleBtn) {
+      const key = toggleBtn.dataset.groupKey;
+      if (mqExpandedGroups.has(key)) mqExpandedGroups.delete(key);
+      else mqExpandedGroups.add(key);
+      reRenderList();
+      return;
+    }
+
+    // Tapping the card itself (not a button on it) reveals the address.
+    const card = e.target.closest('.mq-rank-card');
+    if (card) {
+      const addr = card.querySelector('.mq-rank-address');
+      if (addr) addr.classList.toggle('hidden');
+    }
   });
 
   let mqInitialized = false;
@@ -15487,7 +15608,7 @@ init();
 
   function onMosqueShown(){
     mqInitialized = true;
-    loadMosqueList();
+    fetchFavorites().then(loadMosqueList);
     clearInterval(mqTimer);
     mqTimer = setInterval(loadMosqueList, 30000);
   }
