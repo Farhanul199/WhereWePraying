@@ -56,7 +56,7 @@ export async function onRequestGet(context) {
        FROM mosques m
        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
        LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
-       WHERE m.active = 1
+       WHERE m.active = 1 AND m.type = 'mosque'
        ORDER BY m.name ASC`
     )
       .bind(dateIso)
