@@ -4,52 +4,19 @@
 // email from Ahmed, Towerhamletsmosques). Runs entirely on Cloudflare -
 // no local PC/terminal needed. Trigger by visiting the URL in a browser.
 //
-// SETUP (one-time, all via dashboards/GitHub web UI - no terminal):
+// v2: batches all of a day's D1 writes into a single .batch() call instead
+// of one .run() per mosque, to stay well under Cloudflare's per-invocation
+// subrequest limit. This lets each visit cover a much bigger date range.
 //
-// 1. In Cloudflare D1 Console, run this SQL to create the table:
+// USAGE - visit in browser (swap in your secret):
+//   https://wherewepraying.com/api/admin/sync-thm-jamaah?secret=YOUR_SYNC_SECRET&start=1&end=120
 //
-//    CREATE TABLE IF NOT EXISTS thm_jamaah_times (
-//      id INTEGER PRIMARY KEY AUTOINCREMENT,
-//      mosque TEXT NOT NULL,
-//      date TEXT NOT NULL,
-//      fajr_jamaah TEXT,
-//      zuhr_jamaah TEXT,
-//      asr_jamaah TEXT,
-//      maghrib_jamaah TEXT,
-//      isha_jamaah TEXT,
-//      UNIQUE(mosque, date)
-//    );
-//
-// 2. Upload this file to your repo at:
-//      functions/api/admin/sync-thm-jamaah.js
-//    (via GitHub web upload, same as always - auto-deploys)
-//
-// 3. In Cloudflare Pages > Settings > Environment Variables, add a secret:
-//      SYNC_SECRET = (pick any password, e.g. a long random string)
-//
-// 4. Once deployed, visit this URL in your browser to run it:
-//      https://wherewepraying.com/api/admin/sync-thm-jamaah?secret=YOUR_SYNC_SECRET&start=1&end=40
-//
-//    IMPORTANT: Cloudflare Functions have a request time limit, so this
-//    processes a RANGE of days per visit (day-of-year numbers), not all
-//    366 at once. Run it ~10 times, changing start/end each time:
-//
-//      start=1&end=40      (Jan 1 - Feb 9)
-//      start=41&end=80
-//      start=81&end=120
-//      start=121&end=160
-//      start=161&end=200
-//      start=201&end=240
-//      start=241&end=280
-//      start=281&end=320
-//      start=321&end=366
-//
-//    Just change the numbers in the browser address bar and hit enter each
-//    time. Each visit takes ~1-2 minutes. It's safe to re-run a range twice
-//    (it overwrites, doesn't duplicate).
-//
-// 5. When done, all Jama'ah times for 2026 are in the thm_jamaah_times
-//    table in D1, ready to query from your app.
+// Suggested ranges (4 visits should cover the full year now):
+//   start=1&end=120
+//   start=121&end=240
+//   start=241&end=366
+//   (run start=1&end=366 in one go if it completes without timing out -
+//    try a smaller range first if you're not sure)
 
 const YEAR = 2026;
 const SOURCE_URL = "https://www.towerhamletsmosques.co.uk/wp-content/themes/squared/masajid-files/request.php?showJumma=true";
@@ -77,6 +44,18 @@ function dayOfYearToDate(year, dayOfYear) {
   return d;
 }
 
+const UPSERT_SQL = `
+  INSERT INTO thm_jamaah_times
+    (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(mosque, date) DO UPDATE SET
+    fajr_jamaah=excluded.fajr_jamaah,
+    zuhr_jamaah=excluded.zuhr_jamaah,
+    asr_jamaah=excluded.asr_jamaah,
+    maghrib_jamaah=excluded.maghrib_jamaah,
+    isha_jamaah=excluded.isha_jamaah
+`;
+
 export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -93,7 +72,7 @@ export async function onRequestGet(context) {
 
   for (let doy = start; doy <= end; doy++) {
     const date = dayOfYearToDate(YEAR, doy);
-    if (date.getUTCFullYear() !== YEAR) break; // ran past Dec 31
+    if (date.getUTCFullYear() !== YEAR) break;
 
     const monthAbbr = date.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
     const day = date.getUTCDate();
@@ -116,6 +95,7 @@ export async function onRequestGet(context) {
 
       const data = await resp.json();
 
+      const statements = [];
       for (const [mosqueSlug, html] of Object.entries(data)) {
         if (SKIP_KEYS.has(mosqueSlug)) continue;
         if (EXCLUDED_MOSQUES.has(mosqueSlug)) continue;
@@ -123,18 +103,8 @@ export async function onRequestGet(context) {
         const times = extractJamaahTimes(html);
         if (!times) continue;
 
-        await env.DB.prepare(
-          `INSERT INTO thm_jamaah_times
-             (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(mosque, date) DO UPDATE SET
-             fajr_jamaah=excluded.fajr_jamaah,
-             zuhr_jamaah=excluded.zuhr_jamaah,
-             asr_jamaah=excluded.asr_jamaah,
-             maghrib_jamaah=excluded.maghrib_jamaah,
-             isha_jamaah=excluded.isha_jamaah`
-        )
-          .bind(
+        statements.push(
+          env.DB.prepare(UPSERT_SQL).bind(
             mosqueSlug,
             dateIso,
             times.fajr_jamaah,
@@ -143,9 +113,12 @@ export async function onRequestGet(context) {
             times.maghrib_jamaah,
             times.isha_jamaah
           )
-          .run();
+        );
+      }
 
-        results.recordsSaved++;
+      if (statements.length > 0) {
+        await env.DB.batch(statements); // single subrequest for the whole day
+        results.recordsSaved += statements.length;
       }
 
       results.processed.push(dateIso);
