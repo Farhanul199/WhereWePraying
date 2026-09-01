@@ -50,6 +50,8 @@
   }
   input[type=text],
   input[type=password],
+  input[type=file],
+  select,
   textarea{
     width:100%;
     padding:12px 14px;
@@ -233,6 +235,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="broadcast">Broadcast</button>
       <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
+      <button class="tab" data-tab="mosquephotos">Mosque Photos <span id="mqPendingBadge"></span></button>
       <button class="tab" data-tab="bugs">Bugs <span id="bugsBadge"></span></button>
       <button class="tab" data-tab="roles">Roles</button>
     </div>
@@ -261,6 +264,28 @@
       </div>
       <div id="photosList"><p class="empty-note">Loading…</p></div>
       <div id="photoStatus"></div>
+    </div>
+
+    <div class="panel" id="panelMosquePhotos">
+      <p class="hint" style="margin-top:0;">Add or replace a mosque's picture directly — this skips the review queue and takes effect immediately. One photo per mosque.</p>
+      <label for="mqAddSlug">Mosque</label>
+      <select id="mqAddSlug"><option value="">Loading mosques…</option></select>
+      <label for="mqAddFile">Photo</label>
+      <input type="file" id="mqAddFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif">
+      <button id="mqAddBtn">Add / replace photo</button>
+      <div id="mqAddStatus"></div>
+
+      <h3 style="margin:26px 0 10px;font-size:14px;">Current photos</h3>
+      <div class="refresh-row">
+        <button id="mqRefreshCurrentBtn">Refresh</button>
+      </div>
+      <div id="mqCurrentList"><p class="empty-note">Loading…</p></div>
+
+      <h3 style="margin:26px 0 10px;font-size:14px;">Pending submissions</h3>
+      <div class="refresh-row">
+        <button id="mqRefreshPendingBtn">Refresh</button>
+      </div>
+      <div id="mqPendingList"><p class="empty-note">Loading…</p></div>
     </div>
 
     <div class="panel" id="panelBugs">
@@ -302,6 +327,7 @@
     lockScreen.style.display = 'none';
     mainScreen.style.display = 'block';
     loadPendingPhotos();
+    loadPendingMosquePhotos();
     loadAllBugs();
   });
 
@@ -315,9 +341,11 @@
       tab.classList.add('active');
       document.getElementById('panelBroadcast').classList.toggle('active', tab.dataset.tab === 'broadcast');
       document.getElementById('panelPhotos').classList.toggle('active', tab.dataset.tab === 'photos');
+      document.getElementById('panelMosquePhotos').classList.toggle('active', tab.dataset.tab === 'mosquephotos');
       document.getElementById('panelBugs').classList.toggle('active', tab.dataset.tab === 'bugs');
       document.getElementById('panelRoles').classList.toggle('active', tab.dataset.tab === 'roles');
       if(tab.dataset.tab === 'photos') loadPendingPhotos();
+      if(tab.dataset.tab === 'mosquephotos'){ loadMosqueOptions(); loadCurrentMosquePhotos(); loadPendingMosquePhotos(); }
       if(tab.dataset.tab === 'bugs') loadAllBugs();
       if(tab.dataset.tab === 'roles') loadRoles();
     });
@@ -466,6 +494,175 @@
       if(!remaining) photosList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
     }catch(err){
       showPhotoStatus('Network error — please try again.', 'err');
+      btn.disabled = false;
+    }
+  });
+
+  // ---- Mosque photos: direct add/replace, current list, review queue ----
+  const mqAddSlug = document.getElementById('mqAddSlug');
+  const mqAddFile = document.getElementById('mqAddFile');
+  const mqAddBtn = document.getElementById('mqAddBtn');
+  const mqAddStatus = document.getElementById('mqAddStatus');
+  const mqCurrentList = document.getElementById('mqCurrentList');
+  const mqPendingList = document.getElementById('mqPendingList');
+  const mqPendingBadge = document.getElementById('mqPendingBadge');
+  document.getElementById('mqRefreshCurrentBtn').addEventListener('click', loadCurrentMosquePhotos);
+  document.getElementById('mqRefreshPendingBtn').addEventListener('click', loadPendingMosquePhotos);
+
+  let mosqueOptionsLoaded = false;
+  async function loadMosqueOptions(){
+    if(mosqueOptionsLoaded) return;
+    try{
+      const res = await fetch('/api/mosques/list', { headers: { 'X-Device-Id': 'admin-broadcast-panel' } });
+      const data = await res.json();
+      const mosques = data.mosques || [];
+      mqAddSlug.innerHTML = mosques.length
+        ? mosques.map(function(m){ return '<option value="' + escapeHtml(m.slug) + '">' + escapeHtml(m.name) + '</option>'; }).join('')
+        : '<option value="">No mosques found</option>';
+      mosqueOptionsLoaded = true;
+    }catch(err){
+      mqAddSlug.innerHTML = '<option value="">Couldn\'t load mosques</option>';
+    }
+  }
+
+  mqAddBtn.addEventListener('click', async function(){
+    const slug = mqAddSlug.value;
+    const file = mqAddFile.files && mqAddFile.files[0];
+    if(!slug){ mqAddStatus.textContent = 'Pick a mosque first.'; return; }
+    if(!file){ mqAddStatus.textContent = 'Choose a photo first.'; return; }
+    mqAddBtn.disabled = true;
+    mqAddStatus.textContent = 'Uploading…';
+    try{
+      const fd = new FormData();
+      fd.append('photo', file);
+      fd.append('mosque', slug);
+      const res = await fetch('/api/mosques/photos', {
+        method: 'POST',
+        headers: { 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' },
+        body: fd
+      });
+      const data = await res.json();
+      if(!res.ok){
+        mqAddStatus.textContent = 'Error: ' + (data.error || 'Request failed');
+        return;
+      }
+      mqAddStatus.textContent = 'Photo added.';
+      mqAddFile.value = '';
+      loadCurrentMosquePhotos();
+    }catch(err){
+      mqAddStatus.textContent = 'Network error — please try again.';
+    }finally{
+      mqAddBtn.disabled = false;
+    }
+  });
+
+  async function loadCurrentMosquePhotos(){
+    mqCurrentList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const res = await fetch('/api/mosques/list', { headers: { 'X-Device-Id': 'admin-broadcast-panel' } });
+      const data = await res.json();
+      const withPhotos = (data.mosques || []).filter(function(m){ return m.photoUrl; });
+      if(!withPhotos.length){
+        mqCurrentList.innerHTML = '<p class="empty-note">No mosques have a photo yet.</p>';
+        return;
+      }
+      mqCurrentList.innerHTML = withPhotos.map(function(m){
+        return '<div class="photo-card" data-mosque="' + escapeHtml(m.slug) + '">' +
+          '<img src="' + escapeHtml(m.photoUrl) + '" alt="">' +
+          '<div class="pinfo">' +
+            '<div class="pname">' + escapeHtml(m.name) + '</div>' +
+            '<div class="photo-actions">' +
+              '<button class="btn-reject" data-action="remove-current" data-mosque="' + escapeHtml(m.slug) + '">Remove</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }catch(err){
+      mqCurrentList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  mqCurrentList.addEventListener('click', async function(e){
+    const btn = e.target.closest('button[data-action="remove-current"]');
+    if(!btn) return;
+    const mosque = btn.dataset.mosque;
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/mosques/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' },
+        body: JSON.stringify({ action: 'remove', mosque: mosque })
+      });
+      if(!res.ok){ btn.disabled = false; return; }
+      const card = mqCurrentList.querySelector('.photo-card[data-mosque="' + mosque + '"]');
+      if(card) card.remove();
+      if(!mqCurrentList.querySelectorAll('.photo-card').length){
+        mqCurrentList.innerHTML = '<p class="empty-note">No mosques have a photo yet.</p>';
+      }
+    }catch(err){
+      btn.disabled = false;
+    }
+  });
+
+  async function loadPendingMosquePhotos(){
+    mqPendingList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const res = await fetch('/api/mosques/photos?status=pending', {
+        headers: { 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' }
+      });
+      const data = await res.json();
+      if(!res.ok){
+        mqPendingList.innerHTML = '<p class="empty-note">Error: ' + escapeHtml(data.error || 'Request failed') + '</p>';
+        return;
+      }
+      const photos = data.photos || [];
+      mqPendingBadge.textContent = photos.length ? '(' + photos.length + ')' : '';
+      if(!photos.length){
+        mqPendingList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
+        return;
+      }
+      mqPendingList.innerHTML = photos.map(function(p){
+        return '<div class="photo-card" data-id="' + p.id + '">' +
+          '<img src="' + escapeHtml(p.url) + '" alt="">' +
+          '<div class="pinfo">' +
+            '<div class="pname">' + escapeHtml(p.mosque) + '</div>' +
+            '<div class="pmeta">Submitted by ' + escapeHtml(p.username || p.email || 'a user') + ' · ' + new Date(p.created_at).toLocaleString() + '</div>' +
+            '<div class="photo-actions">' +
+              '<button class="btn-approve" data-action="approve" data-id="' + p.id + '">Approve</button>' +
+              '<button class="btn-reject" data-action="reject" data-id="' + p.id + '">Reject</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }catch(err){
+      mqPendingList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  mqPendingList.addEventListener('click', async function(e){
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/mosques/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey, 'X-Device-Id': 'admin-broadcast-panel' },
+        body: JSON.stringify({ action: 'review', photoId: id, status: status })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        btn.disabled = false;
+        return;
+      }
+      const card = mqPendingList.querySelector('.photo-card[data-id="' + id + '"]');
+      if(card) card.remove();
+      const remaining = mqPendingList.querySelectorAll('.photo-card').length;
+      mqPendingBadge.textContent = remaining ? '(' + remaining + ')' : '';
+      if(!remaining) mqPendingList.innerHTML = '<p class="empty-note">No photos waiting for review. 🎉</p>';
+      if(status === 'approved') loadCurrentMosquePhotos();
+    }catch(err){
       btn.disabled = false;
     }
   });
