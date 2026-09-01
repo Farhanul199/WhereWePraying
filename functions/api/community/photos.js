@@ -15,7 +15,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'i
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 }
 
