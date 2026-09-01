@@ -301,6 +301,8 @@
         <option value="community_hall">Community Hall</option>
         <option value="prayer_room">Prayer Room</option>
       </select>
+      <label for="locNewAddress">Address</label>
+      <input type="text" id="locNewAddress" placeholder="e.g. 12 High St, London E14 0AB">
       <button id="locCreateBtn">Add location</button>
       <div id="locCreateStatus"></div>
 
@@ -891,6 +893,7 @@
   // ---- Locations tab: create locations, set daily & Jummah times ----
   const locNewName = document.getElementById('locNewName');
   const locNewType = document.getElementById('locNewType');
+  const locNewAddress = document.getElementById('locNewAddress');
   const locCreateBtn = document.getElementById('locCreateBtn');
   const locCreateStatus = document.getElementById('locCreateStatus');
   const locDailySlug = document.getElementById('locDailySlug');
@@ -954,9 +957,15 @@
 
       locList.innerHTML = locationsCache.length
         ? locationsCache.map(function(l){
-            return '<div class="photo-row"><div><strong>' + escapeHtml(l.name) + '</strong><br>' +
+            return '<div class="photo-row" style="flex-direction:column;align-items:stretch;gap:8px;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+              '<div><strong>' + escapeHtml(l.name) + '</strong><br>' +
               '<span class="hint" style="margin:0;">' + (typeLabel[l.type] || l.type) + ' · ' + (l.active ? 'Active' : 'Inactive') + ' · ' + escapeHtml(l.slug) + '</span></div>' +
-              '<button type="button" class="loc-toggle-active" data-slug="' + escapeHtml(l.slug) + '" data-active="' + (l.active ? '1' : '0') + '">' + (l.active ? 'Deactivate' : 'Activate') + '</button></div>';
+              '<button type="button" class="loc-toggle-active" data-slug="' + escapeHtml(l.slug) + '" data-active="' + (l.active ? '1' : '0') + '">' + (l.active ? 'Deactivate' : 'Activate') + '</button>' +
+              '</div>' +
+              '<div class="lockrow"><input type="text" class="loc-address-input" data-slug="' + escapeHtml(l.slug) + '" placeholder="Address" value="' + escapeHtml(l.address || '') + '">' +
+              '<button type="button" class="loc-address-save" data-slug="' + escapeHtml(l.slug) + '">Save address</button></div>' +
+              '</div>';
           }).join('')
         : '<p class="empty-note">No locations yet — add one above.</p>';
     }catch(err){
@@ -965,18 +974,39 @@
   }
 
   locList && locList.addEventListener('click', async function(e){
-    const btn = e.target.closest('.loc-toggle-active');
-    if(!btn) return;
-    btn.disabled = true;
-    try{
-      await fetch('/api/mosques/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
-        body: JSON.stringify({ action: 'update_location', slug: btn.dataset.slug, active: btn.dataset.active !== '1' })
-      });
-      loadLocations();
-    }catch(err){
-      btn.disabled = false;
+    const activeBtn = e.target.closest('.loc-toggle-active');
+    if(activeBtn){
+      activeBtn.disabled = true;
+      try{
+        await fetch('/api/mosques/manage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+          body: JSON.stringify({ action: 'update_location', slug: activeBtn.dataset.slug, active: activeBtn.dataset.active !== '1' })
+        });
+        loadLocations();
+      }catch(err){
+        activeBtn.disabled = false;
+      }
+      return;
+    }
+    const addrBtn = e.target.closest('.loc-address-save');
+    if(addrBtn){
+      const input = locList.querySelector('.loc-address-input[data-slug="' + addrBtn.dataset.slug + '"]');
+      addrBtn.disabled = true;
+      const prevText = addrBtn.textContent;
+      addrBtn.textContent = 'Saving…';
+      try{
+        const res = await fetch('/api/mosques/manage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+          body: JSON.stringify({ action: 'update_location', slug: addrBtn.dataset.slug, address: input ? input.value.trim() : '' })
+        });
+        addrBtn.textContent = res.ok ? 'Saved' : 'Error';
+      }catch(err){
+        addrBtn.textContent = 'Error';
+      }finally{
+        setTimeout(function(){ addrBtn.textContent = prevText; addrBtn.disabled = false; }, 1500);
+      }
     }
   });
 
@@ -989,12 +1019,13 @@
       const res = await fetch('/api/mosques/manage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
-        body: JSON.stringify({ action: 'create_location', name: name, type: locNewType.value })
+        body: JSON.stringify({ action: 'create_location', name: name, type: locNewType.value, address: locNewAddress.value.trim() })
       });
       const data = await res.json();
       if(!res.ok){ locCreateStatus.textContent = 'Error: ' + (data.error || 'Request failed'); return; }
       locCreateStatus.textContent = 'Added "' + name + '".';
       locNewName.value = '';
+      locNewAddress.value = '';
       loadLocations();
     }catch(err){
       locCreateStatus.textContent = 'Network error — please try again.';
