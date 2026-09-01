@@ -49,7 +49,7 @@ export async function onRequestGet(context) {
   if (!isAdmin(context)) return json({ error: "Unauthorized" }, 401);
   try {
     const { results } = await context.env.DB.prepare(
-      `SELECT slug, name, type, active FROM mosques ORDER BY name ASC`
+      `SELECT slug, name, type, address, active FROM mosques ORDER BY name ASC`
     ).all();
     return json({ locations: results || [] });
   } catch (e) {
@@ -74,14 +74,15 @@ export async function onRequestPost(context) {
       if (!name) return json({ error: "Name is required." }, 400);
       const type = VALID_TYPES.includes(body.type) ? body.type : "mosque";
       const slug = slugify(body.slug || name);
+      const address = String(body.address || "").trim() || null;
       if (!slug) return json({ error: "Couldn't work out a slug from that name." }, 400);
 
       const existing = await db.prepare(`SELECT slug FROM mosques WHERE slug = ?1`).bind(slug).first();
       if (existing) return json({ error: `A location with slug "${slug}" already exists.` }, 409);
 
       await db
-        .prepare(`INSERT INTO mosques (slug, name, type, active) VALUES (?1, ?2, ?3, 1)`)
-        .bind(slug, name, type)
+        .prepare(`INSERT INTO mosques (slug, name, type, address, active) VALUES (?1, ?2, ?3, ?4, 1)`)
+        .bind(slug, name, type, address)
         .run();
       return json({ success: true, slug });
     }
@@ -99,6 +100,10 @@ export async function onRequestPost(context) {
       if (VALID_TYPES.includes(body.type)) {
         sets.push(`type = ?${i++}`);
         binds.push(body.type);
+      }
+      if (typeof body.address === "string") {
+        sets.push(`address = ?${i++}`);
+        binds.push(body.address.trim() || null);
       }
       if (typeof body.active === "boolean") {
         sets.push(`active = ?${i++}`);

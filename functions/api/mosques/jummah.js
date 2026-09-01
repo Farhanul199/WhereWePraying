@@ -67,7 +67,7 @@ export async function onRequestGet(context) {
 
   try {
     const { results } = await env.DB.prepare(
-      `SELECT m.slug, m.name, m.type, ph.r2_key AS photo_key,
+      `SELECT m.slug, m.name, m.type, m.address, ph.r2_key AS photo_key,
               j.slot, j.time
        FROM mosques m
        JOIN jummah_times j ON j.location = m.slug AND j.date = ?
@@ -85,6 +85,7 @@ export async function onRequestGet(context) {
           slug: row.slug,
           name: row.name,
           type: row.type || "mosque",
+          address: row.address || null,
           photoUrl: row.photo_key ? `/api/community/photo/${row.photo_key}` : null,
           slots: [],
         });

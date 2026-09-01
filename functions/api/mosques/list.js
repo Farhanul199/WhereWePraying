@@ -52,7 +52,7 @@ export async function onRequestGet(context) {
 
   try {
     const { results } = await env.DB.prepare(
-      `SELECT m.slug, m.name, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
+      `SELECT m.slug, m.name, m.address, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
        FROM mosques m
        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
        LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
@@ -83,7 +83,7 @@ export async function onRequestGet(context) {
         }
       }
 
-      return { slug: row.slug, name: row.name, jamaah, next, photoUrl };
+      return { slug: row.slug, name: row.name, address: row.address || null, jamaah, next, photoUrl };
     });
 
     mosques.sort((a, b) => {
