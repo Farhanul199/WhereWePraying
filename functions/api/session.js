@@ -34,16 +34,28 @@ export async function onRequestGet(context) {
       });
     }
 
+    // role is stored per-user in D1 (not in the KV session blob) so that
+    // granting/revoking moderator access takes effect immediately without
+    // needing the user to sign out and back in.
+    let role = 'user';
+    try {
+      const row = await context.env.DB.prepare(`SELECT role FROM users WHERE id = ?1`).bind(session.userId).first();
+      if (row && row.role) role = row.role;
+    } catch (e) {
+      // fall back to 'user' if the column doesn't exist yet / query fails
+    }
+
     return new Response(
       JSON.stringify({
         authenticated: true,
         email: session.email,
         userId: session.userId,
         expiresAt: session.expiresAt,
+        role,
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       }
     );
   } catch (err) {
