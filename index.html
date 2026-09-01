@@ -2133,6 +2133,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-qibla-needle .qc-tip{position:absolute;left:-7px;top:-62px;width:14px;height:16px;clip-path:polygon(50% 0,100% 100%,0 100%);background:var(--coral);}
 .pt-qibla-needle .qc-tail{position:absolute;left:-5px;top:48px;width:10px;height:14px;clip-path:polygon(50% 100%,100% 0,0 0);background:var(--text-dim);opacity:.5;}
 .pt-qibla-status{display:block;font-size:12.5px;color:var(--text-dim);margin-top:6px;}
+.pt-qibla-status b{color:var(--coral-dark);font-weight:800;}
 .pt-map-title{font-size:13px;font-weight:700;color:var(--text-dim);}
 .pt-map-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text-faint);padding:0;}
 .pt-map-toggle-track{width:32px;height:18px;border-radius:999px;background:var(--border);position:relative;transition:background .2s ease;}
@@ -6075,6 +6076,27 @@ const PrayerTimes = (function(){
   // same WWP backend other sections use — localStorage stays as a fast
   // local cache and offline fallback, but the backend copy is what
   // makes a saved location follow you across devices.
+  function locationSourceRank(source){
+    // Higher = more precise. Used so a slower-but-better result never
+    // gets clobbered by a faster-but-coarser one landing after it, and
+    // vice versa a coarse result is only ever applied over something
+    // worse (or nothing at all).
+    switch(source){
+      case 'geo': case 'manual': case 'preset': return 3;
+      case 'network': case 'ip': return 2;
+      case 'default': return 0;
+      default: return 1;
+    }
+  }
+  function applyLocationUpgrade(loc){
+    if(!loc) return;
+    const current = state.location;
+    if(current && locationSourceRank(loc.source) < locationSourceRank(current.source)) return;
+    saveLocation(loc);
+    notify();
+    fetchTimings();
+  }
+
   async function loadSavedLocation(){
     try{
       const raw = localStorage.getItem(LOC_KEY);
@@ -6085,21 +6107,29 @@ const PrayerTimes = (function(){
       if(m) state.method = parseInt(m,10);
     }catch(e){}
 
-    // Backend copy (if any) wins over the local cache, since it's the
-    // one that follows the signed-in account across devices.
+    // Backend copy (if any) wins over the local cache eventually,
+    // since it's the one that follows a signed-in account across
+    // devices — but this must never block the initial paint. It runs
+    // in the background and only touches state if it actually finds
+    // something better, so a slow or hanging connection (weak signal,
+    // underground) never delays prayer times or Qiblah appearing.
+    syncSavedLocationFromBackend();
+  }
+
+  async function syncSavedLocationFromBackend(){
     try{
-      const saved = await WWP.get('prayertimes');
-      if(saved){
-        if(saved.location){
-          state.location = saved.location;
-          try{ localStorage.setItem(LOC_KEY, JSON.stringify(saved.location)); }catch(e){}
-        }
-        if(typeof saved.method === 'number'){
-          state.method = saved.method;
-          try{ localStorage.setItem(METHOD_KEY, String(saved.method)); }catch(e){}
-        }
+      const saved = await Promise.race([
+        WWP.get('prayertimes'),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), 4000))
+      ]);
+      if(saved && typeof saved.method === 'number' && saved.method !== state.method){
+        state.method = saved.method;
+        try{ localStorage.setItem(METHOD_KEY, String(saved.method)); }catch(e){}
       }
-    }catch(e){ /* offline or not signed in — local cache above is fine */ }
+      if(saved && saved.location){
+        applyLocationUpgrade(saved.location);
+      }
+    }catch(e){ /* offline, not signed in, or timed out — local cache is fine */ }
   }
 
   async function preCachePrayerTimes(loc){
@@ -6177,10 +6207,20 @@ const PrayerTimes = (function(){
     });
   }
 
+  // Caps how long any single network call in the location chain can
+  // take, so a slow/dead connection (weak signal, underground) can
+  // never stall things — it just fails fast and the chain moves to
+  // the next fallback instead.
+  function fetchWithTimeout(url, opts, ms){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), ms);
+    return fetch(url, Object.assign({}, opts||{}, {signal:controller.signal})).finally(()=>clearTimeout(timer));
+  }
+
   async function reverseGeocodeLabel(lat, lon){
     try{
       const url = REVERSE_GEOCODE_BASE+'?latitude='+lat+'&longitude='+lon+'&count=1&language=en&format=json';
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url, null, 4000);
       if(!res.ok) throw new Error('reverse geocode failed');
       const data = await res.json();
       const r = data && data.results && data.results[0];
@@ -6410,7 +6450,7 @@ const PrayerTimes = (function(){
   // request that tends to succeed even on a weak connection.
   async function detectCloudflareGeo(){
     try{
-      const res = await fetch('/api/geo', {cache:'no-store'});
+      const res = await fetchWithTimeout('/api/geo', {cache:'no-store'}, 3000);
       if(!res.ok) throw new Error('cf geo failed');
       const d = await res.json();
       if(d && typeof d.lat === 'number' && typeof d.lon === 'number'){
@@ -6429,7 +6469,7 @@ const PrayerTimes = (function(){
   // Cloudflare function above isn't deployed yet or is briefly down.
   async function detectRoughLocationByIP(){
     try{
-      const res = await fetch('https://ipapi.co/json/');
+      const res = await fetchWithTimeout('https://ipapi.co/json/', null, 4000);
       if(!res.ok) throw new Error('ip lookup failed');
       const d = await res.json();
       if(d && typeof d.latitude === 'number' && typeof d.longitude === 'number'){
@@ -6474,29 +6514,18 @@ const PrayerTimes = (function(){
     });
   }
 
-  async function resolveInitialLocation(){
-    // Already permitted — instant, no UI.
+  // Fast, automatic track — no user interaction required. Tried in
+  // order and applied the moment any of them resolves; each result is
+  // only ever applied if it's at least as precise as what's already
+  // showing (see applyLocationUpgrade), so this can run safely even
+  // after the page has already painted with something else.
+  async function autoDetectLocation(){
     let loc = await detectSilentGeolocation();
     if(loc) return loc;
-
-    // Permission not yet decided, and we haven't asked before —
-    // actively request it, since accurate timings & Qiblah depend on it.
-    let alreadyAsked = false;
-    try{ alreadyAsked = localStorage.getItem(GEO_EXPLAINER_KEY) === '1'; }catch(e){}
-    if(!alreadyAsked){
-      loc = await requestGeoWithExplainer();
-      if(loc) return loc;
-    }
-
-    // GPS denied, timed out, or unavailable — same-origin network geo.
     loc = await detectCloudflareGeo();
     if(loc) return loc;
-
-    // Extra redundancy via a third-party IP lookup.
     loc = await detectRoughLocationByIP();
-    if(loc) return loc;
-
-    return null;
+    return loc;
   }
 
   function updateLocationAccuracyBadge(){
@@ -6512,17 +6541,35 @@ const PrayerTimes = (function(){
   }
 
   async function init(){
-    await loadSavedLocation();
+    // Paint instantly with whatever's cached (or, on a fresh install,
+    // the London default) so prayer times and Qiblah are usable right
+    // away — nothing here waits on a network round-trip. Anything
+    // more accurate that turns up afterwards (backend sync, GPS, IP)
+    // swaps in seamlessly via applyLocationUpgrade once it resolves.
+    loadSavedLocation();
     if(!state.location){
-      // No saved location yet (first visit, or local storage was
-      // cleared). Work through the fallback chain rather than forcing
-      // the person to pick a city by hand every time.
-      const loc = await resolveInitialLocation();
-      state.location = loc || {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
+      state.location = {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
       saveLocation(state.location);
     }
     notify();
     fetchTimings();
+
+    // Background upgrade, entirely non-blocking:
+    // — the automatic track (silent GPS → same-origin geo → IP geo)
+    //   runs immediately, no tap required.
+    // — the interactive track (one-time permission explainer → real
+    //   GPS) runs in parallel; if the person never responds to it,
+    //   the automatic track above has already improved on the
+    //   default, so nothing is left waiting on that dialog.
+    autoDetectLocation().then(applyLocationUpgrade).catch(()=>{});
+    let alreadyAsked = false;
+    try{ alreadyAsked = localStorage.getItem(GEO_EXPLAINER_KEY) === '1'; }catch(e){}
+    if(!alreadyAsked){
+      // Slight delay so the explainer never competes with the initial
+      // paint — prayer times & Qiblah are already visible and usable
+      // by the time this appears.
+      setTimeout(()=>{ requestGeoWithExplainer().then(applyLocationUpgrade).catch(()=>{}); }, 1200);
+    }
   }
 
   return {
@@ -16584,9 +16631,15 @@ window.WWP_TravelHome = (function(){
 
   function qcApplyHeading(heading){
     const rel=((qcCurrentQibla-heading)%360+360)%360;
-    const aligned=Math.min(rel,360-rel)<5;
+    // Signed offset in (-180, 180]: positive = Qiblah is to the
+    // right of where the phone's currently facing, negative = left.
+    const diff = rel > 180 ? rel - 360 : rel;
+    const aligned=Math.abs(diff)<5;
     document.querySelectorAll('.wwp-qc-needle').forEach(n=>{ n.style.transform='rotate('+rel+'deg)'; });
-    document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent = aligned ? 'Aligned — facing the Qiblah' : 'Rotate until the marker points up'; });
+    const statusHtml = aligned
+      ? 'Aligned — facing the Qiblah'
+      : 'Turn to your <b>'+(diff>0?'right':'left')+'</b>';
+    document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.innerHTML = statusHtml; });
     document.querySelectorAll('.wwp-qibla-card').forEach(c=>{ c.classList.toggle('tm-qc-aligned',aligned); });
   }
 
