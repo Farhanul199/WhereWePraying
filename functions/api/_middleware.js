@@ -10,13 +10,17 @@
 // Exception: /api/auth/* (Google OAuth redirect + callback) are reached
 // via full-page browser navigation, not fetch() calls, so they can't
 // carry a custom header — those routes skip the device-id check.
+//
+// Exception: /api/admin/* are server-to-server/admin-triggered tools
+// (e.g. the THM Jama'ah sync) protected by their own ?secret= param
+// instead of a device id — these also skip the check.
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 
 export async function onRequest(context) {
   const { request, env, next, data } = context;
   const url = new URL(request.url);
 
-  if (url.pathname.startsWith('/api/auth/')) {
+  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/admin/')) {
     return next();
   }
 
