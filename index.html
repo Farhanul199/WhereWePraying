@@ -1587,8 +1587,19 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 .mq-prayer-header span{text-align:center;padding:9px 4px;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--text);text-transform:uppercase;}
 .mq-prayer-header span+span{border-left:1px solid rgba(255,255,255,.18);}
 .mq-prayer-header span.is-active{color:var(--coral);}
+.mq-prayer-header span{cursor:pointer;transition:color .15s;}
+.mq-prayer-header span:hover{color:var(--coral);}
+.mq-live-toggle{display:block;text-align:center;font-size:11.5px;color:var(--coral);margin:-6px 0 14px;cursor:pointer;font-weight:700;}
+.mq-live-toggle.hidden{display:none;}
+.mq-tomorrow-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:999px;background:var(--coral-soft);color:var(--coral-dark);margin-left:6px;}
+.mq-rank-ref{font-size:10.5px;color:var(--text-dim);margin-top:2px;opacity:.75;}
 .mq-rank-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 18px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:12px;transition:transform .45s cubic-bezier(.4,0,.2,1);will-change:transform;}
-.mq-rank-card.mq-tied{border-color:rgba(244,113,78,.55);box-shadow:0 0 0 1px rgba(244,113,78,.35), var(--shadow);}
+.mq-rank-card.mq-tie-0{border-color:rgba(244,113,78,.65);box-shadow:0 0 0 1px rgba(244,113,78,.4), var(--shadow);}
+.mq-rank-card.mq-tie-1{border-color:rgba(76,159,143,.65);box-shadow:0 0 0 1px rgba(76,159,143,.4), var(--shadow);}
+.mq-rank-card.mq-tie-2{border-color:rgba(142,124,195,.65);box-shadow:0 0 0 1px rgba(142,124,195,.4), var(--shadow);}
+.mq-rank-card.mq-tie-3{border-color:rgba(217,164,65,.65);box-shadow:0 0 0 1px rgba(217,164,65,.4), var(--shadow);}
+.mq-rank-card.mq-tie-4{border-color:rgba(91,141,239,.65);box-shadow:0 0 0 1px rgba(91,141,239,.4), var(--shadow);}
+.mq-rank-card.mq-tie-5{border-color:rgba(214,90,140,.65);box-shadow:0 0 0 1px rgba(214,90,140,.4), var(--shadow);}
 .mq-rank-left{display:flex;align-items:center;gap:12px;min-width:0;}
 .mq-rank-photo{position:relative;flex:none;width:44px;height:44px;border-radius:50%;overflow:visible;}
 .mq-rank-photo img{width:44px;height:44px;border-radius:50%;object-fit:cover;display:block;background:var(--cream);}
@@ -5265,6 +5276,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
       <button type="button" id="mqHideBtn" class="mq-hide-btn hidden">Hide preview</button>
     </div>
     <div id="mqPrayerHeader" class="mq-prayer-header"></div>
+    <div id="mqLiveToggle" class="mq-live-toggle hidden">● Back to live</div>
     <div id="mqStatus" class="mq-status"></div>
     <div id="mqList" class="mq-list"></div>
   </div>
@@ -15156,40 +15168,73 @@ init();
     return data.locations || [];
   }
 
-  // Finds the earliest prayer whose last mosque + buffer hasn't passed
-  // yet. On Fridays, the Dhuhr slot is served by Jummah venues instead
-  // of the daily mosque list (mosques, community halls, prayer rooms —
-  // any of which can run one or more Jummah slots). If every prayer
-  // today is done, loops to tomorrow's Fajr.
-  async function resolveTarget(){
+  // On Fridays the Dhuhr slot is served by Jummah venues (mosques,
+  // community halls, prayer rooms — any of which can run one or more
+  // Jummah slots) instead of the daily mosque list.
+  async function getDayData(prayer, dateIso){
+    if (prayer === 'zuhr' && isFridayIso(dateIso)) {
+      const locations = await fetchJummah(dateIso);
+      return { items: locations, isJummah: true };
+    }
+    const mosques = await fetchMosques(dateIso);
+    return { items: mosques, isJummah: false };
+  }
+
+  function timesFor(prayer, dayResult){
+    if (dayResult.isJummah) {
+      return dayResult.items.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
+    }
+    return dayResult.items.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
+  }
+
+  // Live/auto mode: finds the earliest prayer whose last mosque + buffer
+  // hasn't passed yet, cycling through the day. Loops to tomorrow's Fajr
+  // once every prayer today is done.
+  async function resolveLive(){
     const { dateIso, minutes: nowMinutes } = londonNow();
     const mosques = await fetchMosques(dateIso);
     const friday = isFridayIso(dateIso);
     const jummahLocations = friday ? await fetchJummah(dateIso) : [];
 
-    if (!mosques.length && !jummahLocations.length) return { items: [], prayer: 'fajr', isJummah: false, dateIso };
-
     for (const prayer of PRAYER_ORDER) {
       if (prayer === 'zuhr' && friday) {
-        const allSlotMins = jummahLocations.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
-        if (!allSlotMins.length) continue;
-        if (nowMinutes < Math.max(...allSlotMins) + BUFFER_MIN) {
-          return { items: jummahLocations, prayer, isJummah: true, dateIso };
+        const times = jummahLocations.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
+        if (!times.length) continue;
+        if (nowMinutes < Math.max(...times) + BUFFER_MIN) {
+          return { items: jummahLocations, isJummah: true, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
         }
         continue;
       }
-      const times = mosques
-        .map(m => parseTimeToMinutes(prayer, m.jamaah[prayer]))
-        .filter(t => t !== null);
+      const times = mosques.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
       if (!times.length) continue;
       if (nowMinutes < Math.max(...times) + BUFFER_MIN) {
-        return { items: mosques, prayer, isJummah: false, dateIso };
+        return { items: mosques, isJummah: false, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
       }
     }
 
     const tomorrowIso = addDaysIso(dateIso, 1);
     const tomorrowMosques = await fetchMosques(tomorrowIso);
-    return { items: tomorrowMosques, prayer: 'fajr', isJummah: false, dateIso: tomorrowIso };
+    return { items: tomorrowMosques, isJummah: false, prayer: 'fajr', dateIso: tomorrowIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
+  }
+
+  // Manual mode: shows whichever prayer the person clicked in the
+  // header. If every mosque's time for that prayer + buffer has already
+  // passed today, shows tomorrow's time instead (a prayer's time can
+  // shift day to day), keeping today's now-passed time as a small
+  // reference on each card.
+  async function resolveManual(prayer){
+    const { dateIso: todayIso, minutes: nowMinutes } = londonNow();
+    const today = await getDayData(prayer, todayIso);
+    const todayTimes = timesFor(prayer, today);
+    const donePastToday = todayTimes.length > 0 && nowMinutes >= Math.max(...todayTimes) + BUFFER_MIN;
+
+    if (!donePastToday) {
+      return { ...today, prayer, dateIso: todayIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
+    }
+
+    const tomorrowIso = addDaysIso(todayIso, 1);
+    const tomorrow = await getDayData(prayer, tomorrowIso);
+    return { ...tomorrow, prayer, dateIso: tomorrowIso, isTomorrow: true, referenceItems: today.items, referenceIsJummah: today.isJummah };
   }
 
   function renderHeader(activePrayer, dateIso){
@@ -15198,11 +15243,11 @@ init();
     const friday = isFridayIso(dateIso);
     header.innerHTML = PRAYER_ORDER.map(p => {
       const label = (p === 'zuhr' && friday) ? 'Jummah' : PRAYER_LABELS[p];
-      return `<span${p === activePrayer ? ' class="is-active"' : ''}>${label}</span>`;
+      return `<span data-prayer="${p}"${p === activePrayer ? ' class="is-active"' : ''}>${label}</span>`;
     }).join('');
   }
 
-  function renderRankList(items, prayer, isJummah){
+  function renderRankList(items, prayer, isJummah, isTomorrow, referenceItems, referenceIsJummah){
     const list = document.getElementById('mqList');
     const status = document.getElementById('mqStatus');
     if (!list || !status) return;
@@ -15220,16 +15265,34 @@ init();
     }
     status.textContent = '';
 
+    const refBySlug = new Map();
+    if (isTomorrow && referenceItems) {
+      referenceItems.forEach(m => {
+        const mins = referenceIsJummah ? m.firstMinutes : parseTimeToMinutes(prayer, m.jamaah[prayer]);
+        if (mins !== null) refBySlug.set(m.slug, mins);
+      });
+    }
+
     // FLIP: capture current on-screen positions before re-render so the
     // widgets can animate into their new ranked positions.
     const before = new Map();
     list.querySelectorAll('[data-slug]').forEach(el => before.set(el.dataset.slug, el.getBoundingClientRect()));
 
-    const counts = {};
-    ranked.forEach(r => { counts[r.mins] = (counts[r.mins] || 0) + 1; });
+    // Group ascending times into distinct tie groups (earliest group
+    // first) so each cluster of mosques sharing a time gets its own
+    // border colour, rather than every tie looking the same.
+    const tieColorBySlug = new Map();
+    const groupCounts = {};
+    ranked.forEach(r => { groupCounts[r.mins] = (groupCounts[r.mins] || 0) + 1; });
+    let groupIndex = -1, lastMins = null;
+    ranked.forEach(r => {
+      if (r.mins !== lastMins) { groupIndex++; lastMins = r.mins; }
+      if (groupCounts[r.mins] > 1) tieColorBySlug.set(r.m.slug, groupIndex % 6);
+    });
 
     list.innerHTML = ranked.map(r => {
-      const tied = counts[r.mins] > 1;
+      const tieIdx = tieColorBySlug.get(r.m.slug);
+      const tieClass = tieIdx !== undefined ? ` mq-tie-${tieIdx}` : '';
       const initial = escapeHtml((r.m.name || '?').trim().charAt(0).toUpperCase());
       const photoHtml = r.m.photoUrl
         ? `<img src="${escapeHtml(r.m.photoUrl)}" alt="">`
@@ -15238,16 +15301,21 @@ init();
       const typeBadge = isJummah
         ? `<span class="mq-type-badge">${escapeHtml(TYPE_LABELS[r.m.type] || 'Mosque')}</span>`
         : '';
+      const tomorrowTag = isTomorrow ? `<span class="mq-tomorrow-tag">Tomorrow</span>` : '';
+      const refMins = refBySlug.get(r.m.slug);
+      const refHtml = (isTomorrow && refMins !== undefined)
+        ? `<div class="mq-rank-ref">Today was ${formatMinutes(refMins)}</div>`
+        : '';
 
       const metaHtml = isJummah
-        ? `<div class="mq-rank-meta">Jummah${typeBadge}</div>
+        ? `<div class="mq-rank-meta">Jummah${typeBadge}${tomorrowTag}</div>
            <div class="mq-slot-chips">${r.m.slots.map(s =>
              `<span class="mq-slot-chip${s.minutes === r.m.firstMinutes ? ' is-first' : ''}">${formatMinutes(s.minutes)}</span>`
-           ).join('')}</div>`
-        : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}</div>`;
+           ).join('')}</div>${refHtml}`
+        : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}${tomorrowTag}</div>${refHtml}`;
 
       return `
-        <div class="mq-rank-card${tied ? ' mq-tied' : ''}" data-slug="${escapeHtml(r.m.slug)}">
+        <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
           <div class="mq-rank-left">
             <div class="mq-rank-photo">
               ${photoHtml}
@@ -15319,6 +15387,7 @@ init();
 
   let mqInitialized = false;
   let mqTimer = null;
+  let mqSelectedPrayer = null; // null = live/auto mode; else pinned to one prayer
 
   async function loadMosqueList(){
     const status = document.getElementById('mqStatus');
@@ -15326,18 +15395,32 @@ init();
     if (!mqInitialized) status.textContent = "Loading Jama'ah times…";
 
     try {
-      const { items, prayer, isJummah, dateIso } = await resolveTarget();
-      renderHeader(prayer, dateIso);
-      if (!items.length) {
+      const result = mqSelectedPrayer ? await resolveManual(mqSelectedPrayer) : await resolveLive();
+      renderHeader(result.prayer, result.dateIso);
+      const liveToggle = document.getElementById('mqLiveToggle');
+      if (liveToggle) liveToggle.classList.toggle('hidden', !mqSelectedPrayer);
+      if (!result.items.length) {
         status.textContent = 'No mosque data available right now.';
         document.getElementById('mqList').innerHTML = '';
         return;
       }
-      renderRankList(items, prayer, isJummah);
+      renderRankList(result.items, result.prayer, result.isJummah, result.isTomorrow, result.referenceItems, result.referenceIsJummah);
     } catch (e) {
       status.textContent = "Couldn't load mosque times right now — please try again shortly.";
     }
   }
+
+  document.getElementById('mqPrayerHeader')?.addEventListener('click', (e) => {
+    const span = e.target.closest('[data-prayer]');
+    if (!span) return;
+    mqSelectedPrayer = span.dataset.prayer;
+    loadMosqueList();
+  });
+
+  document.getElementById('mqLiveToggle')?.addEventListener('click', () => {
+    mqSelectedPrayer = null;
+    loadMosqueList();
+  });
 
   function onMosqueShown(){
     mqInitialized = true;
