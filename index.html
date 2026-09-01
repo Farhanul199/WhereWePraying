@@ -1583,6 +1583,13 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 }
 
 /* ---------- Find a Mosque :: "screen protector" sneak-peek overlay ---------- */
+/* .app-page's transform:translateY(...) (used for the page-switch slide
+   animation) creates a new CSS containing block for any position:fixed
+   descendant, which silently turns "fixed" into "absolute" relative to
+   the page instead of the viewport. Neutralising the transform just for
+   this page keeps the fade animation but restores real viewport-fixed
+   behaviour for the overlay below. */
+#page-mosque.app-page{transform:none;}
 .mq-preview-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:96px 24px 24px;background:var(--bg);transition:opacity .35s ease;overflow-y:auto;}
 .mq-preview-overlay.is-hidden{opacity:0;pointer-events:none;}
 .mq-preview-overlay .cs-card{max-width:420px;}
