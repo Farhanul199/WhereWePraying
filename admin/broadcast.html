@@ -177,6 +177,41 @@
     color:var(--text);
     border:1px solid var(--border);
   }
+  .status-toggle{display:flex;gap:6px;margin-top:10px;}
+  .status-pill{
+    margin-top:0;
+    width:auto;
+    padding:6px 12px;
+    font-size:12px;
+    font-weight:700;
+    border-radius:999px;
+    border:1.5px solid transparent;
+    background:var(--cream);
+    color:var(--muted);
+    opacity:.55;
+  }
+  .status-pill:hover{opacity:.85;}
+  .status-pill.active{opacity:1;}
+  .status-pill[data-status="open"].active{background:#FBF0C9;color:#8A6D00;border-color:#E8CE5A;}
+  .status-pill[data-status="resolved"].active{background:#DCEAD9;color:#3E6B39;border-color:#A9C9A2;}
+  .status-pill[data-status="postponed"].active{background:#E7E4E1;color:#6B6560;border-color:#CFC9C3;}
+  .role-row{
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .role-row .rname{font-weight:700;font-size:13.5px;}
+  .role-row .remail{font-size:12px;color:var(--muted);}
+  .role-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-left:8px;}
+  .role-badge.admin{background:#F4E0D8;color:var(--coral);}
+  .role-badge.moderator{background:#DCEAD9;color:#3E6B39;}
+  .role-badge.user{background:var(--cream);color:var(--muted);}
+  .role-row button{margin-top:0;width:auto;padding:7px 14px;font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -199,6 +234,7 @@
       <button class="tab active" data-tab="broadcast">Broadcast</button>
       <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
       <button class="tab" data-tab="bugs">Bugs <span id="bugsBadge"></span></button>
+      <button class="tab" data-tab="roles">Roles</button>
     </div>
 
     <div class="panel active" id="panelBroadcast">
@@ -234,6 +270,16 @@
       <div id="bugsList"><p class="empty-note">Loading…</p></div>
       <div id="bugStatus"></div>
     </div>
+
+    <div class="panel" id="panelRoles">
+      <p class="hint" style="margin-top:0;">Search by username or email, then grant/revoke moderator access. Moderators can remove inappropriate comments while signed in to the app — they don't get this admin panel.</p>
+      <div class="lockrow" style="margin-bottom:16px;">
+        <input type="text" id="roleSearchInput" placeholder="Search username or email">
+        <button id="roleSearchBtn">Search</button>
+      </div>
+      <div id="rolesList"><p class="empty-note">Loading current moderators…</p></div>
+      <div id="roleStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -256,7 +302,7 @@
     lockScreen.style.display = 'none';
     mainScreen.style.display = 'block';
     loadPendingPhotos();
-    loadOpenBugs();
+    loadAllBugs();
   });
 
   secretInput.addEventListener('keydown', function(e){
@@ -270,8 +316,10 @@
       document.getElementById('panelBroadcast').classList.toggle('active', tab.dataset.tab === 'broadcast');
       document.getElementById('panelPhotos').classList.toggle('active', tab.dataset.tab === 'photos');
       document.getElementById('panelBugs').classList.toggle('active', tab.dataset.tab === 'bugs');
+      document.getElementById('panelRoles').classList.toggle('active', tab.dataset.tab === 'roles');
       if(tab.dataset.tab === 'photos') loadPendingPhotos();
-      if(tab.dataset.tab === 'bugs') loadOpenBugs();
+      if(tab.dataset.tab === 'bugs') loadAllBugs();
+      if(tab.dataset.tab === 'roles') loadRoles();
     });
   });
 
@@ -421,11 +469,16 @@
     }
   });
 
-  // ---- Bug reports ----
+  // ---- Bug reports ("Silly Little Bugs") ----
+  // Shows every bug report with a persistent 3-way status toggle
+  // (Open / Solved / Postponed) rather than a one-shot action that
+  // removes the row — so you can flip a bug back and forth as needed
+  // and still see the whole queue at a glance.
   const bugsList = document.getElementById('bugsList');
   const bugStatusEl = document.getElementById('bugStatus');
   const bugsBadge = document.getElementById('bugsBadge');
-  document.getElementById('refreshBugsBtn').addEventListener('click', loadOpenBugs);
+  document.getElementById('refreshBugsBtn').addEventListener('click', loadAllBugs);
+  const BUG_STATUS_LABEL = { open: 'Open', resolved: 'Solved', postponed: 'Postponed' };
 
   function showBugStatus(msg, type){
     bugStatusEl.textContent = msg;
@@ -434,11 +487,11 @@
     setTimeout(function(){ bugStatusEl.style.display = 'none'; }, 3500);
   }
 
-  async function loadOpenBugs(){
+  async function loadAllBugs(){
     if(!broadcastKey) return;
     bugsList.innerHTML = '<p class="empty-note">Loading…</p>';
     try{
-      const res = await fetch('/api/community/bugs?status=open', {
+      const res = await fetch('/api/community/bugs?status=all', {
         headers: { 'X-Broadcast-Key': broadcastKey }
       });
       const data = await res.json();
@@ -447,19 +500,22 @@
         return;
       }
       const bugs = data.bugs || [];
-      bugsBadge.textContent = bugs.length ? '(' + bugs.length + ')' : '';
+      const openCount = bugs.filter(function(b){ return b.status === 'open' || !b.status; }).length;
+      bugsBadge.textContent = openCount ? '(' + openCount + ')' : '';
       if(!bugs.length){
-        bugsList.innerHTML = '<p class="empty-note">No open bug reports. 🎉</p>';
+        bugsList.innerHTML = '<p class="empty-note">No bug reports yet. 🎉</p>';
         return;
       }
       bugsList.innerHTML = bugs.map(function(b){
+        const status = b.status || 'open';
         return '<div class="photo-card" data-id="' + b.id + '" style="display:block;">' +
           '<div class="pname">' + escapeHtml(b.title) + '</div>' +
           (b.body ? '<div class="pnote">' + escapeHtml(b.body) + '</div>' : '') +
           '<div class="pmeta">Reported by ' + escapeHtml(b.username || b.email || 'a user') + ' · ' + new Date(b.created_at).toLocaleString() + '</div>' +
-          '<div class="photo-actions">' +
-            '<button class="btn-approve" data-bugaction="resolved" data-id="' + b.id + '">Mark Resolved</button>' +
-            '<button class="btn-reject" data-bugaction="dismissed" data-id="' + b.id + '">Dismiss</button>' +
+          '<div class="status-toggle">' +
+            ['open','resolved','postponed'].map(function(s){
+              return '<button class="status-pill' + (s===status?' active':'') + '" data-bugaction="' + s + '" data-id="' + b.id + '" data-status="' + s + '">' + BUG_STATUS_LABEL[s] + '</button>';
+            }).join('') +
           '</div>' +
         '</div>';
       }).join('');
@@ -473,7 +529,9 @@
     if(!btn) return;
     const id = btn.dataset.id;
     const status = btn.dataset.bugaction;
-    btn.disabled = true;
+    if(btn.classList.contains('active')) return; // already this status
+    const group = btn.closest('.status-toggle');
+    group.querySelectorAll('.status-pill').forEach(function(p){ p.disabled = true; });
     try{
       const res = await fetch('/api/community/bugs', {
         method: 'POST',
@@ -486,17 +544,93 @@
       const data = await res.json();
       if(!res.ok){
         showBugStatus('Error: ' + (data.error || 'Request failed'), 'err');
+      } else {
+        group.querySelectorAll('.status-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.status === status); });
+        showBugStatus('Marked "' + BUG_STATUS_LABEL[status] + '".', 'ok');
+        const openCount = bugsList.querySelectorAll('.status-pill[data-status="open"].active').length;
+        bugsBadge.textContent = openCount ? '(' + openCount + ')' : '';
+      }
+    }catch(err){
+      showBugStatus('Network error — please try again.', 'err');
+    }finally{
+      group.querySelectorAll('.status-pill').forEach(function(p){ p.disabled = false; });
+    }
+  });
+
+  // ---- Roles: grant/revoke moderator access ----
+  const rolesList = document.getElementById('rolesList');
+  const roleStatusEl = document.getElementById('roleStatus');
+  const roleSearchInput = document.getElementById('roleSearchInput');
+  document.getElementById('roleSearchBtn').addEventListener('click', function(){ loadRoles(roleSearchInput.value.trim()); });
+  roleSearchInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') loadRoles(roleSearchInput.value.trim()); });
+
+  function showRoleStatus(msg, type){
+    roleStatusEl.textContent = msg;
+    roleStatusEl.className = type;
+    roleStatusEl.style.display = 'block';
+    setTimeout(function(){ roleStatusEl.style.display = 'none'; }, 3500);
+  }
+
+  async function loadRoles(q){
+    if(!broadcastKey) return;
+    rolesList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const url = '/api/admin/roles' + (q ? '?q=' + encodeURIComponent(q) : '');
+      const res = await fetch(url, { headers: { 'X-Broadcast-Key': broadcastKey } });
+      const data = await res.json();
+      if(!res.ok){
+        rolesList.innerHTML = '<p class="empty-note">Error: ' + escapeHtml(data.error || 'Request failed') + '</p>';
+        return;
+      }
+      const users = data.users || [];
+      if(!users.length){
+        rolesList.innerHTML = '<p class="empty-note">' + (q ? 'No matching users.' : 'No moderators yet — search above to add one.') + '</p>';
+        return;
+      }
+      rolesList.innerHTML = users.map(function(u){
+        const role = u.role || 'user';
+        let actionBtn = '';
+        if(role === 'moderator'){
+          actionBtn = '<button class="btn-reject" data-roleaction="user" data-id="' + u.id + '">Remove moderator</button>';
+        } else if(role !== 'admin'){
+          actionBtn = '<button class="btn-approve" data-roleaction="moderator" data-id="' + u.id + '">Make moderator</button>';
+        }
+        return '<div class="role-row" data-id="' + u.id + '">' +
+          '<div>' +
+            '<span class="rname">' + escapeHtml(u.username || 'Unnamed') + '</span>' +
+            '<span class="role-badge ' + role + '">' + role + '</span>' +
+            '<div class="remail">' + escapeHtml(u.email || '') + '</div>' +
+          '</div>' +
+          actionBtn +
+        '</div>';
+      }).join('');
+    }catch(err){
+      rolesList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  rolesList.addEventListener('click', async function(e){
+    const btn = e.target.closest('button[data-roleaction]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const role = btn.dataset.roleaction;
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/admin/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+        body: JSON.stringify({ action: 'set-role', userId: id, role: role })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        showRoleStatus('Error: ' + (data.error || 'Request failed'), 'err');
         btn.disabled = false;
         return;
       }
-      showBugStatus(status === 'resolved' ? 'Marked resolved.' : 'Dismissed.', 'ok');
-      const card = bugsList.querySelector('.photo-card[data-id="' + id + '"]');
-      if(card) card.remove();
-      const remaining = bugsList.querySelectorAll('.photo-card').length;
-      bugsBadge.textContent = remaining ? '(' + remaining + ')' : '';
-      if(!remaining) bugsList.innerHTML = '<p class="empty-note">No open bug reports. 🎉</p>';
+      showRoleStatus(role === 'moderator' ? 'Granted moderator access.' : 'Moderator access removed.', 'ok');
+      loadRoles(roleSearchInput.value.trim());
     }catch(err){
-      showBugStatus('Network error — please try again.', 'err');
+      showRoleStatus('Network error — please try again.', 'err');
       btn.disabled = false;
     }
   });
