@@ -1583,7 +1583,7 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
 }
 
 /* ---------- Find a Mosque :: "screen protector" sneak-peek overlay ---------- */
-.mq-preview-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);transition:opacity .35s ease;}
+.mq-preview-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:96px 24px 24px;background:var(--bg);transition:opacity .35s ease;overflow-y:auto;}
 .mq-preview-overlay.is-hidden{opacity:0;pointer-events:none;}
 .mq-preview-overlay .cs-card{max-width:420px;}
 .mq-peek-btn{margin-top:6px;background:var(--coral);color:#fff;border:none;border-radius:14px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;}
