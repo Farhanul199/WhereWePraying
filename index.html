@@ -1582,6 +1582,16 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
   .mq-time-cell .mq-prayer-time{font-size:11.5px;}
 }
 
+/* ---------- Find a Mosque :: "screen protector" sneak-peek overlay ---------- */
+.mq-preview-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);transition:opacity .35s ease;}
+.mq-preview-overlay.is-hidden{opacity:0;pointer-events:none;}
+.mq-preview-overlay .cs-card{max-width:420px;}
+.mq-peek-btn{margin-top:6px;background:var(--coral);color:#fff;border:none;border-radius:14px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;}
+.mq-peek-btn:hover{background:var(--coral-dark);}
+.mq-hide-btn{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-dim);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.mq-hide-btn:hover{border-color:var(--coral);color:var(--coral);}
+.mq-hide-btn.hidden{display:none;}
+
 /* ---------- Homepage ---------- */
 #page-home .home-font{font-family:'Lora',serif;}
 #page-home .page{padding:0;max-width:none;}
@@ -5178,11 +5188,28 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 <div class="mosque-backdrop">
   <img src="assets/mosque/coming-soon-backdrop.webp" alt="" aria-hidden="true">
 </div>
+
+<div id="mqPreviewOverlay" class="mq-preview-overlay">
+  <div class="cs-card">
+    <div class="cs-art">
+      <img src="assets/coming-soon/find-a-mosque.webp" alt="Illustrated oasis with a mosque at sunset" width="900" height="770">
+    </div>
+    <div class="cs-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    </div>
+    <span class="cs-badge"><span class="dot"></span>Coming Soon</span>
+    <h2>Find a Mosque</h2>
+    <p class="cs-desc">We're building a simple way to find nearby mosques and the next available Jama'ah.</p>
+    <button type="button" id="mqPeekBtn" class="mq-peek-btn">Sneak peek the live build</button>
+  </div>
+</div>
+
 <main class="page">
   <div class="mq-wrap">
     <div class="mq-header">
       <h1>Find a Mosque</h1>
       <p class="mq-sub">Real Jama'ah times set by each mosque's own committee — not an estimate.</p>
+      <button type="button" id="mqHideBtn" class="mq-hide-btn hidden">Hide preview</button>
     </div>
     <div id="mqStatus" class="mq-status"></div>
     <div id="mqList" class="mq-list"></div>
@@ -15035,6 +15062,32 @@ init();
   if(!document.getElementById('page-mosque')?.classList.contains('hidden')){
     onMosqueShown();
   }
+
+  // ---- "Screen protector" sneak-peek overlay ----
+  // The real list loads in the background regardless (see above), so
+  // whichever state the overlay is in, revealing it just uncovers data
+  // that's already there. Choice persists across visits via localStorage.
+  const PEEK_KEY = 'wwp_mosque_preview_unlocked';
+  const overlay = document.getElementById('mqPreviewOverlay');
+  const peekBtn = document.getElementById('mqPeekBtn');
+  const hideBtn = document.getElementById('mqHideBtn');
+
+  function setPeekState(unlocked){
+    if(!overlay || !hideBtn) return;
+    overlay.classList.toggle('is-hidden', unlocked);
+    hideBtn.classList.toggle('hidden', !unlocked);
+    try{
+      if(unlocked) localStorage.setItem(PEEK_KEY, '1');
+      else localStorage.removeItem(PEEK_KEY);
+    }catch(e){}
+  }
+
+  let alreadyUnlocked = false;
+  try{ alreadyUnlocked = localStorage.getItem(PEEK_KEY) === '1'; }catch(e){}
+  setPeekState(alreadyUnlocked);
+
+  peekBtn?.addEventListener('click', ()=> setPeekState(true));
+  hideBtn?.addEventListener('click', ()=> setPeekState(false));
 })();
 </script>
 
