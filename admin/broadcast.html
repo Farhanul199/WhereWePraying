@@ -236,6 +236,7 @@
       <button class="tab active" data-tab="broadcast">Broadcast</button>
       <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
       <button class="tab" data-tab="mosquephotos">Mosque Photos <span id="mqPendingBadge"></span></button>
+      <button class="tab" data-tab="locations">Locations</button>
       <button class="tab" data-tab="bugs">Bugs <span id="bugsBadge"></span></button>
       <button class="tab" data-tab="roles">Roles</button>
     </div>
@@ -286,6 +287,57 @@
         <button id="mqRefreshPendingBtn">Refresh</button>
       </div>
       <div id="mqPendingList"><p class="empty-note">Loading…</p></div>
+    </div>
+
+    <div class="panel" id="panelLocations">
+      <p class="hint" style="margin-top:0;">Add a mosque, community hall, or prayer room, then set its daily Jama'ah times or Friday Jummah slots — no D1 console needed.</p>
+
+      <h3 style="margin:0 0 10px;font-size:14px;">Add a location</h3>
+      <label for="locNewName">Name</label>
+      <input type="text" id="locNewName" placeholder="e.g. Aberfeldy Masjid">
+      <label for="locNewType">Type</label>
+      <select id="locNewType">
+        <option value="mosque">Mosque</option>
+        <option value="community_hall">Community Hall</option>
+        <option value="prayer_room">Prayer Room</option>
+      </select>
+      <button id="locCreateBtn">Add location</button>
+      <div id="locCreateStatus"></div>
+
+      <h3 style="margin:26px 0 10px;font-size:14px;">Daily Jama'ah times (Fajr / Dhuhr / Asr / Maghrib / Isha)</h3>
+      <label for="locDailySlug">Location</label>
+      <select id="locDailySlug"><option value="">Loading locations…</option></select>
+      <label for="locDailyDate">Date</label>
+      <input type="date" id="locDailyDate">
+      <label for="locFajr">Fajr</label>
+      <input type="text" id="locFajr" placeholder="e.g. 5:15">
+      <label for="locZuhr">Dhuhr</label>
+      <input type="text" id="locZuhr" placeholder="e.g. 1:00">
+      <label for="locAsr">Asr</label>
+      <input type="text" id="locAsr" placeholder="e.g. 5:45">
+      <label for="locMaghrib">Maghrib</label>
+      <input type="text" id="locMaghrib" placeholder="e.g. 7:30">
+      <label for="locIsha">Isha</label>
+      <input type="text" id="locIsha" placeholder="e.g. 9:00">
+      <button id="locDailySaveBtn">Save daily times</button>
+      <div id="locDailyStatus"></div>
+
+      <h3 style="margin:26px 0 10px;font-size:14px;">Friday Jummah slots</h3>
+      <p class="hint" style="margin-top:0;">Add one row per khutbah/jama'ah this location runs. Saving replaces whatever was set for that Friday.</p>
+      <label for="locJummahSlug">Location</label>
+      <select id="locJummahSlug"><option value="">Loading locations…</option></select>
+      <label for="locJummahDate">Friday</label>
+      <input type="date" id="locJummahDate">
+      <div id="locJummahSlots"></div>
+      <button id="locJummahAddSlotBtn" type="button">+ Add slot</button>
+      <button id="locJummahSaveBtn">Save Jummah slots</button>
+      <div id="locJummahStatus"></div>
+
+      <h3 style="margin:26px 0 10px;font-size:14px;">All locations</h3>
+      <div class="refresh-row">
+        <button id="locRefreshBtn">Refresh</button>
+      </div>
+      <div id="locList"><p class="empty-note">Loading…</p></div>
     </div>
 
     <div class="panel" id="panelBugs">
@@ -342,10 +394,12 @@
       document.getElementById('panelBroadcast').classList.toggle('active', tab.dataset.tab === 'broadcast');
       document.getElementById('panelPhotos').classList.toggle('active', tab.dataset.tab === 'photos');
       document.getElementById('panelMosquePhotos').classList.toggle('active', tab.dataset.tab === 'mosquephotos');
+      document.getElementById('panelLocations').classList.toggle('active', tab.dataset.tab === 'locations');
       document.getElementById('panelBugs').classList.toggle('active', tab.dataset.tab === 'bugs');
       document.getElementById('panelRoles').classList.toggle('active', tab.dataset.tab === 'roles');
       if(tab.dataset.tab === 'photos') loadPendingPhotos();
       if(tab.dataset.tab === 'mosquephotos'){ loadMosqueOptions(); loadCurrentMosquePhotos(); loadPendingMosquePhotos(); }
+      if(tab.dataset.tab === 'locations'){ loadLocations(); }
       if(tab.dataset.tab === 'bugs') loadAllBugs();
       if(tab.dataset.tab === 'roles') loadRoles();
     });
@@ -833,6 +887,177 @@
       btn.disabled = false;
     }
   });
+
+  // ---- Locations tab: create locations, set daily & Jummah times ----
+  const locNewName = document.getElementById('locNewName');
+  const locNewType = document.getElementById('locNewType');
+  const locCreateBtn = document.getElementById('locCreateBtn');
+  const locCreateStatus = document.getElementById('locCreateStatus');
+  const locDailySlug = document.getElementById('locDailySlug');
+  const locDailyDate = document.getElementById('locDailyDate');
+  const locFajr = document.getElementById('locFajr');
+  const locZuhr = document.getElementById('locZuhr');
+  const locAsr = document.getElementById('locAsr');
+  const locMaghrib = document.getElementById('locMaghrib');
+  const locIsha = document.getElementById('locIsha');
+  const locDailySaveBtn = document.getElementById('locDailySaveBtn');
+  const locDailyStatus = document.getElementById('locDailyStatus');
+  const locJummahSlug = document.getElementById('locJummahSlug');
+  const locJummahDate = document.getElementById('locJummahDate');
+  const locJummahSlots = document.getElementById('locJummahSlots');
+  const locJummahAddSlotBtn = document.getElementById('locJummahAddSlotBtn');
+  const locJummahSaveBtn = document.getElementById('locJummahSaveBtn');
+  const locJummahStatus = document.getElementById('locJummahStatus');
+  const locList = document.getElementById('locList');
+  const locRefreshBtn = document.getElementById('locRefreshBtn');
+
+  function todayIsoLocal(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  if(locDailyDate) locDailyDate.value = todayIsoLocal();
+
+  function addJummahSlotRow(value){
+    const row = document.createElement('div');
+    row.className = 'lockrow';
+    row.style.marginBottom = '8px';
+    row.innerHTML = '<input type="text" class="loc-jummah-slot-input" placeholder="e.g. 1:00" value="' + escapeHtml(value || '') + '">' +
+      '<button type="button" class="loc-jummah-remove-slot">Remove</button>';
+    locJummahSlots.appendChild(row);
+  }
+  if(locJummahSlots && !locJummahSlots.children.length){ addJummahSlotRow(); }
+
+  locJummahAddSlotBtn && locJummahAddSlotBtn.addEventListener('click', function(){ addJummahSlotRow(); });
+  locJummahSlots && locJummahSlots.addEventListener('click', function(e){
+    if(e.target.classList.contains('loc-jummah-remove-slot')){
+      if(locJummahSlots.children.length > 1) e.target.closest('.lockrow').remove();
+    }
+  });
+
+  let locationsCache = [];
+
+  async function loadLocations(){
+    if(!broadcastKey) return;
+    locList.innerHTML = '<p class="empty-note">Loading…</p>';
+    try{
+      const res = await fetch('/api/mosques/manage', { headers: { 'X-Broadcast-Key': broadcastKey } });
+      const data = await res.json();
+      if(!res.ok){ locList.innerHTML = '<p class="empty-note">Error: ' + escapeHtml(data.error || 'Request failed') + '</p>'; return; }
+      locationsCache = data.locations || [];
+
+      const typeLabel = { mosque: 'Mosque', community_hall: 'Community Hall', prayer_room: 'Prayer Room' };
+      const optionsHtml = locationsCache.length
+        ? locationsCache.map(function(l){ return '<option value="' + escapeHtml(l.slug) + '">' + escapeHtml(l.name) + '</option>'; }).join('')
+        : '<option value="">No locations yet</option>';
+      locDailySlug.innerHTML = optionsHtml;
+      locJummahSlug.innerHTML = optionsHtml;
+
+      locList.innerHTML = locationsCache.length
+        ? locationsCache.map(function(l){
+            return '<div class="photo-row"><div><strong>' + escapeHtml(l.name) + '</strong><br>' +
+              '<span class="hint" style="margin:0;">' + (typeLabel[l.type] || l.type) + ' · ' + (l.active ? 'Active' : 'Inactive') + ' · ' + escapeHtml(l.slug) + '</span></div>' +
+              '<button type="button" class="loc-toggle-active" data-slug="' + escapeHtml(l.slug) + '" data-active="' + (l.active ? '1' : '0') + '">' + (l.active ? 'Deactivate' : 'Activate') + '</button></div>';
+          }).join('')
+        : '<p class="empty-note">No locations yet — add one above.</p>';
+    }catch(err){
+      locList.innerHTML = '<p class="empty-note">Network error — please try again.</p>';
+    }
+  }
+
+  locList && locList.addEventListener('click', async function(e){
+    const btn = e.target.closest('.loc-toggle-active');
+    if(!btn) return;
+    btn.disabled = true;
+    try{
+      await fetch('/api/mosques/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+        body: JSON.stringify({ action: 'update_location', slug: btn.dataset.slug, active: btn.dataset.active !== '1' })
+      });
+      loadLocations();
+    }catch(err){
+      btn.disabled = false;
+    }
+  });
+
+  locCreateBtn && locCreateBtn.addEventListener('click', async function(){
+    const name = locNewName.value.trim();
+    if(!name){ locCreateStatus.textContent = 'Enter a name first.'; return; }
+    locCreateBtn.disabled = true;
+    locCreateStatus.textContent = 'Saving…';
+    try{
+      const res = await fetch('/api/mosques/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+        body: JSON.stringify({ action: 'create_location', name: name, type: locNewType.value })
+      });
+      const data = await res.json();
+      if(!res.ok){ locCreateStatus.textContent = 'Error: ' + (data.error || 'Request failed'); return; }
+      locCreateStatus.textContent = 'Added "' + name + '".';
+      locNewName.value = '';
+      loadLocations();
+    }catch(err){
+      locCreateStatus.textContent = 'Network error — please try again.';
+    }finally{
+      locCreateBtn.disabled = false;
+    }
+  });
+
+  locDailySaveBtn && locDailySaveBtn.addEventListener('click', async function(){
+    const slug = locDailySlug.value;
+    const date = locDailyDate.value;
+    if(!slug){ locDailyStatus.textContent = 'Pick a location first.'; return; }
+    if(!date){ locDailyStatus.textContent = 'Pick a date first.'; return; }
+    locDailySaveBtn.disabled = true;
+    locDailyStatus.textContent = 'Saving…';
+    try{
+      const res = await fetch('/api/mosques/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+        body: JSON.stringify({
+          action: 'set_daily_times', slug: slug, date: date,
+          fajr: locFajr.value.trim(), zuhr: locZuhr.value.trim(), asr: locAsr.value.trim(),
+          maghrib: locMaghrib.value.trim(), isha: locIsha.value.trim()
+        })
+      });
+      const data = await res.json();
+      if(!res.ok){ locDailyStatus.textContent = 'Error: ' + (data.error || 'Request failed'); return; }
+      locDailyStatus.textContent = 'Saved daily times for ' + date + '.';
+    }catch(err){
+      locDailyStatus.textContent = 'Network error — please try again.';
+    }finally{
+      locDailySaveBtn.disabled = false;
+    }
+  });
+
+  locJummahSaveBtn && locJummahSaveBtn.addEventListener('click', async function(){
+    const slug = locJummahSlug.value;
+    const date = locJummahDate.value;
+    if(!slug){ locJummahStatus.textContent = 'Pick a location first.'; return; }
+    if(!date){ locJummahStatus.textContent = 'Pick a Friday date first.'; return; }
+    const slots = Array.from(locJummahSlots.querySelectorAll('.loc-jummah-slot-input'))
+      .map(function(i){ return { time: i.value.trim() }; })
+      .filter(function(s){ return s.time; });
+    if(!slots.length){ locJummahStatus.textContent = 'Add at least one slot time.'; return; }
+    locJummahSaveBtn.disabled = true;
+    locJummahStatus.textContent = 'Saving…';
+    try{
+      const res = await fetch('/api/mosques/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': broadcastKey },
+        body: JSON.stringify({ action: 'set_jummah_times', slug: slug, date: date, slots: slots })
+      });
+      const data = await res.json();
+      if(!res.ok){ locJummahStatus.textContent = 'Error: ' + (data.error || 'Request failed'); return; }
+      locJummahStatus.textContent = 'Saved ' + data.slotsSaved + ' Jummah slot(s) for ' + date + '.';
+    }catch(err){
+      locJummahStatus.textContent = 'Network error — please try again.';
+    }finally{
+      locJummahSaveBtn.disabled = false;
+    }
+  });
+
+  locRefreshBtn && locRefreshBtn.addEventListener('click', function(){ loadLocations(); });
 </script>
 
 </body>
