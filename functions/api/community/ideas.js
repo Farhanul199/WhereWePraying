@@ -8,7 +8,9 @@
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
-    headers: { 'Content-Type': 'application/json' },
+    // Community data changes often and must always be read fresh — never let
+    // a browser or intermediate cache serve a stale copy of this response.
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 }
 
@@ -24,6 +26,15 @@ async function resolveSession(context) {
     return session;
   } catch (e) {
     return null;
+  }
+}
+
+async function isModerator(context, userId) {
+  try {
+    const row = await context.env.DB.prepare(`SELECT role FROM users WHERE id = ?1`).bind(userId).first();
+    return !!(row && (row.role === 'admin' || row.role === 'moderator'));
+  } catch (e) {
+    return false;
   }
 }
 
@@ -134,6 +145,17 @@ export async function onRequestPost(context) {
          VALUES (?1, ?2, ?3, ?4, ?5)`
       ).bind(ideaId, parentId, userId, text, Date.now()).run();
 
+      return json({ success: true });
+    }
+
+    // ---- Moderator/admin: delete an inappropriate comment or reply ----
+    if (action === 'delete-comment') {
+      const commentId = parseInt(body.commentId, 10);
+      if (!Number.isInteger(commentId)) return json({ error: 'Invalid comment id' }, 400);
+      if (!(await isModerator(context, userId))) return json({ error: 'Unauthorized' }, 401);
+
+      // Remove the comment and, if it was a top-level comment, its replies too.
+      await db.prepare(`DELETE FROM community_comments WHERE id = ?1 OR parent_id = ?1`).bind(commentId).run();
       return json({ success: true });
     }
 
