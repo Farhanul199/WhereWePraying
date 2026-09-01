@@ -1944,35 +1944,36 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .pt-location-pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:999px;padding:10px 18px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;box-shadow:var(--shadow);}
 .pt-location-pill:hover{border-color:var(--coral);color:var(--coral);}
 
-/* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha — compact vertical capsules, mobile-first */
-.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:14px 0;}
-.pt-day-card{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:3px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:16px;padding:10px 3px 8px;min-width:0;}
+/* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha — compact 2-row cards, mobile-first */
+.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:14px 0;}
+.pt-day-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:11px;padding:8px 2px 7px;min-width:0;}
 [data-theme="dark"] .pt-day-card, [data-theme="amoled"] .pt-day-card{background:rgba(255,255,255,.04);}
 .pt-day-card.active{border-color:var(--coral);background:var(--coral-soft);box-shadow:0 2px 10px rgba(244,113,78,.16);}
-.pt-day-card .pdc-icon{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-day-card .pdc-top{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-width:0;}
+.pt-day-card .pdc-icon{width:15px;height:15px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
 .pt-day-card .pdc-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 [data-theme="dark"] .pt-day-card .pdc-icon, [data-theme="amoled"] .pt-day-card .pdc-icon{background:rgba(255,255,255,.06);}
 .pt-day-card.active .pdc-icon{background:rgba(255,255,255,.55);color:var(--coral);}
-.pt-day-card .pdc-body{min-width:0;width:100%;display:flex;flex-direction:column;align-items:center;gap:1px;}
-.pt-day-card .pdc-name{font-family:'Lora',serif;font-size:11px;font-weight:600;line-height:1.15;white-space:nowrap;}
+.pt-day-card .pdc-body{min-width:0;width:100%;display:flex;flex-direction:column;align-items:center;gap:0;}
+.pt-day-card .pdc-name{font-family:'Lora',serif;font-size:10px;font-weight:600;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .pt-day-card.active .pdc-name{color:var(--coral);}
-.pt-day-card .pdc-time{font-size:12px;color:var(--text-dim);font-weight:700;white-space:nowrap;margin-top:1px;}
+.pt-day-card .pdc-time{font-size:12px;color:var(--text-dim);font-weight:700;white-space:nowrap;margin-top:2px;line-height:1.15;}
 .pt-day-card.active .pdc-time{color:var(--coral-dark);}
-.pt-day-card .pdc-time-until{font-size:8.5px;color:var(--text-faint);font-weight:600;white-space:nowrap;opacity:.85;}
-.pt-day-card .pdc-time-alt{font-size:8px;color:var(--coral);font-weight:700;white-space:nowrap;margin-top:1px;opacity:.9;}
+.pt-day-card .pdc-time-until{font-size:7.5px;color:var(--text-faint);font-weight:600;white-space:nowrap;opacity:.85;line-height:1.2;margin-top:1px;}
+.pt-day-card .pdc-time-alt{font-size:7px;color:var(--coral);font-weight:700;white-space:nowrap;margin-top:1px;opacity:.9;line-height:1.2;}
 @media (max-width:380px){
-  .pt-day-row{gap:4px;}
-  .pt-day-card{padding:8px 2px 7px;border-radius:14px;}
-  .pt-day-card .pdc-icon{width:19px;height:19px;}
-  .pt-day-card .pdc-name{font-size:9.5px;}
+  .pt-day-row{gap:3px;}
+  .pt-day-card{padding:7px 1px 6px;border-radius:10px;}
+  .pt-day-card .pdc-icon{width:13px;height:13px;}
+  .pt-day-card .pdc-name{font-size:8.5px;}
   .pt-day-card .pdc-time{font-size:10.5px;}
-  .pt-day-card .pdc-time-until{font-size:7.5px;}
-  .pt-day-card .pdc-time-alt{font-size:7px;}
+  .pt-day-card .pdc-time-until{font-size:6.5px;}
+  .pt-day-card .pdc-time-alt{font-size:6px;}
 }
 @media (min-width:621px){
   .pt-day-row{gap:10px;}
-  .pt-day-card{padding:14px 8px 12px;border-radius:18px;gap:5px;}
-  .pt-day-card .pdc-icon{width:30px;height:30px;}
+  .pt-day-card{padding:13px 8px 11px;border-radius:16px;gap:4px;}
+  .pt-day-card .pdc-icon{width:24px;height:24px;}
   .pt-day-card .pdc-name{font-size:13px;}
   .pt-day-card .pdc-time{font-size:14px;}
   .pt-day-card .pdc-time-until{font-size:10px;}
@@ -7200,9 +7201,8 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
         ? '<div class="pdc-time-alt">Hanafi '+compactTime(state.timings.AsrHanafi)+'</div>'
         : '';
       return '<div class="pt-day-card'+(active?' active':'')+'" title="'+name+' '+compactTime(state.timings[name])+' – '+finish+'">'
-        + '<div class="pdc-icon">'+ptIconMarkup(name,32)+'</div>'
+        + '<div class="pdc-top"><span class="pdc-icon">'+ptIconMarkup(name,28)+'</span><span class="pdc-name">'+name+'</span></div>'
         + '<div class="pdc-body">'
-          + '<div class="pdc-name">'+name+'</div>'
           + '<div class="pdc-time">'+compactTime(state.timings[name])+'</div>'
           + '<div class="pdc-time-until">until '+finish+'</div>'
           + asrAlt
