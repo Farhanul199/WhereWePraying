@@ -6336,14 +6336,55 @@ const PrayerTimes = (function(){
     return h12+':'+String(m).padStart(2,'0')+' '+period;
   }
 
+  // Rough network-based location — no permission prompt, works the
+  // moment the page loads. Used as the first-run fallback so a fresh
+  // visitor (or one whose local storage got cleared) still gets a
+  // real nearby location instead of always landing on London.
+  async function detectRoughLocationByIP(){
+    try{
+      const res = await fetch('https://ipapi.co/json/');
+      if(!res.ok) throw new Error('ip lookup failed');
+      const d = await res.json();
+      if(d && typeof d.latitude === 'number' && typeof d.longitude === 'number'){
+        return {
+          lat: d.latitude, lon: d.longitude,
+          label: [d.city, d.region, d.country_name].filter(Boolean).join(', '),
+          tz: d.timezone || null,
+          source: 'ip'
+        };
+      }
+    }catch(e){ /* offline, blocked, or rate-limited — fall through */ }
+    return null;
+  }
+
+  // Silent GPS — only fires if the browser already has geolocation
+  // permission granted from a previous explicit "Use my location" tap,
+  // so this never surprises a first-time visitor with a permission
+  // prompt on page load.
+  async function detectSilentGeolocation(){
+    try{
+      if(!navigator.permissions || !navigator.permissions.query) return null;
+      const status = await navigator.permissions.query({name:'geolocation'});
+      if(status.state !== 'granted') return null;
+      const coords = await detectGeolocation();
+      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
+      let tz = null;
+      try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+    }catch(e){ return null; }
+  }
+
   async function init(){
     await loadSavedLocation();
     if(!state.location){
-      // No location prompt on load — Prayer Times now runs as a
-      // world-clock system anchored to London (GMT+0), so no user
-      // location is required. (Geolocation is reserved for a future
-      // toggle inside Find a Mosque, once that section is built.)
-      state.location = {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
+      // No saved location yet (first visit, or local storage was
+      // cleared). Try to auto-detect rather than forcing the person
+      // to pick a city by hand every time: silent GPS if already
+      // permitted, otherwise a rough IP-based estimate, otherwise the
+      // London default (still overridable any time via the location
+      // pill).
+      const loc = (await detectSilentGeolocation()) || (await detectRoughLocationByIP());
+      state.location = loc || {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
       saveLocation(state.location);
     }
     notify();
