@@ -586,11 +586,7 @@
     }
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  // escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
   // Deterministic watercolour-style avatar for anyone without a real
   // profile picture (i.e. not signed in via Google) — same seed always
