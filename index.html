@@ -9,6 +9,7 @@ window.WWPStorage = window.WWPStorage || {
   removeItem(key){ try { window.localStorage.removeItem(key); return true; } catch(e){ return false; } }
 };
 </script>
+<script>
 // Capture ?previewTheme= / ?previewEvent= before the router's
 // history.replaceState (later in the page) wipes the query string.
 // ==> CONNECT: read by admin/theme-preview.html's forced-theme logic
