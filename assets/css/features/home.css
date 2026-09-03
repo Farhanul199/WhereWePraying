@@ -1,0 +1,183 @@
+#page-home .home-font{font-family:'Lora',serif;}
+#page-home .page{padding:0;max-width:none;}
+
+/* Hero */
+.home-hero{position:relative;max-width:1400px;margin:0 auto;padding:48px 40px 0;display:grid;grid-template-columns:minmax(320px,460px) 1fr;gap:24px;align-items:start;}
+.home-hero-text{padding-top:12px;}
+.home-eyebrow{display:inline-flex;align-items:center;gap:6px;background:var(--coral-soft);border:1px solid var(--beam);color:var(--coral-dark);font-size:13.5px;font-weight:700;border-radius:999px;padding:7px 16px;margin-bottom:22px;}
+.home-h1{font-family:'Lora',serif;font-weight:600;font-size:47px;line-height:1.1;color:var(--text);margin-bottom:18px;letter-spacing:-.01em;}
+.home-h1 .accent{color:var(--coral);}
+.home-h1-jummah{display:none;color:var(--coral);}
+body[data-event-theme="jummah"] .home-h1-standard{display:none;}
+body[data-event-theme="jummah"] .home-h1-jummah{display:block;}
+.home-h1-ramadan{display:none;color:var(--coral);}
+body[data-event-theme="ramadan"] .home-h1-standard{display:none;}
+body[data-event-theme="ramadan"] .home-h1-ramadan{display:block;}
+.home-desc{font-size:17px;line-height:1.65;color:var(--text-dim);max-width:400px;margin-bottom:28px;}
+.home-desc-jummah{display:none;}
+body[data-event-theme="jummah"] .home-desc-standard{display:none;}
+body[data-event-theme="jummah"] .home-desc-jummah{display:block;}
+.home-desc-ramadan{display:none;}
+body[data-event-theme="ramadan"] .home-desc-standard{display:none;}
+body[data-event-theme="ramadan"] .home-desc-ramadan{display:block;}
+.home-hero-actions{display:flex;gap:14px;flex-wrap:wrap;}
+.home-jummah-reminders{display:none;list-style:none;margin:0 0 28px;max-width:400px;}
+body[data-event-theme="jummah"] .home-jummah-reminders{display:block;}
+.home-fasting-note{display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);margin:-10px 0 20px;padding:6px 12px;background:rgba(244,113,78,.07);border:1px solid rgba(244,113,78,.16);border-radius:99px;width:fit-content;}
+body[data-event-theme="jummah"] .home-fasting-note,body[data-event-theme="ramadan"] .home-fasting-note{display:none!important;}
+.home-fasting-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);flex:none;}
+.home-jummah-reminders li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.5;color:var(--text-dim);margin-bottom:10px;}
+/* Tick button: light sage/grey when undone, switches to the active
+   theme accent (coral normally, sage green in Jummah) once pressed.
+   No box/border — just the check glyph itself changing color+weight. */
+.hjr-check{flex:none;margin-top:1px;background:none;border:none;padding:0;cursor:pointer;color:#B9C2B6;display:flex;align-items:center;justify-content:center;transition:color .15s ease,transform .15s ease;}
+.hjr-check:hover{color:#93A190;}
+.hjr-check svg{display:block;}
+li[data-deed-id].done .hjr-check{color:var(--coral);transform:scale(1.08);}
+[data-theme="dark"] .hjr-check, [data-theme="amoled"] .hjr-check{color:#4A5049;}
+[data-theme="dark"] .hjr-check:hover, [data-theme="amoled"] .hjr-check:hover{color:#626B60;}
+.hjr-text{color:inherit;text-decoration:none;}
+li[data-deed-id].done .hjr-text{color:var(--text);}
+a.hjr-text{cursor:pointer;}
+a.hjr-text:hover{color:var(--coral);}
+a.hjr-text:hover .hjr-arrow{transform:translateX(3px);}
+.hjr-arrow{display:inline-block;transition:transform .15s ease;margin-left:1px;}
+/* Jummah-only: Al-Kahf line gets a subtle sage highlight treatment on
+   top of the normal reminder-row styling, so it stands out as the
+   day's signature recommended act. */
+body[data-event-theme="jummah"] li[data-deed-id="jummah-kahf"]{
+  background:var(--coral-soft); border-radius:12px; padding:8px 10px; margin:-8px -10px 10px;
+}
+body[data-event-theme="jummah"] li[data-deed-id="jummah-kahf"] a.hjr-text{font-weight:700; color:var(--coral-dark);}
+
+/* First/Last 10 Ayah quick-jump boxes — Jummah only. Sage-green
+   gradient fill with a glistening/twinkling sparkle effect, matching
+   the Jummah theme's sparkle motif used elsewhere on the homepage. */
+.hjr-kahf-boxes{display:none;gap:12px;margin:2px 0 26px;flex-wrap:wrap;}
+body[data-event-theme="jummah"] .hjr-kahf-boxes{display:flex;}
+.hjr-kahf-box{
+  position:relative; overflow:hidden;
+  flex:1 1 170px; min-width:170px;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:16px 14px; border-radius:14px;
+  font-size:13px; font-weight:700; line-height:1.4;
+  color:var(--coral-dark); text-decoration:none;
+  background:linear-gradient(135deg, var(--coral-soft) 0%, var(--beam) 100%);
+  border:1.5px solid var(--coral);
+  box-shadow:0 4px 16px rgba(124,156,121,.18);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.hjr-kahf-box:hover{transform:translateY(-2px); box-shadow:0 8px 22px rgba(124,156,121,.28);}
+.hjr-kahf-box-sparkle{
+  position:absolute; pointer-events:none; color:#fff; opacity:0;
+  animation:wwp-sparkle-twinkle 3.2s ease-in-out infinite;
+}
+.hjr-kahf-box-sparkle:nth-child(1){left:14%; top:18%; font-size:11px; animation-delay:.2s;}
+.hjr-kahf-box-sparkle:nth-child(2){right:16%; top:22%; font-size:9px; animation-delay:1.4s;}
+.hjr-kahf-box-sparkle:nth-child(3){left:50%; bottom:16%; font-size:10px; animation-delay:2.3s;}
+@media (prefers-reduced-motion: reduce){ .hjr-kahf-box-sparkle{animation:none; opacity:.5;} }
+.home-ramadan-reminders{display:none;list-style:none;margin:0 0 28px;max-width:400px;}
+body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
+.home-ramadan-reminders li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.5;color:var(--text-dim);margin-bottom:10px;}
+.home-ramadan-reminders li svg{flex:none;margin-top:3px;color:var(--coral);}
+.home-btn{display:inline-flex;align-items:center;gap:9px;border-radius:12px;padding:13px 22px;font-size:14.5px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid transparent;}
+.home-btn-primary{background:var(--coral);color:#fff;}
+.home-btn-primary:hover{background:var(--coral-dark);}
+.home-btn-secondary{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);color:var(--text);border-color:var(--border);}
+.home-btn-secondary:hover{border-color:var(--coral);color:var(--coral);}
+
+.home-hero-art{position:relative;aspect-ratio:1400/933;min-height:0;}
+.home-hero-art img{width:100%;height:100%;object-fit:cover;display:block;-webkit-mask-image:radial-gradient(ellipse 72% 68% at 52% 46%,#000 50%,transparent 100%);mask-image:radial-gradient(ellipse 72% 68% at 52% 46%,#000 50%,transparent 100%);}
+
+/* Prayer strip */
+.home-prayer-strip{max-width:1260px;margin:8px auto 0;padding:0 40px;position:relative;z-index:2;}
+.home-prayer-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:22px 30px;display:flex;align-items:center;gap:30px;flex-wrap:wrap;}
+.home-next-prayer{display:flex;flex-direction:column;gap:4px;padding-right:28px;border-right:1px solid var(--border);flex:none;}
+.home-next-prayer .label{font-size:12px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+.home-next-prayer .name-time{display:flex;align-items:baseline;gap:10px;}
+.home-next-prayer .name{font-size:22px;font-weight:800;}
+.home-next-prayer .time{font-size:16px;font-weight:700;color:var(--text-dim);}
+.home-next-prayer .remaining{font-size:13px;font-weight:700;color:var(--coral);}
+.home-prayer-quote-divider{width:1px;align-self:stretch;background:var(--border);flex:none;}
+.home-prayer-quote{flex:1;min-width:200px;max-width:300px;cursor:pointer;border-radius:10px;padding:2px 6px;margin:-2px -6px;transition:background .15s ease;}
+.home-prayer-quote:hover{background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);}
+.home-prayer-quote .hpq-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--coral);margin-bottom:3px;}
+.home-prayer-quote .hpq-headline{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.home-prayer-quote .hpq-text{font-size:11.5px;line-height:1.45;color:var(--text-dim);}
+.home-prayer-quote .hpq-cite{display:block;text-align:right;font-size:10px;color:var(--text-faint);margin-top:4px;}
+@media (max-width:720px){
+  .home-prayer-quote-divider{display:none;}
+  .home-prayer-quote{border-top:1px solid var(--border);padding-top:12px;margin-top:0;width:100%;max-width:none;}
+}
+.home-timeline{display:flex;align-items:center;gap:26px;flex:1;flex-wrap:wrap;}
+.home-timeline-item{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
+.home-timeline-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-faint);}
+.home-timeline-item.active .home-timeline-icon{background:var(--coral-soft);color:var(--coral);}
+.home-timeline-item .pname{font-size:12.5px;font-weight:700;color:var(--text-dim);}
+.home-timeline-item.active .pname{color:var(--coral);}
+.home-timeline-item .ptime{font-size:11.5px;color:var(--text-faint);}
+
+/* Section heading */
+.home-section-heading{position:relative;text-align:center;padding:64px 20px 8px;}
+.home-section-heading h2{font-family:'Lora',serif;font-weight:600;font-size:27px;margin-bottom:10px;}
+.home-divider{width:64px;height:2px;background:var(--coral-soft);margin:0 auto;position:relative;}
+.home-divider::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;background:var(--coral);transform:translate(-50%,-50%) rotate(45deg);}
+
+/* Feature grid */
+.home-feature-grid{max-width:1260px;margin:0 auto;padding:28px 40px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.home-feature-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:22px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s ease,transform .15s ease;min-height:172px;}
+.home-feature-card:hover{border-color:var(--coral);transform:translateY(-2px);}
+.home-feature-text h3{font-size:16.5px;font-weight:800;margin-bottom:8px;}
+.home-feature-text p{font-size:13.5px;color:var(--text-dim);line-height:1.55;}
+.home-feature-art{position:relative;flex:none;width:118px;height:118px;border-radius:14px;overflow:hidden;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);display:flex;align-items:center;justify-content:center;}
+.home-feature-art img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;padding:4px;}
+.home-feature-icon{position:absolute;right:-6px;bottom:-6px;width:34px;height:34px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);}
+
+/* Stats strip */
+.home-stats{max-width:1260px;margin:44px auto 0;padding:0 40px;}
+.home-stats-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:26px 10px;display:grid;grid-template-columns:repeat(4,1fr);}
+.home-stat{display:flex;align-items:center;justify-content:center;gap:12px;border-right:1px solid var(--border);padding:4px 12px;}
+.home-stat:last-child{border-right:none;}
+.home-stat-icon{width:36px;height:36px;border-radius:50%;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--coral);flex:none;}
+.home-stat-num{font-size:19px;font-weight:800;line-height:1.1;}
+.home-stat-label{font-size:12px;color:var(--text-dim);}
+
+/* Final CTA */
+.home-cta{max-width:1260px;margin:44px auto 0;padding:0 40px;}
+.home-cta-panel{background:var(--coral-soft);border-radius:20px;padding:30px 34px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+.home-cta-panel h3{font-family:'Lora',serif;font-weight:600;font-size:22px;color:var(--coral-dark);margin-bottom:6px;}
+.home-cta-panel p{font-size:14px;color:var(--text-dim);}
+.home-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--coral);color:#fff;font-weight:700;font-size:15px;border-radius:12px;padding:14px 24px;white-space:nowrap;cursor:pointer;}
+.home-cta-btn:hover{background:var(--coral-dark);}
+
+/* Footer note */
+.home-footnote{text-align:center;padding:40px 20px 0;font-size:13px;color:var(--text-dim);display:flex;align-items:center;justify-content:center;gap:8px;}
+.home-about{max-width:760px;margin:0 auto;padding:22px 24px 56px;text-align:center;}
+.home-about p{font-size:13.5px;line-height:1.75;color:var(--text-faint);}
+.home-about p + p{margin-top:12px;}
+
+@media (max-width:980px){
+  .jummah-banner,.ramadan-banner{margin-top:18px;}
+  .home-hero{grid-template-columns:1fr;padding:14px 20px 0;gap:10px;}
+  .home-hero-art{order:-1;}
+  .home-hero-text{padding-top:2px;}
+  .home-h1{font-size:36px;}
+  .home-prayer-strip{padding:0 20px;}
+  .home-prayer-card{padding:20px;}
+  .home-next-prayer{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:16px;width:100%;}
+  .home-timeline{justify-content:space-between;gap:12px;flex-wrap:nowrap;}
+  .home-feature-grid{grid-template-columns:1fr;padding:24px 20px 0;}
+  .home-stats{padding:0 20px;}
+  .home-stats-card{grid-template-columns:1fr 1fr;gap:16px 0;}
+  .home-stat{border-right:none;border-bottom:1px solid var(--border);padding-bottom:16px;}
+  .home-cta{padding:0 20px;}
+  .home-cta-panel{padding:24px;}
+}
+
+@media (max-width:480px){
+  .home-timeline{gap:4px;}
+  .home-timeline-item{min-width:0;flex:1;gap:3px;}
+  .home-timeline-icon{width:26px;height:26px;}
+  .home-timeline-item .pname{font-size:9.5px;}
+  .home-timeline-item .ptime{font-size:8px;}
+}

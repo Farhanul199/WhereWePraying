@@ -1,0 +1,323 @@
+/* ---------- Prayer Times (live) ---------- */
+.pt-location-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-dim);font-size:12.5px;font-weight:700;cursor:pointer;padding:0;}
+.pt-location-btn:hover{color:var(--coral);}
+.pt-loading, .pt-error{font-size:12.5px;color:var(--text-faint);}
+.pt-error{color:var(--red);}
+
+.pt-popover-backdrop{position:fixed;inset:0;background:rgba(20,14,8,.32);z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;}
+.pt-popover{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:380px;}
+.pt-popover h3{font-size:16px;font-weight:800;margin-bottom:4px;}
+.pt-popover .sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;}
+.pt-popover label{display:block;font-size:12px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.pt-popover input[type="text"], .pt-popover select{width:100%;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--text);margin-bottom:14px;}
+.pt-popover input[type="text"]:focus, .pt-popover select:focus{outline:none;border-color:var(--coral);}
+.pt-popover-actions{display:flex;gap:10px;margin-top:4px;}
+.pt-popover-actions .home-btn{flex:1;justify-content:center;}
+.pt-popover-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-faint);cursor:pointer;padding:4px;}
+.pt-popover{position:relative;}
+.pt-geo-btn{display:flex;align-items:center;gap:8px;width:100%;justify-content:center;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;margin-bottom:14px;}
+.pt-geo-btn:hover{border-color:var(--coral);color:var(--coral);}
+.pt-or-divider{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin:2px 0 14px;}
+.pt-or-divider::before, .pt-or-divider::after{content:"";flex:1;height:1px;background:var(--border);}
+.pt-city-list{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:14px;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);}
+.pt-city-item{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:9px 12px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;}
+.pt-city-item:last-child{border-bottom:none;}
+.pt-city-item:hover{background:var(--coral-soft);color:var(--coral);}
+.pt-city-item .pci-country{font-size:11.5px;font-weight:600;color:var(--text-faint);}
+.pt-city-item:hover .pci-country{color:var(--coral-dark);}
+.pt-city-empty{padding:14px 12px;font-size:12.5px;color:var(--text-faint);text-align:center;}
+
+/* Watercolour backdrop behind the top of the page, like #page-mosque's.
+   Pinned to a fixed-height band (not the whole page) with a fade into
+   the theme's real --bg colour underneath, so dark/AMOLED themes don't
+   get stuck showing the light watercolour art as the page backdrop. */
+#page-prayertimes{position:relative;overflow:hidden;}
+#page-prayertimes .pt-backdrop{position:absolute;top:0;left:50%;right:auto;width:100vw;margin-left:-50vw;height:420px;z-index:0;pointer-events:none;overflow:hidden;}
+#page-prayertimes .pt-backdrop img{width:100%;height:100%;object-fit:cover;object-position:center;opacity:.9;}
+#page-prayertimes .pt-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,var(--bg) 92%);}
+#page-prayertimes .page{position:relative;z-index:1;}
+/* On tall/narrow mobile screens, the shorter band keeps the full-width
+   artwork (mosque, hills at its edges) visible instead of cropping into
+   its mostly-blank centre column. */
+@media (max-width:620px){
+  #page-prayertimes .pt-backdrop{height:300px;}
+  #page-prayertimes .pt-backdrop img{object-position:center top;}
+}
+
+#page-prayertimes .pt-page{max-width:900px;margin:0 auto;padding:36px 24px 56px;}
+#page-prayertimes .pt-header{text-align:center;margin-bottom:10px;}
+#page-prayertimes .pt-header h1{font-family:'Lora',serif;font-weight:600;font-size:32px;margin-bottom:4px;}
+#page-prayertimes .pt-header .pt-hijri{font-size:13px;color:var(--text-dim);}
+.pt-divider{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text-faint);margin-bottom:10px;}
+.pt-divider::before, .pt-divider::after{content:"";width:46px;height:1px;background:var(--border);}
+.pt-divider svg{flex:none;}
+
+.pt-location-pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:999px;padding:10px 18px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;box-shadow:var(--shadow);}
+.pt-location-pill:hover{border-color:var(--coral);color:var(--coral);}
+.pt-location-accuracy{display:inline-flex;align-items:center;gap:5px;margin-top:7px;font-size:11px;font-weight:700;color:var(--coral-dark);background:var(--coral-soft);border:1px solid var(--coral);border-radius:999px;padding:5px 11px;cursor:pointer;}
+.pt-location-accuracy.hidden{display:none;}
+.pt-location-accuracy::before{content:"⚠";font-size:11px;}
+.pt-geo-explainer{text-align:center;max-width:340px;}
+.pge-icon{width:52px;height:52px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.pt-geo-explainer h3{margin-bottom:8px;}
+.pt-geo-explainer .sub{margin-bottom:16px;}
+.pt-geo-explainer .pt-geo-btn{margin-bottom:8px;background:var(--coral);border-color:var(--coral);color:#fff;}
+.pt-geo-explainer-later{width:100%;background:none;border:none;padding:8px;font-size:12.5px;font-weight:700;color:var(--text-faint);cursor:pointer;font-family:inherit;}
+.pt-geo-explainer-later:hover{color:var(--text-dim);}
+
+/* Full-day row: Fajr / Dhuhr / Asr / Maghrib / Isha — compact 2-row cards, mobile-first */
+.pt-day-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:14px 0;}
+.pt-day-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;background:rgba(255,255,255,.35);border:1px solid var(--border);border-radius:11px;padding:8px 2px 7px;min-width:0;}
+[data-theme="dark"] .pt-day-card, [data-theme="amoled"] .pt-day-card{background:rgba(255,255,255,.04);}
+.pt-day-card.active{border-color:var(--coral);background:var(--coral-soft);box-shadow:0 2px 10px rgba(244,113,78,.16);}
+.pt-day-card .pdc-top{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-width:0;}
+.pt-day-card .pdc-icon{width:15px;height:15px;border-radius:50%;background:rgba(255,255,255,.4);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-day-card .pdc-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+[data-theme="dark"] .pt-day-card .pdc-icon, [data-theme="amoled"] .pt-day-card .pdc-icon{background:rgba(255,255,255,.06);}
+.pt-day-card.active .pdc-icon{background:rgba(255,255,255,.55);color:var(--coral);}
+.pt-day-card .pdc-body{min-width:0;width:100%;display:flex;flex-direction:column;align-items:center;gap:0;}
+.pt-day-card .pdc-name{font-family:'Lora',serif;font-size:10px;font-weight:600;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.pt-day-card.active .pdc-name{color:var(--coral);}
+.pt-day-card .pdc-time{font-size:12px;color:var(--text-dim);font-weight:700;white-space:nowrap;margin-top:2px;line-height:1.15;}
+.pt-day-card.active .pdc-time{color:var(--coral-dark);}
+.pt-day-card .pdc-time-until{font-size:7.5px;color:var(--text-faint);font-weight:600;white-space:nowrap;opacity:.85;line-height:1.2;margin-top:1px;}
+.pt-day-card .pdc-time-alt{font-size:7px;color:var(--coral);font-weight:700;white-space:nowrap;margin-top:1px;opacity:.9;line-height:1.2;}
+@media (max-width:380px){
+  .pt-day-row{gap:3px;}
+  .pt-day-card{padding:7px 1px 6px;border-radius:10px;}
+  .pt-day-card .pdc-icon{width:13px;height:13px;}
+  .pt-day-card .pdc-name{font-size:8.5px;}
+  .pt-day-card .pdc-time{font-size:10.5px;}
+  .pt-day-card .pdc-time-until{font-size:6.5px;}
+  .pt-day-card .pdc-time-alt{font-size:6px;}
+}
+@media (min-width:621px){
+  .pt-day-row{gap:10px;}
+  .pt-day-card{padding:13px 8px 11px;border-radius:16px;gap:4px;}
+  .pt-day-card .pdc-icon{width:24px;height:24px;}
+  .pt-day-card .pdc-name{font-size:13px;}
+  .pt-day-card .pdc-time{font-size:14px;}
+  .pt-day-card .pdc-time-until{font-size:10px;}
+  .pt-day-card .pdc-time-alt{font-size:9.5px;}
+}
+
+/* ---------- Instant Prayer Times skeleton shell ---------- */
+.pt-skeleton{display:block;position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(120,120,120,.10) 25%,rgba(120,120,120,.18) 50%,rgba(120,120,120,.10) 75%);background-size:220% 100%;animation:ptSkeletonShimmer 1.35s ease-in-out infinite;border-radius:999px;}
+@keyframes ptSkeletonShimmer{0%{background-position:200% 0}100%{background-position:-20% 0}}
+@keyframes ptContentReveal{from{opacity:0;transform:translateY(3px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
+.pt-live-content{animation:ptContentReveal .42s ease-out both;}
+.pt-day-row.pt-loading-state{min-height:74px;}
+.pt-skeleton-card{gap:5px;}
+.pt-skeleton-icon{width:15px;height:15px;}
+.pt-skeleton-name{width:42px;height:9px;}
+.pt-skeleton-name-static{font-family:'Lora',serif;font-size:10px;font-weight:600;line-height:1.1;color:var(--text-faint);}
+.pt-skeleton-time{width:34px;height:11px;}
+.pt-skeleton-sub{width:44px;height:6px;}
+.pt-skeleton-block{display:flex;flex-direction:column;}
+.pt-skeleton-next-icon{width:47px;height:47px;border-radius:50%;flex:none;}
+.pt-skeleton-next-body{width:118px;gap:5px;margin-right:28px;}
+.pt-skeleton-next-name{width:64px;height:14px;}
+.pt-skeleton-next-time{width:76px;height:20px;}
+.pt-skeleton-next-sub{width:98px;height:8px;}
+.pt-skeleton-next-finish{width:66px;gap:6px;align-items:flex-end;}
+.pt-skeleton-finish-label{width:45px;height:7px;}
+.pt-skeleton-finish-time{width:58px;height:11px;}
+.pt-skeleton-quote-label{width:42px;height:7px;margin-bottom:6px;}
+.pt-skeleton-quote-head{width:145px;height:12px;margin-bottom:7px;}
+.pt-skeleton-quote-text{width:92%;height:8px;margin-bottom:5px;}
+.pt-skeleton-quote-text.short{width:62%;}
+.pt-skeleton-after-icon{width:36px;height:36px;border-radius:50%;flex:none;}
+.pt-skeleton-after-name{width:54px;height:12px;}
+.pt-skeleton-after-time{width:46px;height:10px;margin-left:auto;}
+.pt-skeleton-group-title{margin:20px 0 9px;}
+.pt-skeleton-group-title:first-child{margin-top:0;}
+.pt-skeleton-group{width:70px;height:9px;}
+.pt-skeleton-card-large{min-height:125px;}
+.pt-skeleton-hadith-ar{width:88%;height:18px;margin-left:auto;margin-bottom:13px;}
+.pt-skeleton-hadith-ar.short{width:72%;}
+.pt-skeleton-hadith-line{width:94%;height:8px;margin-bottom:7px;}
+.pt-skeleton-hadith-line.medium{width:78%;}
+.pt-skeleton-hadith-line.short{width:60%;}
+.pt-skeleton-hadith-cite{width:88px;height:7px;margin-left:auto;margin-top:5px;}
+@media (max-width:380px){.pt-skeleton-icon{width:13px;height:13px}.pt-skeleton-name{width:36px}.pt-skeleton-time{width:30px}.pt-skeleton-sub{width:38px}.pt-skeleton-next-body{margin-right:10px;width:100px}.pt-skeleton-next-finish{width:55px}}
+@media (prefers-reduced-motion:reduce){.pt-skeleton{animation:none}.pt-live-content{animation:none}}
+
+/* ---------- World clocks (Prayer Times page) ---------- */
+.pt-clocks-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:12px 16px;margin-bottom:0;}
+.pt-clocks{display:flex;align-items:flex-start;justify-content:center;gap:12px;flex-wrap:nowrap;}
+.pt-clock{display:flex;flex-direction:column;align-items:center;gap:8px;flex:none;width:82px;}
+.pt-gmt-badge{font-size:10.5px;font-weight:700;color:var(--text-dim);background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:999px;padding:3px 10px;}
+.pt-clock.pt-clock-anchor .pt-gmt-badge{background:var(--coral);border-color:var(--coral);color:#fff;}
+.pt-clock-face-wrap{position:relative;}
+.pt-clock-face{position:relative;border-radius:50%;overflow:visible;}
+.pt-clock:not(.pt-clock-anchor) .pt-clock-face{width:64px;height:64px;}
+.pt-clock.pt-clock-anchor .pt-clock-face{width:82px;height:82px;}
+.pt-clock-svg{display:block;width:100%;height:100%;overflow:visible;}
+.cf-rim{fill:none;stroke:#B9895A;stroke-width:3;}
+.pt-clock.pt-clock-anchor .cf-rim{stroke:var(--coral-dark);stroke-width:3.4;}
+.cf-rim-inner{fill:none;stroke:#E8C99A;stroke-width:1;opacity:.8;}
+.cf-tick{stroke:#8A6A45;stroke-linecap:round;}
+.cf-tick.major{stroke-width:2.6;}
+.cf-tick.minor{stroke-width:1.2;opacity:.65;}
+.cf-num{font-family:'Lora',serif;font-size:12px;font-weight:600;fill:#7A5B3A;text-anchor:middle;dominant-baseline:middle;}
+.cf-hand{stroke-linecap:round;}
+.cf-hand.cf-hour{stroke:#5C4327;stroke-width:3.4;}
+.cf-hand.cf-min{stroke:#8A6A45;stroke-width:2.2;}
+.pt-clock.pt-clock-anchor .cf-hand.cf-hour{stroke:var(--coral-dark);}
+.pt-clock.pt-clock-anchor .cf-hand.cf-min{stroke:var(--coral);}
+.cf-pin{fill:var(--coral-dark);stroke:#fff;stroke-width:1;}
+.pt-clock-edit{position:absolute;top:-4px;right:-4px;width:22px;height:22px;border-radius:50%;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);z-index:2;}
+.pt-clock-edit:hover{border-color:var(--coral);color:var(--coral);}
+.pt-clock-city{font-size:12px;font-weight:700;text-align:center;line-height:1.25;color:var(--text);max-width:82px;}
+.pt-clock.pt-clock-anchor .pt-clock-city{color:var(--coral);}
+.pt-clock-time{font-size:11px;color:var(--text-dim);font-weight:600;}
+.pt-clock-select{position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:100%;height:100%;}
+@media (max-width:560px){
+  .pt-clocks{gap:4px;}
+  .pt-clock{width:60px;}
+  .pt-clock:not(.pt-clock-anchor) .pt-clock-face{width:46px;height:46px;}
+  .pt-clock.pt-clock-anchor .pt-clock-face{width:60px;height:60px;}
+  .pt-clock-city{font-size:10px;max-width:60px;}
+  .pt-gmt-badge{font-size:9px;padding:2px 7px;}
+  .cf-num{font-size:15px;}
+}
+
+/* ---------- Next / after-next prayer cards ---------- */
+.pt-next-card{display:flex;align-items:center;justify-content:center;gap:14px;background:transparent;border:1px solid var(--coral);border-radius:18px;box-shadow:none;padding:16px 20px;max-width:504px;margin:0 auto 9px;}
+.pt-next-card .pnc-icon{width:47px;height:47px;border-radius:50%;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-next-card .pnc-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.pt-next-card .pnc-body{flex:none;min-width:0;margin-right:28px;}
+.pt-next-card .pnc-name{font-family:'Lora',serif;font-size:17px;font-weight:600;}
+.pt-next-card .pnc-time{font-family:'Lora',serif;font-size:23px;font-weight:700;color:var(--coral);}
+.pt-next-card .pnc-countdown{font-size:11.5px;font-weight:700;color:var(--coral-dark);margin-top:2px;}
+.pt-next-card .pnc-finish{text-align:right;flex:none;}
+.pt-next-card .pnc-finish-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.pt-next-card .pnc-finish-time{font-size:13px;font-weight:700;color:var(--text-dim);}
+.pt-afternext-card{display:flex;align-items:center;gap:13px;background:transparent;border:1px solid var(--border);border-radius:15px;box-shadow:none;padding:11px 18px;max-width:432px;margin:0 auto 20px;opacity:.7;}
+.pt-prayer-quote{max-width:432px;margin:0 auto 16px;padding:13px 18px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:15px;font-size:12.5px;line-height:1.5;color:var(--text-dim);cursor:pointer;transition:border-color .15s ease;}
+.pt-prayer-quote:hover{border-color:var(--coral);}
+.pt-prayer-quote .ppq-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--coral);margin-bottom:3px;}
+.pt-prayer-quote .ppq-headline{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.pt-prayer-quote .ppq-cite{display:block;text-align:right;font-size:10px;color:var(--text-faint);margin-top:5px;}
+
+.pt-two-col-section{display:flex;align-items:flex-start;gap:22px;max-width:900px;margin:36px auto 24px;padding:0 4px;}
+.pt-hadith-section, .pt-adhkar-section{flex:1 1 0;min-width:0;}
+.pt-hadith-section{order:2;}
+.pt-adhkar-section{order:1;}
+.pt-hadith-header{margin-bottom:4px;}
+.pt-hadith-header h2{font-family:'Lora',serif;font-size:19px;font-weight:700;margin-bottom:4px;}
+.pt-hadith-header p{font-size:12.5px;color:var(--text-dim);}
+.pt-hadith-toggle{width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:none;border:none;padding:0 0 18px;cursor:pointer;text-align:left;font:inherit;color:inherit;}
+.pt-hadith-chevron{flex:none;margin-top:4px;color:var(--text-faint);transition:transform .25s ease;}
+.pt-hadith-section.open .pt-hadith-chevron{transform:rotate(180deg);}
+.pt-hadith-body{max-height:0;overflow:hidden;transition:max-height .4s ease;}
+.pt-hadith-section.open .pt-hadith-body{max-height:20000px;}
+.pt-hadith-body.open{max-height:20000px;}
+.pt-hadith-group-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--coral);margin:20px 0 9px;}
+.pt-hadith-group-title:first-child{margin-top:0;}
+.pt-adhkar-divider{height:1px;background:var(--border);margin:22px 0 4px;border:none;}
+.pt-hadith-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:9px;transition:background .2s ease, border-color .2s ease;}
+.pt-hadith-card .phc-arabic{font-family:'Amiri','Scheherazade New',serif;font-size:16.5px;direction:rtl;text-align:right;line-height:1.85;color:var(--text);margin-bottom:9px;}
+.pt-hadith-card .phc-translit{font-size:12px;font-weight:700;font-style:italic;line-height:1.5;color:var(--text);margin-bottom:7px;}
+.pt-hadith-card .phc-translation{font-size:12.5px;line-height:1.55;color:var(--text-dim);margin-bottom:7px;}
+.pt-hadith-card .phc-cite{font-size:11px;color:var(--text-faint);text-align:right;}
+/* Watercolour fill per prayer — same fill in both columns; Adhkar
+   column uses a slightly stronger border shade so the two sections
+   read as distinct even when a card shares a prayer's colour. */
+.pt-hadith-card.phc-fajr{background:linear-gradient(150deg, var(--fajr-1), var(--fajr-2));border-color:var(--fajr-border);}
+.pt-hadith-card.phc-dhuhr{background:linear-gradient(150deg, var(--dhuhr-1), var(--dhuhr-2));border-color:var(--dhuhr-border);}
+.pt-hadith-card.phc-asr{background:linear-gradient(150deg, var(--asr-1), var(--asr-2));border-color:var(--asr-border);}
+.pt-hadith-card.phc-maghrib{background:linear-gradient(150deg, var(--maghrib-1), var(--maghrib-2));border-color:var(--maghrib-border);}
+.pt-hadith-card.phc-isha{background:linear-gradient(150deg, var(--isha-1), var(--isha-2));border-color:var(--isha-border);}
+.pt-hadith-card.phc-general{background:linear-gradient(150deg, var(--general-1), var(--general-2));border-color:var(--general-border);}
+#ptAdhkarSection .pt-hadith-card.phc-fajr{border-color:var(--fajr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-dhuhr{border-color:var(--dhuhr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-asr{border-color:var(--asr-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-maghrib{border-color:var(--maghrib-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-isha{border-color:var(--isha-border-adhkar);}
+#ptAdhkarSection .pt-hadith-card.phc-general{border-color:var(--general-border-adhkar);}
+#ptAdhkarBody.hide-arabic .phc-arabic{display:none;}
+#ptAdhkarBody.hide-translit .phc-translit{display:none;}
+#ptAdhkarBody.hide-translation .phc-translation{display:none;}
+.pt-adhkar-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.pt-adhkar-display-btn{flex:none;font-size:12px;font-weight:800;color:var(--coral-dark);background:var(--coral-soft);border:1px solid var(--coral);border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.pt-adhkar-display-btn:active{transform:scale(.96);}
+.pt-hadith-showall-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:none;border:1px dashed var(--border);border-radius:999px;padding:9px 14px;margin-top:10px;font-size:12.5px;font-weight:700;color:var(--text-dim);cursor:pointer;font-family:inherit;}
+.pt-hadith-showall-btn:hover{border-color:var(--coral);color:var(--coral-dark);}
+.pt-hadith-showall-btn[aria-expanded="true"] svg{transform:rotate(180deg);}
+.pt-hadith-showall-btn svg{transition:transform .2s ease;}
+.pt-hadith-section:not(.open) .pt-hadith-showall-btn{display:none;}
+@media (max-width:820px){
+  .pt-two-col-section{flex-direction:column;}
+  .pt-hadith-section, .pt-adhkar-section{max-width:640px;width:100%;margin:0 auto;}
+}
+.pt-afternext-card .pac-icon{width:32px;height:32px;border-radius:50%;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.pt-afternext-card .pac-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.pt-afternext-card .pac-name{font-family:'Lora',serif;font-size:14px;font-weight:600;}
+.pt-afternext-card .pac-time{font-size:11.5px;color:var(--text-dim);font-weight:600;margin-left:auto;}
+@media (max-width:480px){
+  .pt-next-card{flex-wrap:wrap;padding:14px;justify-content:flex-start;}
+  .pt-next-card .pnc-body{margin-right:0;}
+  .pt-next-card .pnc-finish{margin-left:61px;text-align:left;}
+}
+
+.pt-footer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:transparent;border:1px solid var(--border);border-radius:15px;padding:13px 17px;max-width:900px;margin:0 auto 20px;}
+.pt-footer-row .pt-method-label{font-size:12.5px;color:var(--text-dim);}
+
+/* ---------- Day & Night World Map (Prayer Times page) ---------- */
+.pt-map-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:8px;}
+.pt-map-header{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;position:relative;}
+.pt-qibla-card{display:block;width:100%;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:16px 16px 18px;margin:14px auto 0;max-width:504px;text-align:center;cursor:pointer;font:inherit;color:inherit;}
+.pt-qibla-header{margin-bottom:2px;}
+.pt-qibla-title{font-size:13px;font-weight:800;color:var(--text);}
+.pt-qibla-compass{width:150px;height:150px;border-radius:50%;position:relative;margin:10px auto 6px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:radial-gradient(circle at 32% 26%,rgba(var(--coral-rgb),.4),rgba(var(--coral-rgb),.08) 68%);backdrop-filter:blur(4px) saturate(160%);-webkit-backdrop-filter:blur(4px) saturate(160%);box-shadow:inset 0 1px 1px rgba(255,255,255,.5),inset 0 -10px 16px rgba(0,0,0,.06);}
+.pt-qibla-compass:before{content:"";position:absolute;inset:13px;border-radius:50%;border:1px dashed var(--border);}
+.pt-qibla-compass:after{content:"";position:absolute;inset:29px;border-radius:50%;background:linear-gradient(135deg,var(--border),transparent);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#000 calc(100% - 1px));}
+.pt-qibla-compass .pqc-n,.pt-qibla-compass .pqc-e,.pt-qibla-compass .pqc-s,.pt-qibla-compass .pqc-w{position:absolute;font-size:13px;color:var(--text-dim);}
+.pt-qibla-compass .pqc-n{top:-8px;left:50%;transform:translateX(-50%);font-size:18px;color:var(--coral);}
+.pt-qibla-compass .pqc-e{right:-6px;top:50%;}
+.pt-qibla-compass .pqc-s{bottom:-6px;left:50%;transform:translateX(-50%);}
+.pt-qibla-compass .pqc-w{left:-6px;top:50%;}
+.pt-qibla-readout{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.pt-qibla-readout strong{font-family:'Lora',serif;font-size:26px;font-weight:600;color:var(--text);}
+.pt-qibla-readout b{font-size:14px;font-weight:600;color:var(--text-dim);}
+.pt-qibla-needle{position:absolute;top:50%;left:50%;width:0;height:0;z-index:2;transform-origin:0 0;transform:rotate(0deg);transition:transform .12s linear;pointer-events:none;}
+.pt-qibla-needle .qc-tip{position:absolute;left:-7px;top:-62px;width:14px;height:16px;clip-path:polygon(50% 0,100% 100%,0 100%);background:var(--coral);}
+.pt-qibla-needle .qc-tail{position:absolute;left:-5px;top:48px;width:10px;height:14px;clip-path:polygon(50% 100%,100% 0,0 0);background:var(--text-dim);opacity:.5;}
+.pt-qibla-status{display:block;font-size:12.5px;color:var(--text-dim);margin-top:6px;}
+.pt-qibla-status b{color:var(--coral-dark);font-weight:800;}
+.pt-map-title{font-size:13px;font-weight:700;color:var(--text-dim);}
+.pt-map-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text-faint);padding:0;}
+.pt-map-toggle-track{width:32px;height:18px;border-radius:999px;background:var(--border);position:relative;transition:background .2s ease;}
+.pt-map-toggle-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s ease;}
+.pt-map-toggle[aria-pressed="true"] .pt-map-toggle-track{background:var(--coral);}
+.pt-map-toggle[aria-pressed="true"] .pt-map-toggle-thumb{left:16px;}
+.pt-map-toggle[aria-pressed="true"]{color:var(--coral);}
+.pt-map-frame{position:relative;border-radius:16px;overflow:hidden;background:#cfe0e8;}
+.pt-map-imgwrap{position:relative;width:100%;aspect-ratio:2.679/1;overflow:hidden;transform-origin:center center;transition:transform .25s ease;}
+.pt-map-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+.pt-map-img-night{mask:url(#ptTermMask);-webkit-mask:url(#ptTermMask);mask-mode:alpha;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;}
+.pt-map-zoom{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:2;}
+.pt-map-zoom button{width:28px;height:28px;border-radius:50%;background:rgba(255,251,244,.92);border:1px solid rgba(0,0,0,.08);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.15);}
+.pt-map-zoom button:hover{color:var(--coral);}
+.pt-map-time-label{position:absolute;right:10px;top:10px;background:rgba(255,251,244,.92);border-radius:12px;padding:7px 12px;text-align:right;z-index:2;box-shadow:0 3px 8px rgba(0,0,0,.15);}
+.pt-map-time-label .pmt-time{font-size:14px;font-weight:800;color:var(--text);line-height:1.2;}
+.pt-map-time-label .pmt-place{font-size:10.5px;font-weight:600;color:var(--text-dim);}
+.pt-map-slider-row{display:flex;align-items:center;gap:12px;margin-top:14px;padding:0 4px;}
+.pt-map-play{width:30px;height:30px;border-radius:50%;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;box-shadow:var(--shadow);}
+.pt-map-play:hover{border-color:var(--coral);color:var(--coral);}
+.pt-map-play.playing{background:var(--coral);border-color:var(--coral);color:#fff;}
+.pt-map-slider-wrap{position:relative;flex:1;padding-top:22px;}
+.pt-map-slider-bubble{position:absolute;top:0;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;white-space:nowrap;pointer-events:none;}
+.pt-map-slider-bubble::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--text);}
+.pt-map-slider-wrap input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:999px;background:var(--border);outline:none;margin:0;}
+.pt-map-slider-wrap input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--coral);border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;}
+.pt-map-slider-wrap input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--coral);border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;border:none;}
+.pt-map-slider-ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-weight:600;margin-top:6px;}
+@media (max-width:560px){
+  .pt-map-zoom{transform:scale(.85);transform-origin:top left;}
+  .pt-map-time-label{padding:5px 9px;}
+  .pt-map-time-label .pmt-time{font-size:12px;}
+}
+
+/* Offline banner */
