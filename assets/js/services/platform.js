@@ -9,13 +9,31 @@
    ============================================================ */
 window.Platform = (function(){
   // data: { title, text, files } (any subset — matches navigator.share's
-  // own shape). onUnsupported: optional fallback called when the Web
-  // Share API isn't available at all (desktop browsers mostly).
-  function share(data, onUnsupported){
-    if(navigator.share){
-      return navigator.share(data).catch(()=>{});
+  // own shape).
+  //
+  // Second argument accepts either:
+  //   - a plain function: onUnsupported (original, simplest shape — used
+  //     by Journal/Guides/Du'a/Qur'an/Travel Mode share buttons)
+  //   - an options object: { onSuccess, onUnsupported, onCancelOrFail }
+  //     for callers that need to distinguish "shared successfully" from
+  //     "share sheet was cancelled/failed" (e.g. Backup & Restore, which
+  //     shows a success message only once the share actually completes).
+  //
+  // When data.files is present, checks navigator.canShare first — some
+  // browsers support navigator.share but not file-sharing specifically,
+  // so treating that as "unsupported" avoids opening a share sheet that
+  // can't actually handle the payload.
+  function share(data, handlers){
+    const opts = typeof handlers === 'function' ? { onUnsupported: handlers } : (handlers || {});
+    const filesOk = !data.files || (navigator.canShare && navigator.canShare(data));
+    if(navigator.share && filesOk){
+      return navigator.share(data).then(()=>{
+        if(typeof opts.onSuccess === 'function') opts.onSuccess();
+      }).catch(()=>{
+        if(typeof opts.onCancelOrFail === 'function') opts.onCancelOrFail();
+      });
     }
-    if(typeof onUnsupported === 'function') onUnsupported();
+    if(typeof opts.onUnsupported === 'function') opts.onUnsupported();
     return Promise.resolve();
   }
   return { share };
