@@ -1,0 +1,142 @@
+
+   ==> CONNECT: this is theme #1 of the planned seasonal/event engine.
+   Applied via body[data-event-theme="jummah"], set by JS date resolver
+   below. Layers on top of whichever base data-theme is active. */
+body[data-event-theme="jummah"]{
+  --coral:#7E9C79; --coral-rgb:126,156,121; --coral-dark:#5C7A59; --coral-soft:#E1E9DA; --beam:#AFC7A2;
+}
+body[data-theme="light"][data-event-theme="jummah"],
+body[data-theme="sepia"][data-event-theme="jummah"]{
+  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('assets/theme/jummah-bg.webp');
+  background-size:cover;
+  background-position:center top;
+  background-attachment:fixed;
+}
+.jummah-banner{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--coral-soft);border-bottom:1px solid var(--border);}
+.jummah-banner.hidden{display:none;}
+.jummah-banner-img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none;}
+.jummah-banner-text{display:flex;flex-direction:column;line-height:1.25;font-size:13px;}
+.jummah-banner-text strong{color:var(--coral-dark);font-size:13.5px;}
+.jummah-banner-text span{color:var(--text-dim);}
+.home-hero-art .hero-img-jummah{display:none;}
+body[data-event-theme="jummah"] .home-hero-art .hero-img-standard{display:none;}
+body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
+
+/* ==== Ramadan event theme — soft lilac accent, site-wide ====
+   ==> CONNECT: theme #2 of the planned seasonal/event engine.
+   Applied via body[data-event-theme="ramadan"], set by JS date resolver
+   below. Layers on top of whichever base data-theme is active. */
+body[data-event-theme="ramadan"]{
+  --coral:#A671A3; --coral-rgb:166,113,163; --coral-dark:#7E5182; --coral-soft:#EBDCEA; --beam:#CBA2C8;
+}
+body[data-theme="light"][data-event-theme="ramadan"],
+body[data-theme="sepia"][data-event-theme="ramadan"]{
+  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('assets/theme/ramadan-bg.webp');
+  background-size:cover;
+  background-position:center top;
+  background-attachment:fixed;
+}
+.ramadan-banner{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--coral-soft);border-bottom:1px solid var(--border);}
+.ramadan-banner.hidden{display:none;}
+.ramadan-banner-img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none;}
+.ramadan-banner-text{display:flex;flex-direction:column;line-height:1.25;font-size:13px;}
+.ramadan-banner-text strong{color:var(--coral-dark);font-size:13.5px;}
+.ramadan-banner-text span{color:var(--text-dim);}
+.home-hero-art .hero-img-ramadan{display:none;}
+body[data-event-theme="ramadan"] .home-hero-art .hero-img-standard{display:none;}
+body[data-event-theme="ramadan"] .home-hero-art .hero-img-jummah{display:none;}
+body[data-event-theme="ramadan"] .home-hero-art .hero-img-ramadan{display:block;}
+/* Shown only on Ramadan's first day, only when no saved user location
+   existed so we fell back to the Saudi reference point for the Hijri
+   date check — see JS resolver at the bottom of the page. */
+.ramadan-source-note{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;padding-right:4px;}
+.ramadan-source-note.hidden{display:none;}
+@media (max-width:860px){ .ramadan-source-note{display:none !important;} }
+
+/* ==== Lantern glow — always on, every theme, every day ====
+   Warm flicker over each illustrated lantern (home hero standard,
+   home hero Jummah, Du'a & Dhikr hero). Gentle on light/sepia;
+   brighter + a soft ambient halo kicks in on dark/AMOLED for an
+   atmospheric night-time feel. Position each .wwp-lamp-glow via
+   inline left/top (and optional --wwp-delay to desync multiples). */
+.wwp-lamp-fx{position:absolute;inset:0;pointer-events:none;z-index:1;
+  opacity:0;transition:opacity .35s ease;}
+.wwp-lamp-fx.wwp-loaded{opacity:1;}
+.wwp-lamp-fx.wwp-standard-only{display:block;}
+body[data-event-theme="jummah"] .wwp-lamp-fx.wwp-standard-only,
+body[data-event-theme="ramadan"] .wwp-lamp-fx.wwp-standard-only{display:none;}
+.wwp-lamp-fx.wwp-jummah-only{display:none;}
+body[data-event-theme="jummah"] .wwp-lamp-fx.wwp-jummah-only{display:block;}
+.wwp-lamp-fx.wwp-ramadan-only{display:none;}
+body[data-event-theme="ramadan"] .wwp-lamp-fx.wwp-ramadan-only{display:block;}
+.wwp-lamp-glow{
+  position:absolute; width:44px; height:44px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(255,214,140,.8) 0%, rgba(255,214,140,.35) 45%, rgba(255,214,140,0) 75%);
+  border-radius:50%; filter:blur(1px);
+  animation:wwp-lamp-flicker 3.2s ease-in-out infinite;
+  animation-delay:var(--wwp-delay,0s);
+  mix-blend-mode:screen;
+}
+.wwp-lamp-glow::after{
+  content:""; position:absolute; inset:-22px; border-radius:50%;
+  background:radial-gradient(circle, rgba(255,196,110,.28) 0%, rgba(255,196,110,.1) 50%, rgba(255,196,110,0) 80%);
+  filter:blur(6px); mix-blend-mode:screen;
+  animation:wwp-lamp-halo-flicker 3.2s ease-in-out infinite;
+  animation-delay:var(--wwp-delay,0s);
+}
+body[data-theme="dark"] .wwp-lamp-glow{filter:blur(1px) brightness(1.4) saturate(1.15);}
+body[data-theme="amoled"] .wwp-lamp-glow{filter:blur(1px) brightness(1.6) saturate(1.25);}
+body[data-theme="dark"] .wwp-lamp-glow::after{
+  background:radial-gradient(circle, rgba(255,196,110,.42) 0%, rgba(255,196,110,.15) 50%, rgba(255,196,110,0) 80%);
+  filter:blur(7px);
+}
+body[data-theme="amoled"] .wwp-lamp-glow::after{
+  background:radial-gradient(circle, rgba(255,196,110,.55) 0%, rgba(255,196,110,.18) 50%, rgba(255,196,110,0) 82%);
+  filter:blur(8px);
+}
+@keyframes wwp-lamp-flicker{
+  0%,100%{opacity:.55; transform:translate(-50%,-50%) scale(1);}
+  30%{opacity:.98; transform:translate(-50%,-50%) scale(1.18);}
+  55%{opacity:.3; transform:translate(-50%,-50%) scale(.85);}
+  80%{opacity:.82; transform:translate(-50%,-50%) scale(1.08);}
+}
+@keyframes wwp-lamp-halo-flicker{
+  0%,100%{opacity:.55; transform:scale(1);}
+  30%{opacity:.98; transform:scale(1.18);}
+  55%{opacity:.3; transform:scale(.85);}
+  80%{opacity:.82; transform:scale(1.08);}
+}
+
+/* ==== Sparkles — Jummah (Friday) only, staggered so none twinkle
+   together. Position each via inline left/top/--wwp-delay/--wwp-dur. */
+.jummah-sparkle{
+  display:none; position:absolute; pointer-events:none;
+  color:var(--coral); font-size:12px; line-height:1; opacity:0;
+}
+body[data-event-theme="jummah"] .jummah-sparkle{
+  display:inline-block;
+  animation:wwp-sparkle-twinkle var(--wwp-dur,3.4s) ease-in-out infinite;
+  animation-delay:var(--wwp-delay,0s);
+}
+/* Ramadan reuses the same twinkle mechanic via .ramadan-sparkle so the
+   Jummah-only markup isn't shown during Ramadan (and vice versa). */
+.ramadan-sparkle{
+  display:none; position:absolute; pointer-events:none;
+  color:var(--coral); font-size:12px; line-height:1; opacity:0;
+}
+body[data-event-theme="ramadan"] .ramadan-sparkle{
+  display:inline-block;
+  animation:wwp-sparkle-twinkle var(--wwp-dur,3.4s) ease-in-out infinite;
+  animation-delay:var(--wwp-delay,0s);
+}
+@keyframes wwp-sparkle-twinkle{
+  0%,100%{opacity:0; transform:scale(.4) rotate(0deg);}
+  50%{opacity:.9; transform:scale(1) rotate(8deg);}
+}
+@media (prefers-reduced-motion: reduce){
+  .wwp-lamp-glow, .wwp-lamp-glow::after, .jummah-sparkle, .ramadan-sparkle{animation:none; opacity:.5;}
+}
+
+
+.topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:14px clamp(16px,2.5vw,32px);background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border-bottom:1px solid var(--border);}

@@ -1,0 +1,54 @@
+/* ==== Experimental Glassmorphism mode — opt-in, off by default ====
+   Toggled from Settings > Sparkle & Twinkle Effects via
+   body[data-glass="on"], stored under 'wwp:glass:mode'. Works by
+   overriding --surface to a translucent value and setting
+   --surface-blur, which every card/panel/pill across the site already
+   references (background:var(--surface); backdrop-filter:var(--surface-blur,none))
+   so turning it on frosts the whole site without touching each
+   component individually. --border/--shadow are softened to match the
+   frosted-glass look; per WCAG guidance, text colour and weight are left
+   untouched so contrast doesn't suffer.
+   Blur is intentionally in the 10px range (not 20px+) to stay legible
+   and performant on mobile — see UX Pilot's glassmorphism guidance. */
+body[data-glass="on"]{
+  --surface: rgba(255,255,255,.45);
+  --surface-alt: rgba(255,249,240,.4);
+  --surface-blur: blur(10px) saturate(160%);
+  --border: rgba(255,255,255,.55);
+  --shadow: 0 8px 24px rgba(60,42,24,.10), inset 0 1.5px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(60,42,24,.05);
+}
+body[data-theme="sepia"][data-glass="on"]{
+  --surface: rgba(255,250,238,.5);
+  --surface-alt: rgba(241,228,196,.45);
+  --border: rgba(255,255,255,.5);
+  --shadow: 0 8px 24px rgba(89,63,39,.14), inset 0 1.5px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(89,63,39,.06);
+}
+body[data-theme="dark"][data-glass="on"]{
+  --surface: rgba(45,41,50,.42);
+  --surface-alt: rgba(33,29,26,.4);
+  --border: rgba(255,255,255,.12);
+  --shadow: 0 16px 34px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.2);
+}
+body[data-theme="amoled"][data-glass="on"]{
+  --surface: rgba(20,20,20,.4);
+  --surface-alt: rgba(18,18,18,.4);
+  --border: rgba(255,255,255,.1);
+  --shadow: 0 16px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05), inset 0 -1px 0 rgba(0,0,0,.3);
+}
+/* Older browsers without backdrop-filter support fall back to a more
+   opaque surface so text stays legible without the blur. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  body[data-glass="on"]{ --surface: rgba(255,255,255,.85); }
+  body[data-theme="sepia"][data-glass="on"]{ --surface: rgba(255,250,238,.88); }
+  body[data-theme="dark"][data-glass="on"]{ --surface: rgba(45,41,50,.9); }
+  body[data-theme="amoled"][data-glass="on"]{ --surface: rgba(20,20,20,.9); }
+}
+/* Glassmorphism reads best when it's the only surface treatment active
+   — pair it with the site's flat/opaque page backgrounds, not the
+   Jummah/Ramadan photographic hero backgrounds, so the frosted panels
+   don't fight a second busy layer underneath them. */
+body[data-event-theme="jummah"][data-glass="on"],
+body[data-event-theme="ramadan"][data-glass="on"]{
+  background-image: none !important;
+}
+

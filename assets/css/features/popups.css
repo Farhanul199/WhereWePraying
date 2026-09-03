@@ -1,0 +1,64 @@
+/* ---------- Welcome / early-access popup ---------- */
+.welcome-backdrop{position:fixed;inset:0;background:rgba(30,20,10,.38);backdrop-filter:blur(2px);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .5s ease;}
+.welcome-backdrop.show{opacity:1;}
+.welcome-card{position:relative;width:100%;max-width:440px;max-height:86vh;overflow-y:auto;background:rgba(255,251,244,.88);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:22px;box-shadow:0 25px 60px rgba(0,0,0,.3);padding:30px 28px 26px;transform:translateY(14px) scale(.98);transition:transform .5s ease;}
+[data-theme="dark"] .welcome-card, [data-theme="amoled"] .welcome-card{background:rgba(30,26,22,.88);}
+.welcome-backdrop.show .welcome-card{transform:translateY(0) scale(1);}
+.welcome-close{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.welcome-close:hover{border-color:var(--coral);color:var(--coral);}
+.welcome-pin{font-size:26px;margin-bottom:6px;}
+.welcome-card h3{font-family:'Lora',serif;font-size:21px;font-weight:600;margin-bottom:6px;line-height:1.3;}
+.welcome-lede{font-size:13.5px;font-weight:700;color:var(--coral);margin-bottom:14px;}
+.welcome-card p{font-size:13.5px;line-height:1.6;color:var(--text-dim);margin-bottom:10px;}
+.welcome-form{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.welcome-form input{flex:1;min-width:150px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:13.5px;color:var(--text);}
+.welcome-form input:focus{outline:none;border-color:var(--coral);}
+.welcome-form button{background:var(--coral);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.welcome-form button:hover{background:var(--coral-dark);}
+.welcome-form button:disabled{opacity:.6;cursor:default;}
+.welcome-status{font-size:12.5px;font-weight:700;margin-top:8px;min-height:16px;}
+.welcome-status.ok{color:#3d8a55;}
+.welcome-status.err{color:var(--red);}
+.welcome-skip{display:block;text-align:center;margin-top:16px;font-size:12px;color:var(--text-faint);text-decoration:none;cursor:pointer;}
+.welcome-skip:hover{color:var(--coral);}
+@media (max-width:480px){
+  .welcome-card{padding:24px 20px 22px;}
+  .welcome-form{flex-direction:column;}
+}
+
+
+/* ---------- Coming Soon (Find a Mosque / Prayer Times) ---------- */
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1180px;margin:0 auto;padding:32px 32px 56px;}
+.cs-grid-single{grid-template-columns:1fr;max-width:520px;}
+.cs-card{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:22px;padding:32px;box-shadow:var(--shadow);text-align:center;display:flex;flex-direction:column;align-items:center;}
+.cs-art{width:100%;max-width:420px;border-radius:18px;overflow:hidden;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);margin-bottom:22px;}
+.cs-art img{width:100%;height:auto;display:block;}
+.cs-icon{width:52px;height:52px;border-radius:16px;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+.cs-card h2{font-size:23px;font-weight:800;margin-bottom:10px;}
+.cs-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--coral);background:var(--coral-soft);border-radius:20px;padding:5px 14px;margin-bottom:14px;}
+.cs-badge .dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--coral);animation:cs-spin 3s linear infinite;}
+@keyframes cs-spin{to{transform:rotate(360deg);}}
+.cs-card p.cs-desc{color:var(--text-dim);font-size:14.5px;line-height:1.6;max-width:340px;margin-bottom:22px;}
+.cs-features{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;border-top:1px solid var(--border);padding-top:20px;margin-top:4px;}
+.cs-feature{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);text-align:center;}
+.cs-feature .cs-feature-icon{width:38px;height:38px;border-radius:12px;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--coral);}
+.cs-footnote{max-width:1180px;margin:0 auto 8px;padding:0 32px;font-size:13px;color:var(--text-dim);text-align:center;}
+.cs-footnote a{color:var(--coral);font-weight:700;cursor:pointer;}
+@media (max-width:900px){
+  .cs-grid{grid-template-columns:1fr;padding:20px 16px 40px;}
+  .cs-features{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ---------- Find a Mosque :: backdrop + polaroid card ---------- */
+.offline-banner{
+  position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:var(--coral,#F4714E);color:#fff;
+  padding:12px 16px;text-align:center;font-weight:500;font-size:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  animation:slideDown 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.offline-banner span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@media(max-width:480px){.offline-banner{font-size:12px;padding:10px 12px;}.offline-banner span{font-size:12px;}}
+

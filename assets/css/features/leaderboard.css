@@ -1,0 +1,138 @@
+/* Clicking a name/avatar in the followers or global-leaderboard lists
+   sends a friend request directly — an easy add-friend path for people
+   you already follow or who follow you, without typing their username. */
+.af-target {
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background .15s ease;
+}
+.af-target:hover {
+  background: rgba(var(--coral-rgb), .08);
+}
+.af-target[data-requested="true"] {
+  cursor: default;
+  opacity: .7;
+}
+
+.username-supporter {
+  background: linear-gradient(90deg, #fceabb, #f8b500, #fceabb, #f8b500);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+  animation: usernameShine 3s linear infinite;
+}
+
+@keyframes usernameShine {
+  to { background-position: 300% center; }
+}
+
+.auth-btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-btn-google:hover {
+  background: var(--active-bg, var(--surface-alt));
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-popup-message {
+  padding: 10px 12px;
+  background: rgba(78, 138, 99, 0.1);
+  border-left: 3px solid var(--green);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--green);
+  line-height: 1.4;
+}
+
+.auth-popup-message.hidden {
+  display: none;
+}
+
+.auth-popup-error {
+  padding: 10px 12px;
+  background: rgba(194, 95, 68, 0.1);
+  border-left: 3px solid var(--red);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--red);
+  line-height: 1.4;
+}
+
+.auth-popup-error.hidden {
+  display: none;
+}
+
+.auth-popup-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.auth-popup-loading.hidden {
+  display: none;
+}
+
+.auth-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(244, 113, 78, 0.2);
+  border-top-color: var(--coral);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-popup {
+    top: 56px;
+    bottom: auto;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+    max-height: calc(100vh - 72px);
+    max-height: calc(100dvh - 72px);
+  }
+  .auth-popup-content {
+    max-height: calc(100vh - 112px);
+    max-height: calc(100dvh - 112px);
+  }
+}
+
