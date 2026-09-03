@@ -1490,3 +1490,126 @@ window.WWP_openGuide = function(guideId, opts){
 init();
 
 })();
+
+/* ===== deferred: guides display override (grouped-by-category rendering) ===== */
+
+/* ===== deferred feature script 08 ===== */
+(function(){
+// ==> GUIDES DISPLAY OVERRIDE
+(function() {
+  // Hook the real router (window.switchPage) rather than a nonexistent
+  // window.showPage. switchPage is assigned synchronously above, so it
+  // exists by the time this IIFE runs (this script tag loads after it).
+  const originalSwitchPage = window.switchPage;
+  window.switchPage = function(id, opts) {
+    originalSwitchPage.call(this, id, opts);
+    if (id === 'guides') {
+      setTimeout(renderGroupedGuides, 150);
+    }
+  };
+
+  window.renderGroupedGuides = function() {
+    const pageContent = document.querySelector('#page-guides .page');
+    if (!pageContent) return;
+
+    let container = pageContent.querySelector('.guides-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'guides-container grouped-guides';
+      const layout = pageContent.querySelector('.guides-layout');
+      if (layout) {
+        layout.parentNode.insertBefore(container, layout.nextSibling);
+      } else {
+        pageContent.appendChild(container);
+      }
+    }
+
+    container.innerHTML = '';
+
+    // === All Guides Section ===
+    const guidesSection = document.createElement('div');
+    guidesSection.className = 'collapsible-section';
+
+    const guidesHeader = document.createElement('div');
+    guidesHeader.className = 'collapsible-header open';
+    guidesHeader.textContent = 'All Guides (Grouped by Category)';
+
+    const guidesList = document.createElement('div');
+    guidesList.className = 'collapsible-content';
+
+    guidesHeader.addEventListener('click', function() {
+      this.classList.toggle('open');
+      guidesList.classList.toggle('closed');
+    });
+
+    guidesSection.appendChild(guidesHeader);
+    guidesSection.appendChild(guidesList);
+
+    Object.keys(GUIDE_CATEGORIES).forEach(cat => {
+      const ids = GUIDE_CATEGORIES[cat];
+      const guides = GUIDES.filter(g => ids.includes(g.id));
+      const color = CATEGORY_COLORS[cat];
+
+      if (guides.length > 0) {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'guides-category';
+
+        const catTitle = document.createElement('h3');
+        catTitle.className = 'category-title';
+        catTitle.textContent = cat;
+        catDiv.appendChild(catTitle);
+
+        const grid = document.createElement('div');
+        grid.className = 'guides-grid';
+
+        guides.forEach(g => {
+          const card = document.createElement('div');
+          card.className = 'guide-card';
+          card.style.borderLeft = `4px solid ${color}`;
+
+          const header = document.createElement('div');
+          header.className = 'guide-header';
+
+          const title = document.createElement('span');
+          title.className = 'guide-title';
+          title.textContent = g.title;
+
+          const time = document.createElement('span');
+          time.className = 'guide-time';
+          time.textContent = g.time;
+
+          header.appendChild(title);
+          header.appendChild(time);
+          card.appendChild(header);
+
+          const summary = document.createElement('div');
+          summary.className = 'guide-summary';
+          summary.textContent = g.summary;
+          card.appendChild(summary);
+
+          card.addEventListener('click', () => window.WWP_openGuide(g.id));
+
+          grid.appendChild(card);
+        });
+
+        catDiv.appendChild(grid);
+        guidesList.appendChild(catDiv);
+      }
+    });
+
+    container.appendChild(guidesSection);
+  };
+
+  // If the guides page is already the active page on load (e.g. direct
+  // URL to /guides/...), render immediately rather than waiting for a
+  // switchPage call that may never come.
+  document.addEventListener('DOMContentLoaded', function() {
+    const guidesPageEl = document.getElementById('page-guides');
+    if (guidesPageEl && !guidesPageEl.classList.contains('hidden')) {
+      setTimeout(renderGroupedGuides, 150);
+    }
+  });
+})();
+// <== GUIDES DISPLAY OVERRIDE
+
+})();
