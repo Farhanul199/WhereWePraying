@@ -3206,7 +3206,7 @@ const PrayerTimes = (function(){
   
   async function detectCloudflareGeo(){
     try{
-      const res = await fetchWithTimeout('/api/geo', {cache:'no-store'}, 3000);
+      const res = await fetchWithTimeout('/api/geo', {cache:'no-store', headers: window.WWP.deviceHeaders()}, 3000);
       if(!res.ok) throw new Error('cf geo failed');
       const d = await res.json();
       if(d && typeof d.lat === 'number' && typeof d.lon === 'number'){
