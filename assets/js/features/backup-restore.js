@@ -47,15 +47,13 @@
       const jsonText = JSON.stringify(data, null, 2);
       const file = new File([jsonText], filename, { type: 'application/json' });
 
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        try{
-          await navigator.share({ files: [file], title: 'WhereWePraying? backup' });
-          showBackupMsg('Backup ready — choose where to save it.');
-          return;
-        }catch(shareErr){
-          // User cancelled the share sheet, or share failed — fall through to download link.
-        }
-      }
+      let shared = false;
+      await Platform.share({ files: [file], title: 'WhereWePraying? backup' }, {
+        onSuccess: () => { shared = true; showBackupMsg('Backup ready — choose where to save it.'); }
+        // onCancelOrFail / onUnsupported: no-op — both fall through to the
+        // download link below, same as the original try/catch fallthrough.
+      });
+      if(shared) return;
 
       const url = URL.createObjectURL(new Blob([jsonText], { type: 'application/json' }));
       const a = document.createElement('a');
