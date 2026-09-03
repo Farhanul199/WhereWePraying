@@ -1,0 +1,103 @@
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden;}
+/* Global fallback: any element carrying just the "hidden" class gets
+   hidden, regardless of what other classes it also has. Several
+   scoped .foo.hidden rules exist elsewhere for specific components,
+   but new UI (Supporter box, Community sign-in notes, etc.) relied on
+   this generic rule existing -- it didn't, so toggling "hidden" alone
+   silently did nothing. This is a safe, low-specificity fallback: any
+   more specific .foo.hidden rule elsewhere still wins as before. */
+.hidden{display:none !important;}
+body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);transition:background .25s ease,color .25s ease;min-height:100vh;display:flex;flex-direction:column;}
+.app-page{flex:1 0 auto;}
+.site-footer{flex:none;}
+button, select, input, textarea{font-family:inherit;}
+a{color:inherit;text-decoration:none;}
+ul{list-style:none;}
+svg{display:block;}
+
+/* Themed scrollbars — follow the active theme's border/surface colours
+   instead of the browser's default grey, on every scrollable panel
+   (surah list, dropdowns, popovers, etc). Firefox + WebKit browsers. */
+*{scrollbar-width:thin; scrollbar-color:var(--border) transparent;}
+*::-webkit-scrollbar{width:9px;height:9px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;border:2px solid transparent;background-clip:padding-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--text-faint);background-clip:padding-box;}
+
+/* The top nav's own horizontal scroll (for narrow screens) should be
+   invisible rather than themed — a visible scrollbar there eats into
+   the row's height and clips the link labels. */
+.nav{scrollbar-width:none; -ms-overflow-style:none;}
+.nav::-webkit-scrollbar{display:none;}
+
+:root, [data-theme="light"]{
+  --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
+  --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896;
+  --border:#EFE1CC; --shadow:0 10px 28px rgba(60,42,24,.07);
+  --ring-track:#F1E4CE; --active-bg:#FDEEE2; --arabic-color:#2B2016;
+  --green:#4C9A6A; --green-soft:#DCEFE2;
+  --amber:#D79A3C; --amber-soft:#F6E7CB;
+  --red:#D8654A; --red-soft:#F7DCD2;
+  --gray-soft:#EFE7D8;
+  /* Watercolour per-prayer palette (Prayer Benefits & Adhkar cards) */
+  --fajr-1:#EAF1FB; --fajr-2:#DCE7F8; --fajr-border:#CBDBF2; --fajr-border-adhkar:#AFC7EA;
+  --dhuhr-1:#FFF7E3; --dhuhr-2:#FBEFCC; --dhuhr-border:#EEDCA0; --dhuhr-border-adhkar:#E0C67A;
+  --asr-1:#FDEEE0; --asr-2:#FAE1C7; --asr-border:#EDC89C; --asr-border-adhkar:#E0AE73;
+  --maghrib-1:#FBE7E7; --maghrib-2:#F6D8D8; --maghrib-border:#E9BBBB; --maghrib-border-adhkar:#DE9E9E;
+  --isha-1:#EDEAF8; --isha-2:#E1DBF2; --isha-border:#CBC0E8; --isha-border-adhkar:#B4A4DC;
+  --general-1:#EAF3EC; --general-2:#DCEEE0; --general-border:#C4E0CB; --general-border-adhkar:#A9D3B3;
+}
+[data-theme="sepia"]{
+  --bg:#EFE3C6; --surface:#F8EFD9; --surface-alt:#F1E4C4;
+  --coral:#E76A46; --coral-rgb:231,106,70; --coral-dark:#C55632; --coral-soft:#E9D2AA; --beam:#EFC298;
+  --text:#3A2C18; --text-dim:#7C6A48; --text-faint:#9C8A66;
+  --border:#DFCB9C; --shadow:0 10px 26px rgba(58,44,24,.10);
+  --ring-track:#E4D3A8; --active-bg:#E9D6AE; --arabic-color:#2E2110;
+  --green:#4E8A63; --green-soft:#D6E4CC;
+  --amber:#C08A34; --amber-soft:#E9D6A6;
+  --red:#C25F44; --red-soft:#E9CBB6;
+  --gray-soft:#E2D6B2;
+  --fajr-1:#E3E6DD; --fajr-2:#D6DBCE; --fajr-border:#C2CAB5; --fajr-border-adhkar:#A9B497;
+  --dhuhr-1:#F3E7BE; --dhuhr-2:#EDDBA0; --dhuhr-border:#DDC378; --dhuhr-border-adhkar:#CBA956;
+  --asr-1:#EED9B8; --asr-2:#E6C79A; --asr-border:#D2AC6E; --asr-border-adhkar:#C0924C;
+  --maghrib-1:#EAD2C8; --maghrib-2:#E0BEAF; --maghrib-border:#CC9C87; --maghrib-border-adhkar:#BA8066;
+  --isha-1:#DED6E0; --isha-2:#CFC2D3; --isha-border:#B7A4BC; --isha-border-adhkar:#9E86A5;
+  --general-1:#DCE4CE; --general-2:#CBD8B8; --general-border:#B0C093; --general-border-adhkar:#93A873;
+}
+[data-theme="dark"]{
+  --bg:#121010; --surface:#1B1816; --surface-alt:#211D1A;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#3A2620; --beam:#5A3729;
+  --text:#F3EAE0; --text-dim:#A79A8C; --text-faint:#726657;
+  --border:#332C26; --shadow:0 10px 30px rgba(0,0,0,.35);
+  --ring-track:#2C2622; --active-bg:#2A211C; --arabic-color:#F7EFE5;
+  --green:#5FAE7C; --green-soft:#213A29;
+  --amber:#D8A84E; --amber-soft:#3A2E17;
+  --red:#E17E63; --red-soft:#3A241D;
+  --gray-soft:#241F1B;
+  --fajr-1:rgba(120,150,220,.16); --fajr-2:rgba(120,150,220,.04); --fajr-border:rgba(120,150,220,.3); --fajr-border-adhkar:rgba(140,170,230,.45);
+  --dhuhr-1:rgba(216,168,78,.16); --dhuhr-2:rgba(216,168,78,.04); --dhuhr-border:rgba(216,168,78,.3); --dhuhr-border-adhkar:rgba(226,182,100,.45);
+  --asr-1:rgba(220,140,90,.16); --asr-2:rgba(220,140,90,.04); --asr-border:rgba(220,140,90,.3); --asr-border-adhkar:rgba(230,155,105,.45);
+  --maghrib-1:rgba(225,126,99,.16); --maghrib-2:rgba(225,126,99,.04); --maghrib-border:rgba(225,126,99,.3); --maghrib-border-adhkar:rgba(235,140,113,.45);
+  --isha-1:rgba(155,130,210,.16); --isha-2:rgba(155,130,210,.04); --isha-border:rgba(155,130,210,.3); --isha-border-adhkar:rgba(170,145,225,.45);
+  --general-1:rgba(95,174,124,.16); --general-2:rgba(95,174,124,.04); --general-border:rgba(95,174,124,.3); --general-border-adhkar:rgba(110,190,140,.45);
+}
+[data-theme="amoled"]{
+  --bg:#000000; --surface:#0A0A0A; --surface-alt:#121212;
+  --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#2B1712; --beam:#3D2015;
+  --text:#EDEAE5; --text-dim:#948A7D; --text-faint:#5E564B;
+  --border:#1E1E1E; --shadow:0 10px 30px rgba(0,0,0,.6);
+  --ring-track:#1A1A1A; --active-bg:#171717; --arabic-color:#F7EFE5;
+  --green:#5FAE7C; --green-soft:#132018;
+  --amber:#D8A84E; --amber-soft:#241C0E;
+  --red:#E17E63; --red-soft:#241511;
+  --gray-soft:#141414;
+  --fajr-1:rgba(120,150,220,.13); --fajr-2:rgba(120,150,220,.03); --fajr-border:rgba(120,150,220,.26); --fajr-border-adhkar:rgba(140,170,230,.4);
+  --dhuhr-1:rgba(216,168,78,.13); --dhuhr-2:rgba(216,168,78,.03); --dhuhr-border:rgba(216,168,78,.26); --dhuhr-border-adhkar:rgba(226,182,100,.4);
+  --asr-1:rgba(220,140,90,.13); --asr-2:rgba(220,140,90,.03); --asr-border:rgba(220,140,90,.26); --asr-border-adhkar:rgba(230,155,105,.4);
+  --maghrib-1:rgba(225,126,99,.13); --maghrib-2:rgba(225,126,99,.03); --maghrib-border:rgba(225,126,99,.26); --maghrib-border-adhkar:rgba(235,140,113,.4);
+  --isha-1:rgba(155,130,210,.13); --isha-2:rgba(155,130,210,.03); --isha-border:rgba(155,130,210,.26); --isha-border-adhkar:rgba(170,145,225,.4);
+  --general-1:rgba(95,174,124,.13); --general-2:rgba(95,174,124,.03); --general-border:rgba(95,174,124,.26); --general-border-adhkar:rgba(110,190,140,.4);
+}
+

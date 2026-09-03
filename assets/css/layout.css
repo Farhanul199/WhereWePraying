@@ -1,0 +1,68 @@
+/* Fixed (not sticky) so it never drifts mid-scroll on any device.
+   body padding-top is set by JS (measured topbar height) so page
+   content starts right below it. */
+body{padding-top:78px;}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;white-space:nowrap;}
+.brand-mark{width:34px;height:34px;border-radius:11px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;}
+.brand-mark img{width:100%;height:100%;object-fit:contain;}
+.nav{display:flex;align-items:center;gap:clamp(8px,1.6vw,24px);flex:1;min-width:0;overflow-x:auto;}
+.nav a{font-size:clamp(12px,1.05vw,14px);font-weight:600;color:var(--text-dim);white-space:nowrap;padding:6px 2px 12px;position:relative;cursor:pointer;}
+.nav a.active{color:var(--coral);}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;background:var(--coral);}
+.topbar-icons{display:flex;align-items:center;gap:clamp(6px,1vw,14px);margin-left:auto;flex:none;}
+.icon-btn{width:clamp(30px,2.4vw,36px);height:clamp(30px,2.4vw,36px);border-radius:50%;border:1px solid var(--border);background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex:none;}
+.icon-btn:hover{border-color:var(--coral);color:var(--coral);}
+/* Signed-in account icon — background auto-matches the active theme's
+   accent tint (light peach normally, sage green in Jummah, lilac in
+   Ramadan) since --coral-soft already swaps per theme. */
+.icon-btn.account-signed-in{background:var(--coral-soft);border-color:var(--coral-soft);color:var(--coral-dark);}
+.icon-btn.account-signed-in:hover{border-color:var(--coral);}
+
+.app-page{position:relative;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease;}
+.app-page.hidden{display:none;}
+.app-page.page-enter{opacity:0;transform:translateY(8px);}
+@media (prefers-reduced-motion: reduce){
+  .app-page{transition:none;}
+}
+
+.site-footer{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border-top:1px solid var(--border);margin-top:20px;}
+.site-footer-inner{max-width:1360px;margin:0 auto;padding:32px 32px 26px;display:flex;flex-wrap:wrap;gap:28px;justify-content:space-between;align-items:flex-start;}
+.footer-brand{display:flex;align-items:flex-start;gap:12px;max-width:420px;}
+.footer-brand .brand-mark{margin-top:2px;}
+.footer-brand-text strong{font-size:15px;font-weight:800;display:block;}
+.footer-brand-text p{font-size:13px;color:var(--text-dim);margin-top:6px;line-height:1.6;}
+.footer-about{max-width:340px;}
+.footer-about h4{font-size:11.5px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+.footer-about p{font-size:12.5px;color:var(--text-dim);line-height:1.65;}
+.footer-coming-soon{display:flex;gap:14px;align-items:center;max-width:340px;}
+.footer-coming-soon img{border-radius:14px;box-shadow:var(--shadow);flex:none;}
+.footer-coming-soon h4{font-size:11.5px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+.footer-coming-soon p{font-size:12.5px;color:var(--text-dim);line-height:1.6;}
+.footer-newsletter{margin-top:16px;}
+.footer-newsletter-note{font-size:12.5px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;}
+.footer-newsletter-form{display:flex;gap:8px;flex-wrap:wrap;}
+.footer-newsletter-form input{flex:1;min-width:150px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--text);}
+.footer-newsletter-form input:focus{outline:none;border-color:var(--coral);}
+.footer-newsletter-form button{background:var(--coral);color:#fff;border:none;border-radius:10px;padding:10px 15px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.footer-newsletter-form button:hover{background:var(--coral-dark);}
+.footer-newsletter-form button:disabled{opacity:.6;cursor:default;}
+.footer-newsletter-status{font-size:11.5px;font-weight:700;margin-top:8px;min-height:14px;}
+.footer-newsletter-status.ok{color:#3d8a55;}
+.footer-newsletter-status.err{color:var(--red);}
+.footer-bottom{border-top:1px solid var(--border);padding:14px 32px;font-size:11.5px;color:var(--text-faint);text-align:center;}
+
+@media (max-width:760px){
+  .site-footer-inner{padding:26px 16px 20px;flex-direction:column;}
+  .footer-bottom{padding:12px 16px;}
+}
+
+@media (max-width:760px){
+  .topbar{flex-wrap:wrap;row-gap:10px;padding:12px 16px;}
+  .nav{flex:1 1 100%;order:3;overflow-x:visible;flex-wrap:nowrap;justify-content:space-between;gap:2px;}
+  .nav a{flex:1;min-width:0;text-align:center;white-space:normal;font-size:11px;line-height:1.2;padding:4px 1px;}
+  .nav a.active::after{bottom:2px;}
+}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:12px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+

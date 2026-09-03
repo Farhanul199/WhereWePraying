@@ -1,0 +1,99 @@
+/* ============================================================================
+   WhereWePraying? Mobile-First Bootstrap Overlay (Steps 1-4 Integrated)
+   ============================================================================ */
+
+@media (max-width: 767px) {
+  body { padding-top: 70px !important; }
+  .container, .container-fluid { padding-left: 16px !important; padding-right: 16px !important; }
+  .row { display: grid; gap: 12px; }
+  .col, [class*="col-"] { width: 100%; min-width: 0; }
+  .col-mobile-2 { width: calc(50% - 6px); display: inline-block; vertical-align: top; }
+  .col-mobile-2:nth-child(odd) { margin-right: 12px; }
+  .col-mobile-full { width: 100% !important; }
+  .p-mobile-16 { padding: 16px !important; }
+  .p-mobile-12 { padding: 12px !important; }
+  .mb-mobile-16 { margin-bottom: 16px !important; }
+  .mb-mobile-20 { margin-bottom: 20px !important; }
+  .gap-mobile-12 { gap: 12px !important; }
+  .topbar { flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 16px !important; }
+  .brand { flex: 0 0 auto; font-size: 16px !important; }
+  .brand-mark { width: 32px !important; height: 32px !important; }
+
+  /* Ultra-narrow screens (folded flip phones, small/older devices):
+     drop the wordmark and help badge entirely rather than let them
+     compete for space with the theme/language/account buttons — those
+     three are the ones that actually need to stay reachable. */
+  @media (max-width:380px){
+    .brand-text, .help-badge-btn { display:none !important; }
+  }
+  .nav { flex: 1 1 100% !important; order: 3; overflow-x: visible !important; gap: 2px !important; justify-content: space-between; }
+  .nav a { flex: 1; min-width: 0; text-align: center; font-size: 11px !important; line-height: 1.2; padding: 4px 1px !important; white-space: normal !important; }
+  .nav a.active::after { bottom: 2px !important; }
+  .topbar-icons { gap: 6px !important; }
+  .icon-btn { width: 32px !important; height: 32px !important; font-size: 14px; }
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card-grid .card { border-radius: 14px !important; padding: 14px !important; margin-bottom: 0 !important; }
+  .section-full { width: 100% !important; padding: 16px !important; margin-bottom: 16px !important; }
+  .page-title { font-size: 22px !important; font-weight: 700 !important; margin-bottom: 14px !important; }
+  .section-title { font-size: 16px !important; font-weight: 700 !important; margin-bottom: 12px !important; }
+  .section-desc { font-size: 13px !important; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px !important; }
+  h1 { font-size: clamp(20px, 5vw, 26px) !important; }
+  h2 { font-size: clamp(16px, 4vw, 20px) !important; }
+  h3 { font-size: 15px !important; }
+  p { font-size: 13px !important; line-height: 1.6; }
+  .btn { font-size: 13px !important; padding: 10px 16px !important; border-radius: 10px !important; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+  .btn-coral, .btn-primary { background: var(--coral) !important; color: white !important; border: none !important; }
+  .btn-coral:hover, .btn-primary:hover { background: var(--coral-dark) !important; }
+  .btn-outline-coral, .btn-outline { border: 2px solid var(--border) !important; color: var(--text) !important; background: transparent !important; }
+  .btn-outline-coral:hover, .btn-outline:hover { border-color: var(--coral) !important; color: var(--coral) !important; }
+  .btn-full { width: 100% !important; }
+  .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .button-group .btn { flex: 1; min-width: 120px; }
+  input[type="text"], input[type="email"], input[type="search"], textarea, select { width: 100% !important; padding: 10px 12px !important; font-size: 14px !important; border: 1px solid var(--border) !important; border-radius: 10px !important; background: var(--surface) !important; backdrop-filter: var(--surface-blur,none) !important; -webkit-backdrop-filter: var(--surface-blur,none) !important; color: var(--text) !important; }
+  input[type="text"]:focus, input[type="email"]:focus, input[type="search"]:focus, textarea:focus, select:focus { outline: none; border-color: var(--coral) !important; box-shadow: 0 0 0 2px var(--coral-soft) !important; }
+  input[type="text"]::placeholder, input[type="email"]::placeholder, input[type="search"]::placeholder { color: var(--text-faint); }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th, table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  table th { font-weight: 700; background: var(--surface-alt); color: var(--text-dim); }
+  table tr:hover { background: var(--active-bg); }
+  ul, ol { padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  .site-footer { margin-top: 20px; padding: 0; }
+  .site-footer-inner { padding: 20px 16px !important; flex-direction: column; gap: 20px; }
+  .footer-brand, .footer-about, .footer-coming-soon, .footer-newsletter { max-width: 100% !important; }
+  .footer-bottom { padding: 10px 16px !important; font-size: 11px; }
+  .modal { padding: 0 !important; }
+  .modal-content { border-radius: 20px 20px 0 0 !important; border: 1px solid var(--border) !important; }
+  .modal-header { padding: 16px !important; border-bottom: 1px solid var(--border) !important; }
+  .modal-body { padding: 16px !important; font-size: 13px; }
+  .modal-footer { padding: 12px 16px !important; gap: 8px; }
+  .popover { width: calc(100vw - 20px) !important; max-width: none !important; }
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: block !important; }
+  .flex-mobile-column { flex-direction: column !important; }
+  .flex-mobile-wrap { flex-wrap: wrap !important; }
+  .mt-mobile-16 { margin-top: 16px !important; }
+  .mt-mobile-20 { margin-top: 20px !important; }
+  .mx-mobile-auto { margin-left: auto !important; margin-right: auto !important; }
+  .text-mobile-center { text-align: center !important; }
+  .text-mobile-left { text-align: left !important; }
+  .w-mobile-full { width: 100% !important; }
+  .max-w-mobile-full { max-width: 100% !important; }
+  .overflow-mobile-hidden { overflow: hidden !important; }
+  .overflow-mobile-x-auto { overflow-x: auto !important; }
+  @supports (padding: max(0px)) {
+    body { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+    .topbar { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-top: max(14px, env(safe-area-inset-top)) !important; }
+    .site-footer { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  }
+  body.tm-mode { padding-left: 0 !important; padding-right: 0 !important; }
+}
+
+@media (min-width: 768px) {
+  /* Desktop uses current CSS unchanged */
+}
+
+
+
