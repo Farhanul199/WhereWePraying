@@ -1,10 +1,9 @@
-const CACHE_NAME = 'wwp-v3';
+const CACHE_NAME = 'wwp-v7';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/offline.html',
-  'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css'
 ];
 const DUA_IMAGES = [
   'assets/dua/tile/morning.webp','assets/dua/tile/evening.webp','assets/dua/tile/salah.webp',
@@ -28,11 +27,14 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then(n => Promise.all(n.filter(x => x !== CACHE_NAME).map(x => caches.delete(x))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(x => x !== CACHE_NAME).map(x => caches.delete(x)));
+    if (self.registration.navigationPreload) {
+      try { await self.registration.navigationPreload.enable(); } catch (_) {}
+    }
+    await self.clients.claim();
+  })());
 });
 
 // Let the page ask the waiting SW to activate immediately (used for the
@@ -73,16 +75,18 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
   // Live API data: network-first, cache as fallback for offline.
+  // Fresh data wins; cached data is only the offline safety net.
   if (url.hostname === 'api.aladhan.com' || url.hostname === 'api.alquran.cloud' || url.hostname === 'everyayah.com') {
-    e.respondWith(
-      caches.open(CACHE_NAME).then(c => c.match(e.request).then(cached => {
-        const fp = fetch(e.request).then(r => {
-          if (r.status === 200) c.put(e.request, r.clone());
-          return r;
-        }).catch(() => cached || new Response('', { status: 503 }));
-        return cached || fp;
-      }))
-    );
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const response = await fetch(e.request);
+        if (response.ok) await cache.put(e.request, response.clone());
+        return response;
+      } catch (_) {
+        return (await cache.match(e.request)) || new Response('', { status: 503 });
+      }
+    })());
     return;
   }
 
@@ -91,12 +95,38 @@ self.addEventListener('fetch', (e) => {
   // to the cached copy only when offline.
   const isAppShell = e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
   if (isAppShell) {
-    e.respondWith(
-      fetch(e.request).then(resp => {
-        if (resp.status === 200) caches.open(CACHE_NAME).then(c => c.put(e.request, resp.clone()));
-        return resp;
-      }).catch(() => caches.match(e.request).then(r => r || caches.match('/index.html')).then(r => r || caches.match('/offline.html')))
-    );
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        // Navigation preload can start while the service worker boots.
+        const preload = e.preloadResponse ? await e.preloadResponse : null;
+        const response = preload || await fetch(e.request);
+        if (response.ok) cache.put(e.request, response.clone()).catch(() => 0);
+        return response;
+      } catch (_) {
+        return (await cache.match(e.request)) || (await cache.match('/index.html')) || (await cache.match('/offline.html')) || new Response('Offline', { status: 503 });
+      }
+    })());
+    return;
+  }
+
+  // Mosque data (list, jama'ah times, favourites, photos): network-first,
+  // cache as the offline fallback. Same reasoning as the prayer-time APIs
+  // above — fresh data wins when online, but a user with no signal should
+  // still see their last-known mosque list and favourites, not nothing.
+  // This must be checked before the generic /api/ branch below, since that
+  // branch would otherwise catch these same paths and skip caching them.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/mosques/')) {
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const response = await fetch(e.request);
+        if (response.ok) await cache.put(e.request, response.clone());
+        return response;
+      } catch (_) {
+        return (await cache.match(e.request)) || new Response('', { status: 503 });
+      }
+    })());
     return;
   }
 
