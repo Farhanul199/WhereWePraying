@@ -173,10 +173,7 @@ const PrayerTimes = (function(){
     WWP.save('prayertimes', {location: state.location, method: state.method});
   }
 
-  function todayKey(){
-    const d = new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
+  // todayKey: shared, defined once in wwp-core.js — no local copy needed.
   function cacheKey(){
     if(!state.location) return null;
     const lat = state.location.lat.toFixed(2), lon = state.location.lon.toFixed(2);
@@ -595,12 +592,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
    they always agree, and a 1s tick keeps the countdown live.
    ============================================================ */
 (function(){
-  let __ptToastTimer;
-  function showToast(msg){
-    const t = document.getElementById('toast'); if(!t) return;
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(__ptToastTimer); __ptToastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
-  }
+  // showToast: shared, defined once in wwp-core.js (loads first) — no local copy needed.
 
   const PT_ICONS = {
     Fajr: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/>',

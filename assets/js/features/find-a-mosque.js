@@ -14,15 +14,7 @@
   const TYPE_LABELS = {mosque:'Mosque', community_hall:'Community Hall', prayer_room:'Prayer Room'};
   const BUFFER_MIN = 10;
 
-  function deviceHeaders(){
-    return { 'X-Device-Id': window.WWP?.deviceId || '' };
-  }
-
-  function escapeHtml(s){
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-    }[c]));
-  }
+  // deviceHeaders, escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
   function londonNow(){
     const parts = new Intl.DateTimeFormat('en-GB', {

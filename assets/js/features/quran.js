@@ -484,13 +484,9 @@ function approxPage(surahNum, ayahNum){
   return Math.max(1, Math.min(TOTAL_PAGES, Math.round((globalIdx/TOTAL_AYAHS)*TOTAL_PAGES)));
 }
 
-let toastTimer;
-function showToast(msg){
-  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2400);
-}
+// showToast: shared, defined once in wwp-core.js (loads first) — no local copy needed.
 
-function dkey(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+// dkey: shared, defined once in wwp-core.js — no local copy needed.
 
 /* ============================================================
    STATE :: fresh-device defaults — a brand new device gets a
@@ -1020,9 +1016,7 @@ function submitQuranStreak(days){
 // (not sharing helpers with the auth/friends IIFE — top-level consts
 // there are invisible from this script) — keeps its own tiny renderer.
 let pokePanelLastLoad = 0;
-function escapeHtmlQ(s){
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
+// escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 async function loadQuranPokePanel(force){
   if(!force && Date.now()-pokePanelLastLoad<30000) return;
   pokePanelLastLoad = Date.now();
@@ -1059,7 +1053,7 @@ async function loadQuranPokePanel(force){
       const item = document.createElement('div');
       item.className='poke-friend-item';
       item.innerHTML = `
-        <span class="poke-friend-name">${escapeHtmlQ(entry.username)} <span class="poke-friend-streak">${entry.streakDays}d</span></span>
+        <span class="poke-friend-name">${escapeHtml(entry.username)} <span class="poke-friend-streak">${entry.streakDays}d</span></span>
         <button class="poke-btn" ${entry.pokedToday?'disabled':''} data-friend="${entry.userId}">
           ${entry.pokedToday ? 'Poked ✓' : 'Poke'}
         </button>`;
@@ -1432,12 +1426,10 @@ function copyAyah(surah, ayah){
 function shareAyah(surah, ayah){
   const s = getSurah(surah);
   const text = `${s.en} ${ayah} — read on WhereWePraying?`;
-  if(navigator.share){
-    navigator.share({title:'WhereWePraying? — Qur\'an', text}).catch(()=>{});
-  } else {
+  Platform.share({title:'WhereWePraying? — Qur\'an', text}, ()=>{
     navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others'))
       .catch(()=>showToast('Sharing is not available on this device'));
-  }
+  });
 }
 
 // Fetches and renders the tafsir into a given note-wrap element. Shared
@@ -1535,12 +1527,10 @@ function initNotesAutoLoad(){
 function shareSurah(){
   const s = getSurah(state.currentSurah);
   const text = `${s.en} (${s.meaning}) — read on WhereWePraying?`;
-  if(navigator.share){
-    navigator.share({title:'WhereWePraying? — Qur\'an', text}).catch(()=>{});
-  } else {
+  Platform.share({title:'WhereWePraying? — Qur\'an', text}, ()=>{
     navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others'))
       .catch(()=>showToast('Sharing is not available on this device'));
-  }
+  });
 }
 
 function setTheme(mode){

@@ -12,9 +12,7 @@
 (function(){
   const $ = (id) => document.getElementById(id);
 
-  function deviceHeaders(extra){
-    return Object.assign({ 'X-Device-Id': window.WWP?.deviceId || '' }, extra || {});
-  }
+  // deviceHeaders: shared, defined once in wwp-core.js — no local copy needed.
 
   function showBackupMsg(text){
     const el = $('backupMessage');

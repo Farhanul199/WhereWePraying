@@ -9,8 +9,7 @@
    ============================================================ */
 const $ = (sel,root)=> (root||document).querySelector(sel);
 const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
-let toastTimer;
-function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+// showToast: shared, defined once in wwp-core.js (loads first) — no local copy needed.
 
 const ICONS = {
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -1433,8 +1432,9 @@ async function init(){
   $('#detailShareBtn').addEventListener('click', ()=>{
     const item = ITEMS[state.selectedItem];
     const text = `${item.title} — WhereWePraying?`;
-    if(navigator.share){ navigator.share({title:"Du'a & Dhikr", text}).catch(()=>{}); }
-    else { navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device')); }
+    Platform.share({title:"Du'a & Dhikr", text}, ()=>{
+      navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device'));
+    });
   });
   $('#detailMoreBtn').addEventListener('click', ()=> showToast('More options — coming soon'));
 

@@ -400,7 +400,9 @@ window.WWP_TravelHome = (function(){
   $('#tmOfflineTimes')?.addEventListener('click',()=>{try{localStorage.setItem('wwp:travel:offline-times',JSON.stringify(PrayerTimes.getState().timings||{}));showToast('Today’s prayer times saved for offline use.');}catch(e){showToast('Offline saving is unavailable on this device.');}});
   $('#tmShareLocation')?.addEventListener('click',()=>{
     const text='I’m travelling in '+(PrayerTimes.getState().location?.label||'my current location')+'.';
-    if(navigator.share) navigator.share({title:'WhereWePraying? Travel Mode',text}).catch(()=>{}); else navigator.clipboard?.writeText(text).then(()=>showToast('Location note copied.')).catch(()=>showToast('Sharing is unavailable.'));
+    Platform.share({title:'WhereWePraying? Travel Mode',text}, ()=>{
+      navigator.clipboard?.writeText(text).then(()=>showToast('Location note copied.')).catch(()=>showToast('Sharing is unavailable.'));
+    });
   });
   $('#tmGuideBtn')?.addEventListener('click',()=>window.switchPage('guides'));
   page.querySelectorAll('.tm-guide-row').forEach(btn=>btn.addEventListener('click',(e)=>{

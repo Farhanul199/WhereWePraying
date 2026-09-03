@@ -11,21 +11,14 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
-  function deviceHeaders(extra){
-    const h = Object.assign({ 'X-Device-Id': window.WWP?.deviceId || '' }, extra || {});
-    return h;
-  }
+  // deviceHeaders: shared, defined once in wwp-core.js — no local copy needed.
 
   function isSignedIn(){
     const s = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
     return !!(s && s.authenticated);
   }
 
-  function escapeHtml(str){
-    const d = document.createElement('div');
-    d.textContent = str == null ? '' : String(str);
-    return d.innerHTML;
-  }
+  // escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
   function timeAgo(ts){
     const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));

@@ -4,12 +4,7 @@
 (function(){
 const $ = (sel,root)=> (root||document).querySelector(sel);
 const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
-let __gToastTimer;
-function showToast(msg){
-  const t=document.getElementById('toast'); if(!t) return;
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(__gToastTimer); __gToastTimer=setTimeout(()=>t.classList.remove('show'),2600);
-}
+// showToast: shared, defined once in wwp-core.js (loads first) — no local copy needed.
 
 const ICONS = {
   droplet:'<path d="M12 2s7 8 7 13a7 7 0 1 1-14 0c0-5 7-13 7-13Z"/>',
@@ -1448,8 +1443,9 @@ async function init(){
     const g = getGuide(state.selectedGuide);
     if(!g) return;
     const text = `${g.title} — WhereWePraying?`;
-    if(navigator.share){ navigator.share({title:'Guides', text}).catch(()=>{}); }
-    else { navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device')); }
+    Platform.share({title:'Guides', text}, ()=>{
+      navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device'));
+    });
   });
   $('#progressReset').addEventListener('click', ()=>{
     if(!state.selectedGuide) return;

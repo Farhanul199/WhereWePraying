@@ -189,10 +189,7 @@
 // them having to open the Journal separately. State is keyed by date so
 // yesterday's ticks don't carry over and the boxes reset each Jummah.
 (function(){
-  function todayKey(){
-    var d = new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
+  // todayKey: shared, defined once in wwp-core.js — no local copy needed.
   var TICK_STORE_KEY = 'wwp:jummahTicks';
 
   function loadTickState(){

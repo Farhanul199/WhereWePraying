@@ -46,11 +46,7 @@
 
   var lastPokes = [];
 
-  function escapeHtmlPN(s){
-    var div = document.createElement('div');
-    div.textContent = s == null ? '' : s;
-    return div.innerHTML;
-  }
+  // escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
   // Small deterministic colour-initial avatar for pokers without a real
   // profile picture — self-contained here rather than sharing the auth
@@ -99,7 +95,7 @@
       item.className = 'poke-notify-item';
       var nameSpan = document.createElement('span');
       nameSpan.className = 'poke-notify-name';
-      nameSpan.innerHTML = avatarMarkup(p) + '<span class="pn-name-text">'+escapeHtmlPN(p.username)+'</span><span class="poke-notify-streak">'+p.streakDays+'d</span>';
+      nameSpan.innerHTML = avatarMarkup(p) + '<span class="pn-name-text">'+escapeHtml(p.username)+'</span><span class="poke-notify-streak">'+p.streakDays+'d</span>';
       item.appendChild(nameSpan);
       item.appendChild(renderPokeBackBtn(p.fromUserId));
       listEl.appendChild(item);

@@ -8,10 +8,9 @@
    ============================================================ */
 const $ = (sel,root)=> (root||document).querySelector(sel);
 const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
-let toastTimer;
-function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+// showToast: shared, defined once in wwp-core.js (loads first) — no local copy needed.
 
-function dkey(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+// dkey: shared, defined once in wwp-core.js — no local copy needed.
 function addDays(d,n){ const c=new Date(d); c.setDate(c.getDate()+n); return c; }
 function startOfWeekMon(d){ const c=new Date(d); const day=(c.getDay()+6)%7; c.setDate(c.getDate()-day); c.setHours(0,0,0,0); return c; }
 function fmtLong(d){ return d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
@@ -446,8 +445,9 @@ async function init(){
   });
   $('#journalShareBtn')?.addEventListener('click', ()=>{
     const text = `${state.streakDays} day${state.streakDays===1?'':'s'} streak on WhereWePraying? 🕌 Tracking my prayers and good deeds — join me!`;
-    if(navigator.share){ navigator.share({title:'My WhereWePraying? Streak', text}).catch(()=>{}); }
-    else { navigator.clipboard?.writeText(text).then(()=>showToast('Streak copied to clipboard.')).catch(()=>showToast('Sharing is unavailable.')); }
+    Platform.share({title:'My WhereWePraying? Streak', text}, ()=>{
+      navigator.clipboard?.writeText(text).then(()=>showToast('Streak copied to clipboard.')).catch(()=>showToast('Sharing is unavailable.'));
+    });
   });
   $('#mistakeInput').addEventListener('input', ()=> $('#mistakeCharCount').textContent = $('#mistakeInput').value.length);
 
