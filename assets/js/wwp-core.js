@@ -300,7 +300,7 @@ function switchPage(id, opts){
     void activePage.offsetWidth;
     requestAnimationFrame(()=> activePage.classList.remove('page-enter'));
   }
-  document.querySelectorAll('.nav a[data-page], .bottom-nav a[data-page]').forEach(a=>{
+  document.querySelectorAll('.nav a[data-page], .nav button[data-page], .bottom-nav a[data-page]').forEach(a=>{
     a.classList.toggle('active', a.dataset.page===id);
   });
   document.body.classList.toggle('tm-mode', id==='travel');
@@ -362,7 +362,7 @@ function cycleTheme(){
 
 document.addEventListener('DOMContentLoaded', ()=> {}); // no-op guard
 
-document.querySelectorAll('a[data-page], [data-page].home-feature-card, .brand[data-page]').forEach(a=>{
+document.querySelectorAll('a[data-page], button[data-page], [data-page].home-feature-card, .brand[data-page]').forEach(a=>{
   a.addEventListener('click', ()=> switchPage(a.dataset.page));
 });
 document.querySelectorAll('a[data-soon]').forEach(a=>{
