@@ -1,5 +1,120 @@
+# WhereWePraying? robots.txt
+#
+# Search engines: fully allowed — SEO / organic discovery matters for
+# mosque & prayer-time search (see /mosque/[slug] pages, sitemap.xml).
+# AI training / data-scraping bots: blocked.
+#
+# Note: robots.txt is advisory. Well-behaved bots respect it; bots that
+# don't check it (or ignore it deliberately) won't be stopped by this file.
+# Real abuse protection (rate limiting, bot detection) belongs at the
+# Cloudflare edge, not here.
+
+# ---------------------------------------------------------------
+# Default: allow everyone except the paths below
+# ---------------------------------------------------------------
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /api/
 
+# ---------------------------------------------------------------
+# AI training / LLM data-scraping bots — blocked entirely
+# ---------------------------------------------------------------
+
+# OpenAI
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+# Anthropic
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+# Google's AI training crawler (separate from Googlebot search —
+# blocking this does NOT affect normal Google Search indexing)
+User-agent: Google-Extended
+Disallow: /
+
+# Common Crawl (widely used as raw training data by many AI labs)
+User-agent: CCBot
+Disallow: /
+
+# ByteDance / TikTok
+User-agent: Bytespider
+Disallow: /
+
+User-agent: TikTokSpider
+Disallow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+# Meta / Facebook
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: Meta-ExternalFetcher
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+# Apple's AI training crawler (separate from Applebot search indexing)
+User-agent: Applebot-Extended
+Disallow: /
+
+# Amazon
+User-agent: Amazonbot
+Disallow: /
+
+# Cohere
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: cohere-training-data-crawler
+Disallow: /
+
+# Data-aggregation crawlers commonly used to build AI training sets
+User-agent: Diffbot
+Disallow: /
+
+User-agent: ImagesiftBot
+Disallow: /
+
+User-agent: Omgili
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Timpibot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /
+
+User-agent: ai2bot
+Disallow: /
+
+User-agent: Ai2Bot-Dolma
+Disallow: /
+
+# ---------------------------------------------------------------
+# Sitemap
+# ---------------------------------------------------------------
 Sitemap: https://wherewepraying.com/sitemap.xml
