@@ -94,6 +94,28 @@ function showToast(msg){
   clearTimeout(__toastTimer); __toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
+// Shared fetch headers for every /api/* call except /api/auth/* — scopes
+// requests to this device via WWP's anonymous device ID. Was previously
+// copy-pasted identically into 4 separate feature files.
+function deviceHeaders(extra){
+  return Object.assign({ 'X-Device-Id': window.WWP?.deviceId || '' }, extra || {});
+}
+
+// Shared HTML-escaping for any user-submitted or dynamic text rendered
+// via innerHTML. Was previously copy-pasted (2 identical DOM-based
+// copies + 1 narrower regex-based copy) across 3 feature files.
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str == null ? '' : String(str);
+  return d.innerHTML;
+}
+
+// Shared local-date-key formatter ("YYYY-MM-DD"), used for day-scoped
+// storage keys (Journal entries, Qur'an last-read date, seasonal-theme
+// day checks, Prayer Times day cache). todayKey() is just dkey(now).
+function dkey(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function todayKey(){ return dkey(new Date()); }
+
 const PAGES = ['home','mosque','prayertimes','quran','journal','dua','guides','travel','community'];
 
 /* ============================================================
