@@ -1,0 +1,36 @@
+/* ============================================================
+   SITE-WIDE TWINKLE / SPARKLE EFFECT
+   A single generated overlay per page, spanning full scroll
+   height (not just the hero), density and opacity controlled by
+   body[data-twinkle="off|low|medium|full"]. Star color follows the
+   active site theme via currentColor + per-theme override below.
+   The overlay's inner dots are positioned with inline style (JS
+   generates them), this stylesheet only owns the container,
+   dot appearance, and animation.
+   ============================================================ */
+.wwp-twinkle-field{
+  position:absolute; inset:0; top:0; height:100%;
+  pointer-events:none; z-index:0; overflow:hidden;
+}
+.wwp-twinkle-field .wwp-star{
+  position:absolute; border-radius:50%;
+  background:currentColor;
+  animation:wwpTwinkleField 3.4s ease-in-out infinite;
+  animation-delay:var(--wwp-tw-delay,0s);
+  opacity:.5;
+}
+@keyframes wwpTwinkleField{0%,100%{opacity:.25;}50%{opacity:.85;}}
+
+/* Off: nothing renders (container never gets stars appended, but
+   guard here too in case markup lingers across a live toggle). */
+body[data-twinkle="off"] .wwp-twinkle-field{display:none;}
+
+/* Star color per theme — soft, low-contrast, never fights content */
+body[data-twinkle]:not([data-theme="dark"]):not([data-theme="amoled"]) .wwp-twinkle-field .wwp-star{color:#F4714E;}
+body[data-theme="sepia"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#593F27;}
+body[data-theme="dark"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#F2D1B3;}
+body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffffff;}
+
+@media (prefers-reduced-motion: reduce){
+  .wwp-twinkle-field .wwp-star{animation:none; opacity:.4;}
+}
