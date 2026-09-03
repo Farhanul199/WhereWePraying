@@ -683,6 +683,68 @@ body #page-quran{
 @media (max-width:820px){
   #page-quran .qr-scroll-top-btn{right:14px;bottom:18px;width:42px;height:42px;}
 }
+/* Left-side twin of the scroll-top button: force-saves the current
+   reading position regardless of the passive scroll-settle tracker. */
+#page-quran .qr-save-loc-btn{
+  position:fixed;left:18px;bottom:22px;width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb, var(--surface) 37%, transparent);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border:1px solid var(--border);color:var(--text-dim);
+  box-shadow:var(--shadow, 0 4px 16px rgba(0,0,0,.14));
+  cursor:pointer;z-index:60;
+  opacity:0;transform:translateY(12px);pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease, border-color .2s, color .2s;
+}
+#page-quran .qr-save-loc-btn.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+#page-quran .qr-save-loc-btn:hover{border-color:var(--coral);color:var(--coral);}
+#page-quran .qr-save-loc-btn:active{transform:scale(.92);}
+@media (max-width:820px){
+  #page-quran .qr-save-loc-btn{left:14px;bottom:18px;width:42px;height:42px;}
+}
+/* Small transparent confirmation pill for the manual save — deliberately
+   lighter-weight than the main .toast (solid bg) since this fires from a
+   dedicated "save" affordance rather than a generic action confirmation. */
+#page-quran .qr-save-toast{
+  position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(10px);
+  background:color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid var(--border);color:var(--text);
+  padding:9px 16px;border-radius:20px;font-size:12.5px;font-weight:700;
+  opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;z-index:200;
+  box-shadow:0 8px 22px rgba(0,0,0,.14);white-space:nowrap;
+}
+#page-quran .qr-save-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* Long-press-to-save feedback on an ayah card itself */
+#page-quran .ayah-card.long-press-saved{
+  animation:qrLongPressPulse .6s ease;
+}
+@keyframes qrLongPressPulse{
+  0%{background:rgba(var(--coral-rgb), 0);}
+  35%{background:rgba(var(--coral-rgb), .16);}
+  100%{background:rgba(var(--coral-rgb), 0);}
+}
+/* Search-within-surah bar */
+#page-quran .ayah-search-bar{
+  display:none;align-items:center;gap:8px;padding:10px 16px;margin:0 26px;
+  background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);
+  border:1px solid var(--border);border-radius:12px;
+}
+#page-quran .ayah-search-bar.open{display:flex;}
+#page-quran .ayah-search-bar input{
+  flex:1;border:none;background:none;outline:none;font-size:13.5px;color:var(--text);min-width:0;
+}
+#page-quran .ayah-search-bar input::placeholder{color:var(--text-faint);}
+#page-quran .ayah-search-count{font-size:11.5px;color:var(--text-faint);white-space:nowrap;flex:none;}
+#page-quran .ayah-search-nav{display:flex;gap:4px;flex:none;}
+#page-quran .ayah-search-nav button, #page-quran .ayah-search-close{
+  width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;
+}
+#page-quran .ayah-search-nav button:hover, #page-quran .ayah-search-close:hover{border-color:var(--coral);color:var(--coral);}
+#page-quran .ayah-card.search-match{background:rgba(var(--coral-rgb), .05);border-radius:12px;border-bottom-color:transparent;}
+#page-quran .ayah-card.search-match-current{background:var(--coral-soft);border-radius:12px;border-bottom-color:transparent;}
+#page-quran mark.ayah-search-hit{background:rgba(var(--coral-rgb), .35);color:inherit;border-radius:3px;padding:0 1px;}
 #page-quran .ayah-card{padding-bottom:20px;border-bottom:1px dashed var(--border);}
 #page-quran .ayah-card.playing{
   background:var(--coral-soft);border-radius:12px;box-shadow:inset 4px 0 0 var(--coral);
@@ -742,6 +804,7 @@ body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 }
 #page-quran .ayah-translit{font-size:var(--trans-size,15px);line-height:1.7;color:var(--text-dim);font-style:italic;margin-bottom:8px;}
 #page-quran .ayah-trans{font-size:var(--trans-size,15px);line-height:1.75;color:var(--text);}
+#page-quran .ayah-list.hide-english .ayah-trans{display:none;}
 #page-quran .ayah-note{display:none;margin-top:14px;}
 #page-quran .ayah-note.open{display:block;}
 #page-quran .ayah-note-inner{
@@ -936,6 +999,13 @@ body[data-event-theme="ramadan"]{ --kahf-tint: rgba(166,113,163,.12); }
 #page-quran .physical-bm-body{flex:1;min-width:0;}
 #page-quran .physical-bm-label{font-size:10.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 #page-quran .physical-bm-loc{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#page-quran .physical-bm-resume{
+  background:none;border:none;padding:0;margin-top:1px;cursor:pointer;
+  font-size:10.5px;font-weight:600;color:var(--text-faint);text-decoration:underline;
+  text-underline-offset:2px;display:none;
+}
+#page-quran .physical-bm-resume.visible{display:inline-block;}
+#page-quran .physical-bm-resume:hover{color:var(--coral);}
 #page-quran .physical-bm-edit{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--text-dim);cursor:pointer;flex:none;}
 #page-quran .physical-bm-edit:hover{border-color:var(--coral);color:var(--coral);}
 #page-quran .physical-bm-form{display:none;gap:8px;}
@@ -1693,6 +1763,10 @@ body[data-mobile-pane="detail"] #page-dua .pane-detail{display:flex;}
    this page keeps the fade animation but restores real viewport-fixed
    behaviour for the overlay below. */
 #page-mosque.app-page{transform:none;}
+/* Same containing-block issue as above hits the Qur'an reader's
+   viewport-fixed floaters (back-to-top, save-location, save-location
+   toast) — neutralise the transform here too. */
+#page-quran.app-page{transform:none;}
 .mq-preview-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:96px 24px 24px;background:var(--bg);transition:opacity .35s ease;overflow-y:auto;}
 .mq-preview-overlay.is-hidden{opacity:0;pointer-events:none;}
 .mq-preview-overlay .cs-card{max-width:420px;}
@@ -4577,6 +4651,10 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
 <button type="button" class="qr-scroll-top-btn" id="qrScrollTopBtn" title="Back to top" aria-label="Scroll to top of the surah">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
 </button>
+<button type="button" class="qr-save-loc-btn" id="qrSaveLocBtn" title="Save this as my reading location" aria-label="Save current reading location">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z"/></svg>
+</button>
+<div class="qr-save-toast" id="qrSaveToast">Saved new reading location</div>
 <main class="page">
 
   <div class="qh-hero">
@@ -4646,6 +4724,9 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
           <div class="surah-quick-jumps" id="surahQuickJumps"></div>
         </div>
         <div class="surah-actions">
+          <button class="pill-btn icon-only" id="ayahSearchToggle" title="Search this surah">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </button>
           <button class="pill-btn icon-only" id="toolbarToggle" title="Reading settings">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
           </button>
@@ -4662,6 +4743,24 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
             Share
           </button>
         </div>
+      </div>
+
+      <!-- Search within the currently-open surah — closed by default -->
+      <div class="ayah-search-bar" id="ayahSearchBar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="ayahSearchInput" type="text" placeholder="Search Ayah in this Surah…">
+        <span class="ayah-search-count" id="ayahSearchCount"></span>
+        <div class="ayah-search-nav">
+          <button type="button" id="ayahSearchPrev" title="Previous match">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button type="button" id="ayahSearchNext" title="Next match">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <button type="button" class="ayah-search-close" id="ayahSearchClose" title="Close search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
       </div>
 
       <!-- Reading settings — closed by default; opened via the gear icon above -->
@@ -4696,6 +4795,10 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <label class="translit-toggle">
           <span class="tool-label">Explanatory Notes</span>
           <span class="switch" id="notesSwitch"></span>
+        </label>
+        <label class="translit-toggle">
+          <span class="tool-label">English Translation</span>
+          <span class="switch on" id="translationSwitch"></span>
         </label>
         <div class="mode-pills" id="modePills" style="margin-left:auto;">
           <button data-mode="light" class="active">
@@ -4950,6 +5053,7 @@ body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffff
         <div class="physical-bm-body">
           <div class="physical-bm-label">Physical copy</div>
           <div class="physical-bm-loc" id="physicalBmLoc">Not set</div>
+          <button type="button" class="physical-bm-resume" id="physicalBmResumeBtn">Resume from here</button>
         </div>
         <button class="physical-bm-edit" id="physicalBmEditBtn" title="Update where you are in your physical Qur'an">Update</button>
       </div>
@@ -8643,6 +8747,7 @@ const state = {
   transSize:15,
   showTranslit:true,
   showNotes:false,
+  showTranslation:true,
   arabicFont:"'Amiri',serif",
   currentSurah:1,
   currentAyah:1,
@@ -8822,6 +8927,7 @@ const Services = {
       currentSurah: state.currentSurah,
       currentAyah: state.currentAyah,
       translation: state.translation,
+      showTranslation: state.showTranslation,
       bookmarks: Array.from(state.bookmarks),
       history: state.history,
       lastRead: state.lastRead,
@@ -8842,6 +8948,7 @@ const Services = {
     if(typeof saved.currentSurah==='number') state.currentSurah = saved.currentSurah;
     if(typeof saved.currentAyah==='number') state.currentAyah = saved.currentAyah;
     if(typeof saved.translation==='string') state.translation = saved.translation;
+    if(typeof saved.showTranslation==='boolean') state.showTranslation = saved.showTranslation;
     if(Array.isArray(saved.bookmarks)) state.bookmarks = new Set(saved.bookmarks);
     if(Array.isArray(saved.history)) state.history = saved.history;
     if(saved.lastRead) state.lastRead = saved.lastRead;
@@ -9107,6 +9214,7 @@ function renderReader(){
     }
     list.innerHTML = html || loadingBlockHTML();
   }
+  list.classList.toggle('hide-english', !state.showTranslation);
 
   // Prev/next surah nav labels
   const prevS = getSurah(state.currentSurah-1);
@@ -9352,11 +9460,14 @@ function renderPhysicalBookmark(){
   const loc = $('#physicalBmLoc');
   if(!loc) return;
   const pb = state.physicalBookmark;
+  const resumeBtn = $('#physicalBmResumeBtn');
   if(pb){
     const s = getSurah(pb.surah);
     loc.textContent = s ? `${s.en}, Ayah ${pb.ayah}` : 'Not set';
+    resumeBtn?.classList.toggle('visible', !!s);
   } else {
     loc.textContent = 'Not set';
+    resumeBtn?.classList.remove('visible');
   }
 }
 
@@ -9791,6 +9902,7 @@ async function init(){
 
   Services.logHistory(state.currentSurah, state.currentAyah);
   populatePhysicalBmSurahSelect();
+  $('#translationSwitch')?.classList.toggle('on', state.showTranslation);
   renderAll();
   ensureSurahLoaded(state.currentSurah);
 
@@ -9830,6 +9942,104 @@ async function init(){
     }
     renderSurahList(e.target.value);
   });
+
+  // Search Ayah within the currently-open surah — matches against both
+  // the Arabic text and whichever translation is currently showing, so
+  // it still works with English hidden. Closed by default; matches get
+  // a soft highlight and the active match a stronger one, with
+  // prev/next to step through and a live "x of y" count.
+  (function(){
+    const bar = $('#ayahSearchBar');
+    const toggleBtn = $('#ayahSearchToggle');
+    const input = $('#ayahSearchInput');
+    const countEl = $('#ayahSearchCount');
+    let matches = []; // ayah numbers
+    let activeIdx = -1;
+
+    function clearHighlights(){
+      $$('#ayahList .ayah-card.search-match, #ayahList .ayah-card.search-match-current').forEach(el=>{
+        el.classList.remove('search-match','search-match-current');
+      });
+    }
+
+    function runSearch(query){
+      clearHighlights();
+      matches = [];
+      activeIdx = -1;
+      const q = query.trim().toLowerCase();
+      if(!q){ countEl.textContent = ''; return; }
+      const cached = surahCache[state.currentSurah];
+      if(!cached){ countEl.textContent = 'Surah still loading…'; return; }
+      const s = getSurah(state.currentSurah);
+      for(let a=1; a<=s.ayahs; a++){
+        const data = cached.ayahs[a] || SEED[state.currentSurah+':'+a];
+        if(!data) continue;
+        const tr = (data.tr||'').toLowerCase();
+        const ar = data.ar||'';
+        if(tr.includes(q) || ar.includes(query.trim())){
+          matches.push(a);
+          const card = document.getElementById(`ayah-${state.currentSurah}-${a}`);
+          if(card) card.classList.add('search-match');
+        }
+      }
+      if(matches.length){
+        activeIdx = 0;
+        goToMatch();
+      } else {
+        countEl.textContent = 'No matches';
+      }
+    }
+
+    function goToMatch(){
+      if(activeIdx < 0 || !matches.length) return;
+      $$('#ayahList .ayah-card.search-match-current').forEach(el=> el.classList.remove('search-match-current'));
+      const ayah = matches[activeIdx];
+      const card = document.getElementById(`ayah-${state.currentSurah}-${ayah}`);
+      if(card){
+        card.classList.add('search-match-current');
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+      }
+      countEl.textContent = `${activeIdx+1} of ${matches.length}`;
+    }
+
+    toggleBtn.addEventListener('click', ()=>{
+      const willOpen = !bar.classList.contains('open');
+      bar.classList.toggle('open', willOpen);
+      if(willOpen) input.focus();
+      else { input.value=''; clearHighlights(); countEl.textContent=''; matches=[]; activeIdx=-1; }
+    });
+    $('#ayahSearchClose').addEventListener('click', ()=>{
+      bar.classList.remove('open');
+      input.value=''; clearHighlights(); countEl.textContent=''; matches=[]; activeIdx=-1;
+    });
+    input.addEventListener('input', e=> runSearch(e.target.value));
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        if(!matches.length) return;
+        activeIdx = e.shiftKey ? (activeIdx-1+matches.length)%matches.length : (activeIdx+1)%matches.length;
+        goToMatch();
+      }
+    });
+    $('#ayahSearchNext').addEventListener('click', ()=>{
+      if(!matches.length) return;
+      activeIdx = (activeIdx+1)%matches.length;
+      goToMatch();
+    });
+    $('#ayahSearchPrev').addEventListener('click', ()=>{
+      if(!matches.length) return;
+      activeIdx = (activeIdx-1+matches.length)%matches.length;
+      goToMatch();
+    });
+
+    // Re-run the current query whenever the surah changes or re-renders
+    // (translation switch, notes toggle, etc.) so highlights survive.
+    const origRenderReader = renderReader;
+    renderReader = function(){
+      origRenderReader.apply(this, arguments);
+      if(bar.classList.contains('open') && input.value.trim()) runSearch(input.value);
+    };
+  })();
 
   // Surah header actions
   $('#toolbarToggle').addEventListener('click', function(){
@@ -9974,6 +10184,12 @@ async function init(){
     this.classList.toggle('on', state.showNotes);
     renderReader();
   });
+  $('#translationSwitch').addEventListener('click', function(){
+    state.showTranslation = !state.showTranslation;
+    this.classList.toggle('on', state.showTranslation);
+    Services.persist();
+    $('#ayahList').classList.toggle('hide-english', !state.showTranslation);
+  });
   $$('#modePills button').forEach(b=> b.addEventListener('click', ()=> setTheme(b.dataset.mode)));
   $('#translationSelect').addEventListener('change', e=>{
     state.translation = e.target.value;
@@ -9994,6 +10210,68 @@ async function init(){
     else if(btn.dataset.action==='share') shareAyah(surah, ayah);
     else if(btn.dataset.action==='note') toggleAyahNote(surah, ayah, btn);
   });
+
+  // Long-press (touch and hold, or mouse and hold) an ayah card to pin
+  // it as the saved reading position — a quicker, more deliberate way
+  // to mark "resume here" than waiting for the passive scroll tracker.
+  // Ignored when the press starts on one of the mini-action buttons,
+  // which already have their own discrete click behaviour, and
+  // cancelled by any movement so it never fires mid-scroll-drag.
+  (function(){
+    const LONG_PRESS_MS = 550;
+    const MOVE_CANCEL_PX = 10;
+    let timer = null, startX = 0, startY = 0, targetCard = null;
+
+    function cancel(){
+      clearTimeout(timer);
+      timer = null;
+      targetCard = null;
+    }
+    function fire(){
+      if(!targetCard) return;
+      const surah = +targetCard.dataset.surah, ayah = +targetCard.dataset.ayah;
+      Services.logHistory(surah, ayah);
+      Services.saveLastRead(surah, ayah);
+      Services.markReadToday();
+      Services.persist();
+      renderContinueCard();
+      renderProgressRing();
+      renderStreak();
+      targetCard.classList.remove('long-press-saved');
+      void targetCard.offsetWidth; // restart the pulse animation if pressed again quickly
+      targetCard.classList.add('long-press-saved');
+      showToast(`Saved Ayah ${ayah} as your reading position`);
+      cancel();
+    }
+    function start(x, y, target){
+      const card = target.closest && target.closest('.ayah-card');
+      if(!card || target.closest('[data-action]')) return;
+      targetCard = card;
+      startX = x; startY = y;
+      clearTimeout(timer);
+      timer = setTimeout(fire, LONG_PRESS_MS);
+    }
+    function move(x, y){
+      if(!timer) return;
+      if(Math.abs(x-startX) > MOVE_CANCEL_PX || Math.abs(y-startY) > MOVE_CANCEL_PX) cancel();
+    }
+
+    const list = $('#ayahList');
+    list.addEventListener('mousedown', e=> start(e.clientX, e.clientY, e.target));
+    list.addEventListener('mousemove', e=> move(e.clientX, e.clientY));
+    list.addEventListener('mouseup', cancel);
+    list.addEventListener('mouseleave', cancel);
+    list.addEventListener('touchstart', e=>{
+      const t = e.touches[0];
+      start(t.clientX, t.clientY, e.target);
+    }, {passive:true});
+    list.addEventListener('touchmove', e=>{
+      const t = e.touches[0];
+      move(t.clientX, t.clientY);
+    }, {passive:true});
+    list.addEventListener('touchend', cancel);
+    list.addEventListener('touchcancel', cancel);
+  })();
 
   // Surah nav
   $('#prevSurahBtn').addEventListener('click', goPrevSurah);
@@ -10047,12 +10325,41 @@ async function init(){
     renderPhysicalBookmark();
     showToast('Physical copy position saved');
   });
+  $('#physicalBmResumeBtn').addEventListener('click', resumeFromPhysicalBookmark);
 }
 
 function continueReading(){
   selectSurah(state.lastRead.surah, state.lastRead.ayah);
   showToast('Resumed where you left off');
 }
+
+// Physical copy bookmark: low-key resume — deliberately quieter than
+// Continue Reading (no big toast phrase), since this is a secondary,
+// manual marker, not the primary tracked position.
+function resumeFromPhysicalBookmark(){
+  const pb = state.physicalBookmark;
+  if(!pb) return;
+  selectSurah(pb.surah, pb.ayah);
+  showToast('Jumped to your physical copy bookmark');
+}
+
+// Force-saves whatever ayah is currently centred in view as
+// state.lastRead, bypassing the passive scroll-settle debounce and
+// overriding anything it last wrote. Continue Reading reads straight
+// from state.lastRead, so this is how the left-side save button
+// becomes the thing "Continue reading" points at.
+window.WWP_forceSaveReadingLocation = function(){
+  const surah = state.currentSurah;
+  const ayah = activeReadAyah || state.currentAyah;
+  clearTimeout(activeReadSaveTimer);
+  Services.logHistory(surah, ayah);
+  Services.saveLastRead(surah, ayah);
+  Services.markReadToday();
+  Services.persist();
+  renderContinueCard();
+  renderProgressRing();
+  renderStreak();
+};
 
 // Exposed for cross-section navigation — e.g. the homepage's Jummah
 // "Read Surah Al-Kahf today" reminder, or any other deep-link into a
@@ -16935,8 +17242,10 @@ window.WWP_TravelHome = (function(){
    already have their own "Back to Top" text button. */
 (function(){
   var btn = document.getElementById('qrScrollTopBtn');
+  var saveBtn = document.getElementById('qrSaveLocBtn');
+  var saveToast = document.getElementById('qrSaveToast');
   var page = document.getElementById('page-quran');
-  if(!btn || !page) return;
+  if(!page) return;
 
   var ticking = false;
   function onScroll(){
@@ -16944,18 +17253,42 @@ window.WWP_TravelHome = (function(){
     ticking = true;
     requestAnimationFrame(function(){
       ticking = false;
-      if(page.classList.contains('hidden')){ btn.classList.remove('show'); return; }
+      if(page.classList.contains('hidden')){
+        if(btn) btn.classList.remove('show');
+        if(saveBtn) saveBtn.classList.remove('show');
+        return;
+      }
       var list = document.getElementById('ayahList');
-      if(!list){ btn.classList.remove('show'); return; }
+      if(!list){
+        if(btn) btn.classList.remove('show');
+        if(saveBtn) saveBtn.classList.remove('show');
+        return;
+      }
       var rect = list.getBoundingClientRect();
       var insideReadingArea = rect.top <= 0 && rect.bottom > 0;
-      btn.classList.toggle('show', insideReadingArea);
+      if(btn) btn.classList.toggle('show', insideReadingArea);
+      if(saveBtn) saveBtn.classList.toggle('show', insideReadingArea);
     });
   }
   window.addEventListener('scroll', onScroll, {passive:true});
 
-  btn.addEventListener('click', function(){
+  if(btn) btn.addEventListener('click', function(){
     window.scrollTo({top:0, behavior:'smooth'});
+  });
+
+  // Force-save the current reading location — bypasses the passive
+  // scroll-settle tracker's debounce and overrides whatever it last
+  // saved. Continue Reading always reads from state.lastRead, so
+  // writing here is exactly how this becomes "linked" to that button.
+  var saveToastTimer = null;
+  if(saveBtn) saveBtn.addEventListener('click', function(){
+    if(typeof window.WWP_forceSaveReadingLocation === 'function'){
+      window.WWP_forceSaveReadingLocation();
+    }
+    if(!saveToast) return;
+    saveToast.classList.add('show');
+    clearTimeout(saveToastTimer);
+    saveToastTimer = setTimeout(function(){ saveToast.classList.remove('show'); }, 2200);
   });
 })();
 </script>
