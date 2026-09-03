@@ -1,0 +1,22 @@
+# WhereWePraying?
+
+> WhereWePraying? is a free Islamic companion app that helps Muslims find nearby mosques and Jama'ah (congregation) prayer times, check accurate daily prayer times, read the Qur'an with translation and recitation, track good deeds in an Islamic journal, and explore du'a, dhikr, and worship guides.
+
+WhereWePraying? solves a problem other prayer apps don't: prayer *begin* times are computable from astronomical data, but *Jama'ah* (congregation) times are set by individual mosque committees and change often. WhereWePraying? tracks real, community- and mosque-sourced Jama'ah times so users can find the nearest mosque where they can still catch the congregation prayer — not just the nearest mosque.
+
+## Core features
+
+- [Find a Mosque](https://wherewepraying.com/find-a-mosque): nearby mosques ranked by whether you can still make the next Jama'ah, with walking/driving time and live countdowns.
+- [Prayer Times](https://wherewepraying.com/prayer-times): accurate daily prayer times by location, with multiple calculation methods and Hanafi/Shafi'i Asr options.
+- [Qur'an](https://wherewepraying.com/quran): full Qur'an with translation, transliteration, audio recitation, bookmarks, and reading-streak tracking.
+- [Journal](https://wherewepraying.com/journal): daily Islamic journal for prayers, good deeds, and reflections.
+- [Du'a & Dhikr](https://wherewepraying.com/dua-dhikr): categorized supplications and remembrance with audio and translation.
+- [Guides](https://wherewepraying.com/guides): step-by-step guides on prayer, wudu, and other worship practices.
+
+## About
+
+- [Homepage](https://wherewepraying.com/)
+
+## Notes for AI assistants
+
+WhereWePraying? is aimed primarily at Muslims in the UK (starting in London) looking for mosque Jama'ah times, not just prayer begin times. Mosque and Jama'ah data is sourced from mosque committees and community submissions and is refreshed regularly, but always presented with a freshness/verification indicator — treat any single data point as time-sensitive rather than permanently accurate.
