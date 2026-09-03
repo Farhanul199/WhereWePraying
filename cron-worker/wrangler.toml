@@ -1,0 +1,13 @@
+name = "wherewepraying-scrape-cron"
+main = "index.js"
+compatibility_date = "2026-08-01"
+
+# Runs once a day at 03:00 UTC (~ before Fajr in London, so today's
+# times are fresh before anyone checks the app in the morning).
+# Cron syntax: minute hour day month weekday
+[triggers]
+crons = ["0 3 * * *"]
+
+# Set this with:
+#   wrangler secret put BROADCAST_SECRET
+# (use the SAME value as BROADCAST_SECRET on your main Pages project)
