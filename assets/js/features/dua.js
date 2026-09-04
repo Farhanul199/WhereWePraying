@@ -1395,7 +1395,11 @@ async function init(){
   const hydrateCategory = ()=>applyTimeBasedCategory().then(()=>renderAll()).catch(()=>0);
   const duaPage = document.getElementById('page-dua');
   if(duaPage && !duaPage.classList.contains('hidden')) setTimeout(hydrateCategory, 0);
-  document.addEventListener('wwp-page-shown', function(e){
+  // Fix: was listening on `document`, but wwp-core.js dispatches this
+  // event on `window` — different EventTarget objects, so this never
+  // fired at all, meaning Du'a's time-based category never refreshed
+  // when navigating here after visiting another tab first.
+  window.addEventListener('wwp-page-shown', function(e){
     if(e.detail && e.detail.id === 'dua') setTimeout(hydrateCategory, 0);
   });
 

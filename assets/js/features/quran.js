@@ -1563,18 +1563,17 @@ async function init(){
   if(quranPage && !quranPage.classList.contains('hidden')){
     setTimeout(()=>ensureSurahLoaded(state.currentSurah), 0);
   }
-  document.addEventListener('wwp-page-shown', function onQuranPageShown(e){
-    // Fix: was {once:true}, which detached this listener after the very
-    // first wwp-page-shown event of ANY page (e.g. Home, since that's
-    // usually where the app lands on boot) — not specifically the first
-    // time Qur'an itself was shown. That meant opening Qur'an later, after
-    // visiting any other tab first, never triggered a load: the surah sat
-    // on "Loading this surah…" forever until something else (like picking
-    // a different ayah/surah) called ensureSurahLoaded directly. Now this
-    // only detaches once it has actually fired for the Qur'an page.
+  window.addEventListener('wwp-page-shown', function onQuranPageShown(e){
+    // Fix: this was listening on `document`, but wwp-core.js dispatches
+    // the event on `window` — different EventTarget objects, so this
+    // listener never fired at all, regardless of {once:true}. Switched
+    // to window.addEventListener to actually receive the event.
+    // (Previously was also {once:true}, which detached after the first
+    // wwp-page-shown event of ANY page rather than specifically Qur'an's —
+    // fixed that too, by only detaching once it has actually matched.)
     if(e.detail && e.detail.id === 'quran'){
       ensureSurahLoaded(state.currentSurah);
-      document.removeEventListener('wwp-page-shown', onQuranPageShown);
+      window.removeEventListener('wwp-page-shown', onQuranPageShown);
     }
   });
 
