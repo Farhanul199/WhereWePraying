@@ -12,8 +12,7 @@
   const STORAGE_KEY = 'wwp:glass:mode';
 
   function isOn(){
-    try{ return localStorage.getItem(STORAGE_KEY) === 'on'; }
-    catch(e){ return false; }
+    return window.LocalCache ? window.LocalCache.get(STORAGE_KEY, null) === 'on' : false;
   }
 
   function apply(on){
@@ -21,7 +20,7 @@
   }
 
   function setMode(on){
-    try{ localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off'); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(STORAGE_KEY, on ? 'on' : 'off');
     apply(on);
   }
 
