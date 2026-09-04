@@ -311,9 +311,8 @@ function renderCalendar(){
     const cell = document.createElement('div');
     cell.className = 'cal-cell '+cls+(isToday?' today-cell':'')+(isActive?' active-cell':'')+(isFuture?' future-cell':'');
     cell.textContent = day;
-    cell.title = isFuture ? "Can't log a future day" : 'Tap to view/edit this day';
+    cell.title = isFuture ? 'Tap to plan this day' : 'Tap to view/edit this day';
     cell.addEventListener('click', ()=>{
-      if(isFuture){ showToast("Can't log a future day yet."); return; }
       activeDate = d; activeKey = key;
       ensureDay(activeKey);
       renderAll();
