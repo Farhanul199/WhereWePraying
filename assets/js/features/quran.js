@@ -1563,9 +1563,20 @@ async function init(){
   if(quranPage && !quranPage.classList.contains('hidden')){
     setTimeout(()=>ensureSurahLoaded(state.currentSurah), 0);
   }
-  document.addEventListener('wwp-page-shown', function(e){
-    if(e.detail && e.detail.id === 'quran') ensureSurahLoaded(state.currentSurah);
-  }, {once:true});
+  document.addEventListener('wwp-page-shown', function onQuranPageShown(e){
+    // Fix: was {once:true}, which detached this listener after the very
+    // first wwp-page-shown event of ANY page (e.g. Home, since that's
+    // usually where the app lands on boot) — not specifically the first
+    // time Qur'an itself was shown. That meant opening Qur'an later, after
+    // visiting any other tab first, never triggered a load: the surah sat
+    // on "Loading this surah…" forever until something else (like picking
+    // a different ayah/surah) called ensureSurahLoaded directly. Now this
+    // only detaches once it has actually fired for the Qur'an page.
+    if(e.detail && e.detail.id === 'quran'){
+      ensureSurahLoaded(state.currentSurah);
+      document.removeEventListener('wwp-page-shown', onQuranPageShown);
+    }
+  });
 
   // Sidebar tabs (Surah / Juz / Bookmarks) — tapping the active tab
   // toggles the list open/closed; tapping a different tab switches
