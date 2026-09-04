@@ -186,3 +186,17 @@ body #page-journal{font-family:'Manrope',sans-serif;background:var(--bg);color:v
 #page-journal .balance-body{flex-direction:column;}}
 
 /* ---------- Du'a & Dhikr page (scoped) ---------- */
+/* ---------- Jama'ah Broadcast (scoped) ---------- */
+#page-journal .jamaah-broadcast-card{margin-top:14px;}
+#page-journal .jb-form{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+#page-journal .jb-form select,
+#page-journal .jb-form input{border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);color:var(--text);font-family:inherit;}
+#page-journal .jb-form button{background:var(--coral);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;}
+#page-journal .jb-form button:disabled{opacity:.6;cursor:default;}
+#page-journal .jb-msg{font-size:12.5px;color:var(--text-dim);margin-top:10px;}
+#page-journal .jb-list{margin-top:6px;}
+#page-journal .jb-friend-item{display:flex;flex-direction:column;gap:2px;padding:9px 2px;border-bottom:1px solid var(--border);}
+#page-journal .jb-friend-item:last-child{border-bottom:none;}
+#page-journal .jb-friend-name{font-weight:700;font-size:13px;}
+#page-journal .jb-friend-detail{font-size:12px;color:var(--text-dim);}
+#page-journal .jb-friend-note{font-size:11.5px;color:var(--text-faint);font-style:italic;}
