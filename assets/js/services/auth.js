@@ -120,14 +120,11 @@
   function loadSettingsLocation() {
     const labelEl = document.getElementById('settingsLocationLabel');
     if (!labelEl) return;
-    try {
-      const raw = localStorage.getItem('wwp:prayertimes:location');
-      if (raw) {
-        const loc = JSON.parse(raw);
-        labelEl.textContent = loc.label || (loc.lat + ', ' + loc.lon);
-        return;
-      }
-    } catch (e) {}
+    const loc = window.LocalCache ? window.LocalCache.get('wwp:prayertimes:location', null) : null;
+    if (loc && typeof loc === 'object') {
+      labelEl.textContent = loc.label || (loc.lat + ', ' + loc.lon);
+      return;
+    }
     labelEl.textContent = 'Not set';
   }
 
