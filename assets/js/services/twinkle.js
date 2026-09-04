@@ -22,14 +22,12 @@ window.WWP_Twinkle = (function(){
   const VALID = Object.keys(LEVELS);
 
   function getLevel(){
-    try{
-      const v = localStorage.getItem(STORAGE_KEY);
-      return VALID.includes(v) ? v : 'low';
-    }catch(e){ return 'low'; }
+    const v = window.LocalCache ? window.LocalCache.get(STORAGE_KEY, 'low') : 'low';
+    return VALID.includes(v) ? v : 'low';
   }
   function setLevel(level){
     if(!VALID.includes(level)) return;
-    try{ localStorage.setItem(STORAGE_KEY, level); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(STORAGE_KEY, level);
     document.body.setAttribute('data-twinkle', level);
     render();
   }
