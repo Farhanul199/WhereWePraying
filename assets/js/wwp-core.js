@@ -186,7 +186,11 @@ function pageIdFromPath(path){
   // below since it's the only route with a dynamic segment.
   if(clean === '/guides' || clean.indexOf('/guides/') === 0){
     const slug = clean === '/guides' ? null : clean.slice('/guides/'.length);
-    return { id: 'guides', guide: (slug && GUIDE_ROUTES[slug]) ? slug : null };
+    // Any slug is passed through as-is (not gated on GUIDE_ROUTES, which
+    // only holds SEO copy for a handful of guides, not the full list) —
+    // the Guides section already falls back to an empty state for a
+    // genuinely unknown id, so an unrecognised slug degrades safely.
+    return { id: 'guides', guide: slug || null };
   }
 
   for(const id in ROUTES){
@@ -197,9 +201,8 @@ function pageIdFromPath(path){
 
 function updateSEOTags(id, guideSlug){
   let title, desc, path, schema = null;
-  if(id === 'guides' && guideSlug && GUIDE_ROUTES[guideSlug]){
-    const g = window.getGuide ? window.getGuide(guideSlug) : null;
-    if(g){
+  const g = (id === 'guides' && guideSlug && window.getGuide) ? window.getGuide(guideSlug) : null;
+  if(g){
       title = g.title + ' — WhereWePraying?';
       desc = g.summary.slice(0, 155);
       path = '/guides/'+guideSlug;
@@ -216,7 +219,6 @@ function updateSEOTags(id, guideSlug){
           "text": s.body
         }))
       };
-    }
   }else{
     const route = ROUTES[id] || ROUTES.home;
     title = route.title; desc = route.desc; path = route.path;
