@@ -1579,6 +1579,28 @@ window.__wwpGoogleAuthResult = (function(){
       <div class="card-sub" style="margin-top:8px;">Tap a prayer to cycle its status</div>
     </div>
 
+    <div class="card jamaah-broadcast-card">
+      <div class="card-head">
+        <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c3.5 3 5 6 5 10H7c0-4 1.5-7 5-10Z"/><path d="M7 13h10v7H7z"/></svg></span>Jama'ah Broadcast</div>
+      </div>
+      <div class="jb-form">
+        <select id="jbPrayerSelect">
+          <option>Fajr</option>
+          <option>Dhuhr</option>
+          <option>Asr</option>
+          <option>Maghrib</option>
+          <option>Isha</option>
+          <option>Jummah</option>
+        </select>
+        <input type="text" id="jbMosqueInput" placeholder="Mosque or location">
+        <input type="time" id="jbTimeInput">
+        <input type="text" id="jbNoteInput" placeholder="Optional note" maxlength="140">
+        <button id="jbBroadcastBtn">Broadcast to friends</button>
+      </div>
+      <div class="jb-msg" id="jbMsg" style="display:none;"></div>
+      <div class="jb-list" id="jbFriendsList"></div>
+    </div>
+
     <div class="card daily-summary-card">
       <div class="card-head">
         <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg></span>Daily Summary</div>
