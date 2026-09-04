@@ -1,11 +1,15 @@
 /* app.css split by feature — imports preserve original cascade order.
-   Do not reorder these @import lines; source order = CSS specificity order. */
-@import url('base.css');
-@import url('features/glass-mode.css');
-@import url('features/seasonal-themes.css');
-@import url('layout.css');
-@import url('features/popups.css');
-@import url('responsive-mobile.css');
-@import url('features/auth.css');
-@import url('features/leaderboard.css');
-@import url('features/notifications.css');
+   Do not reorder these @import lines; source order = CSS specificity order.
+   Each import carries its own ?v= — bump the individual file's version
+   number here whenever that file's content changes, the same way the
+   <script src="...?v=N"> tags in index.html work, or Cloudflare's edge
+   cache will keep serving the old copy of that one file indefinitely. */
+@import url('base.css?v=1');
+@import url('features/glass-mode.css?v=1');
+@import url('features/seasonal-themes.css?v=1');
+@import url('layout.css?v=1');
+@import url('features/popups.css?v=1');
+@import url('responsive-mobile.css?v=1');
+@import url('features/auth.css?v=1');
+@import url('features/leaderboard.css?v=1');
+@import url('features/notifications.css?v=1');
