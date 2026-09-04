@@ -1513,15 +1513,20 @@ window.__wwpGoogleAuthResult = (function(){
             <div><span class="f-label">Private Reflection</span><textarea class="f-textarea" id="reflectionInput" placeholder="How was your day? What are you grateful for? What can you improve tomorrow?"></textarea></div>
           </div>
 
-          <div class="mistakes-box" style="margin-top:0;padding-top:14px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
+          <details class="mistakes-box collapsible-card" style="margin-top:0;padding-top:14px;">
+            <summary class="collapsible-summary" style="display:flex;align-items:center;justify-content:space-between;">
               <span class="f-label" style="margin-bottom:0;">Private — Mistakes &amp; Repentance</span>
-              <span class="lock-note"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Private to you</span>
+              <span style="display:flex;align-items:center;gap:8px;">
+                <span class="lock-note"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Private to you</span>
+                <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+              </span>
+            </summary>
+            <div class="collapsible-body">
+              <textarea class="f-textarea" id="mistakeInput" maxlength="500" placeholder="However today went, note it here if it helps — write it down, ask for forgiveness, and let it go." style="margin-top:8px;"></textarea>
+              <div class="char-count"><span id="mistakeCharCount">0</span>/500</div>
+              <div class="mistakes-actions"><button class="ghost-btn" id="logMistakeBtn">Log entry</button></div>
             </div>
-            <textarea class="f-textarea" id="mistakeInput" maxlength="500" placeholder="However today went, note it here if it helps — write it down, ask for forgiveness, and let it go." style="margin-top:8px;"></textarea>
-            <div class="char-count"><span id="mistakeCharCount">0</span>/500</div>
-            <div class="mistakes-actions"><button class="ghost-btn" id="logMistakeBtn">Log entry</button></div>
-          </div>
+          </details>
 
           <!-- Balance of good deeds vs mistakes, right alongside where entries are logged -->
           <div class="balance-mini">
@@ -1548,11 +1553,11 @@ window.__wwpGoogleAuthResult = (function(){
     <div class="card calendar-card">
       <div class="cal-head">
         <div>
-          <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>Islamic Calendar</div>
+          <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>Calendar</div>
           <div class="cal-title" id="calMonthLbl" style="margin-top:6px;">—</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <span class="hijri-pill">Hijri date — pending sync</span>
+          <span class="hijri-pill" id="hijriPill">Hijri date — pending sync</span>
           <div class="cal-nav">
             <button id="calPrev" aria-label="Previous month"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg></button>
             <button id="calNext" aria-label="Next month"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -1627,21 +1632,6 @@ window.__wwpGoogleAuthResult = (function(){
         <button id="addDeedBtn">+ Add</button>
       </div>
     </div>
-
-    <div class="card weekly-summary-card">
-      <div class="card-head">
-        <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 3 5-7"/></svg></span>Weekly Summary</div>
-      </div>
-      <div class="ws-note">Your <strong>prayer consistency</strong> and <strong>weekly goal</strong> progress for the week are tracked in the summary bar at the bottom of this page — check it for the full picture.</div>
-    </div>
-
-    <div class="card routine-card">
-      <div class="card-head">
-        <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>Routine Builder</div>
-      </div>
-      <div class="routine-list" id="routineList"></div>
-      <button class="add-routine-btn" id="addRoutineBtn" style="margin-top:12px;">+ Add routine</button>
-    </div>
   </div>
   </div>
 
@@ -1689,6 +1679,24 @@ window.__wwpGoogleAuthResult = (function(){
       <div class="jstat-value" id="weekGoalVal" style="margin-top:26px;">0 of 7</div>
       <div class="jstat-sub">days on track</div>
     </div>
+  </div>
+
+  <details class="card routine-card collapsible-card">
+    <summary class="card-head collapsible-summary">
+      <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>Routine Builder</div>
+      <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="collapsible-body">
+      <div class="routine-list" id="routineList"></div>
+      <button class="add-routine-btn" id="addRoutineBtn" style="margin-top:12px;">+ Add routine</button>
+    </div>
+  </details>
+
+  <div class="card weekly-summary-card">
+    <div class="card-head">
+      <div class="card-title"><span class="ttl-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 3 5-7"/></svg></span>Weekly Summary</div>
+    </div>
+    <div class="ws-note">Your <strong>prayer consistency</strong> and <strong>weekly goal</strong> progress for the week are tracked in the summary bar above — check it for the full picture.</div>
   </div>
 
   <!-- Quote banner -->
