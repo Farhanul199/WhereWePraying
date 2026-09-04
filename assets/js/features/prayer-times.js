@@ -74,14 +74,10 @@ const PrayerTimes = (function(){
   }
 
   async function loadSavedLocation(){
-    try{
-      const raw = localStorage.getItem(LOC_KEY);
-      if(raw) state.location = JSON.parse(raw);
-    }catch(e){}
-    try{
-      const m = localStorage.getItem(METHOD_KEY);
-      if(m) state.method = parseInt(m,10);
-    }catch(e){}
+    const loc = window.LocalCache ? window.LocalCache.get(LOC_KEY, null) : null;
+    if(loc) state.location = loc;
+    const m = window.LocalCache ? window.LocalCache.get(METHOD_KEY, null) : null;
+    if(m !== null) state.method = parseInt(m,10);
 
     // Backend copy is non-critical. Wait until the first paint/initial
     // prayer request has had a chance to run, then reconcile quietly.
@@ -98,7 +94,7 @@ const PrayerTimes = (function(){
       ]);
       if(saved && typeof saved.method === 'number' && saved.method !== state.method){
         state.method = saved.method;
-        try{ localStorage.setItem(METHOD_KEY, String(saved.method)); }catch(e){}
+        if(window.LocalCache) window.LocalCache.set(METHOD_KEY, saved.method);
       }
       if(saved && saved.location){
         applyLocationUpgrade(saved.location);
@@ -161,7 +157,7 @@ const PrayerTimes = (function(){
 
   function saveLocation(loc){
     state.location = loc;
-    try{ localStorage.setItem(LOC_KEY, JSON.stringify(loc)); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(LOC_KEY, loc);
     WWP.save('prayertimes', {location: state.location, method: state.method});
     // Offline pre-cache is deliberately deferred. It used to fire 14
     // network requests immediately on a fresh visit, competing with the
@@ -169,7 +165,7 @@ const PrayerTimes = (function(){
   }
   function saveMethod(method){
     state.method = method;
-    try{ localStorage.setItem(METHOD_KEY, String(method)); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(METHOD_KEY, method);
     WWP.save('prayertimes', {location: state.location, method: state.method});
   }
 
@@ -270,18 +266,15 @@ const PrayerTimes = (function(){
     state.loading = true; state.error = null; notify();
 
     // Try cache first (same day, same coords/method) for instant paint.
-    try{
-      if(key){
-        const raw = localStorage.getItem(key);
-        if(raw){
-          const cached = JSON.parse(raw);
-          state.timings = cached.timings;
-          state.hijri = cached.hijri;
-          state.loading = false;
-          notify();
-        }
+    if(key && window.LocalCache){
+      const cached = window.LocalCache.get(key, null);
+      if(cached){
+        state.timings = cached.timings;
+        state.hijri = cached.hijri;
+        state.loading = false;
+        notify();
       }
-    }catch(e){}
+    }
 
     // Try IndexedDB offline cache
     const offlineKey = 'pt:'+todayKey()+':'+state.location.lat.toFixed(2)+','+state.location.lon.toFixed(2)+':'+state.method;
@@ -337,9 +330,7 @@ const PrayerTimes = (function(){
       state.error = null;
       notify();
 
-      try{
-        if(key) localStorage.setItem(key, JSON.stringify({timings:timings, hijri:hijri}));
-      }catch(e){}
+      if(key && window.LocalCache) window.LocalCache.set(key, {timings:timings, hijri:hijri});
 
       // Today's data is now painted. Only after that do we build the
       // optional three-day offline cache, so it cannot delay the page.
@@ -494,14 +485,14 @@ const PrayerTimes = (function(){
       const cleanup = ()=>{ backdrop.style.display = 'none'; allowBtn.onclick = null; laterBtn.onclick = null; };
       allowBtn.onclick = async ()=>{
         if(answered) return; answered = true;
-        try{ localStorage.setItem(GEO_EXPLAINER_KEY, '1'); }catch(e){}
+        if(window.LocalCache) window.LocalCache.set(GEO_EXPLAINER_KEY, true);
         cleanup();
         const loc = await detectActiveGeolocation();
         resolve(loc);
       };
       laterBtn.onclick = ()=>{
         if(answered) return; answered = true;
-        try{ localStorage.setItem(GEO_EXPLAINER_KEY, '1'); }catch(e){}
+        if(window.LocalCache) window.LocalCache.set(GEO_EXPLAINER_KEY, true);
         cleanup();
         resolve(null);
       };
@@ -558,7 +549,7 @@ const PrayerTimes = (function(){
     //   default, so nothing is left waiting on that dialog.
     autoDetectLocation().then(applyLocationUpgrade).catch(()=>{});
     let alreadyAsked = false;
-    try{ alreadyAsked = localStorage.getItem(GEO_EXPLAINER_KEY) === '1'; }catch(e){}
+    alreadyAsked = window.LocalCache ? !!window.LocalCache.get(GEO_EXPLAINER_KEY, false) : false;
     if(!alreadyAsked){
       // Slight delay so the explainer never competes with the initial
       // paint — prayer times & Qiblah are already visible and usable
@@ -844,10 +835,10 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     { cls:'hide-translation', short:'No Tr' }
   ];
   let adhkarDisplayIdx = 0;
-  try{
-    const saved = parseInt(localStorage.getItem(ADHKAR_DISPLAY_KEY), 10);
+  {
+    const saved = parseInt(window.LocalCache ? window.LocalCache.get(ADHKAR_DISPLAY_KEY, null) : null, 10);
     if(!isNaN(saved) && saved >= 0 && saved < ADHKAR_DISPLAY_MODES.length) adhkarDisplayIdx = saved;
-  }catch(e){}
+  }
   function applyAdhkarDisplayMode(){
     const body = document.getElementById('ptAdhkarBody');
     const btn = document.getElementById('ptAdhkarDisplayBtn');
@@ -861,7 +852,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   if(ptAdhkarDisplayBtn){
     ptAdhkarDisplayBtn.addEventListener('click', function(){
       adhkarDisplayIdx = (adhkarDisplayIdx + 1) % ADHKAR_DISPLAY_MODES.length;
-      try{ localStorage.setItem(ADHKAR_DISPLAY_KEY, String(adhkarDisplayIdx)); }catch(e){}
+      if(window.LocalCache) window.LocalCache.set(ADHKAR_DISPLAY_KEY, adhkarDisplayIdx);
       applyAdhkarDisplayMode();
     });
   }
@@ -1065,17 +1056,12 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   const findCity = (label)=> PT_CITY_LIST.find(c=>c.label===label) || PT_CITY_LIST[1];
 
   function loadClockCities(){
-    try{
-      const raw = localStorage.getItem(PT_CLOCK_KEY);
-      if(raw){
-        const saved = JSON.parse(raw);
-        if(Array.isArray(saved) && saved.length===4) return saved.map(l=>findCity(l).label);
-      }
-    }catch(e){}
+    const saved = window.LocalCache ? window.LocalCache.get(PT_CLOCK_KEY, null) : null;
+    if(Array.isArray(saved) && saved.length===4) return saved.map(l=>findCity(l).label);
     return PT_CLOCK_DEFAULT_LABELS.slice();
   }
   function saveClockCities(labels){
-    try{ localStorage.setItem(PT_CLOCK_KEY, JSON.stringify(labels)); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(PT_CLOCK_KEY, labels);
   }
   let ptClockLabels = loadClockCities(); // 4 editable city labels, left→right around the anchor
 
