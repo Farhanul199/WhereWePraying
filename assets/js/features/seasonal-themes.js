@@ -42,13 +42,8 @@
   }
 
   function getSavedLocation(){
-    try{
-      var raw = localStorage.getItem(LOC_KEY);
-      if(raw){
-        var loc = JSON.parse(raw);
-        if(loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') return loc;
-      }
-    }catch(e){}
+    var loc = window.LocalCache ? window.LocalCache.get(LOC_KEY, null) : null;
+    if(loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') return loc;
     return null;
   }
 
@@ -57,18 +52,13 @@
   // day-of-month, used to detect "day 1" for the Saudi-attribution note.
   var hijriState = null;
   function loadCachedHijriState(){
-    try{
-      var raw = localStorage.getItem(HIJRI_CACHE_KEY);
-      if(raw){
-        var parsed = JSON.parse(raw);
-        if(parsed && parsed.dateKey === todayKey()) return parsed;
-      }
-    }catch(e){}
+    var parsed = window.LocalCache ? window.LocalCache.get(HIJRI_CACHE_KEY, null) : null;
+    if(parsed && parsed.dateKey === todayKey()) return parsed;
     return null;
   }
   function saveCachedHijriState(s){
     hijriState = s;
-    try{ localStorage.setItem(HIJRI_CACHE_KEY, JSON.stringify(s)); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(HIJRI_CACHE_KEY, s);
   }
 
   // Fetches the live Hijri date for a given lat/lon via api.aladhan.com,
@@ -193,17 +183,12 @@
   var TICK_STORE_KEY = 'wwp:jummahTicks';
 
   function loadTickState(){
-    try{
-      var raw = localStorage.getItem(TICK_STORE_KEY);
-      if(raw){
-        var parsed = JSON.parse(raw);
-        if(parsed && parsed.dateKey === todayKey()) return parsed.ticked || {};
-      }
-    }catch(e){}
+    var parsed = window.LocalCache ? window.LocalCache.get(TICK_STORE_KEY, null) : null;
+    if(parsed && parsed.dateKey === todayKey()) return parsed.ticked || {};
     return {};
   }
   function saveTickState(ticked){
-    try{ localStorage.setItem(TICK_STORE_KEY, JSON.stringify({dateKey:todayKey(), ticked:ticked})); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(TICK_STORE_KEY, {dateKey:todayKey(), ticked:ticked});
   }
 
   var tickedState = loadTickState();
