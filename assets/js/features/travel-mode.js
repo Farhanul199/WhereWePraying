@@ -16,16 +16,16 @@ window.WWP_TravelHome = (function(){
   const TRAVEL_THRESHOLD_KM = 80; // roughly "left your city"
 
   function getHome(){
-    try{ return JSON.parse(localStorage.getItem(HOME_KEY) || 'null'); }catch(e){ return null; }
+    return window.LocalCache ? window.LocalCache.get(HOME_KEY, null) : null;
   }
   function setHome(loc){
-    try{ localStorage.setItem(HOME_KEY, JSON.stringify({lat:loc.lat, lon:loc.lon, label:loc.label})); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(HOME_KEY, {lat:loc.lat, lon:loc.lon, label:loc.label});
   }
   function getOpenByDefault(){
-    try{ return localStorage.getItem(DEFAULT_HOME_KEY) === '1'; }catch(e){ return false; }
+    return window.LocalCache ? !!window.LocalCache.get(DEFAULT_HOME_KEY, false) : false;
   }
   function setOpenByDefault(v){
-    try{ localStorage.setItem(DEFAULT_HOME_KEY, v ? '1' : '0'); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(DEFAULT_HOME_KEY, !!v);
   }
   function haversineKm(lat1,lon1,lat2,lon2){
     const R=6371, toRad=Math.PI/180;
@@ -36,7 +36,7 @@ window.WWP_TravelHome = (function(){
 
   function showTravelBanner(distanceKm, label){
     if(document.getElementById('travelSuggestBanner')) return;
-    const dismissedFor = (function(){ try{ return localStorage.getItem(DISMISS_KEY); }catch(e){ return null; } })();
+    const dismissedFor = window.LocalCache ? window.LocalCache.get(DISMISS_KEY, null) : null;
     if(dismissedFor === label) return;
 
     const bar = document.createElement('div');
@@ -55,7 +55,7 @@ window.WWP_TravelHome = (function(){
     });
     document.getElementById('travelSuggestDismiss').addEventListener('click', ()=>{
       bar.remove();
-      try{ localStorage.setItem(DISMISS_KEY, label); }catch(e){}
+      if(window.LocalCache) window.LocalCache.set(DISMISS_KEY, label);
     });
   }
 
@@ -177,9 +177,9 @@ window.WWP_TravelHome = (function(){
     return Math.max(0,Math.min(100,((now.getTime()-prev.getTime())/span)*100));
   }
   function saveChecklist(){
-    const vals=[...page.querySelectorAll('.tm-check-card input')].map(x=>x.checked);try{localStorage.setItem(checklistKey,JSON.stringify(vals));}catch(e){}
+    const vals=[...page.querySelectorAll('.tm-check-card input')].map(x=>x.checked);if(window.LocalCache) window.LocalCache.set(checklistKey,vals);
   }
-  function loadChecklist(){try{const v=JSON.parse(localStorage.getItem(checklistKey)||'null');if(Array.isArray(v)) page.querySelectorAll('.tm-check-card input').forEach((x,i)=>x.checked=!!v[i]);}catch(e){}}
+  function loadChecklist(){const v=window.LocalCache?window.LocalCache.get(checklistKey,null):null;if(Array.isArray(v)) page.querySelectorAll('.tm-check-card input').forEach((x,i)=>x.checked=!!v[i]);}
 
   function render(){
     if(!window.PrayerTimes) return;
@@ -397,7 +397,7 @@ window.WWP_TravelHome = (function(){
   document.querySelectorAll('.wwp-qibla-trigger').forEach(btn=>btn.addEventListener('click', qcHandleTap));
 
   qcAutoStart();
-  $('#tmOfflineTimes')?.addEventListener('click',()=>{try{localStorage.setItem('wwp:travel:offline-times',JSON.stringify(PrayerTimes.getState().timings||{}));showToast('Today’s prayer times saved for offline use.');}catch(e){showToast('Offline saving is unavailable on this device.');}});
+  $('#tmOfflineTimes')?.addEventListener('click',()=>{const ok=window.LocalCache&&window.LocalCache.set('wwp:travel:offline-times',PrayerTimes.getState().timings||{});if(ok){showToast('Today’s prayer times saved for offline use.');}else{showToast('Offline saving is unavailable on this device.');}});
   $('#tmShareLocation')?.addEventListener('click',()=>{
     const text='I’m travelling in '+(PrayerTimes.getState().location?.label||'my current location')+'.';
     Platform.share({title:'WhereWePraying? Travel Mode',text}, ()=>{
@@ -449,10 +449,10 @@ window.WWP_TravelHome = (function(){
   const flightSaveBtn=$('#tmFlightSaveBtn');
 
   function loadFlights(){
-    try{ return JSON.parse(localStorage.getItem(FLIGHTS_KEY)||'[]'); }catch(e){ return []; }
+    const v=window.LocalCache?window.LocalCache.get(FLIGHTS_KEY,[]):[]; return Array.isArray(v)?v:[];
   }
   function saveFlights(list){
-    try{ localStorage.setItem(FLIGHTS_KEY, JSON.stringify(list)); }catch(e){}
+    if(window.LocalCache) window.LocalCache.set(FLIGHTS_KEY, list);
   }
   function flightStatusLabel(status){
     const map={scheduled:'Scheduled',active:'In the air',landed:'Landed',delayed:'Delayed',cancelled:'Cancelled',unknown:'Saved'};
