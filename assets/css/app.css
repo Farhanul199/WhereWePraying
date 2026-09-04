@@ -4,7 +4,7 @@
    number here whenever that file's content changes, the same way the
    <script src="...?v=N"> tags in index.html work, or Cloudflare's edge
    cache will keep serving the old copy of that one file indefinitely. */
-@import url('base.css?v=1');
+@import url('base.css?v=2');
 @import url('features/glass-mode.css?v=1');
 @import url('features/seasonal-themes.css?v=1');
 @import url('layout.css?v=1');

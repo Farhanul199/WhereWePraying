@@ -101,3 +101,13 @@ svg{display:block;}
   --general-1:rgba(95,174,124,.13); --general-2:rgba(95,174,124,.03); --general-border:rgba(95,174,124,.26); --general-border-adhkar:rgba(110,190,140,.4);
 }
 
+
+/* ==== Production performance guardrails ====
+   Moved from an inline <style> block in index.html (architecture
+   migration cleanup) — content unchanged. */
+@media (max-width: 900px){
+  body[data-glass="on"]{ --surface-blur: blur(6px) saturate(140%); }
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{scroll-behavior:auto !important;}
+}
