@@ -1943,6 +1943,42 @@ window.__wwpGoogleAuthResult = (function(){
         <span class="pt-skeleton pt-skeleton-after-icon"></span><span class="pt-skeleton pt-skeleton-after-name"></span><span class="pt-skeleton pt-skeleton-after-time"></span>
       </div>
 
+      <div class="pt-two-col-section">
+        <div class="pt-hadith-section open" id="ptHadithSection">
+          <button class="pt-hadith-toggle" id="ptHadithToggle" type="button" aria-expanded="true" aria-controls="ptHadithBody">
+            <div class="pt-hadith-header">
+              <h2>Prayer Benefits &amp; Protections</h2>
+              <p id="ptHadithSubhead">Authentic hadith on the virtues of each prayer.</p>
+            </div>
+            <svg class="pt-hadith-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="pt-hadith-body pt-loading-state" id="ptHadithBody" data-pt-skeleton="1" aria-busy="true">
+            <div class="pt-skeleton-group-title"><span class="pt-skeleton pt-skeleton-group"></span></div>
+            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line medium"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
+            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar short"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line short"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
+          </div>
+          <button type="button" class="pt-hadith-showall-btn" id="ptHadithShowAllBtn" aria-expanded="false">
+            <span id="ptHadithShowAllLabel">Show all prayers</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="pt-adhkar-section" id="ptAdhkarSection">
+          <div class="pt-hadith-header pt-adhkar-header-row">
+            <div>
+              <h2>Adhkar After Salah</h2>
+              <p id="ptAdhkarSubhead">What to recite after Fajr, shortest to longest.</p>
+            </div>
+            <button type="button" class="pt-adhkar-display-btn" id="ptAdhkarDisplayBtn" title="Toggle Arabic / transliteration / translation">Aa</button>
+          </div>
+          <div class="pt-hadith-body open pt-loading-state" id="ptAdhkarBody" data-pt-skeleton="1" aria-busy="true">
+            <div class="pt-skeleton-group-title"><span class="pt-skeleton pt-skeleton-group"></span></div>
+            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line medium"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
+            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar short"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line short"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
+          </div>
+        </div>
+      </div>
+
       <div class="pt-map-card">
         <div class="pt-map-header">
           <span class="pt-map-title">Day &amp; Night World Map</span>
@@ -1990,42 +2026,6 @@ window.__wwpGoogleAuthResult = (function(){
             <div class="pt-map-slider-bubble" id="ptMapSliderBubble">00:00</div>
             <input type="range" id="ptMapSlider" min="0" max="1439" step="1" value="0">
             <div class="pt-map-slider-ticks"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pt-two-col-section">
-        <div class="pt-hadith-section open" id="ptHadithSection">
-          <button class="pt-hadith-toggle" id="ptHadithToggle" type="button" aria-expanded="true" aria-controls="ptHadithBody">
-            <div class="pt-hadith-header">
-              <h2>Prayer Benefits &amp; Protections</h2>
-              <p id="ptHadithSubhead">Authentic hadith on the virtues of each prayer.</p>
-            </div>
-            <svg class="pt-hadith-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="pt-hadith-body pt-loading-state" id="ptHadithBody" data-pt-skeleton="1" aria-busy="true">
-            <div class="pt-skeleton-group-title"><span class="pt-skeleton pt-skeleton-group"></span></div>
-            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line medium"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
-            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar short"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line short"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
-          </div>
-          <button type="button" class="pt-hadith-showall-btn" id="ptHadithShowAllBtn" aria-expanded="false">
-            <span id="ptHadithShowAllLabel">Show all prayers</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-        </div>
-
-        <div class="pt-adhkar-section" id="ptAdhkarSection">
-          <div class="pt-hadith-header pt-adhkar-header-row">
-            <div>
-              <h2>Adhkar After Salah</h2>
-              <p id="ptAdhkarSubhead">What to recite after Fajr, shortest to longest.</p>
-            </div>
-            <button type="button" class="pt-adhkar-display-btn" id="ptAdhkarDisplayBtn" title="Toggle Arabic / transliteration / translation">Aa</button>
-          </div>
-          <div class="pt-hadith-body open pt-loading-state" id="ptAdhkarBody" data-pt-skeleton="1" aria-busy="true">
-            <div class="pt-skeleton-group-title"><span class="pt-skeleton pt-skeleton-group"></span></div>
-            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line medium"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
-            <div class="pt-hadith-card pt-skeleton-card-large"><span class="pt-skeleton pt-skeleton-hadith-ar short"></span><span class="pt-skeleton pt-skeleton-hadith-line"></span><span class="pt-skeleton pt-skeleton-hadith-line short"></span><span class="pt-skeleton pt-skeleton-hadith-cite"></span></div>
           </div>
         </div>
       </div>
@@ -2400,7 +2400,7 @@ window.__wwpGoogleAuthResult = (function(){
 <script src="/assets/js/services/storage.js?v=2" defer></script>
 <script src="/assets/js/services/platform.js?v=3" defer></script>
 <script src="/assets/js/features/prayer-times.js?v=5" defer></script>
-<script src="/assets/js/features/quran.js?v=4" defer></script>
+<script src="/assets/js/features/quran.js?v=5" defer></script>
 <script src="/assets/js/features/journal.js?v=3" defer></script>
 <script src="/assets/js/features/dua.js?v=3" defer></script>
 <script src="/assets/js/features/guides.js?v=4" defer></script>
