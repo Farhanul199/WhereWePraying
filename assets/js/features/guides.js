@@ -1444,7 +1444,7 @@ async function init(){
     if(!g) return;
     const text = `${g.title} — WhereWePraying?`;
     Platform.share({title:'Guides', text}, ()=>{
-      navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device'));
+      Platform.copyToClipboard(text, {onSuccess:()=>showToast('Link copied — share it with others'), onFail:()=>showToast('Sharing is not available on this device')});
     });
   });
   $('#progressReset').addEventListener('click', ()=>{

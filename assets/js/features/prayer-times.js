@@ -182,14 +182,7 @@ const PrayerTimes = (function(){
       timeout:12000,
       maximumAge:21600000         // accept a fix up to 6h old rather than block waiting for a fresh one that may never arrive underground
     }, opts||{});
-    return new Promise((resolve,reject)=>{
-      if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
-        err => reject(err),
-        options
-      );
-    });
+    return Platform.getLocation(options);
   }
 
   // Caps how long any single network call in the location chain can
@@ -1007,15 +1000,6 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     });
   }
 
-  /* ---- World clocks (Prayer Times page) ----
-     5-slot layout: the centre slot always mirrors the currently
-     selected main location ("Set your location" — London by default)
-     and is labelled "GMT 0" as the reference point. The other 4 slots
-     hold user-editable cities (persisted in localStorage); their GMT
-     badge shows their live offset *relative to the anchor* (not a
-     fixed absolute UTC offset), so picking e.g. New York and LA on
-     either side updates both badges to the real gap between them. */
-  const PT_CLOCK_KEY = 'wwp:prayertimes:clocks';
   const PT_CITY_LIST = [
     {label:'London', country:'UK', lat:51.5074, lon:-0.1278, tz:'Europe/London'},
     {label:'New York', country:'USA', lat:40.7128, lon:-74.0060, tz:'America/New_York'},
@@ -1052,61 +1036,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     {label:'Sydney', country:'Australia', lat:-33.8688, lon:151.2093, tz:'Australia/Sydney'}
   ];
   window.PT_CITY_LIST = PT_CITY_LIST; // shared reuse (e.g. Travel Mode's own location modal)
-  const PT_CLOCK_DEFAULT_LABELS = ['New York','São Paulo','Cairo','Riyadh']; // matches the reference layout
   const findCity = (label)=> PT_CITY_LIST.find(c=>c.label===label) || PT_CITY_LIST[1];
-
-  function loadClockCities(){
-    const saved = window.LocalCache ? window.LocalCache.get(PT_CLOCK_KEY, null) : null;
-    if(Array.isArray(saved) && saved.length===4) return saved.map(l=>findCity(l).label);
-    return PT_CLOCK_DEFAULT_LABELS.slice();
-  }
-  function saveClockCities(labels){
-    if(window.LocalCache) window.LocalCache.set(PT_CLOCK_KEY, labels);
-  }
-  let ptClockLabels = loadClockCities(); // 4 editable city labels, left→right around the anchor
-
-  function cityOptionsHtml(selectedLabel){
-    return PT_CITY_LIST.map(c=>'<option value="'+c.label+'"'+(c.label===selectedLabel?' selected':'')+'>'+c.label+', '+c.country+'</option>').join('');
-  }
-
-  function renderClockFace(tz){
-    const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'numeric',minute:'numeric',hour12:false}).formatToParts(now);
-    let h=0, m=0;
-    parts.forEach(p=>{ if(p.type==='hour') h=parseInt(p.value,10); if(p.type==='minute') m=parseInt(p.value,10); });
-    const hourDeg = ((h%12) + m/60) * 30;
-    const minDeg = m * 6;
-    const timeLabel = new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit'}).format(now);
-    return {hourDeg, minDeg, timeLabel};
-  }
-
-  // Builds a real vintage/watercolour analogue clock face — parchment
-  // dial, painted rim, 12 tick marks with numerals at the quarters,
-  // and hour/minute hands — as an inline SVG (viewBox 0 0 100 100).
-  function clockFaceSvg(hourDeg, minDeg){
-    let ticks = '';
-    for(let i=0;i<12;i++){
-      const isMajor = i%3===0;
-      const r1 = isMajor ? 34.5 : 36.5;
-      const cls = isMajor ? 'major' : 'minor';
-      ticks += '<line class="cf-tick '+cls+'" x1="50" y1="'+(50-r1)+'" x2="50" y2="'+(50-40)+'" transform="rotate('+(i*30)+' 50 50)"/>';
-    }
-    const numerals = ''
-      + '<text class="cf-num" x="50" y="15">12</text>'
-      + '<text class="cf-num" x="85" y="51">3</text>'
-      + '<text class="cf-num" x="50" y="87">6</text>'
-      + '<text class="cf-num" x="15" y="51">9</text>';
-    return '<svg class="pt-clock-svg" viewBox="0 0 100 100">'
-      + '<circle cx="50" cy="50" r="47" fill="url(#cfParchment)"/>'
-      + '<circle cx="50" cy="50" r="47" fill="#8A6A45" filter="url(#cfGrain)" opacity="0.5"/>'
-      + '<circle class="cf-rim" cx="50" cy="50" r="46"/>'
-      + '<circle class="cf-rim-inner" cx="50" cy="50" r="40.5"/>'
-      + ticks + numerals
-      + '<line class="cf-hand cf-hour" x1="50" y1="58" x2="50" y2="29" transform="rotate('+hourDeg+' 50 50)"/>'
-      + '<line class="cf-hand cf-min" x1="50" y1="61" x2="50" y2="21" transform="rotate('+minDeg+' 50 50)"/>'
-      + '<circle class="cf-pin" cx="50" cy="50" r="3.2"/>'
-    + '</svg>';
-  }
 
   // UTC offset in minutes for a timezone at the current instant (DST-aware).
   function tzOffsetMinutes(tz){
@@ -1118,115 +1048,12 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     return Math.round((asUTC - now.getTime())/60000);
   }
 
-  // Badge relative to the anchor (the currently selected main
-  // location) rather than absolute UTC — "GMT 0" always labels the
-  // anchor itself, others show the real live gap either side of it.
-  function relativeGmtBadge(tz, anchorTz){
-    const diffMin = tzOffsetMinutes(tz) - tzOffsetMinutes(anchorTz);
-    if(diffMin === 0) return 'GMT 0';
-    const sign = diffMin > 0 ? '+' : '-';
-    const abs = Math.abs(diffMin);
-    const h = Math.floor(abs/60), m = abs%60;
-    return 'GMT '+sign+h+(m ? ':'+String(m).padStart(2,'0') : '');
-  }
-
   function anchorCity(){
     const loc = PrayerTimes.getState().location;
     if(loc && loc.tz) return {label: (loc.label||'').split(',')[0] || 'My location', tz: loc.tz};
     return {label:'London', tz:'Europe/London'};
   }
 
-  let ptClockSignature = '';
-  let ptClockLastMinuteTick = -1;
-  function renderClocks(force){
-    const wrap = document.getElementById('ptClocks');
-    if(!wrap) return;
-    const anchor = anchorCity();
-    const leftCities = ptClockLabels.slice(0,2).map(findCity);
-    const rightCities = ptClockLabels.slice(2,4).map(findCity);
-    const slots = [leftCities[0], leftCities[1], anchor, rightCities[0], rightCities[1]];
-    const signature = slots.map(c=>c.label+'|'+c.tz).join('~')+'|'+anchor.tz;
-    const minuteTick = Math.floor(Date.now()/60000);
-
-    // City choices/structure rarely change. Build the five clock faces only
-    // when the layout changes, then update hands/text once per minute.
-    // The old 1-second full-SVG rebuild was needless work because the clock
-    // face has no second hand.
-    if(!force && signature === ptClockSignature && minuteTick === ptClockLastMinuteTick) return;
-    if(force || signature !== ptClockSignature){
-      wrap.innerHTML = slots.map((city, i)=>{
-        const isAnchor = i===2;
-        const editIdx = i<2 ? i : (i>2 ? i-1 : null);
-        return '<div class="pt-clock'+(isAnchor?' pt-clock-anchor':'')+'" data-clock-slot="'+i+'">'
-          + '<span class="pt-gmt-badge"></span>'
-          + '<div class="pt-clock-face-wrap">'
-            + '<div class="pt-clock-face">'+clockFaceSvg(0,0)+'</div>'
-            + (isAnchor ? '' :
-                '<select class="pt-clock-select" data-idx="'+editIdx+'">'+cityOptionsHtml(city.label)+'</select>'
-                + '<button type="button" class="pt-clock-edit" data-idx="'+editIdx+'" title="Change city">'
-                  + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
-                + '</button>')
-          + '</div>'
-          + '<span class="pt-clock-city">'+city.label+'</span>'
-          + '<span class="pt-clock-time"></span>'
-        + '</div>';
-      }).join('');
-      ptClockSignature = signature;
-    }
-    ptClockLastMinuteTick = minuteTick;
-
-    slots.forEach((city,i)=>{
-      const slot = wrap.querySelector('[data-clock-slot="'+i+'"]');
-      if(!slot) return;
-      const face = renderClockFace(city.tz);
-      const badge = slot.querySelector('.pt-gmt-badge');
-      const time = slot.querySelector('.pt-clock-time');
-      const hourHand = slot.querySelector('.cf-hour');
-      const minHand = slot.querySelector('.cf-min');
-      if(badge) badge.textContent = relativeGmtBadge(city.tz, anchor.tz);
-      if(time) time.textContent = face.timeLabel;
-      if(hourHand) hourHand.setAttribute('transform','rotate('+face.hourDeg+' 50 50)');
-      if(minHand) minHand.setAttribute('transform','rotate('+face.minDeg+' 50 50)');
-    });
-  }
-
-  // Clicking a city name opens its (hidden, absolutely-positioned)
-  // native <select> right on top of it — simplest reliable cross-device
-  // picker without building a custom dropdown component.
-  // The 1s clock-hand tick (setInterval(renderClocks,1000) below) rebuilds
-  // this whole innerHTML, which was destroying the native <select> the
-  // instant it opened (closing the picker after a flash). Guard the tick
-  // so it skips re-rendering while a picker is open.
-  let ptClockPickerOpen = false;
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest('.pt-clock-edit[data-idx]');
-    if(!btn) return;
-    const idx = btn.dataset.idx;
-    const select = btn.parentElement.querySelector('.pt-clock-select[data-idx="'+idx+'"]');
-    if(select){
-      ptClockPickerOpen = true;
-      select.style.position='absolute'; select.style.left='0'; select.style.top='0';
-      select.style.width='100%'; select.style.height='100%'; select.style.opacity='0.01'; select.style.pointerEvents='auto';
-      select.focus();
-      if(typeof select.showPicker === 'function'){ try{ select.showPicker(); }catch(e2){} }
-    }
-  });
-  document.addEventListener('change', function(e){
-    const select = e.target.closest('.pt-clock-select[data-idx]');
-    if(!select) return;
-    const idx = parseInt(select.dataset.idx,10);
-    ptClockLabels[idx] = select.value;
-    saveClockCities(ptClockLabels);
-    ptClockPickerOpen = false;
-    renderClocks();
-  });
-  // Cancelled without choosing a new city (native picker dismissed) —
-  // no 'change' fires, so clear the guard on blur once focus leaves.
-  document.addEventListener('focusout', function(e){
-    if(e.target && e.target.classList && e.target.classList.contains('pt-clock-select')){
-      setTimeout(function(){ ptClockPickerOpen = false; }, 300);
-    }
-  }, true);
 
   /* ---- Day & Night World Map ----
      Uses two real watercolour illustrations (day + night) rather than
@@ -1570,7 +1397,6 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     const methodLabel = document.getElementById('ptMethodLabel');
     if(methodLabel) methodLabel.textContent = 'Calculation method: '+PrayerTimes.methodName(state.method);
 
-    renderClocks();
     renderDayRow();
     renderNextCards();
     renderMap();
@@ -1582,9 +1408,6 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     return !!el && !el.classList.contains('hidden');
   }
   function renderAll(){ renderHome(); if(isPrayerTimesPageVisible()) renderFullPage(); }
-  // Clock faces tick every second independent of the 15s prayer-time
-  // refresh, so hands move smoothly while the page is open.
-  setInterval(function(){ if(!ptClockPickerOpen && isPrayerTimesPageVisible()) renderClocks(); }, 60000);
 
   // ---- Location popover wiring (shared by both entry points) ----
   // Opt-in only: nothing here runs until the person explicitly clicks

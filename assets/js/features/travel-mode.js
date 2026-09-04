@@ -401,7 +401,7 @@ window.WWP_TravelHome = (function(){
   $('#tmShareLocation')?.addEventListener('click',()=>{
     const text='I’m travelling in '+(PrayerTimes.getState().location?.label||'my current location')+'.';
     Platform.share({title:'WhereWePraying? Travel Mode',text}, ()=>{
-      navigator.clipboard?.writeText(text).then(()=>showToast('Location note copied.')).catch(()=>showToast('Sharing is unavailable.'));
+      Platform.copyToClipboard(text, {onSuccess:()=>showToast('Location note copied.'), onFail:()=>showToast('Sharing is unavailable.')});
     });
   });
   $('#tmGuideBtn')?.addEventListener('click',()=>window.switchPage('guides'));

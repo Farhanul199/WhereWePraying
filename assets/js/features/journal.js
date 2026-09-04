@@ -446,7 +446,7 @@ async function init(){
   $('#journalShareBtn')?.addEventListener('click', ()=>{
     const text = `${state.streakDays} day${state.streakDays===1?'':'s'} streak on WhereWePraying? 🕌 Tracking my prayers and good deeds — join me!`;
     Platform.share({title:'My WhereWePraying? Streak', text}, ()=>{
-      navigator.clipboard?.writeText(text).then(()=>showToast('Streak copied to clipboard.')).catch(()=>showToast('Sharing is unavailable.'));
+      Platform.copyToClipboard(text, {onSuccess:()=>showToast('Streak copied to clipboard.'), onFail:()=>showToast('Sharing is unavailable.')});
     });
   });
   $('#mistakeInput').addEventListener('input', ()=> $('#mistakeCharCount').textContent = $('#mistakeInput').value.length);

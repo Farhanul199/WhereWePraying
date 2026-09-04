@@ -1416,16 +1416,14 @@ function copyAyah(surah, ayah){
   const text = data
     ? `${data.ar}\n${tr}\n— ${s.en} ${ayah}`
     : `${s.en} ${ayah} — WhereWePraying?`;
-  navigator.clipboard?.writeText(text).then(()=>showToast('Copied to clipboard'))
-    .catch(()=>showToast('Could not copy — try selecting the text manually'));
+  Platform.copyToClipboard(text, {onSuccess:()=>showToast('Copied to clipboard'), onFail:()=>showToast('Could not copy — try selecting the text manually')});
 }
 
 function shareAyah(surah, ayah){
   const s = getSurah(surah);
   const text = `${s.en} ${ayah} — read on WhereWePraying?`;
   Platform.share({title:'WhereWePraying? — Qur\'an', text}, ()=>{
-    navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others'))
-      .catch(()=>showToast('Sharing is not available on this device'));
+    Platform.copyToClipboard(text, {onSuccess:()=>showToast('Link copied — share it with others'), onFail:()=>showToast('Sharing is not available on this device')});
   });
 }
 
@@ -1525,8 +1523,7 @@ function shareSurah(){
   const s = getSurah(state.currentSurah);
   const text = `${s.en} (${s.meaning}) — read on WhereWePraying?`;
   Platform.share({title:'WhereWePraying? — Qur\'an', text}, ()=>{
-    navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others'))
-      .catch(()=>showToast('Sharing is not available on this device'));
+    Platform.copyToClipboard(text, {onSuccess:()=>showToast('Link copied — share it with others'), onFail:()=>showToast('Sharing is not available on this device')});
   });
 }
 

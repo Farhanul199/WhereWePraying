@@ -1020,32 +1020,9 @@ const ITEMS = {
 
 };
 
-/* ============================================================
-   OFFLINE SYNC :: Cache categories and guides to IndexedDB
-   for offline access to Dua/Dhikr and Guides
-   ============================================================ */
-window.OfflineSync = (function(){
-  const syncCategories = async (categories) => {
-    try{
-      await OfflineData.set('metadata', { key:'categories_timestamp', value: Date.now() });
-      for(const cat of categories){
-        await OfflineData.set('dua_dhikr', cat);
-      }
-    }catch(e){ console.log('Offline sync for categories failed:', e); }
-  };
-  
-  const syncGuides = async (guides) => {
-    try{
-      await OfflineData.set('metadata', { key:'guides_timestamp', value: Date.now() });
-      for(const guide of guides){
-        await OfflineData.set('guides', guide);
-      }
-    }catch(e){ console.log('Offline sync for guides failed:', e); }
-  };
-  
-  return { syncCategories, syncGuides };
-})();
-
+// OfflineSync (IndexedDB sync for Dua/Dhikr + Guides categories) lives in
+// wwp-core.js alongside OfflineData, which it wraps — it's used by both
+// this file and guides.js, so it doesn't belong owned by either feature.
 
 window.CATEGORIES = [
   {id:'morning', title:"Morning", icon:'sun', theme:'theme-morning', light:false,
@@ -1433,7 +1410,7 @@ async function init(){
     const item = ITEMS[state.selectedItem];
     const text = `${item.title} — WhereWePraying?`;
     Platform.share({title:"Du'a & Dhikr", text}, ()=>{
-      navigator.clipboard?.writeText(text).then(()=>showToast('Link copied — share it with others')).catch(()=>showToast('Sharing is not available on this device'));
+      Platform.copyToClipboard(text, {onSuccess:()=>showToast('Link copied — share it with others'), onFail:()=>showToast('Sharing is not available on this device')});
     });
   });
   $('#detailMoreBtn').addEventListener('click', ()=> showToast('More options — coming soon'));
