@@ -1,11 +1,12 @@
 /* ============================================================
    PLATFORM (WEB) :: isolates platform-specific capabilities behind
-   one call so features never touch navigator.* directly. Today
-   this only wraps the Web Share API (the one capability repeated
-   across 6 feature files with slightly different content each).
-   On a future native Android/iOS build, only this file changes —
-   Platform.share() would route to a native share intent instead —
-   no feature file needs touching again.
+   one call so features never touch navigator.* directly. Wraps the
+   Web Share API and the Clipboard API — the two capabilities that
+   were repeated (with slightly different content each) across
+   several feature files. On a future native Android/iOS build,
+   only this file changes — Platform.share()/copyToClipboard() would
+   route to native equivalents instead — no feature file needs
+   touching again.
    ============================================================ */
 window.Platform = (function(){
   // data: { title, text, files } (any subset — matches navigator.share's
@@ -36,5 +37,44 @@ window.Platform = (function(){
     if(typeof opts.onUnsupported === 'function') opts.onUnsupported();
     return Promise.resolve();
   }
-  return { share };
+
+  // text: string to copy.
+  //
+  // Second argument accepts either:
+  //   - a plain function: onSuccess (matches the common "copied!"
+  //     toast case used by most callers)
+  //   - an options object: { onSuccess, onFail }
+  function copyToClipboard(text, handlers){
+    const opts = typeof handlers === 'function' ? { onSuccess: handlers } : (handlers || {});
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text).then(()=>{
+        if(typeof opts.onSuccess === 'function') opts.onSuccess();
+      }).catch(()=>{
+        if(typeof opts.onFail === 'function') opts.onFail();
+      });
+    }
+    if(typeof opts.onFail === 'function') opts.onFail();
+    return Promise.resolve();
+  }
+
+  // opts: forwarded as-is to getCurrentPosition's PositionOptions
+  // (enableHighAccuracy, timeout, maximumAge) — each caller tunes
+  // these differently, so this stays a thin pass-through rather than
+  // enforcing one set of defaults.
+  //
+  // Resolves { lat, lon } on success, rejects on error/unsupported —
+  // callers that want "never reject, just fall back" should .catch()
+  // at the call site (matches the existing behaviour of both callers
+  // this replaces).
+  function getLocation(opts){
+    return new Promise((resolve, reject)=>{
+      if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
+        err => reject(err),
+        opts || {}
+      );
+    });
+  }
+  return { share, copyToClipboard, getLocation };
 })();

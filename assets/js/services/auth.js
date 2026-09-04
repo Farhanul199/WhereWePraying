@@ -233,7 +233,7 @@
         const label = document.getElementById('friendCodeLabel');
         const code = label?.textContent?.trim();
         if (!code || code === '—') return;
-        navigator.clipboard?.writeText(code);
+        Platform.copyToClipboard(code);
         const original = copyFriendCodeBtn.textContent;
         copyFriendCodeBtn.textContent = 'Copied!';
         setTimeout(() => { copyFriendCodeBtn.textContent = original; }, 1500);

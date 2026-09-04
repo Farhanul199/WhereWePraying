@@ -23,18 +23,20 @@
       caches (e.g. Prayer Times location/method cache, Qur'an
       per-surah text/translation/tafsir cache, Travel Mode home
       location, flight list, UI preferences like clock format).
-      Currently called directly (not through a wrapper) in:
-      prayer-times.js, quran.js, travel-mode.js, auth.js.
+      All feature-level call sites (prayer-times.js, quran.js,
+      travel-mode.js, auth.js, seasonal-themes.js, find-a-mosque.js)
+      have been migrated to LocalCache below.
 
-   ==> KNOWN ARCHITECTURE DEBT (intentionally not auto-migrated):
-   That third category is scattered raw localStorage.getItem/
-   setItem calls rather than going through one helper. Rewriting
-   all of those call sites to route through LocalCache below would
-   touch device-local caches for existing users — a real risk to
-   test carefully rather than do as a blind bulk find/replace, so
-   it wasn't done as part of this pass. New code should use
-   LocalCache from here on; migrating old call sites is a separate,
-   deliberate follow-up task, not urgent or production-breaking.
+      A handful of raw localStorage calls remain only in
+      wwp-core.js — the device-id bootstrap (must exist before this
+      file even loads) and two simple "seen" flags (help popup,
+      welcome popup) that run before LocalCache is defined, since
+      wwp-core.js executes first in script load order. These are
+      deliberately left as raw calls rather than reordered for a
+      cosmetic win.
+
+   New code should always use LocalCache below rather than calling
+   localStorage directly.
    ============================================================ */
 window.LocalCache = (function(){
   function get(key, fallback){
