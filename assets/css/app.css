@@ -13,3 +13,15 @@
 @import url('features/auth.css?v=1');
 @import url('features/leaderboard.css?v=1');
 @import url('features/notifications.css?v=1');
+
+/* Standalone Jummah (Friday) color override — deliberately duplicated
+   here, independent of seasonal-themes.css, with !important, so this
+   specific rule can never be silently dropped or overridden regardless
+   of anything else in the cascade. */
+body[data-event-theme="jummah"]{
+  --coral:#7E9C79 !important;
+  --coral-rgb:126,156,121 !important;
+  --coral-dark:#5C7A59 !important;
+  --coral-soft:#E1E9DA !important;
+  --beam:#AFC7A2 !important;
+}
