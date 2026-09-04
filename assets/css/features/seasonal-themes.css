@@ -21,7 +21,7 @@ body[data-theme="sepia"][data-event-theme="jummah"]{
 .home-hero-art .hero-img-jummah{display:none;}
 body[data-event-theme="jummah"] .home-hero-art .hero-img-standard{display:none;}
 body[data-event-theme="jummah"] .home-hero-art .hero-img-jummah{display:block;}
-
+ 
 /* ==== Ramadan event theme — soft lilac accent, site-wide ====
    ==> CONNECT: theme #2 of the planned seasonal/event engine.
    Applied via body[data-event-theme="ramadan"], set by JS date resolver
@@ -52,7 +52,7 @@ body[data-event-theme="ramadan"] .home-hero-art .hero-img-ramadan{display:block;
 .ramadan-source-note{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;padding-right:4px;}
 .ramadan-source-note.hidden{display:none;}
 @media (max-width:860px){ .ramadan-source-note{display:none !important;} }
-
+ 
 /* ==== Lantern glow — always on, every theme, every day ====
    Warm flicker over each illustrated lantern (home hero standard,
    home hero Jummah, Du'a & Dhikr hero). Gentle on light/sepia;
@@ -107,7 +107,7 @@ body[data-theme="amoled"] .wwp-lamp-glow::after{
   55%{opacity:.3; transform:scale(.85);}
   80%{opacity:.82; transform:scale(1.08);}
 }
-
+ 
 /* ==== Sparkles — Jummah (Friday) only, staggered so none twinkle
    together. Position each via inline left/top/--wwp-delay/--wwp-dur. */
 .jummah-sparkle{
@@ -137,6 +137,7 @@ body[data-event-theme="ramadan"] .ramadan-sparkle{
 @media (prefers-reduced-motion: reduce){
   .wwp-lamp-glow, .wwp-lamp-glow::after, .jummah-sparkle, .ramadan-sparkle{animation:none; opacity:.5;}
 }
-
-
+ 
+ 
 .topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:14px clamp(16px,2.5vw,32px);background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border-bottom:1px solid var(--border);}
+ 
