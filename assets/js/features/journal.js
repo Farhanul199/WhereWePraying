@@ -51,9 +51,13 @@ const state = {
     {id:'r2', name:'Evening Routine', icon:'moon', steps:['Dhikr','Reflection','Qur\'an']},
     {id:'r3', name:'Sleep Routine', icon:'zzz', steps:['Isha','Du\'a','Sleep early']}
   ],
-  events:{},             // dateKey -> [{id,title,time,location}] — planned, can be future days
+  events:{},             // dateKey -> [{id,title,time,location}] — personal-only, no invites
   heartSaved:false
 };
+
+let sharedEvents = [];        // flat array from GET /api/events (created-by-me + invited-to-me)
+let friendsCache = null;      // [{id,username,avatarUrl}], fetched once when invite picker opens
+let pendingInviteIds = new Set(); // checked friend ids in the current "new event" form
 
 function ensureDay(key){
   if(!state.prayers[key]) state.prayers[key] = {Fajr:'pending',Dhuhr:'pending',Asr:'pending',Maghrib:'pending',Isha:'pending'};
@@ -312,7 +316,7 @@ function renderCalendar(){
     const isToday = key===todayKey;
     const isActive = key===activeKey;
     const isFuture = d.getTime() > today.getTime();
-    const hasEvent = (state.events[key]||[]).length > 0;
+    const hasEvent = (state.events[key]||[]).length > 0 || sharedEvents.some(e=>e.eventDate===key);
     const cell = document.createElement('div');
     cell.className = 'cal-cell '+cls+(isToday?' today-cell':'')+(isActive?' active-cell':'')+(isFuture?' future-cell':'')+(hasEvent?' has-event':'');
     cell.textContent = day;
@@ -378,6 +382,7 @@ function renderAll(){
   renderRoutines();
   renderEvents();
   loadJamaahBroadcastPanel();
+  loadSharedEvents();
 }
 
 /* ============================================================
@@ -390,24 +395,61 @@ function renderEvents(){
   const lbl = $('#calEventsDayLbl');
   if(!list || !lbl) return;
   lbl.textContent = 'Events — ' + (activeKey===todayKey ? 'Today' : fmtLong(activeDate));
-  const evs = state.events[activeKey] || [];
+  const personal = (state.events[activeKey] || []).map(e=>({...e, kind:'personal'}));
+  const shared = sharedEvents.filter(e=>e.eventDate===activeKey).map(e=>({...e, kind:'shared'}));
+  const all = [...personal, ...shared];
   list.innerHTML='';
-  if(!evs.length){
+  if(!all.length){
     list.innerHTML = '<div class="cal-events-empty">No events planned for this day.</div>';
     return;
   }
-  evs.slice().sort((a,b)=> (a.time||'99:99').localeCompare(b.time||'99:99')).forEach(ev=>{
+  all.sort((a,b)=> (a.time||a.eventTime||'99:99').localeCompare(b.time||b.eventTime||'99:99')).forEach(ev=>{
     const item = document.createElement('div');
-    item.className='cal-event-item';
+    if(ev.kind==='personal'){
+      item.className='cal-event-item';
+      item.innerHTML = `
+        <div class="cal-event-main">
+          <span class="cal-event-title">${escapeHtml(ev.title)}</span>
+          ${ev.time ? `<span class="cal-event-time">${escapeHtml(ev.time)}</span>` : ''}
+          ${ev.location ? `<span class="cal-event-loc">${escapeHtml(ev.location)}</span>` : ''}
+        </div>
+        <button class="cal-event-del" data-id="${ev.id}" title="Remove">×</button>
+      `;
+      item.querySelector('.cal-event-del').addEventListener('click', ()=> removeEvent(ev.id));
+      list.appendChild(item);
+      return;
+    }
+
+    // Shared event
+    const statusBadge = ev.myInviteStatus==='creator' ? ''
+      : `<span class="cal-event-badge status-${ev.myInviteStatus}">${ev.myInviteStatus}</span>`;
+    const byline = ev.myInviteStatus==='creator' ? '' : `<span class="cal-event-from">from ${escapeHtml(ev.creatorUsername)}</span>`;
+    item.className='cal-event-item shared';
     item.innerHTML = `
       <div class="cal-event-main">
         <span class="cal-event-title">${escapeHtml(ev.title)}</span>
-        ${ev.time ? `<span class="cal-event-time">${escapeHtml(ev.time)}</span>` : ''}
+        ${ev.eventTime ? `<span class="cal-event-time">${escapeHtml(ev.eventTime)}</span>` : ''}
         ${ev.location ? `<span class="cal-event-loc">${escapeHtml(ev.location)}</span>` : ''}
+        ${statusBadge}
       </div>
-      <button class="cal-event-del" data-id="${ev.id}" title="Remove">×</button>
+      ${byline}
+      ${ev.myInviteStatus==='pending' ? `
+        <div class="cal-event-respond">
+          <button class="cal-event-accept" data-invite="${ev.myInviteId}">Accept</button>
+          <button class="cal-event-decline" data-invite="${ev.myInviteId}">Decline</button>
+        </div>` : ''}
+      ${ev.myInviteStatus==='creator' && ev.invitees.length ? `
+        <div class="cal-event-invitees">
+          ${ev.invitees.map(inv=>`<span class="cal-event-invitee status-${inv.status}">${escapeHtml(inv.username)} · ${inv.status}</span>`).join('')}
+        </div>` : ''}
+      ${ev.myInviteStatus==='creator' ? `<button class="cal-event-del" data-shared-id="${ev.id}" title="Cancel event">×</button>` : ''}
     `;
-    item.querySelector('.cal-event-del').addEventListener('click', ()=> removeEvent(ev.id));
+    const acceptBtn = item.querySelector('.cal-event-accept');
+    const declineBtn = item.querySelector('.cal-event-decline');
+    if(acceptBtn) acceptBtn.addEventListener('click', ()=> respondToInvite(ev.myInviteId, 'accept'));
+    if(declineBtn) declineBtn.addEventListener('click', ()=> respondToInvite(ev.myInviteId, 'decline'));
+    const delBtn = item.querySelector('.cal-event-del[data-shared-id]');
+    if(delBtn) delBtn.addEventListener('click', ()=> cancelSharedEvent(ev.id));
     list.appendChild(item);
   });
 }
@@ -418,6 +460,12 @@ function addEvent(){
   const time = $('#newEventTime').value;
   const location = $('#newEventLocation').value.trim();
   if(!title){ showToast('Give the event a title.'); return; }
+
+  if(pendingInviteIds.size>0){
+    createSharedEvent(title, time, location);
+    return;
+  }
+
   if(!state.events[activeKey]) state.events[activeKey] = [];
   state.events[activeKey].push({id:'ev-'+Date.now(), title, time, location});
   titleInput.value=''; $('#newEventTime').value=''; $('#newEventLocation').value='';
@@ -433,6 +481,146 @@ function removeEvent(id){
   renderEvents();
   renderCalendar();
 }
+
+/* ============================================================
+   Shared Events :: events with friend invites, backed by the
+   server (not local device storage) — visible only to the
+   creator and whoever was invited.
+   ============================================================ */
+let sharedEventsLastLoad = 0;
+async function loadSharedEvents(force){
+  if(!force && Date.now()-sharedEventsLastLoad<30000) return;
+  sharedEventsLastLoad = Date.now();
+  try{
+    const res = await fetch('/api/events', {
+      credentials:'include',
+      headers:{ 'X-Device-Id': window.WWP?.deviceId || '' }
+    });
+    if(res.status===401){ sharedEvents = []; return; } // not signed in — personal events only
+    if(!res.ok) return;
+    const data = await res.json();
+    sharedEvents = data.events || [];
+    renderEvents();
+    renderCalendar();
+  }catch(e){
+    console.warn('loadSharedEvents failed', e);
+  }
+}
+
+async function loadFriendsForInvitePicker(){
+  const listEl = $('#eventInviteList');
+  if(!listEl) return;
+  if(friendsCache===null){
+    try{
+      const res = await fetch('/api/friends', {
+        credentials:'include',
+        headers:{ 'X-Device-Id': window.WWP?.deviceId || '' }
+      });
+      if(res.status===401){
+        listEl.innerHTML = '<div class="cal-events-empty">Sign in to invite friends.</div>';
+        return;
+      }
+      if(!res.ok){ listEl.innerHTML = '<div class="cal-events-empty">Couldn\'t load friends.</div>'; return; }
+      const data = await res.json();
+      friendsCache = data.friends || [];
+    }catch(e){
+      listEl.innerHTML = '<div class="cal-events-empty">Couldn\'t load friends.</div>';
+      return;
+    }
+  }
+  if(!friendsCache.length){
+    listEl.innerHTML = '<div class="cal-events-empty">Add friends first to invite them.</div>';
+    return;
+  }
+  listEl.innerHTML = friendsCache.map(f=>`
+    <label class="event-invite-item">
+      <input type="checkbox" data-friend-id="${f.id}" ${pendingInviteIds.has(f.id)?'checked':''}>
+      <span>${escapeHtml(f.username||f.email)}</span>
+    </label>
+  `).join('');
+  $$('.event-invite-item input', listEl).forEach(cb=>{
+    cb.addEventListener('change', function(){
+      if(this.checked) pendingInviteIds.add(this.dataset.friendId);
+      else pendingInviteIds.delete(this.dataset.friendId);
+    });
+  });
+}
+
+async function createSharedEvent(title, time, location){
+  const btn = $('#addEventBtn');
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Inviting…';
+  try{
+    const res = await fetch('/api/events', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+      credentials:'include',
+      body: JSON.stringify({
+        title, eventDate: activeKey, eventTime: time || undefined, location: location || undefined,
+        inviteUserIds: Array.from(pendingInviteIds)
+      })
+    });
+    if(res.status===401){ showToast('Sign in to invite friends.'); return; }
+    const data = await res.json();
+    if(res.ok && data.success){
+      showToast('Event created and invites sent.');
+      $('#newEventTitle').value=''; $('#newEventTime').value=''; $('#newEventLocation').value='';
+      pendingInviteIds.clear();
+      const toggle = $('#eventInviteToggle');
+      if(toggle){ toggle.checked=false; $('#eventInvitePicker').style.display='none'; }
+      loadSharedEvents(true);
+    } else {
+      showToast(data.error || 'Could not create event.');
+    }
+  }catch(e){
+    showToast('Could not create event.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function respondToInvite(inviteId, action){
+  try{
+    const res = await fetch('/api/events/respond', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+      credentials:'include',
+      body: JSON.stringify({ inviteId, action })
+    });
+    const data = await res.json();
+    if(res.ok && data.success){
+      showToast(action==='accept' ? 'Accepted — it\'s on your calendar.' : 'Declined.');
+      loadSharedEvents(true);
+    } else {
+      showToast(data.error || 'Could not respond.');
+    }
+  }catch(e){
+    showToast('Could not respond.');
+  }
+}
+
+async function cancelSharedEvent(id){
+  try{
+    const res = await fetch('/api/events', {
+      method:'DELETE',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+      credentials:'include',
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    if(res.ok && data.success){
+      showToast('Event cancelled.');
+      loadSharedEvents(true);
+    } else {
+      showToast(data.error || 'Could not cancel event.');
+    }
+  }catch(e){
+    showToast('Could not cancel event.');
+  }
+}
+
 
 /* ============================================================
    Jama'ah Broadcast :: share today's prayer plan with friends,
@@ -615,6 +803,16 @@ async function init(){
 
   $('#addEventBtn')?.addEventListener('click', addEvent);
   $('#newEventTitle')?.addEventListener('keydown', e=>{ if(e.key==='Enter') addEvent(); });
+  $('#eventInviteToggle')?.addEventListener('change', function(){
+    const picker = $('#eventInvitePicker');
+    if(this.checked){
+      picker.style.display='block';
+      loadFriendsForInvitePicker();
+    } else {
+      picker.style.display='none';
+      pendingInviteIds.clear();
+    }
+  });
 
   $('#jbBroadcastBtn')?.addEventListener('click', sendJamaahBroadcast);
 
