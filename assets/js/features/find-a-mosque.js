@@ -469,14 +469,13 @@
     if(!overlay || !hideBtn) return;
     overlay.classList.toggle('is-hidden', unlocked);
     hideBtn.classList.toggle('hidden', !unlocked);
-    try{
-      if(unlocked) localStorage.setItem(PEEK_KEY, '1');
-      else localStorage.removeItem(PEEK_KEY);
-    }catch(e){}
+    if(window.LocalCache){
+      if(unlocked) window.LocalCache.set(PEEK_KEY, true);
+      else window.LocalCache.remove(PEEK_KEY);
+    }
   }
 
-  let alreadyUnlocked = false;
-  try{ alreadyUnlocked = localStorage.getItem(PEEK_KEY) === '1'; }catch(e){}
+  let alreadyUnlocked = window.LocalCache ? !!window.LocalCache.get(PEEK_KEY, false) : false;
   setPeekState(alreadyUnlocked);
 
   peekBtn?.addEventListener('click', ()=> setPeekState(true));
