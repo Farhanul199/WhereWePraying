@@ -270,21 +270,20 @@ async function loadTranslation(surahNum, key){
   if(translationLoadPromises[cacheKey]) return translationLoadPromises[cacheKey];
 
   translationLoadPromises[cacheKey] = (async ()=>{
-    try{
-      const raw = localStorage.getItem(translationStorageKey(key, surahNum));
-      if(raw){
-        const parsed = JSON.parse(raw);
-        translationCache[cacheKey] = parsed;
-        return parsed;
+    if(window.LocalCache){
+      const cached = window.LocalCache.get(translationStorageKey(key, surahNum), null);
+      if(cached){
+        translationCache[cacheKey] = cached;
+        return cached;
       }
-    }catch(e){ /* fall through to network */ }
+    }
 
     try{
       const verses = await fetchCdnEdition(surahNum, slug).catch(()=> fetchCdnEdition(surahNum, slug));
       const map = {};
       verses.forEach(v=> map[v.verse] = v.text);
       translationCache[cacheKey] = map;
-      try{ localStorage.setItem(translationStorageKey(key, surahNum), JSON.stringify(map)); }catch(e){}
+      if(window.LocalCache) window.LocalCache.set(translationStorageKey(key, surahNum), map);
       return map;
     } catch(err){
       console.error('Translation fetch failed for', key, 'surah', surahNum, err);
@@ -369,19 +368,18 @@ async function loadTafsir(surah, ayah){
   if(tafsirLoadPromises[cacheKey]) return tafsirLoadPromises[cacheKey];
 
   tafsirLoadPromises[cacheKey] = (async ()=>{
-    try{
-      const raw = localStorage.getItem(tafsirStorageKey(surah, ayah));
-      if(raw){
-        const parsed = JSON.parse(raw);
-        tafsirCache[cacheKey] = parsed;
-        return parsed;
+    if(window.LocalCache){
+      const cached = window.LocalCache.get(tafsirStorageKey(surah, ayah), null);
+      if(cached){
+        tafsirCache[cacheKey] = cached;
+        return cached;
       }
-    }catch(e){ /* fall through to network */ }
+    }
 
     try{
       const paragraphs = await fetchTafsirFromSources(surah, ayah);
       tafsirCache[cacheKey] = paragraphs;
-      try{ localStorage.setItem(tafsirStorageKey(surah, ayah), JSON.stringify(paragraphs)); }catch(e){}
+      if(window.LocalCache) window.LocalCache.set(tafsirStorageKey(surah, ayah), paragraphs);
       return paragraphs;
     } catch(err){
       console.error('Tafsir fetch failed for', surah, ayah, err);
@@ -401,14 +399,13 @@ async function loadSurahData(num){
   surahLoadPromises[num] = (async ()=>{
     // 1) localStorage cache — the Qur'an text never changes, so once fetched
     //    we never need to hit the network for this surah again.
-    try{
-      const raw = localStorage.getItem(quranStorageKey(num));
-      if(raw){
-        const parsed = JSON.parse(raw);
-        surahCache[num] = parsed;
-        return parsed;
+    if(window.LocalCache){
+      const cached = window.LocalCache.get(quranStorageKey(num), null);
+      if(cached){
+        surahCache[num] = cached;
+        return cached;
       }
-    }catch(e){ /* localStorage unavailable — fall through */ }
+    }
 
     // 1b) IndexedDB fallback — persistent offline cache
     try{
@@ -441,7 +438,7 @@ async function loadSurahData(num){
 
     const result = {ayahs, source};
     surahCache[num] = result;
-    try{ localStorage.setItem(quranStorageKey(num), JSON.stringify(result)); }catch(e){ /* storage full/unavailable — still usable in-memory */ }
+    if(window.LocalCache) window.LocalCache.set(quranStorageKey(num), result); // storage full/unavailable is handled inside LocalCache.set — still usable in-memory
     // Also cache in IndexedDB for offline access
     try{ await OfflineData.set('quran_cache', { surah: num, ...result }); }catch(e){ /* IndexedDB unavailable */ }
     return result;
