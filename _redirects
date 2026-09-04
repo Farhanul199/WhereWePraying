@@ -4,18 +4,101 @@
 # The app's own router (see index.html) then shows the right section
 # based on the URL. Kept as explicit routes (not a catch-all /*) so
 # genuinely missing paths still 404 as expected.
+#
+# Guide routes below are generated from the GUIDES array in
+# assets/js/features/guides.js — when a new guide is added there,
+# add its matching /guides/<id> line here too, or it will 404 on
+# direct visit/refresh/share even though it works via in-app nav.
 
-/find-a-mosque       /index.html   200
-/prayer-times        /index.html   200
-/quran               /index.html   200
-/journal             /index.html   200
-/dua-dhikr           /index.html   200
-/guides              /index.html   200
-/guides/wudu         /index.html   200
-/guides/salah        /index.html   200
-/guides/tayammum     /index.html   200
-/guides/ghusl        /index.html   200
-/guides/adhan        /index.html   200
-/guides/sujoodsahw   /index.html   200
-/guides/qibla        /index.html   200
-/guides/fasting      /index.html   200
+/                     /index.html   200
+/find-a-mosque        /index.html   200
+/prayer-times         /index.html   200
+/quran                /index.html   200
+/journal              /index.html   200
+/dua-dhikr            /index.html   200
+/guides               /index.html   200
+/travel-mode          /index.html   200
+/community-ideas      /index.html   200
+
+/guides/actions-during-prayer        /index.html   200
+/guides/adhan                        /index.html   200
+/guides/anger-management             /index.html   200
+/guides/breaking-bad-habits          /index.html   200
+/guides/breaking-fast-traveling      /index.html   200
+/guides/can-i-fast-today             /index.html   200
+/guides/common-mistakes              /index.html   200
+/guides/consistent-prayer-practice   /index.html   200
+/guides/converts-journey             /index.html   200
+/guides/dealing-with-doubt           /index.html   200
+/guides/dealing-with-loss            /index.html   200
+/guides/death-preparation            /index.html   200
+/guides/eid                          /index.html   200
+/guides/eid-prayer-detailed          /index.html   200
+/guides/elders-in-islam              /index.html   200
+/guides/evening-routine              /index.html   200
+/guides/family                       /index.html   200
+/guides/fasting                      /index.html   200
+/guides/fasting-physical-job         /index.html   200
+/guides/finance                      /index.html   200
+/guides/finding-jamaah-away          /index.html   200
+/guides/five-prayers                 /index.html   200
+/guides/food-etiquette               /index.html   200
+/guides/ghusl                        /index.html   200
+/guides/ghusl-or-wudu                /index.html   200
+/guides/gratitude                    /index.html   200
+/guides/hajj-umrah-basics            /index.html   200
+/guides/home-etiquette               /index.html   200
+/guides/hygiene                      /index.html   200
+/guides/innovation-bidah             /index.html   200
+/guides/intention                    /index.html   200
+/guides/is-this-halal-framework      /index.html   200
+/guides/islamic-calendar-explained   /index.html   200
+/guides/jumuah                       /index.html   200
+/guides/laylat-qadr                  /index.html   200
+/guides/life-events                  /index.html   200
+/guides/manners                      /index.html   200
+/guides/menstruation                 /index.html   200
+/guides/morning-routine              /index.html   200
+/guides/mosque-etiquette             /index.html   200
+/guides/mosque-with-kids             /index.html   200
+/guides/mourning-etiquette           /index.html   200
+/guides/neighbors                    /index.html   200
+/guides/new-muslim-first-month       /index.html   200
+/guides/parents-teaching-kids        /index.html   200
+/guides/patience-hardship            /index.html   200
+/guides/planning-your-islamic-year   /index.html   200
+/guides/postpartum                   /index.html   200
+/guides/prayer-feels-empty           /index.html   200
+/guides/praying-at-work              /index.html   200
+/guides/praying-in-car               /index.html   200
+/guides/praying-while-sick           /index.html   200
+/guides/pregnancy-etiquette          /index.html   200
+/guides/qibla                        /index.html   200
+/guides/quran-etiquette              /index.html   200
+/guides/quran-with-interruptions     /index.html   200
+/guides/ramadan                      /index.html   200
+/guides/ramadan-fasting-guide        /index.html   200
+/guides/ramadan-preparation          /index.html   200
+/guides/ramadan-timezones            /index.html   200
+/guides/salah                        /index.html   200
+/guides/salah-mistakes               /index.html   200
+/guides/seeking-knowledge            /index.html   200
+/guides/shirk-avoidance              /index.html   200
+/guides/should-i-pray-now            /index.html   200
+/guides/sleep                        /index.html   200
+/guides/staying-focused-salah        /index.html   200
+/guides/sujoodsahw                   /index.html   200
+/guides/tawheed-basics               /index.html   200
+/guides/tayammum                     /index.html   200
+/guides/teen-young-adult-guide       /index.html   200
+/guides/travel                       /index.html   200
+/guides/travel-combining             /index.html   200
+/guides/why-islam-forbids-things     /index.html   200
+/guides/women-leadership             /index.html   200
+/guides/work-etiquette               /index.html   200
+/guides/wudu                         /index.html   200
+/guides/wudu-limited-water           /index.html   200
+/guides/wudu-mistakes                /index.html   200
+/guides/youth-career                 /index.html   200
+/guides/youth-identity               /index.html   200
+/guides/youth-relationships          /index.html   200
