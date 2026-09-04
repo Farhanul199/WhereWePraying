@@ -78,7 +78,7 @@ window.WWP = (function(){
   return { deviceId: deviceId, get: get, save: save, saveNow: saveNow };
 })();
 
-/* Prayer Times module moved to src/features/prayer-times/prayer-times.js */
+/* Prayer Times module lives in assets/js/features/prayer-times.js */
 
 
 /* ============================================================
@@ -676,6 +676,34 @@ const OfflineData = (function(){
   return { init, set, get, getAll, clear };
 })();
 window.OfflineData = OfflineData;
+
+/* ============================================================
+   OFFLINE SYNC :: caches Dua/Dhikr categories and Guides content
+   into IndexedDB (via OfflineData above) for offline access. Lives
+   here rather than in either dua.js or guides.js — both features
+   call it, so it's genuinely shared, not owned by one feature.
+   ============================================================ */
+window.OfflineSync = (function(){
+  const syncCategories = async (categories) => {
+    try{
+      await OfflineData.set('metadata', { key:'categories_timestamp', value: Date.now() });
+      for(const cat of categories){
+        await OfflineData.set('dua_dhikr', cat);
+      }
+    }catch(e){ console.log('Offline sync for categories failed:', e); }
+  };
+
+  const syncGuides = async (guides) => {
+    try{
+      await OfflineData.set('metadata', { key:'guides_timestamp', value: Date.now() });
+      for(const guide of guides){
+        await OfflineData.set('guides', guide);
+      }
+    }catch(e){ console.log('Offline sync for guides failed:', e); }
+  };
+
+  return { syncCategories, syncGuides };
+})();
 
 // Initialize offline DB on page load
 if(document.readyState === 'loading'){
