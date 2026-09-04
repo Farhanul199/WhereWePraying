@@ -65,7 +65,7 @@
 #page-travel .tm-compass-s{bottom:-7px;left:50%;transform:translateX(-50%);}
 #page-travel .tm-compass-w{left:-7px;top:50%;}
 #page-travel .tm-compass-needle{position:absolute;top:50%;left:50%;width:0;height:0;z-index:2;transform-origin:0 0;transform:rotate(0deg);transition:transform .12s linear;pointer-events:none;}
-#page-travel .tm-qc-tip{position:absolute;left:-7px;top:-71px;width:14px;height:19px;clip-path:polygon(50% 0,100% 100%,0 100%);background:#F4714E;}
+#page-travel .tm-qc-tip{position:absolute;left:-7px;top:-71px;width:14px;height:19px;clip-path:polygon(50% 0,100% 100%,0 100%);background:var(--coral);}
 #page-travel .tm-qc-tail{position:absolute;left:-5px;top:52px;width:10px;height:14px;clip-path:polygon(50% 100%,100% 0,0 0);background:#20343c;opacity:.3;}
 body[data-theme="dark"] #page-travel .tm-qc-tail,body[data-theme="amoled"] #page-travel .tm-qc-tail{background:#d5d5d5;}
 #page-travel .tm-qibla-card>.tm-link{position:absolute;bottom:18px;left:0;right:0;}
