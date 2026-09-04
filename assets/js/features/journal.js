@@ -372,6 +372,98 @@ function renderAll(){
   renderBalance();
   renderCalendar();
   renderRoutines();
+  loadJamaahBroadcastPanel();
+}
+
+/* ============================================================
+   Jama'ah Broadcast :: share today's prayer plan with friends,
+   see friends' active plans. Self-contained, mirrors the Qur'an
+   reading-streak poke panel pattern (friends-based, 401-aware,
+   30s-throttled refresh).
+   ============================================================ */
+let jbPanelLastLoad = 0;
+async function loadJamaahBroadcastPanel(force){
+  if(!force && Date.now()-jbPanelLastLoad<30000) return;
+  jbPanelLastLoad = Date.now();
+  const msgEl = $('#jbMsg');
+  const listEl = $('#jbFriendsList');
+  if(!msgEl || !listEl) return;
+  try{
+    const res = await fetch('/api/jamaah-broadcast', {
+      credentials:'include',
+      headers:{ 'X-Device-Id': window.WWP?.deviceId || '' }
+    });
+    if(res.status===401){
+      msgEl.style.display='block';
+      msgEl.innerHTML = 'Sign in to broadcast Jama\'ah plans and see friends\' plans.';
+      listEl.innerHTML='';
+      return;
+    }
+    if(!res.ok){
+      msgEl.style.display='block';
+      msgEl.textContent = 'Couldn\'t load friends\' plans — try again shortly.';
+      listEl.innerHTML='';
+      return;
+    }
+    const data = await res.json();
+    listEl.innerHTML='';
+    if(!data.entries || !data.entries.length){
+      msgEl.style.display='block';
+      msgEl.textContent = 'No friends have broadcast a Jama\'ah plan right now.';
+      return;
+    }
+    msgEl.style.display='none';
+    data.entries.forEach(entry=>{
+      const item = document.createElement('div');
+      item.className='jb-friend-item';
+      item.innerHTML = `
+        <span class="jb-friend-name">${escapeHtml(entry.username)}</span>
+        <span class="jb-friend-detail">${escapeHtml(entry.prayerName)} · ${escapeHtml(entry.mosqueName)} · ${escapeHtml(entry.plannedTime)}</span>
+        ${entry.note ? `<span class="jb-friend-note">${escapeHtml(entry.note)}</span>` : ''}
+      `;
+      listEl.appendChild(item);
+    });
+  }catch(e){
+    console.warn('loadJamaahBroadcastPanel failed', e);
+    msgEl.style.display='block';
+    msgEl.textContent = 'Couldn\'t load friends\' plans — try again shortly.';
+    listEl.innerHTML='';
+  }
+}
+
+async function sendJamaahBroadcast(){
+  const btn = $('#jbBroadcastBtn');
+  const prayerName = $('#jbPrayerSelect').value;
+  const mosqueName = $('#jbMosqueInput').value.trim();
+  const plannedTime = $('#jbTimeInput').value;
+  const note = $('#jbNoteInput').value.trim();
+  if(!mosqueName){ showToast('Enter a mosque or location.'); return; }
+  if(!plannedTime){ showToast('Pick a time.'); return; }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Broadcasting…';
+  try{
+    const res = await fetch('/api/jamaah-broadcast', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+      credentials:'include',
+      body: JSON.stringify({ prayerName, mosqueName, plannedTime, note: note || undefined })
+    });
+    if(res.status===401){ showToast('Sign in to broadcast to friends.'); return; }
+    const data = await res.json();
+    if(res.ok && data.success){
+      showToast('Broadcast sent — your friends can see it.');
+      $('#jbMosqueInput').value=''; $('#jbNoteInput').value='';
+      loadJamaahBroadcastPanel(true);
+    } else {
+      showToast(data.error || 'Could not broadcast.');
+    }
+  }catch(e){
+    showToast('Could not broadcast.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 /* ============================================================
@@ -461,6 +553,8 @@ async function init(){
     persistJournal();
     renderRoutines();
   });
+
+  $('#jbBroadcastBtn')?.addEventListener('click', sendJamaahBroadcast);
 
   $('#heartToggle').addEventListener('click', function(){
     state.heartSaved = !state.heartSaved;
