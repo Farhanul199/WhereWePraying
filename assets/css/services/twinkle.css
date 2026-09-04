@@ -26,7 +26,7 @@
 body[data-twinkle="off"] .wwp-twinkle-field{display:none;}
 
 /* Star color per theme — soft, low-contrast, never fights content */
-body[data-twinkle]:not([data-theme="dark"]):not([data-theme="amoled"]) .wwp-twinkle-field .wwp-star{color:#F4714E;}
+body[data-twinkle]:not([data-theme="dark"]):not([data-theme="amoled"]) .wwp-twinkle-field .wwp-star{color:var(--coral);}
 body[data-theme="sepia"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#593F27;}
 body[data-theme="dark"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#F2D1B3;}
 body[data-theme="amoled"][data-twinkle] .wwp-twinkle-field .wwp-star{color:#ffffff;}
