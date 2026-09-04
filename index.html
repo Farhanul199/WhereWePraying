@@ -55,18 +55,9 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 
-<style>
-/* ==== Production performance guardrails ==== */
-@media (max-width: 900px){
-  body[data-glass="on"]{ --surface-blur: blur(6px) saturate(140%); }
-}
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{scroll-behavior:auto !important;}
-}
-</style>
-<link rel="stylesheet" href="/assets/css/app.css?v=6">
+<link rel="stylesheet" href="/assets/css/app.css?v=7">
 <link rel="stylesheet" href="/assets/css/features/home.css?v=1">
-<link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
 <link rel="stylesheet" href="/assets/css/features/quran.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/journal.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/dua.css?v=1">
@@ -294,10 +285,9 @@ window.__wwpGoogleAuthResult = (function(){
         });
       }
       if('geolocation' in navigator){
-        navigator.geolocation.getCurrentPosition(
-          function(pos){ send(pos.coords.latitude, pos.coords.longitude); },
-          function(){ send(null, null); },
-          { timeout: 6000, maximumAge: 600000 }
+        Platform.getLocation({ timeout: 6000, maximumAge: 600000 }).then(
+          function(loc){ send(loc.lat, loc.lon); },
+          function(){ send(null, null); }
         );
       } else { send(null, null); }
     }).catch(function(){}).finally(function(){
@@ -2406,18 +2396,18 @@ window.__wwpGoogleAuthResult = (function(){
   </div>
 </div>
 
-<script src="/assets/js/wwp-core.js?v=8" defer></script>
-<script src="/assets/js/services/storage.js?v=1" defer></script>
-<script src="/assets/js/services/platform.js?v=2" defer></script>
-<script src="/assets/js/features/prayer-times.js?v=3" defer></script>
-<script src="/assets/js/features/quran.js?v=3" defer></script>
-<script src="/assets/js/features/journal.js?v=2" defer></script>
-<script src="/assets/js/features/dua.js?v=2" defer></script>
-<script src="/assets/js/features/guides.js?v=3" defer></script>
+<script src="/assets/js/wwp-core.js?v=9" defer></script>
+<script src="/assets/js/services/storage.js?v=2" defer></script>
+<script src="/assets/js/services/platform.js?v=3" defer></script>
+<script src="/assets/js/features/prayer-times.js?v=5" defer></script>
+<script src="/assets/js/features/quran.js?v=4" defer></script>
+<script src="/assets/js/features/journal.js?v=3" defer></script>
+<script src="/assets/js/features/dua.js?v=3" defer></script>
+<script src="/assets/js/features/guides.js?v=4" defer></script>
 <script src="/assets/js/features/find-a-mosque.js?v=3" defer></script>
-<script src="/assets/js/features/travel-mode.js?v=3" defer></script>
+<script src="/assets/js/features/travel-mode.js?v=4" defer></script>
 <script src="/assets/js/features/seasonal-themes.js?v=3" defer></script>
-<script src="/assets/js/services/auth.js?v=3" defer></script>
+<script src="/assets/js/services/auth.js?v=4" defer></script>
 <script src="/assets/js/features/community.js?v=2" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>
