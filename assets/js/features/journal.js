@@ -51,6 +51,7 @@ const state = {
     {id:'r2', name:'Evening Routine', icon:'moon', steps:['Dhikr','Reflection','Qur\'an']},
     {id:'r3', name:'Sleep Routine', icon:'zzz', steps:['Isha','Du\'a','Sleep early']}
   ],
+  events:{},             // dateKey -> [{id,title,time,location}] — planned, can be future days
   heartSaved:false
 };
 
@@ -58,6 +59,7 @@ function ensureDay(key){
   if(!state.prayers[key]) state.prayers[key] = {Fajr:'pending',Dhuhr:'pending',Asr:'pending',Maghrib:'pending',Isha:'pending'};
   if(!state.deeds[key]) state.deeds[key] = DEED_PRESETS.map((label,i)=>({id:'d'+i,label,done:false}));
   if(!state.mistakes[key]) state.mistakes[key] = [];
+  if(!state.events[key]) state.events[key] = [];
 }
 ensureDay(todayKey);
 
@@ -106,6 +108,7 @@ function persistJournal(){
     deeds: state.deeds,
     mistakes: state.mistakes,
     routines: state.routines,
+    events: state.events,
     heartSaved: state.heartSaved,
     streakFreezeMonth: state.streakFreezeMonth
   });
@@ -122,6 +125,7 @@ async function loadJournalFromBackend(){
     if(saved.deeds) state.deeds = saved.deeds;
     if(saved.mistakes) state.mistakes = saved.mistakes;
     if(Array.isArray(saved.routines)) state.routines = saved.routines;
+    if(saved.events) state.events = saved.events;
     if(typeof saved.heartSaved==='boolean') state.heartSaved = saved.heartSaved;
     if(saved.streakFreezeMonth !== undefined) state.streakFreezeMonth = saved.streakFreezeMonth;
   }
@@ -308,8 +312,9 @@ function renderCalendar(){
     const isToday = key===todayKey;
     const isActive = key===activeKey;
     const isFuture = d.getTime() > today.getTime();
+    const hasEvent = (state.events[key]||[]).length > 0;
     const cell = document.createElement('div');
-    cell.className = 'cal-cell '+cls+(isToday?' today-cell':'')+(isActive?' active-cell':'')+(isFuture?' future-cell':'');
+    cell.className = 'cal-cell '+cls+(isToday?' today-cell':'')+(isActive?' active-cell':'')+(isFuture?' future-cell':'')+(hasEvent?' has-event':'');
     cell.textContent = day;
     cell.title = isFuture ? 'Tap to plan this day' : 'Tap to view/edit this day';
     cell.addEventListener('click', ()=>{
@@ -371,7 +376,62 @@ function renderAll(){
   renderBalance();
   renderCalendar();
   renderRoutines();
+  renderEvents();
   loadJamaahBroadcastPanel();
+}
+
+/* ============================================================
+   Planned Events :: any day (past, today, or future) can hold
+   personal planned events. Purely local/synced-to-device for now
+   — no friend invites yet (that's a separate follow-up build).
+   ============================================================ */
+function renderEvents(){
+  const list = $('#calEventsList');
+  const lbl = $('#calEventsDayLbl');
+  if(!list || !lbl) return;
+  lbl.textContent = 'Events — ' + (activeKey===todayKey ? 'Today' : fmtLong(activeDate));
+  const evs = state.events[activeKey] || [];
+  list.innerHTML='';
+  if(!evs.length){
+    list.innerHTML = '<div class="cal-events-empty">No events planned for this day.</div>';
+    return;
+  }
+  evs.slice().sort((a,b)=> (a.time||'99:99').localeCompare(b.time||'99:99')).forEach(ev=>{
+    const item = document.createElement('div');
+    item.className='cal-event-item';
+    item.innerHTML = `
+      <div class="cal-event-main">
+        <span class="cal-event-title">${escapeHtml(ev.title)}</span>
+        ${ev.time ? `<span class="cal-event-time">${escapeHtml(ev.time)}</span>` : ''}
+        ${ev.location ? `<span class="cal-event-loc">${escapeHtml(ev.location)}</span>` : ''}
+      </div>
+      <button class="cal-event-del" data-id="${ev.id}" title="Remove">×</button>
+    `;
+    item.querySelector('.cal-event-del').addEventListener('click', ()=> removeEvent(ev.id));
+    list.appendChild(item);
+  });
+}
+
+function addEvent(){
+  const titleInput = $('#newEventTitle');
+  const title = titleInput.value.trim();
+  const time = $('#newEventTime').value;
+  const location = $('#newEventLocation').value.trim();
+  if(!title){ showToast('Give the event a title.'); return; }
+  if(!state.events[activeKey]) state.events[activeKey] = [];
+  state.events[activeKey].push({id:'ev-'+Date.now(), title, time, location});
+  titleInput.value=''; $('#newEventTime').value=''; $('#newEventLocation').value='';
+  persistJournal();
+  renderEvents();
+  renderCalendar();
+  showToast('Event added to '+(activeKey===todayKey?'today':fmtLong(activeDate))+'.');
+}
+
+function removeEvent(id){
+  state.events[activeKey] = (state.events[activeKey]||[]).filter(e=>e.id!==id);
+  persistJournal();
+  renderEvents();
+  renderCalendar();
 }
 
 /* ============================================================
@@ -552,6 +612,9 @@ async function init(){
     persistJournal();
     renderRoutines();
   });
+
+  $('#addEventBtn')?.addEventListener('click', addEvent);
+  $('#newEventTitle')?.addEventListener('keydown', e=>{ if(e.key==='Enter') addEvent(); });
 
   $('#jbBroadcastBtn')?.addEventListener('click', sendJamaahBroadcast);
 
