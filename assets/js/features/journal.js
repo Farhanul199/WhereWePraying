@@ -772,6 +772,7 @@ async function init(){
   // so IndexedDB/network latency cannot hold the page open.
   renderAll();
   loadJournalFromBackend().then(renderAll).catch(()=>0);
+  loadHijriPill();
 
   $('#saveReflectionBtn').addEventListener('click', saveReflection);
   $('#clearReflectionBtn').addEventListener('click', clearReflection);
@@ -825,6 +826,38 @@ async function init(){
 
   // Note: Hijri date is still estimated client-side — a proper lunar-
   // calendar source is a separate, non-storage piece of future work.
+}
+
+/* ============================================================
+   Hijri date pill :: live-fetched from AlAdhan's gToH endpoint,
+   cached per calendar day in localStorage (same LocalCache used
+   elsewhere) so it's not re-fetched on every page load.
+   ============================================================ */
+async function loadHijriPill(){
+  const pill = $('#hijriPill');
+  if(!pill) return;
+  const cacheKey = 'wwp:journal:hijriToday';
+  const cached = LocalCache.get(cacheKey, null);
+  if(cached && cached.dateKey===todayKey && cached.label){
+    pill.textContent = cached.label;
+    return;
+  }
+  try{
+    const dd = String(today.getDate()).padStart(2,'0');
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const yyyy = today.getFullYear();
+    const res = await fetch(`https://api.aladhan.com/v1/gToH?date=${dd}-${mm}-${yyyy}`);
+    if(!res.ok) throw new Error('gToH request failed');
+    const data = await res.json();
+    const h = data && data.data && data.data.hijri;
+    if(!h) throw new Error('Unexpected gToH response');
+    const label = `${h.day} ${h.month.en} ${h.year} AH`;
+    LocalCache.set(cacheKey, {dateKey:todayKey, label});
+    pill.textContent = label;
+  }catch(e){
+    console.warn('loadHijriPill failed', e);
+    pill.textContent = 'Hijri date unavailable';
+  }
 }
 
 init();
