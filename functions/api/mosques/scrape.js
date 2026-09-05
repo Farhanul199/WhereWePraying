@@ -9,11 +9,14 @@
 // FAILURE BACKOFF: mosques failing 8+ times in a row are skipped from
 // the active rotation until they succeed again.
 //
+// PER-MOSQUE TIMEOUT: each fetch is capped at 8 seconds via
+// AbortController. Without this, a single slow or hanging mosque
+// website can stall the entire batch until Cloudflare's edge gives up
+// and returns a 524 — which is what was happening before this fix.
+//
 // CONCURRENCY + BATCHED WRITES: fetches up to 10 mosques at once, then
 // writes ALL of that chunk's database changes in a single db.batch()
-// call instead of one round-trip per mosque. This cuts D1 round-trips
-// roughly in half-to-a-tenth depending on chunk size, which is the
-// main lever for finishing each batch faster.
+// call instead of one round-trip per mosque.
 //
 // Trigger: a small separate Cron Worker calls this in batches once a
 // day (see /cron-worker or the daily-sync Worker in the repo). Manual:
@@ -90,14 +93,27 @@ function isConfident(times) {
 
 const MAX_CONSECUTIVE_FAILURES = 8;
 const CONCURRENCY = 10;
+const FETCH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Only does the external fetch + text extraction. No DB calls here —
 // all DB writes for the whole chunk are batched together afterward.
 async function fetchMosque(mosque) {
   try {
-    const res = await fetch(mosque.source_url, {
-      headers: { "User-Agent": "WhereWePrayingBot/1.0 (+https://wherewepraying.com)" },
-    });
+    const res = await fetchWithTimeout(
+      mosque.source_url,
+      { headers: { "User-Agent": "WhereWePrayingBot/1.0 (+https://wherewepraying.com)" } },
+      FETCH_TIMEOUT_MS
+    );
     if (!res.ok) {
       return { slug: mosque.slug, type: "failed", reason: `HTTP ${res.status}` };
     }
@@ -110,7 +126,8 @@ async function fetchMosque(mosque) {
     }
     return { slug: mosque.slug, type: "updated", times };
   } catch (e) {
-    return { slug: mosque.slug, type: "failed", reason: String(e) };
+    const reason = e.name === "AbortError" ? "Timed out" : String(e);
+    return { slug: mosque.slug, type: "failed", reason };
   }
 }
 
