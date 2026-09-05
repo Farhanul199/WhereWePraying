@@ -4,9 +4,16 @@
 // source_url, tries to pull today's Jama'ah times out of the page text,
 // and writes anything it's confident about into thm_jamaah_times.
 //
+// PAGINATED: processes only a slice of mosques per call (offset/limit
+// query params) to stay under Cloudflare's per-invocation subrequest
+// and execution-time limits. With ~680 mosques having a source_url,
+// the cron worker calls this endpoint multiple times with increasing
+// offsets to cover the full list (see /cron-worker or the daily-sync
+// Worker in the repo).
+//
 // Trigger: a small separate Cron Worker calls this once a day (see
 // /cron-worker in the repo root). You can also call it manually:
-//   curl -X POST https://wherewepraying.com/api/mosques/scrape \
+//   curl -X POST "https://wherewepraying.com/api/mosques/scrape?offset=0&limit=50" \
 //     -H "X-Broadcast-Key: YOUR_SECRET"
 //
 // Safety rule: if we can't confidently find a prayer's time, we leave
@@ -100,12 +107,18 @@ export async function onRequestPost(context) {
   const db = context.env.DB;
   const dateIso = londonTodayIso();
 
+  const url = new URL(context.request.url);
+  const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+  const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+
   const { results: mosques } = await db.prepare(
     `SELECT slug, name, source_url FROM mosques
-     WHERE active = 1 AND source_url IS NOT NULL AND source_url != ''`
-  ).all();
+     WHERE active = 1 AND source_url IS NOT NULL AND source_url != ''
+     ORDER BY slug ASC
+     LIMIT ?1 OFFSET ?2`
+  ).bind(limit, offset).all();
 
-  const report = { date: dateIso, total: mosques.length, updated: [], skipped: [], failed: [] };
+  const report = { date: dateIso, offset, limit, batchSize: mosques.length, updated: [], skipped: [], failed: [] };
 
   for (const mosque of mosques || []) {
     try {
