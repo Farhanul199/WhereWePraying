@@ -5,6 +5,10 @@
 // covers ~682 mosques across London and other UK cities, and writes
 // today's Jama'ah times into thm_jamaah_times.
 //
+// BATCHED WRITES: instead of one D1 round-trip per mosque (~680 of
+// them), statements are grouped into chunks of 25 and sent via
+// db.batch() — far fewer round-trips, much faster to finish.
+//
 // This complements scrape.js (which scrapes each mosque's own site
 // individually). Run this FIRST in the daily cron sequence so it
 // establishes broad baseline coverage, then let scrape.js overwrite
@@ -36,6 +40,8 @@ function londonTodayIso() {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+const WRITE_CHUNK_SIZE = 25;
+
 export async function onRequestPost(context) {
   if (!isAdmin(context)) return json({ error: "Unauthorized" }, 401);
   const db = context.env.DB;
@@ -66,24 +72,32 @@ export async function onRequestPost(context) {
   ).all();
   const existingSlugs = new Set((existingRows || []).map((r) => r.slug));
 
-  for (const m of masjids) {
-    try {
-      if (!existingSlugs.has(m.id)) {
-        report.skipped.push({ slug: m.id, reason: "not_in_mosques_table" });
-        continue;
-      }
-      if (m.status !== "ok") {
-        report.skipped.push({ slug: m.id, reason: `status_${m.status}` });
-        continue;
-      }
-      const jt = m.jamaat_times || {};
-      const hasAll = jt.fajr && jt.dhuhr && jt.asr && jt.maghrib && jt.isha;
-      if (!hasAll) {
-        report.skipped.push({ slug: m.id, reason: "incomplete_times", found: jt });
-        continue;
-      }
+  const nowIso = new Date().toISOString();
+  const pendingStatements = [];
 
-      await db.prepare(
+  const flush = async () => {
+    if (pendingStatements.length === 0) return;
+    await db.batch(pendingStatements.splice(0, pendingStatements.length));
+  };
+
+  for (const m of masjids) {
+    if (!existingSlugs.has(m.id)) {
+      report.skipped.push({ slug: m.id, reason: "not_in_mosques_table" });
+      continue;
+    }
+    if (m.status !== "ok") {
+      report.skipped.push({ slug: m.id, reason: `status_${m.status}` });
+      continue;
+    }
+    const jt = m.jamaat_times || {};
+    const hasAll = jt.fajr && jt.dhuhr && jt.asr && jt.maghrib && jt.isha;
+    if (!hasAll) {
+      report.skipped.push({ slug: m.id, reason: "incomplete_times", found: jt });
+      continue;
+    }
+
+    pendingStatements.push(
+      db.prepare(
         `INSERT INTO thm_jamaah_times (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'londonsalahtimes.live', ?8)
          ON CONFLICT(mosque, date) DO UPDATE SET
@@ -94,16 +108,24 @@ export async function onRequestPost(context) {
            isha_jamaah = excluded.isha_jamaah,
            source = excluded.source,
            updated_at = excluded.updated_at`
-      ).bind(
-        m.id, dateIso,
-        jt.fajr, jt.dhuhr, jt.asr, jt.maghrib, jt.isha,
-        new Date().toISOString()
-      ).run();
+      ).bind(m.id, dateIso, jt.fajr, jt.dhuhr, jt.asr, jt.maghrib, jt.isha, nowIso)
+    );
+    report.updated.push({ slug: m.id, times: jt });
 
-      report.updated.push({ slug: m.id, times: jt });
-    } catch (e) {
-      report.failed.push({ slug: m.id, reason: String(e) });
+    if (pendingStatements.length >= WRITE_CHUNK_SIZE) {
+      try {
+        await flush();
+      } catch (e) {
+        report.failed.push({ reason: String(e), note: "batch_flush_failed" });
+      }
     }
+  }
+
+  // Flush any remaining statements after the loop ends
+  try {
+    await flush();
+  } catch (e) {
+    report.failed.push({ reason: String(e), note: "final_flush_failed" });
   }
 
   return json(report);
