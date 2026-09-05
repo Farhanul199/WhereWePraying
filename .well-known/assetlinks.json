@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.wherewepraying.app",
+        "sha256_cert_fingerprints": ["E8:CC:40:41:B2:18:E6:48:EC:51:C2:3C:4F:5D:6D:53:0F:38:71:EF:C3:73:AD:29:52:FB:4C:B9:35:58:AD:12"]
+      }
+    }]
