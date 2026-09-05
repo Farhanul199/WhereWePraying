@@ -3,23 +3,17 @@
 // Admin-only (X-Broadcast-Key, same as manage.js). Visits mosques'
 // source_url pages and pulls today's Jama'ah times into thm_jamaah_times.
 //
-// SMART ROTATION: instead of always processing mosques in the same
-// alphabetical order, this picks the OLDEST-scraped mosques first
-// (last_scraped_at ASC). This means:
-//   - As you add more mosques over time, they naturally get scraped
-//     without any batch-size or offset math needing to change.
-//   - Every mosque gets a fair turn across multiple daily runs even
-//     if the total list grows past what fits in one day's batches.
+// SMART ROTATION: picks the OLDEST-scraped mosques first
+// (last_scraped_at ASC) so growth over time needs no batch-math changes.
 //
-// FAILURE BACKOFF: mosques that fail 8+ times in a row (dead link,
-// permanent 403, etc.) are skipped, so we stop burning subrequests
-// on sites that don't work. They still show up occasionally (their
-// last_scraped_at still updates on skip-due-to-failures, so they
-// rotate back into the queue eventually rather than being scraped
-// every single day for nothing).
+// FAILURE BACKOFF: mosques failing 8+ times in a row are skipped from
+// the active rotation until they succeed again.
 //
-// CONCURRENCY: fetches up to 5 mosques at once within a batch (same
-// total subrequest count, just faster wall-clock time per batch).
+// CONCURRENCY + BATCHED WRITES: fetches up to 10 mosques at once, then
+// writes ALL of that chunk's database changes in a single db.batch()
+// call instead of one round-trip per mosque. This cuts D1 round-trips
+// roughly in half-to-a-tenth depending on chunk size, which is the
+// main lever for finishing each batch faster.
 //
 // Trigger: a small separate Cron Worker calls this in batches once a
 // day (see /cron-worker or the daily-sync Worker in the repo). Manual:
@@ -95,55 +89,72 @@ function isConfident(times) {
 }
 
 const MAX_CONSECUTIVE_FAILURES = 8;
-const CONCURRENCY = 5;
+const CONCURRENCY = 10;
 
-async function processMosque(mosque, db, dateIso) {
+// Only does the external fetch + text extraction. No DB calls here —
+// all DB writes for the whole chunk are batched together afterward.
+async function fetchMosque(mosque) {
   try {
     const res = await fetch(mosque.source_url, {
       headers: { "User-Agent": "WhereWePrayingBot/1.0 (+https://wherewepraying.com)" },
     });
     if (!res.ok) {
-      await db.prepare(
-        `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = consecutive_failures + 1 WHERE slug = ?2`
-      ).bind(new Date().toISOString(), mosque.slug).run();
-      return { type: "failed", slug: mosque.slug, reason: `HTTP ${res.status}` };
+      return { slug: mosque.slug, type: "failed", reason: `HTTP ${res.status}` };
     }
     const html = await res.text();
     const text = htmlToText(html);
     const times = extractJamaahTimes(text);
 
-    await db.prepare(
-      `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = 0 WHERE slug = ?2`
-    ).bind(new Date().toISOString(), mosque.slug).run();
-
     if (!isConfident(times)) {
-      return { type: "skipped", slug: mosque.slug, found: times };
+      return { slug: mosque.slug, type: "skipped", found: times };
     }
-
-    await db.prepare(
-      `INSERT INTO thm_jamaah_times (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'auto-scrape', ?8)
-       ON CONFLICT(mosque, date) DO UPDATE SET
-         fajr_jamaah = excluded.fajr_jamaah,
-         zuhr_jamaah = excluded.zuhr_jamaah,
-         asr_jamaah = excluded.asr_jamaah,
-         maghrib_jamaah = excluded.maghrib_jamaah,
-         isha_jamaah = excluded.isha_jamaah,
-         source = excluded.source,
-         updated_at = excluded.updated_at`
-    ).bind(
-      mosque.slug, dateIso,
-      times.fajr, times.zuhr, times.asr, times.maghrib, times.isha,
-      new Date().toISOString()
-    ).run();
-
-    return { type: "updated", slug: mosque.slug, times };
+    return { slug: mosque.slug, type: "updated", times };
   } catch (e) {
-    await db.prepare(
-      `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = consecutive_failures + 1 WHERE slug = ?2`
-    ).bind(new Date().toISOString(), mosque.slug).run();
-    return { type: "failed", slug: mosque.slug, reason: String(e) };
+    return { slug: mosque.slug, type: "failed", reason: String(e) };
   }
+}
+
+// Builds the D1 statements needed for one mosque's outcome.
+function statementsFor(db, outcome, dateIso, nowIso) {
+  const stmts = [];
+  if (outcome.type === "failed") {
+    stmts.push(
+      db.prepare(
+        `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = consecutive_failures + 1 WHERE slug = ?2`
+      ).bind(nowIso, outcome.slug)
+    );
+  } else if (outcome.type === "skipped") {
+    stmts.push(
+      db.prepare(
+        `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = 0 WHERE slug = ?2`
+      ).bind(nowIso, outcome.slug)
+    );
+  } else if (outcome.type === "updated") {
+    stmts.push(
+      db.prepare(
+        `UPDATE mosques SET last_scraped_at = ?1, consecutive_failures = 0 WHERE slug = ?2`
+      ).bind(nowIso, outcome.slug)
+    );
+    stmts.push(
+      db.prepare(
+        `INSERT INTO thm_jamaah_times (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'auto-scrape', ?8)
+         ON CONFLICT(mosque, date) DO UPDATE SET
+           fajr_jamaah = excluded.fajr_jamaah,
+           zuhr_jamaah = excluded.zuhr_jamaah,
+           asr_jamaah = excluded.asr_jamaah,
+           maghrib_jamaah = excluded.maghrib_jamaah,
+           isha_jamaah = excluded.isha_jamaah,
+           source = excluded.source,
+           updated_at = excluded.updated_at`
+      ).bind(
+        outcome.slug, dateIso,
+        outcome.times.fajr, outcome.times.zuhr, outcome.times.asr, outcome.times.maghrib, outcome.times.isha,
+        nowIso
+      )
+    );
+  }
+  return stmts;
 }
 
 export async function onRequestPost(context) {
@@ -167,7 +178,21 @@ export async function onRequestPost(context) {
   const queue = [...(mosques || [])];
   while (queue.length > 0) {
     const chunk = queue.splice(0, CONCURRENCY);
-    const outcomes = await Promise.all(chunk.map((m) => processMosque(m, db, dateIso)));
+
+    // Step 1: fetch all mosques in this chunk concurrently (no DB writes yet)
+    const outcomes = await Promise.all(chunk.map((m) => fetchMosque(m)));
+
+    // Step 2: build every statement for the whole chunk, then send them
+    // to D1 in ONE batch call instead of one round-trip per mosque.
+    const nowIso = new Date().toISOString();
+    const allStatements = [];
+    for (const outcome of outcomes) {
+      allStatements.push(...statementsFor(db, outcome, dateIso, nowIso));
+    }
+    if (allStatements.length > 0) {
+      await db.batch(allStatements);
+    }
+
     for (const outcome of outcomes) {
       if (outcome.type === "updated") report.updated.push(outcome);
       else if (outcome.type === "skipped") report.skipped.push(outcome);
