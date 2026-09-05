@@ -255,6 +255,19 @@
         }
       });
     }
+
+    // Jama'ah Broadcast visibility toggle — hidden on the Journal page by
+    // default; this is the only place it's turned on. Read/write through
+    // the same LocalCache key journal.js checks when rendering.
+    const jamaahBroadcastToggle = document.getElementById('jamaahBroadcastToggle');
+    if (jamaahBroadcastToggle) {
+      const JB_ENABLED_KEY = 'wwp:jamaahBroadcastEnabled';
+      jamaahBroadcastToggle.checked = window.LocalCache ? !!window.LocalCache.get(JB_ENABLED_KEY, false) : false;
+      jamaahBroadcastToggle.addEventListener('change', () => {
+        if (window.LocalCache) window.LocalCache.set(JB_ENABLED_KEY, jamaahBroadcastToggle.checked);
+        if (typeof window.applyJamaahBroadcastVisibility === 'function') window.applyJamaahBroadcastVisibility();
+      });
+    }
   }
 
   function switchAuthTab(tab) {
