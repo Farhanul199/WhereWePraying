@@ -3,13 +3,13 @@
 // MVP "Find a Mosque" data endpoint. Returns every active mosque with
 // today's (or ?date=YYYY-MM-DD) Jama'ah times, plus which prayer is
 // "next" and how many minutes away it is. Sorted soonest-next-jamaah
-// first. Full feasibility/distance-based ranking comes later — this
-// is the simple version to get real data on screen.
+// first. Now also returns each mosque's `region` (e.g. "Tower Hamlets",
+// "East London", "Manchester") so the frontend can group mosques into
+// sections instead of one flat list.
 //
 // Goes through the normal device-id middleware (no admin bypass needed —
 // this is a public, user-facing route the frontend already calls with
 // window.WWP.deviceId).
-
 function londonNowParts() {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
@@ -22,9 +22,7 @@ function londonNowParts() {
     minutes: parseInt(get("hour"), 10) * 60 + parseInt(get("minute"), 10),
   };
 }
-
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
-
 function parseTimeToMinutes(prayer, raw) {
   if (!raw) return null;
   const cleaned = raw.replace(".", ":").trim();
@@ -40,19 +38,16 @@ function parseTimeToMinutes(prayer, raw) {
   if (prayer !== "fajr" && h >= 1 && h <= 11) h += 12;
   return h * 60 + min;
 }
-
 export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const requestedDate = url.searchParams.get("date");
-
   const { dateIso: todayIso, minutes: nowMinutes } = londonNowParts();
   const dateIso = requestedDate || todayIso;
   const isToday = dateIso === todayIso;
-
   try {
     const { results } = await env.DB.prepare(
-      `SELECT m.slug, m.name, m.address, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
+      `SELECT m.slug, m.name, m.address, m.region, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
        FROM mosques m
        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
        LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
@@ -61,7 +56,6 @@ export async function onRequestGet(context) {
     )
       .bind(dateIso)
       .all();
-
     const mosques = (results || []).map((row) => {
       const jamaah = {
         fajr: row.fajr_jamaah || null,
@@ -71,7 +65,6 @@ export async function onRequestGet(context) {
         isha: row.isha_jamaah || null,
       };
       const photoUrl = row.photo_key ? `/api/community/photo/${row.photo_key}` : null;
-
       let next = null;
       if (isToday) {
         for (const prayer of PRAYER_ORDER) {
@@ -82,17 +75,14 @@ export async function onRequestGet(context) {
           }
         }
       }
-
-      return { slug: row.slug, name: row.name, address: row.address || null, jamaah, next, photoUrl };
+      return { slug: row.slug, name: row.name, address: row.address || null, region: row.region || "Other", jamaah, next, photoUrl };
     });
-
     mosques.sort((a, b) => {
       if (a.next && b.next) return a.next.minutesUntil - b.next.minutesUntil;
       if (a.next && !b.next) return -1;
       if (!a.next && b.next) return 1;
       return a.name.localeCompare(b.name);
     });
-
     return new Response(
       JSON.stringify({ date: dateIso, isToday, mosques }),
       { headers: { "Content-Type": "application/json" } }
