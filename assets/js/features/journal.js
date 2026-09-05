@@ -371,6 +371,21 @@ function renderRoutines(){
   }));
 }
 
+/* ============================================================
+   Jama'ah Broadcast visibility :: hidden on the Journal page by
+   default. Turned on via the toggle in the Friends tab (profile
+   popup) — see auth.js. Shared LocalCache key, no backend needed.
+   ============================================================ */
+function isJamaahBroadcastEnabled(){
+  return window.LocalCache ? !!window.LocalCache.get('wwp:jamaahBroadcastEnabled', false) : false;
+}
+function applyJamaahBroadcastVisibility(){
+  const card = document.querySelector('.jamaah-broadcast-card');
+  if(!card) return;
+  card.style.display = isJamaahBroadcastEnabled() ? '' : 'none';
+}
+window.applyJamaahBroadcastVisibility = applyJamaahBroadcastVisibility;
+
 function renderAll(){
   renderSummaryLine();
   renderStats();
@@ -381,7 +396,8 @@ function renderAll(){
   renderCalendar();
   renderRoutines();
   renderEvents();
-  loadJamaahBroadcastPanel();
+  applyJamaahBroadcastVisibility();
+  if(isJamaahBroadcastEnabled()) loadJamaahBroadcastPanel();
   loadSharedEvents();
 }
 
@@ -846,7 +862,7 @@ async function loadHijriPill(){
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const yyyy = today.getFullYear();
-    const res = await fetch(`https://api.aladhan.com/v1/gToH?date=${dd}-${mm}-${yyyy}`);
+    const res = await fetch(`https://api.aladhan.com/v1/gToH/${dd}-${mm}-${yyyy}`);
     if(!res.ok) throw new Error('gToH request failed');
     const data = await res.json();
     const h = data && data.data && data.data.hijri;
