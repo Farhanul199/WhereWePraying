@@ -81,6 +81,9 @@ body #page-journal{font-family:'Manrope',sans-serif;background:var(--bg);color:v
 #page-journal .ghost-btn:hover{border-color:var(--coral);color:var(--coral);}
 #page-journal .salah-list{display:flex;flex-direction:column;gap:8px;}
 #page-journal .salah-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);cursor:pointer;}
+#page-journal .salah-row.disabled-row,
+#page-journal .deed-pill.disabled-row{opacity:.5;cursor:not-allowed;}
+#page-journal .future-note{font-size:11.5px;color:var(--text-faint);font-style:italic;margin-top:8px;}
 #page-journal .salah-row:hover{border-color:var(--coral);}
 #page-journal .salah-icon{width:30px;height:30px;border-radius:9px;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;}
 #page-journal .salah-name{font-size:13.5px;font-weight:700;flex:1;}
