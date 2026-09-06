@@ -31,6 +31,11 @@
 //   [[kv_namespaces]]
 //   binding = "RATE_LIMIT"
 //   id = "<the id Cloudflare gives you>"
+//
+// NOTE: to stay well under Cloudflare's free 1,000-writes-per-day KV
+// limit, we only WRITE the counter every 5th request instead of every
+// single one (we still READ every time, and reads are free/plentiful).
+// This makes the cap slightly less precise but cuts KV writes by 5x.
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 const ALLOWED_ORIGINS = new Set([
@@ -43,13 +48,18 @@ const ADMIN_RATE_LIMIT_MAX = 10;   // /api/admin/*: much stricter — these
 const ADMIN_RATE_LIMIT_WINDOW = 60; // are secret-protected, not device-id
                                      // protected, so this is what stops
                                      // someone brute-forcing ?secret=.
+const WRITE_EVERY_N = 5;           // only write to KV every 5th hit
 
 async function checkRateLimit(env, key, max, windowSeconds) {
   if (!env.RATE_LIMIT) return true; // fail open if KV isn't bound yet
   try {
     const current = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
     if (current >= max) return false;
-    await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+    // Only write every WRITE_EVERY_N requests to save on the daily
+    // free KV write quota. Slightly less precise, much cheaper.
+    if (current % WRITE_EVERY_N === 0) {
+      await env.RATE_LIMIT.put(key, String(current + WRITE_EVERY_N), { expirationTtl: windowSeconds * 2 });
+    }
     return true;
   } catch (e) {
     console.error('rate limit check failed', e);
@@ -84,10 +94,6 @@ export async function onRequest(context) {
   }
 
   // --- Origin check ---
-  // Only enforced when an Origin header is present (normal browser
-  // fetch calls always send one for cross-site-capable requests; some
-  // same-origin navigations don't, so we don't hard-require it — we
-  // just reject it when it's present and wrong).
   const origin = request.headers.get('Origin');
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
     return new Response(JSON.stringify({ error: 'Forbidden origin' }), {
@@ -97,14 +103,6 @@ export async function onRequest(context) {
   }
 
   // --- Sec-Fetch-Site check ---
-  // Sent automatically by all modern browsers on every fetch() — and,
-  // unlike Origin, JS running in the browser CANNOT override or fake
-  // this header (it's set by the browser itself at the network layer).
-  // "same-origin" = request came from a page on wherewepraying.com.
-  // A raw curl / server-side script / most bots won't send this header
-  // at all, or won't be able to spoof it convincingly. When present and
-  // wrong, reject. When absent (older browsers, some tools), fall
-  // through to the other checks rather than hard-blocking.
   const secFetchSite = request.headers.get('Sec-Fetch-Site');
   if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'same-site') {
     return new Response(JSON.stringify({ error: 'Forbidden request source' }), {
@@ -143,7 +141,6 @@ export async function onRequest(context) {
        ON CONFLICT(device_id) DO UPDATE SET last_seen = ?2`
     ).bind(deviceId, now).run();
   } catch (e) {
-    // A failed "touch" shouldn't block the actual request.
     console.error('devices upsert failed', e);
   }
 
