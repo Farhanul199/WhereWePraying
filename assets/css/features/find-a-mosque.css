@@ -119,3 +119,9 @@
 .mq-region-action{display:inline-block;padding:4px 10px;font-size:11.5px;font-weight:700;color:var(--coral);background:none;border:1px solid var(--border);border-radius:10px;cursor:pointer;}
 .mq-region-action:hover{background:var(--coral-soft);}
 .mq-region-action.is-fav{background:var(--coral);color:#fff;border-color:var(--coral);}
+
+/* Nation heading (England / Scotland / Wales / Northern Ireland) —
+   a plain divider label above each nation's group of regions. */
+.mq-nation-heading{font-weight:700;font-size:15px;margin:18px 0 8px;opacity:.85;}
+.mq-nation-group:first-child .mq-nation-heading{margin-top:0;}
+ 
