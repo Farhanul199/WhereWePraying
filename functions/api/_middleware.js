@@ -61,6 +61,23 @@ export async function onRequest(context) {
     });
   }
 
+  // --- Sec-Fetch-Site check ---
+  // Sent automatically by all modern browsers on every fetch() — and,
+  // unlike Origin, JS running in the browser CANNOT override or fake
+  // this header (it's set by the browser itself at the network layer).
+  // "same-origin" = request came from a page on wherewepraying.com.
+  // A raw curl / server-side script / most bots won't send this header
+  // at all, or won't be able to spoof it convincingly. When present and
+  // wrong, reject. When absent (older browsers, some tools), fall
+  // through to the other checks rather than hard-blocking.
+  const secFetchSite = request.headers.get('Sec-Fetch-Site');
+  if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'same-site') {
+    return new Response(JSON.stringify({ error: 'Forbidden request source' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   // --- Rate limit (per IP) ---
   if (env.RATE_LIMIT) {
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
