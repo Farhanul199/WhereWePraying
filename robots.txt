@@ -2,36 +2,61 @@
 #
 # Search engines: fully allowed — SEO / organic discovery matters for
 # mosque & prayer-time search (see /mosque/[slug] pages, sitemap.xml).
-# AI training / data-scraping bots: blocked.
+# AI training / bulk-data bots: blocked. AI search/citation bots: allowed.
 #
 # Note: robots.txt is advisory. Well-behaved bots respect it; bots that
 # don't check it (or ignore it deliberately) won't be stopped by this file.
-# Real abuse protection (rate limiting, bot detection) belongs at the
-# Cloudflare edge, not here.
+# Real abuse protection (rate limiting, bot detection, Origin/Sec-Fetch-Site
+# checks) lives at the Cloudflare edge (functions/api/_middleware.js), not here.
 
-# ---------------------------------------------------------------
-# Default: allow everyone except the paths below
-# ---------------------------------------------------------------
+# ===============================================================
+# GLOBAL CRAWLER RULE
+# ===============================================================
 User-agent: *
 Allow: /
-Disallow: /admin/
+
+# Never crawl internal/system areas
 Disallow: /api/
+Disallow: /admin/
+Disallow: /internal/
+Disallow: /private/
+Disallow: /data/
+Disallow: /database/
+Disallow: /db/
+Disallow: /backup/
+Disallow: /backups/
+Disallow: /export/
+Disallow: /exports/
+Disallow: /debug/
+Disallow: /test/
+Disallow: /staging/
+Disallow: /_internal/
+Disallow: /_private/
 
-# ---------------------------------------------------------------
-# AI training / LLM data-scraping bots — blocked entirely
-# ---------------------------------------------------------------
+# PWA manifest must stay crawlable — search engines check this for
+# "installable web app" signals. Placed before the generic .json block
+# below so it isn't caught by it.
+Allow: /manifest.json
 
-# OpenAI
+# Never crawl files which may contain internal data
+Disallow: /*.json$
+Disallow: /*.csv$
+Disallow: /*.xlsx$
+Disallow: /*.xls$
+Disallow: /*.sql$
+Disallow: /*.bak$
+Disallow: /*.backup$
+Disallow: /*.zip$
+Disallow: /*.log$
+
+# ===============================================================
+# AI TRAINING / BULK DATA COLLECTION — blocked
+# These crawl in bulk to build AI training datasets. No referral
+# traffic comes back from this, so there's no upside to allowing them.
+# ===============================================================
 User-agent: GPTBot
 Disallow: /
 
-User-agent: ChatGPT-User
-Disallow: /
-
-User-agent: OAI-SearchBot
-Disallow: /
-
-# Anthropic
 User-agent: ClaudeBot
 Disallow: /
 
@@ -50,21 +75,15 @@ Disallow: /
 User-agent: CCBot
 Disallow: /
 
-# ByteDance / TikTok
 User-agent: Bytespider
 Disallow: /
 
 User-agent: TikTokSpider
 Disallow: /
 
-# Perplexity
 User-agent: PerplexityBot
 Disallow: /
 
-User-agent: Perplexity-User
-Disallow: /
-
-# Meta / Facebook
 User-agent: Meta-ExternalAgent
 Disallow: /
 
@@ -78,18 +97,15 @@ Disallow: /
 User-agent: Applebot-Extended
 Disallow: /
 
-# Amazon
 User-agent: Amazonbot
 Disallow: /
 
-# Cohere
 User-agent: cohere-ai
 Disallow: /
 
 User-agent: cohere-training-data-crawler
 Disallow: /
 
-# Data-aggregation crawlers commonly used to build AI training sets
 User-agent: Diffbot
 Disallow: /
 
@@ -114,7 +130,28 @@ Disallow: /
 User-agent: Ai2Bot-Dolma
 Disallow: /
 
-# ---------------------------------------------------------------
-# Sitemap
-# ---------------------------------------------------------------
+# ===============================================================
+# AI SEARCH / REFERRAL ACCESS — allowed
+# These fetch a page live only when a real user asks an AI assistant
+# a question, then cite/link back to it — same idea as a Google
+# search result. This is referral traffic, not bulk scraping.
+# ===============================================================
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# ===============================================================
+# SITEMAP
+# ===============================================================
 Sitemap: https://wherewepraying.com/sitemap.xml
