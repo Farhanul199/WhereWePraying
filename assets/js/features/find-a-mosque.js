@@ -849,7 +849,20 @@
 
     if (mqViewMode === 'area') {
       const { dateIso: todayIso } = londonNow();
-      renderHeader(mqSelectedPrayer || '', todayIso);
+      // Live mode has no single "current" prayer of its own here
+      // (each mosque can have a different next prayer) — borrow the
+      // same system-wide live calculation used by By Time purely so
+      // the header tab highlight has something sensible to show.
+      let activePrayerForHeader = mqSelectedPrayer;
+      if (!activePrayerForHeader) {
+        try {
+          const live = await resolveLive();
+          activePrayerForHeader = live.prayer;
+        } catch (e) {
+          activePrayerForHeader = '';
+        }
+      }
+      renderHeader(activePrayerForHeader || '', todayIso);
       const header = document.getElementById('mqPrayerHeader');
       if (header) header.classList.remove('hidden');
       const liveToggle = document.getElementById('mqLiveToggle');
