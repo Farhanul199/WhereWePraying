@@ -643,6 +643,158 @@
     }
   }
 
+  /* ============================================================
+     SEARCH :: a search box above the view toggle. Filters against
+     whatever mosque list is already loaded (fetched once and cached
+     here, independent of By Time / By Area). If nothing matches,
+     offers a "Request this mosque" button that opens a small modal;
+     submitting posts to /api/mosques/requests for admin review.
+     ============================================================ */
+
+  let mqAllMosquesCache = null;
+
+  async function ensureAllMosquesCache(){
+    if (mqAllMosquesCache) return mqAllMosquesCache;
+    try {
+      const { dateIso } = londonNow();
+      mqAllMosquesCache = await fetchMosques(dateIso);
+    } catch (e) {
+      mqAllMosquesCache = [];
+    }
+    return mqAllMosquesCache;
+  }
+
+  function ensureSearchBar(){
+    if (document.getElementById('mqSearchWrap')) return;
+    const list = document.getElementById('mqList');
+    if (!list || !list.parentNode) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'mqSearchWrap';
+    wrap.className = 'mq-search-wrap';
+    wrap.innerHTML = `
+      <input type="text" id="mqSearchInput" class="mq-search-input" placeholder="Search for a mosque by name…" autocomplete="off">
+      <div id="mqSearchResults" class="mq-search-results hidden"></div>
+    `;
+
+    list.parentNode.insertBefore(wrap, list);
+
+    const input = wrap.querySelector('#mqSearchInput');
+    const results = wrap.querySelector('#mqSearchResults');
+
+    input.addEventListener('input', async () => {
+      const q = input.value.trim().toLowerCase();
+      if (!q) {
+        results.classList.add('hidden');
+        results.innerHTML = '';
+        return;
+      }
+      const all = await ensureAllMosquesCache();
+      const matches = all.filter(m => (m.name || '').toLowerCase().includes(q));
+
+      results.classList.remove('hidden');
+      if (matches.length) {
+        results.innerHTML = matches.slice(0, 8).map(m => `
+          <div class="mq-search-result" data-slug="${escapeHtml(m.slug)}">
+            <span class="mq-search-result-name">${escapeHtml(m.name)}</span>
+            <span class="mq-search-result-region">${escapeHtml(m.region || '')}</span>
+          </div>
+        `).join('');
+      } else {
+        results.innerHTML = `
+          <div class="mq-search-no-match">
+            Couldn't find that mosque.
+            <button type="button" class="mq-group-toggle" id="mqRequestMosqueBtn" style="margin-top:8px;">Request this mosque be added</button>
+          </div>`;
+      }
+    });
+
+    results.addEventListener('click', (e) => {
+      const requestBtn = e.target.closest('#mqRequestMosqueBtn');
+      if (requestBtn) {
+        openMosqueRequestModal(input.value.trim());
+        return;
+      }
+      const resultRow = e.target.closest('.mq-search-result');
+      if (resultRow) {
+        const card = document.querySelector(`.mq-rank-card[data-slug="${CSS.escape(resultRow.dataset.slug)}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('mq-search-highlight');
+          setTimeout(() => card.classList.remove('mq-search-highlight'), 1800);
+        }
+        results.classList.add('hidden');
+        input.value = '';
+      }
+    });
+  }
+
+  function openMosqueRequestModal(prefillName){
+    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+    if (!authState || !authState.authenticated) {
+      window.WWP_promptSignIn && window.WWP_promptSignIn();
+      return;
+    }
+
+    let overlay = document.getElementById('mqRequestOverlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'mqRequestOverlay';
+    overlay.className = 'mq-request-overlay';
+    overlay.innerHTML = `
+      <div class="mq-request-card">
+        <h3>Request a mosque be added</h3>
+        <p class="mq-request-sub">Not on the map yet? Send us the details and we'll review it.</p>
+        <label>Mosque name</label>
+        <input type="text" id="mqReqName" value="${escapeHtml(prefillName || '')}">
+        <label>Address (optional)</label>
+        <input type="text" id="mqReqAddress">
+        <label>Website (optional)</label>
+        <input type="text" id="mqReqWebsite">
+        <label>Notes (optional)</label>
+        <textarea id="mqReqNotes" rows="3"></textarea>
+        <div class="mq-request-actions">
+          <button type="button" class="mq-group-toggle" id="mqReqCancel">Cancel</button>
+          <button type="button" class="mq-group-toggle" id="mqReqSubmit">Submit request</button>
+        </div>
+        <div id="mqReqStatus" class="mq-request-status"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    document.getElementById('mqReqCancel').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+    document.getElementById('mqReqSubmit').addEventListener('click', async () => {
+      const name = document.getElementById('mqReqName').value.trim();
+      const statusEl = document.getElementById('mqReqStatus');
+      if (!name) { statusEl.textContent = 'Please enter a mosque name.'; return; }
+      const submitBtn = document.getElementById('mqReqSubmit');
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Submitting…';
+      try {
+        const res = await fetch('/api/mosques/requests', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+          body: JSON.stringify({
+            name,
+            address: document.getElementById('mqReqAddress').value.trim(),
+            website: document.getElementById('mqReqWebsite').value.trim(),
+            notes: document.getElementById('mqReqNotes').value.trim(),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed.');
+        statusEl.textContent = "Thanks! We'll take a look and add it if we can.";
+        setTimeout(() => overlay.remove(), 1800);
+      } catch (e) {
+        statusEl.textContent = e.message || "Couldn't submit that — please try again.";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
   /* ---- View mode toggle (By Time / By Area) ----
      Inserted directly above #mqList (NOT inside the prayer header
      row) so it can never affect that row's own layout or visibility. */
@@ -907,6 +1059,7 @@
 
   function onMosqueShown(){
     mqInitialized = true;
+    ensureSearchBar();
     ensureViewToggle();
     fetchFavorites().then(loadMosqueList);
     clearInterval(mqTimer);
