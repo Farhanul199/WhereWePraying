@@ -8,12 +8,16 @@
    coloured tie border. Once every mosque's Isha + buffer has
    passed for today, ranking loops to tomorrow's Fajr.
 
-   NEW: a "By Time" / "By Area" toggle lets the person switch to
-   a region-grouped view instead (Tower Hamlets first, then other
+   "By Time" / "By Area" toggle lets the person switch to a
+   region-grouped view instead (Tower Hamlets first, then other
    regions alphabetically, each mosque listed under its region).
-   The toggle buttons are created here in JS rather than in the
-   HTML template, so this file is the only thing that needs to
-   change. Last-used view mode is remembered via LocalCache.
+   Area sections are collapsible (state remembered per device).
+   Signed-in users additionally get a "Hide" and "★ Favourite"
+   button on each region header: hidden regions drop out of the
+   list (with a "Show N hidden areas" link to bring them back for
+   the session), and the favourited region is always expanded
+   regardless of its collapsed state. Both sync to the account via
+   /api/mosques/region-preferences, same pattern as mosque favourites.
    ============================================================ */
 (function(){
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
@@ -306,10 +310,81 @@
   /* ============================================================
      BY AREA VIEW :: groups mosques by region instead of ranking
      by time. Tower Hamlets is pinned first, then every other
-     region alphabetically. Each mosque still shows its next
-     jamaah time (if any) as a small badge, reusing the same
-     favourite/photo interactions as the time-ranked cards.
+     region alphabetically. Sections are collapsible (state
+     remembered per device via LocalCache). Signed-in users get
+     Hide / ★ Favourite buttons on each region header, synced to
+     their account via /api/mosques/region-preferences. Hidden
+     regions drop out of the list (with a link to reveal them for
+     the session); the favourited region is always expanded.
      ============================================================ */
+
+  const COLLAPSED_REGIONS_KEY = 'wwp_mosque_collapsed_regions';
+  let mqCollapsedRegions = new Set(
+    (window.LocalCache && window.LocalCache.get(COLLAPSED_REGIONS_KEY, [])) || []
+  );
+  let mqLastAreaMosques = null; // kept so toggling a section can re-render without refetching
+  let mqHiddenRegions = new Set();   // synced from account, signed-in users only
+  let mqFavoriteRegion = null;       // synced from account, signed-in users only
+  let mqShowHiddenRegions = false;   // session-only "show hidden areas" reveal
+
+  function saveCollapsedRegions(){
+    if (window.LocalCache) window.LocalCache.set(COLLAPSED_REGIONS_KEY, Array.from(mqCollapsedRegions));
+  }
+
+  async function fetchRegionPreferences(){
+    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+    if (!authState || !authState.authenticated) { mqHiddenRegions = new Set(); mqFavoriteRegion = null; return; }
+    try {
+      const res = await fetch('/api/mosques/region-preferences', { headers: deviceHeaders() });
+      if (!res.ok) { mqHiddenRegions = new Set(); mqFavoriteRegion = null; return; }
+      const data = await res.json();
+      mqHiddenRegions = new Set(data.hidden || []);
+      mqFavoriteRegion = data.favorite || null;
+    } catch (e) {
+      mqHiddenRegions = new Set();
+      mqFavoriteRegion = null;
+    }
+  }
+
+  async function toggleRegionHidden(region, btn){
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/mosques/region-preferences', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+        body: JSON.stringify({ region, action: 'hide' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (data.hidden) mqHiddenRegions.add(region); else mqHiddenRegions.delete(region);
+        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques);
+      }
+    } catch (e) {
+      // leave state as-is; next refresh will resync
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function toggleRegionFavorite(region, btn){
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/mosques/region-preferences', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+        body: JSON.stringify({ region, action: 'favorite' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        mqFavoriteRegion = data.favorite || null;
+        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques);
+      }
+    } catch (e) {
+      // leave state as-is; next refresh will resync
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
 
   function renderAreaCard(m){
     const initial = escapeHtml((m.name || '?').trim().charAt(0).toUpperCase());
@@ -347,7 +422,29 @@
     });
   }
 
+  function renderRegionHeader(region, itemCount, collapsed){
+    const chevron = collapsed ? '▸' : '▾';
+    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+    const signedIn = !!(authState && authState.authenticated);
+    const isFavRegion = mqFavoriteRegion === region;
+
+    const actionsHtml = signedIn
+      ? `<span class="mq-region-actions">
+           <button type="button" class="mq-region-fav-btn${isFavRegion ? ' is-fav' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">★</button>
+           <button type="button" class="mq-region-hide-btn" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
+         </span>`
+      : '';
+
+    return `
+      <div class="mq-time-group-header mq-region-header" style="cursor:pointer;">
+        <span class="mq-time-group-time" data-region-toggle="${escapeHtml(region)}">${chevron} ${escapeHtml(region)}</span>
+        <span class="mq-time-group-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
+        ${actionsHtml}
+      </div>`;
+  }
+
   function renderAreaList(mosques){
+    mqLastAreaMosques = mosques;
     const list = document.getElementById('mqList');
     const status = document.getElementById('mqStatus');
     if (!list || !status) return;
@@ -366,20 +463,39 @@
       byRegion.get(region).push(m);
     });
 
-    const regions = sortRegions(Array.from(byRegion.keys()));
+    const allRegions = sortRegions(Array.from(byRegion.keys()));
+    const visibleRegions = allRegions.filter(r => mqShowHiddenRegions || !mqHiddenRegions.has(r));
+    const hiddenCount = allRegions.length - visibleRegions.length;
 
-    list.innerHTML = regions.map(region => {
+    const sectionsHtml = visibleRegions.map(region => {
       const items = byRegion.get(region).slice().sort((a, b) => a.name.localeCompare(b.name));
-      const cardsHtml = items.map(renderAreaCard).join('');
+      const isFavRegion = mqFavoriteRegion === region;
+      const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
+      const cardsHtml = collapsed ? '' : items.map(renderAreaCard).join('');
+      const hiddenNote = mqHiddenRegions.has(region) ? '<span class="mq-region-hidden-tag">Hidden</span>' : '';
+
       return `
-        <div class="mq-time-group">
-          <div class="mq-time-group-header">
-            <span class="mq-time-group-time">${escapeHtml(region)}</span>
-            <span class="mq-time-group-count">${items.length} location${items.length > 1 ? 's' : ''}</span>
-          </div>
-          <div class="mq-time-group-cards">${cardsHtml}</div>
+        <div class="mq-time-group" data-region="${escapeHtml(region)}">
+          ${renderRegionHeader(region, items.length, collapsed)}
+          ${hiddenNote}
+          <div class="mq-time-group-cards"${collapsed ? ' style="display:none;"' : ''}>${cardsHtml}</div>
         </div>`;
     }).join('');
+
+    const revealHtml = (!mqShowHiddenRegions && hiddenCount > 0)
+      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">Show ${hiddenCount} hidden area${hiddenCount > 1 ? 's' : ''}</button>`
+      : (mqShowHiddenRegions && hiddenCount > 0)
+        ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">Hide hidden areas again</button>`
+        : '';
+
+    list.innerHTML = sectionsHtml + revealHtml;
+  }
+
+  function toggleRegionCollapsed(region){
+    if (mqCollapsedRegions.has(region)) mqCollapsedRegions.delete(region);
+    else mqCollapsedRegions.add(region);
+    saveCollapsedRegions();
+    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques);
   }
 
   async function loadAreaList(){
@@ -387,7 +503,7 @@
     if (status) status.textContent = 'Loading mosques by area…';
     try {
       const { dateIso } = londonNow();
-      const mosques = await fetchMosques(dateIso);
+      const [mosques] = await Promise.all([fetchMosques(dateIso), fetchRegionPreferences()]);
       renderAreaList(mosques);
     } catch (e) {
       if (status) status.textContent = "Couldn't load mosques right now — please try again shortly.";
@@ -519,6 +635,31 @@
   }
 
   document.getElementById('mqList')?.addEventListener('click', (e) => {
+    const showHiddenBtn = e.target.closest('#mqShowHiddenRegionsBtn');
+    if (showHiddenBtn) {
+      mqShowHiddenRegions = !mqShowHiddenRegions;
+      if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques);
+      return;
+    }
+
+    const regionFavBtn = e.target.closest('[data-region-fav]');
+    if (regionFavBtn) {
+      toggleRegionFavorite(regionFavBtn.dataset.regionFav, regionFavBtn);
+      return;
+    }
+
+    const regionHideBtn = e.target.closest('[data-region-hide]');
+    if (regionHideBtn) {
+      toggleRegionHidden(regionHideBtn.dataset.regionHide, regionHideBtn);
+      return;
+    }
+
+    const regionToggle = e.target.closest('[data-region-toggle]');
+    if (regionToggle) {
+      toggleRegionCollapsed(regionToggle.dataset.regionToggle);
+      return;
+    }
+
     const photoBtn = e.target.closest('.mq-photo-add');
     if (photoBtn) {
       const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
