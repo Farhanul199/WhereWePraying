@@ -34,6 +34,7 @@
   const TYPE_LABELS = {mosque:'Mosque', community_hall:'Community Hall', prayer_room:'Prayer Room'};
   const BUFFER_MIN = 10;
   const PINNED_REGION = 'Tower Hamlets';
+  const OTHER_AREAS_LABEL = 'Other areas';
 
   // deviceHeaders, escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
@@ -457,6 +458,8 @@
     return regions.sort((a, b) => {
       if (a === PINNED_REGION) return -1;
       if (b === PINNED_REGION) return 1;
+      if (a === OTHER_AREAS_LABEL) return 1;
+      if (b === OTHER_AREAS_LABEL) return -1;
       return a.localeCompare(b);
     });
   }
@@ -509,6 +512,20 @@
       if (!byRegion.has(region)) byRegion.set(region, []);
       byRegion.get(region).push(r);
     });
+
+    // Regions with only one mosque get folded into a single "Other
+    // areas" catch-all instead of each showing up as its own tiny
+    // section. The pinned region is exempt so it's never swallowed.
+    const singleItemEntries = [];
+    Array.from(byRegion.entries()).forEach(([region, items]) => {
+      if (items.length === 1 && region !== PINNED_REGION) {
+        singleItemEntries.push(items[0]);
+        byRegion.delete(region);
+      }
+    });
+    if (singleItemEntries.length > 0) {
+      byRegion.set(OTHER_AREAS_LABEL, singleItemEntries);
+    }
 
     const allRegions = sortRegions(Array.from(byRegion.keys()));
     const visibleRegions = allRegions.filter(r => mqShowHiddenRegions || !mqHiddenRegions.has(r));
