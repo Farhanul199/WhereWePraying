@@ -113,15 +113,37 @@
 .mq-view-toggle-btn:hover{background:var(--coral-soft);}
 .mq-view-toggle-btn.is-active{background:var(--coral);color:#fff;border-color:var(--coral);}
 
-/* Region header actions (Hide / ★ Favourite) — small pills that sit
-   inline next to the region name and location count. */
-.mq-region-actions{display:inline-flex;gap:6px;}
-.mq-region-action{display:inline-block;padding:4px 10px;font-size:11.5px;font-weight:700;color:var(--coral);background:none;border:1px solid var(--border);border-radius:10px;cursor:pointer;}
-.mq-region-action:hover{background:var(--coral-soft);}
-.mq-region-action.is-fav{background:var(--coral);color:#fff;border-color:var(--coral);}
+/* ============================================================
+   BY AREA VIEW — REVAMP
+   Region cards now match the site's general card language
+   (surface/border/shadow), nation headings read as quiet
+   section dividers, collapse/expand animates smoothly, and
+   Hide/★ Favourite are soft filled chips rather than plain
+   outlined buttons. Area mosque cards reuse the same rotating
+   .mq-tie-0..5 accent backgrounds as By Time (assigned per
+   region in JS) so they're just as vibrant, not flat.
+   ============================================================ */
 
-/* Nation heading (England / Scotland / Wales / Northern Ireland) —
-   a plain divider label above each nation's group of regions. */
-.mq-nation-heading{font-weight:700;font-size:15px;margin:18px 0 8px;opacity:.85;}
-.mq-nation-group:first-child .mq-nation-heading{margin-top:0;}
- 
+.mq-nation-group{margin-bottom:22px;}
+.mq-nation-heading{display:flex;align-items:center;gap:6px;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);cursor:pointer;user-select:none;}
+.mq-nation-group:first-child{margin-top:0;}
+.mq-nation-chevron{display:inline-block;width:14px;color:var(--text-faint);}
+.mq-nation-sections{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease;}
+.mq-nation-sections>*{overflow:hidden;}
+.mq-nation-sections.is-collapsed{grid-template-rows:0fr;}
+
+.mq-region-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px;}
+.mq-region-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none;}
+.mq-region-chevron{color:var(--text-faint);width:14px;flex:none;}
+.mq-region-name{font-weight:700;font-size:15px;color:var(--text);}
+.mq-region-count{font-size:12px;color:var(--text-dim);margin-right:auto;}
+.mq-region-actions{display:inline-flex;gap:6px;}
+.mq-region-action{display:inline-block;padding:4px 10px;font-size:11.5px;font-weight:700;color:var(--coral);background:var(--coral-soft);border:1px solid transparent;border-radius:10px;cursor:pointer;}
+.mq-region-action:hover{border-color:var(--coral);}
+.mq-region-action.is-fav{background:var(--coral);color:#fff;}
+
+.mq-region-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease;margin-top:12px;}
+.mq-region-body>*{overflow:hidden;}
+.mq-region-body.is-collapsed{grid-template-rows:0fr;margin-top:0;}
+.mq-region-body .mq-rank-card{margin-bottom:8px;}
+.mq-region-body .mq-rank-card:last-child{margin-bottom:0;}
