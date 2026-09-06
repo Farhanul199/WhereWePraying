@@ -37,14 +37,49 @@ const ALLOWED_ORIGINS = new Set([
   'https://wherewepraying.com',
   'https://www.wherewepraying.com'
 ]);
-const RATE_LIMIT_MAX = 60;       // max requests
-const RATE_LIMIT_WINDOW = 60;    // per this many seconds
+const RATE_LIMIT_MAX = 60;         // normal /api/* routes: max requests
+const RATE_LIMIT_WINDOW = 60;      // per this many seconds
+const ADMIN_RATE_LIMIT_MAX = 10;   // /api/admin/*: much stricter — these
+const ADMIN_RATE_LIMIT_WINDOW = 60; // are secret-protected, not device-id
+                                     // protected, so this is what stops
+                                     // someone brute-forcing ?secret=.
+
+async function checkRateLimit(env, key, max, windowSeconds) {
+  if (!env.RATE_LIMIT) return true; // fail open if KV isn't bound yet
+  try {
+    const current = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
+    if (current >= max) return false;
+    await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+    return true;
+  } catch (e) {
+    console.error('rate limit check failed', e);
+    return true; // never let a rate-limit failure block a legit request
+  }
+}
 
 export async function onRequest(context) {
   const { request, env, next, data } = context;
   const url = new URL(request.url);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/admin/')) {
+  // /api/admin/* is protected by its own ?secret= param, checked inside
+  // each handler, not by device-id. But that secret is the ONLY gate on
+  // these routes, so it still needs its own (stricter) rate limit here —
+  // otherwise a script could brute-force ?secret= as fast as Cloudflare
+  // will let it, with nothing in front of it at all.
+  if (url.pathname.startsWith('/api/admin/')) {
+    const bucket = Math.floor(Date.now() / (ADMIN_RATE_LIMIT_WINDOW * 1000));
+    const ok = await checkRateLimit(env, `rl:admin:${ip}:${bucket}`, ADMIN_RATE_LIMIT_MAX, ADMIN_RATE_LIMIT_WINDOW);
+    if (!ok) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(ADMIN_RATE_LIMIT_WINDOW) }
+      });
+    }
+    return next();
+  }
+
+  if (url.pathname.startsWith('/api/auth/')) {
     return next();
   }
 
@@ -79,23 +114,14 @@ export async function onRequest(context) {
   }
 
   // --- Rate limit (per IP) ---
-  if (env.RATE_LIMIT) {
-    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  {
     const bucket = Math.floor(Date.now() / (RATE_LIMIT_WINDOW * 1000));
-    const key = `rl:${ip}:${bucket}`;
-
-    try {
-      const current = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
-      if (current >= RATE_LIMIT_MAX) {
-        return new Response(JSON.stringify({ error: 'Too many requests' }), {
-          status: 429,
-          headers: { 'Content-Type': 'application/json', 'Retry-After': String(RATE_LIMIT_WINDOW) }
-        });
-      }
-      await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: RATE_LIMIT_WINDOW * 2 });
-    } catch (e) {
-      // Never let a rate-limit failure block a legit request.
-      console.error('rate limit check failed', e);
+    const ok = await checkRateLimit(env, `rl:${ip}:${bucket}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!ok) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(RATE_LIMIT_WINDOW) }
+      });
     }
   }
 
