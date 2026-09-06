@@ -446,8 +446,8 @@
     // so these actually match the rest of the page.
     const actionsHtml = signedIn
       ? `<span class="mq-region-actions" style="display:inline-flex;gap:6px;">
-           <button type="button" class="mq-group-toggle${isFavRegion ? ' is-active' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">${isFavRegion ? '★ Favourited' : '☆ Favourite'}</button>
-           <button type="button" class="mq-group-toggle" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
+           <button type="button" class="mq-region-action${isFavRegion ? ' is-fav' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">${isFavRegion ? '★ Favourited' : '☆ Favourite'}</button>
+           <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
          </span>`
       : '';
 
@@ -489,7 +489,7 @@
       const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
       const cardsHtml = collapsed ? '' : items.map(renderAreaCard).join('');
       const hiddenNote = mqHiddenRegions.has(region)
-        ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-group-toggle" data-region-hide="${escapeHtml(region)}" style="display:inline;padding:2px 8px;">Unhide</button></div>`
+        ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" style="display:inline;">Unhide</button></div>`
         : '';
 
       return `
@@ -539,18 +539,15 @@
 
     const wrap = document.createElement('div');
     wrap.id = 'mqViewToggle';
+    wrap.className = 'mq-view-toggle';
     wrap.setAttribute('role', 'tablist');
-    wrap.style.display = 'flex';
-    wrap.style.gap = '8px';
-    wrap.style.margin = '0 0 12px';
 
     const makeBtn = (mode, label) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'mq-group-toggle' + (mode === mqViewMode ? ' is-active' : '');
+      btn.className = 'mq-view-toggle-btn' + (mode === mqViewMode ? ' is-active' : '');
       btn.textContent = label;
       btn.dataset.viewMode = mode;
-      btn.style.flex = '1';
       return btn;
     };
 
