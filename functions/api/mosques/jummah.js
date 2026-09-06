@@ -112,7 +112,7 @@ export async function onRequestGet(context) {
 
     return new Response(
       JSON.stringify({ date: dateIso, locations }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } }
     );
   } catch (e) {
     return new Response(
