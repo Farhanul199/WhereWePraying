@@ -353,6 +353,10 @@
   let mqCollapsedRegions = new Set(
     (window.LocalCache && window.LocalCache.get(COLLAPSED_REGIONS_KEY, [])) || []
   );
+  const COLLAPSED_NATIONS_KEY = 'wwp_mosque_collapsed_nations';
+  let mqCollapsedNations = new Set(
+    (window.LocalCache && window.LocalCache.get(COLLAPSED_NATIONS_KEY, [])) || []
+  );
   let mqLastAreaMosques = null;        // kept so toggling a section can re-render without refetching
   let mqLastAreaPrayer = null;         // which prayer selection was used for the last render
   let mqHiddenRegions = new Set();     // synced from account, signed-in users only
@@ -361,6 +365,17 @@
 
   function saveCollapsedRegions(){
     if (window.LocalCache) window.LocalCache.set(COLLAPSED_REGIONS_KEY, Array.from(mqCollapsedRegions));
+  }
+
+  function saveCollapsedNations(){
+    if (window.LocalCache) window.LocalCache.set(COLLAPSED_NATIONS_KEY, Array.from(mqCollapsedNations));
+  }
+
+  function toggleNationCollapsed(nation){
+    if (mqCollapsedNations.has(nation)) mqCollapsedNations.delete(nation);
+    else mqCollapsedNations.add(nation);
+    saveCollapsedNations();
+    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
   }
 
   // Works out what time (in minutes) and which prayer label to show
@@ -584,10 +599,13 @@
 
         if (!sectionsHtml) return '';
 
+        const nationCollapsed = mqCollapsedNations.has(nation);
+        const nationChevron = nationCollapsed ? '▸' : '▾';
+
         return `
           <div class="mq-nation-group" data-nation="${escapeHtml(nation)}">
-            <div class="mq-nation-heading">${escapeHtml(nation)}</div>
-            ${sectionsHtml}
+            <div class="mq-nation-heading" data-nation-toggle="${escapeHtml(nation)}" style="cursor:pointer;">${nationChevron} ${escapeHtml(nation)}</div>
+            <div class="mq-nation-sections"${nationCollapsed ? ' style="display:none;"' : ''}>${sectionsHtml}</div>
           </div>`;
       }).join('');
 
@@ -749,6 +767,12 @@
     const regionHideBtn = e.target.closest('[data-region-hide]');
     if (regionHideBtn) {
       toggleRegionHidden(regionHideBtn.dataset.regionHide, regionHideBtn);
+      return;
+    }
+
+    const nationToggle = e.target.closest('[data-nation-toggle]');
+    if (nationToggle) {
+      toggleNationCollapsed(nationToggle.dataset.nationToggle);
       return;
     }
 
