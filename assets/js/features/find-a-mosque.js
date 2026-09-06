@@ -36,6 +36,19 @@
   const PINNED_REGION = 'Tower Hamlets';
   const OTHER_AREAS_LABEL = 'Other areas';
 
+  // Maps known region/city names to their UK nation. Anything not
+  // listed here defaults to England, since that covers the large
+  // majority of current regions — add entries here as Scotland,
+  // Wales, or Northern Ireland coverage grows.
+  const NATION_ORDER = ['England', 'Scotland', 'Wales', 'Northern Ireland'];
+  const NATION_BY_REGION = {
+    'Glasgow': 'Scotland',
+    'Haverfordwest': 'Wales',
+  };
+  function nationFor(region){
+    return NATION_BY_REGION[region] || 'England';
+  }
+
   // deviceHeaders, escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
 
   function londonNow(){
@@ -397,7 +410,15 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (data.hidden) mqHiddenRegions.add(region); else mqHiddenRegions.delete(region);
+        if (data.hidden) {
+          mqHiddenRegions.add(region);
+          // Stay collapsed if later revealed via "Show N hidden areas"
+          // rather than popping back open unexpectedly.
+          mqCollapsedRegions.add(region);
+          saveCollapsedRegions();
+        } else {
+          mqHiddenRegions.delete(region);
+        }
         if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
       }
     } catch (e) {
@@ -506,54 +527,75 @@
     }
     status.textContent = '';
 
-    const byRegion = new Map();
+    // Group by nation first, then by region within each nation.
+    const byNation = new Map();
     withTimes.forEach(r => {
       const region = r.m.region || 'Other';
+      const nation = nationFor(region);
+      if (!byNation.has(nation)) byNation.set(nation, new Map());
+      const byRegion = byNation.get(nation);
       if (!byRegion.has(region)) byRegion.set(region, []);
       byRegion.get(region).push(r);
     });
 
-    // Regions with only one mosque get folded into a single "Other
-    // areas" catch-all instead of each showing up as its own tiny
-    // section. The pinned region is exempt so it's never swallowed.
-    const singleItemEntries = [];
-    Array.from(byRegion.entries()).forEach(([region, items]) => {
-      if (items.length === 1 && region !== PINNED_REGION) {
-        singleItemEntries.push(items[0]);
-        byRegion.delete(region);
-      }
-    });
-    if (singleItemEntries.length > 0) {
-      byRegion.set(OTHER_AREAS_LABEL, singleItemEntries);
-    }
+    let totalHiddenCount = 0;
+    const nationsHtml = NATION_ORDER
+      .filter(nation => byNation.has(nation))
+      .map(nation => {
+        const byRegion = byNation.get(nation);
 
-    const allRegions = sortRegions(Array.from(byRegion.keys()));
-    const visibleRegions = allRegions.filter(r => mqShowHiddenRegions || !mqHiddenRegions.has(r));
-    const hiddenCount = allRegions.length - visibleRegions.length;
+        // Regions with only one mosque get folded into a single
+        // "Other areas" catch-all (per nation) instead of each
+        // showing up as its own tiny section. The pinned region is
+        // exempt so it's never swallowed.
+        const singleItemEntries = [];
+        Array.from(byRegion.entries()).forEach(([region, items]) => {
+          if (items.length === 1 && region !== PINNED_REGION) {
+            singleItemEntries.push(items[0]);
+            byRegion.delete(region);
+          }
+        });
+        if (singleItemEntries.length > 0) {
+          byRegion.set(OTHER_AREAS_LABEL, singleItemEntries);
+        }
 
-    const sectionsHtml = visibleRegions.map(region => {
-      // Earliest time first within each region.
-      const items = byRegion.get(region).slice().sort((a, b) => a.computed.mins - b.computed.mins);
-      const isFavRegion = mqFavoriteRegion === region;
-      const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
-      const cardsHtml = collapsed ? '' : items.map(r => renderAreaCard(r.m, r.computed)).join('');
-      const hiddenNote = mqHiddenRegions.has(region)
-        ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" style="display:inline;">Unhide</button></div>`
-        : '';
+        const allRegions = sortRegions(Array.from(byRegion.keys()));
+        const visibleRegions = allRegions.filter(r => mqShowHiddenRegions || !mqHiddenRegions.has(r));
+        const hiddenCount = allRegions.length - visibleRegions.length;
+        totalHiddenCount += hiddenCount;
 
-      return `
-        <div class="mq-time-group" data-region="${escapeHtml(region)}">
-          ${renderRegionHeader(region, items.length, collapsed)}
-          ${hiddenNote}
-          <div class="mq-time-group-cards"${collapsed ? ' style="display:none;"' : ''}>${cardsHtml}</div>
-        </div>`;
-    }).join('');
+        const sectionsHtml = visibleRegions.map(region => {
+          // Earliest time first within each region.
+          const items = byRegion.get(region).slice().sort((a, b) => a.computed.mins - b.computed.mins);
+          const isFavRegion = mqFavoriteRegion === region;
+          const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
+          const cardsHtml = collapsed ? '' : items.map(r => renderAreaCard(r.m, r.computed)).join('');
+          const hiddenNote = mqHiddenRegions.has(region)
+            ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" style="display:inline;">Unhide</button></div>`
+            : '';
 
-    const revealHtml = hiddenCount > 0
-      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">${mqShowHiddenRegions ? 'Hide hidden areas again' : 'Show ' + hiddenCount + ' hidden area' + (hiddenCount > 1 ? 's' : '')}</button>`
+          return `
+            <div class="mq-time-group" data-region="${escapeHtml(region)}">
+              ${renderRegionHeader(region, items.length, collapsed)}
+              ${hiddenNote}
+              <div class="mq-time-group-cards"${collapsed ? ' style="display:none;"' : ''}>${cardsHtml}</div>
+            </div>`;
+        }).join('');
+
+        if (!sectionsHtml) return '';
+
+        return `
+          <div class="mq-nation-group" data-nation="${escapeHtml(nation)}">
+            <div class="mq-nation-heading">${escapeHtml(nation)}</div>
+            ${sectionsHtml}
+          </div>`;
+      }).join('');
+
+    const revealHtml = totalHiddenCount > 0
+      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">${mqShowHiddenRegions ? 'Hide hidden areas again' : 'Show ' + totalHiddenCount + ' hidden area' + (totalHiddenCount > 1 ? 's' : '')}</button>`
       : '';
 
-    list.innerHTML = sectionsHtml + revealHtml;
+    list.innerHTML = nationsHtml + revealHtml;
   }
 
   function toggleRegionCollapsed(region){
