@@ -452,8 +452,8 @@
       : '';
 
     return `
-      <div class="mq-time-group-header mq-region-header">
-        <span class="mq-time-group-time" data-region-toggle="${escapeHtml(region)}" style="cursor:pointer;">${chevron} ${escapeHtml(region)}</span>
+      <div class="mq-time-group-header mq-region-header" data-region-toggle="${escapeHtml(region)}" style="cursor:pointer;">
+        <span class="mq-time-group-time">${chevron} ${escapeHtml(region)}</span>
         <span class="mq-time-group-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
         ${actionsHtml}
       </div>`;
