@@ -11,13 +11,22 @@
    "By Time" / "By Area" toggle lets the person switch to a
    region-grouped view instead (Tower Hamlets first, then other
    regions alphabetically, each mosque listed under its region).
-   Area sections are collapsible (state remembered per device).
-   Signed-in users additionally get a "Hide" and "★ Favourite"
-   button on each region header: hidden regions drop out of the
-   list (with a "Show N hidden areas" link to bring them back for
-   the session), and the favourited region is always expanded
-   regardless of its collapsed state. Both sync to the account via
-   /api/mosques/region-preferences, same pattern as mosque favourites.
+   The toggle is inserted directly above the results list (NOT
+   inside the prayer header row) so it can never disturb that
+   row's own layout. Both toggle buttons and the region hide/★
+   buttons reuse the site's existing .mq-group-toggle button
+   style rather than ad-hoc CSS, so they match the rest of the
+   page. Area sections are collapsible (state remembered per
+   device). Signed-in users additionally get a "Hide" and
+   "★ Favourite" button on each region header: hidden regions
+   drop out of the list (each with a direct "Unhide" link, plus
+   a "Show N hidden areas" link to bring back all of them at
+   once), and the favourited region is always expanded regardless
+   of its collapsed state. Both sync to the account via
+   /api/mosques/region-preferences, same pattern as mosque
+   favourites — and that fetch always hits the server rather than
+   trusting a possibly-not-yet-ready client auth flag, so a page
+   refresh no longer looks like it "un-hides" everything.
    ============================================================ */
 (function(){
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
@@ -314,8 +323,9 @@
      remembered per device via LocalCache). Signed-in users get
      Hide / ★ Favourite buttons on each region header, synced to
      their account via /api/mosques/region-preferences. Hidden
-     regions drop out of the list (with a link to reveal them for
-     the session); the favourited region is always expanded.
+     regions drop out of the list (each with a direct "Unhide"
+     link, plus a "Show N hidden areas" link for all of them at
+     once); the favourited region is always expanded.
      ============================================================ */
 
   const COLLAPSED_REGIONS_KEY = 'wwp_mosque_collapsed_regions';
@@ -325,15 +335,18 @@
   let mqLastAreaMosques = null; // kept so toggling a section can re-render without refetching
   let mqHiddenRegions = new Set();   // synced from account, signed-in users only
   let mqFavoriteRegion = null;       // synced from account, signed-in users only
-  let mqShowHiddenRegions = false;   // session-only "show hidden areas" reveal
+  let mqShowHiddenRegions = false;   // session-only "show all hidden areas" reveal
 
   function saveCollapsedRegions(){
     if (window.LocalCache) window.LocalCache.set(COLLAPSED_REGIONS_KEY, Array.from(mqCollapsedRegions));
   }
 
+  // Always ask the server rather than trusting the client-side auth
+  // flag here: on a fresh page load that flag can still be settling,
+  // and treating "not yet known" the same as "signed out" was wiping
+  // the hidden-regions list on every refresh. The endpoint itself
+  // still requires a valid session and returns empty defaults if not.
   async function fetchRegionPreferences(){
-    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    if (!authState || !authState.authenticated) { mqHiddenRegions = new Set(); mqFavoriteRegion = null; return; }
     try {
       const res = await fetch('/api/mosques/region-preferences', { headers: deviceHeaders() });
       if (!res.ok) { mqHiddenRegions = new Set(); mqFavoriteRegion = null; return; }
@@ -428,16 +441,19 @@
     const signedIn = !!(authState && authState.authenticated);
     const isFavRegion = mqFavoriteRegion === region;
 
+    // Reuses the site's existing .mq-group-toggle button style (the
+    // same one used for "Show N more" links) instead of ad-hoc CSS,
+    // so these actually match the rest of the page.
     const actionsHtml = signedIn
-      ? `<span class="mq-region-actions">
-           <button type="button" class="mq-region-fav-btn${isFavRegion ? ' is-fav' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">★</button>
-           <button type="button" class="mq-region-hide-btn" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
+      ? `<span class="mq-region-actions" style="display:inline-flex;gap:6px;">
+           <button type="button" class="mq-group-toggle${isFavRegion ? ' is-active' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">${isFavRegion ? '★ Favourited' : '☆ Favourite'}</button>
+           <button type="button" class="mq-group-toggle" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
          </span>`
       : '';
 
     return `
-      <div class="mq-time-group-header mq-region-header" style="cursor:pointer;">
-        <span class="mq-time-group-time" data-region-toggle="${escapeHtml(region)}">${chevron} ${escapeHtml(region)}</span>
+      <div class="mq-time-group-header mq-region-header">
+        <span class="mq-time-group-time" data-region-toggle="${escapeHtml(region)}" style="cursor:pointer;">${chevron} ${escapeHtml(region)}</span>
         <span class="mq-time-group-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
         ${actionsHtml}
       </div>`;
@@ -472,7 +488,9 @@
       const isFavRegion = mqFavoriteRegion === region;
       const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
       const cardsHtml = collapsed ? '' : items.map(renderAreaCard).join('');
-      const hiddenNote = mqHiddenRegions.has(region) ? '<span class="mq-region-hidden-tag">Hidden</span>' : '';
+      const hiddenNote = mqHiddenRegions.has(region)
+        ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-group-toggle" data-region-hide="${escapeHtml(region)}" style="display:inline;padding:2px 8px;">Unhide</button></div>`
+        : '';
 
       return `
         <div class="mq-time-group" data-region="${escapeHtml(region)}">
@@ -482,11 +500,9 @@
         </div>`;
     }).join('');
 
-    const revealHtml = (!mqShowHiddenRegions && hiddenCount > 0)
-      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">Show ${hiddenCount} hidden area${hiddenCount > 1 ? 's' : ''}</button>`
-      : (mqShowHiddenRegions && hiddenCount > 0)
-        ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">Hide hidden areas again</button>`
-        : '';
+    const revealHtml = hiddenCount > 0
+      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">${mqShowHiddenRegions ? 'Hide hidden areas again' : 'Show ' + hiddenCount + ' hidden area' + (hiddenCount > 1 ? 's' : '')}</button>`
+      : '';
 
     list.innerHTML = sectionsHtml + revealHtml;
   }
@@ -510,14 +526,16 @@
     }
   }
 
-  /* ---- View mode toggle (By Time / By Area) ---- */
+  /* ---- View mode toggle (By Time / By Area) ----
+     Inserted directly above #mqList (NOT inside the prayer header
+     row) so it can never affect that row's own layout or visibility. */
   const VIEW_MODE_KEY = 'wwp_mosque_view_mode';
   let mqViewMode = (window.LocalCache && window.LocalCache.get(VIEW_MODE_KEY, 'time')) || 'time';
 
   function ensureViewToggle(){
     if (document.getElementById('mqViewToggle')) return;
-    const header = document.getElementById('mqPrayerHeader');
-    if (!header || !header.parentNode) return;
+    const list = document.getElementById('mqList');
+    if (!list || !list.parentNode) return;
 
     const wrap = document.createElement('div');
     wrap.id = 'mqViewToggle';
@@ -529,16 +547,10 @@
     const makeBtn = (mode, label) => {
       const btn = document.createElement('button');
       btn.type = 'button';
+      btn.className = 'mq-group-toggle' + (mode === mqViewMode ? ' is-active' : '');
       btn.textContent = label;
       btn.dataset.viewMode = mode;
       btn.style.flex = '1';
-      btn.style.padding = '8px 12px';
-      btn.style.borderRadius = '8px';
-      btn.style.border = '1px solid rgba(255,255,255,0.15)';
-      btn.style.background = mode === mqViewMode ? 'rgba(255,255,255,0.15)' : 'transparent';
-      btn.style.color = 'inherit';
-      btn.style.cursor = 'pointer';
-      btn.style.fontWeight = mode === mqViewMode ? '600' : '400';
       return btn;
     };
 
@@ -551,16 +563,14 @@
       setViewMode(btn.dataset.viewMode);
     });
 
-    header.parentNode.insertBefore(wrap, header);
+    list.parentNode.insertBefore(wrap, list);
   }
 
   function updateViewToggleUI(){
     const wrap = document.getElementById('mqViewToggle');
     if (!wrap) return;
     wrap.querySelectorAll('[data-view-mode]').forEach(btn => {
-      const active = btn.dataset.viewMode === mqViewMode;
-      btn.style.background = active ? 'rgba(255,255,255,0.15)' : 'transparent';
-      btn.style.fontWeight = active ? '600' : '400';
+      btn.classList.toggle('is-active', btn.dataset.viewMode === mqViewMode);
     });
   }
 
@@ -692,11 +702,13 @@
     }
 
     const toggleBtn = e.target.closest('.mq-group-toggle');
-    if (toggleBtn) {
+    if (toggleBtn && !toggleBtn.dataset.regionHide && !toggleBtn.dataset.regionFav && !toggleBtn.dataset.viewMode && toggleBtn.id !== 'mqShowHiddenRegionsBtn') {
       const key = toggleBtn.dataset.groupKey;
-      if (mqExpandedGroups.has(key)) mqExpandedGroups.delete(key);
-      else mqExpandedGroups.add(key);
-      reRenderList();
+      if (key) {
+        if (mqExpandedGroups.has(key)) mqExpandedGroups.delete(key);
+        else mqExpandedGroups.add(key);
+        reRenderList();
+      }
       return;
     }
 
