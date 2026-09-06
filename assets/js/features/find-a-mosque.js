@@ -463,7 +463,7 @@
     }
   }
 
-  function renderAreaCard(m, computed){
+  function renderAreaCard(m, computed, tieClass){
     const initial = escapeHtml((m.name || '?').trim().charAt(0).toUpperCase());
     const photoHtml = m.photoUrl
       ? `<img src="${escapeHtml(m.photoUrl)}" alt="">`
@@ -473,7 +473,7 @@
     const timeHtml = `<div class="mq-rank-meta">${PRAYER_LABELS[computed.prayer] || computed.prayer}</div>`;
 
     return `
-      <div class="mq-rank-card" data-slug="${escapeHtml(m.slug)}">
+      <div class="mq-rank-card${tieClass || ''}" data-slug="${escapeHtml(m.slug)}">
         <div class="mq-rank-left">
           <div class="mq-rank-photo">
             ${photoHtml}
@@ -514,9 +514,10 @@
       : '';
 
     return `
-      <div class="mq-time-group-header mq-region-header" data-region-toggle="${escapeHtml(region)}" style="cursor:pointer;">
-        <span class="mq-time-group-time">${chevron} ${escapeHtml(region)}</span>
-        <span class="mq-time-group-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
+      <div class="mq-region-header" data-region-toggle="${escapeHtml(region)}">
+        <span class="mq-region-chevron">${chevron}</span>
+        <span class="mq-region-name">${escapeHtml(region)}</span>
+        <span class="mq-region-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
         ${actionsHtml}
       </div>`;
   }
@@ -579,21 +580,25 @@
         const hiddenCount = allRegions.length - visibleRegions.length;
         totalHiddenCount += hiddenCount;
 
-        const sectionsHtml = visibleRegions.map(region => {
+        const sectionsHtml = visibleRegions.map((region, regionIdx) => {
           // Earliest time first within each region.
           const items = byRegion.get(region).slice().sort((a, b) => a.computed.mins - b.computed.mins);
           const isFavRegion = mqFavoriteRegion === region;
           const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
-          const cardsHtml = collapsed ? '' : items.map(r => renderAreaCard(r.m, r.computed)).join('');
+          // Each region gets one of the same rotating accent colours
+          // already used for tied prayer times in By Time, so mosques
+          // read as a cohesive, vibrant group rather than flat rows.
+          const tieClass = ` mq-tie-${regionIdx % 6}`;
+          const cardsHtml = items.map(r => renderAreaCard(r.m, r.computed, tieClass)).join('');
           const hiddenNote = mqHiddenRegions.has(region)
             ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" style="display:inline;">Unhide</button></div>`
             : '';
 
           return `
-            <div class="mq-time-group" data-region="${escapeHtml(region)}">
+            <div class="mq-region-card" data-region="${escapeHtml(region)}">
               ${renderRegionHeader(region, items.length, collapsed)}
               ${hiddenNote}
-              <div class="mq-time-group-cards"${collapsed ? ' style="display:none;"' : ''}>${cardsHtml}</div>
+              <div class="mq-region-body${collapsed ? ' is-collapsed' : ''}"><div>${cardsHtml}</div></div>
             </div>`;
         }).join('');
 
@@ -604,8 +609,11 @@
 
         return `
           <div class="mq-nation-group" data-nation="${escapeHtml(nation)}">
-            <div class="mq-nation-heading" data-nation-toggle="${escapeHtml(nation)}" style="cursor:pointer;">${nationChevron} ${escapeHtml(nation)}</div>
-            <div class="mq-nation-sections"${nationCollapsed ? ' style="display:none;"' : ''}>${sectionsHtml}</div>
+            <div class="mq-nation-heading" data-nation-toggle="${escapeHtml(nation)}">
+              <span class="mq-nation-chevron">${nationChevron}</span>
+              <span class="mq-nation-name">${escapeHtml(nation)}</span>
+            </div>
+            <div class="mq-nation-sections${nationCollapsed ? ' is-collapsed' : ''}"><div>${sectionsHtml}</div></div>
           </div>`;
       }).join('');
 
