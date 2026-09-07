@@ -68,6 +68,11 @@ window.__wwpGoogleAuthResult = (function(){
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
 </head>
 <body data-theme="light" data-mobile-pane="categories">
+<!-- Honeypot: never visible to real users, never linked from anywhere
+     a human would click. Bots that parse raw HTML instead of rendering
+     CSS will follow this and land in the /trap/ route, getting their
+     IP banned. Real browsers hide it via the inline style + aria/tabindex. -->
+<a href="/trap/bait" style="position:absolute!important;left:-9999px!important;top:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;" tabindex="-1" aria-hidden="true" rel="nofollow">directory</a>
 <script>
 (function(){
   // Restore the saved theme immediately (before the rest of the page
