@@ -74,6 +74,23 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
+  // --- Honeypot ban check (cheapest check, runs first) ---
+  // If this IP tripped the /trap/ honeypot in the last 7 days, reject
+  // immediately — don't even bother with UA/Origin/rate-limit checks.
+  if (env.RATE_LIMIT && ip !== 'unknown') {
+    try {
+      const banned = await env.RATE_LIMIT.get(`banned:${ip}`);
+      if (banned) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (e) {
+      console.error('honeypot ban check failed', e);
+    }
+  }
+
   // /api/admin/* is protected by its own ?secret= param, checked inside
   // each handler, not by device-id. But that secret is the ONLY gate on
   // these routes, so it still needs its own (stricter) rate limit here —
