@@ -38,17 +38,19 @@
 // This makes the cap slightly less precise but cuts KV writes by 5x.
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
+const BAD_UA_RE = /curl|wget|python-requests|python-urllib|scrapy|go-http-client|okhttp|libwww-perl|java\/|axios\/|node-fetch|postmanruntime|httpclient|apache-httpclient/i;
 const ALLOWED_ORIGINS = new Set([
   'https://wherewepraying.com',
   'https://www.wherewepraying.com'
 ]);
-const RATE_LIMIT_MAX = 60;         // normal /api/* routes: max requests
-const RATE_LIMIT_WINDOW = 60;      // per this many seconds
+const RATE_LIMIT_MAX = 300;        // normal /api/* routes: max requests
+const RATE_LIMIT_WINDOW = 300;     // per this many seconds (5 min bucket — fewer KV keys/day)
 const ADMIN_RATE_LIMIT_MAX = 10;   // /api/admin/*: much stricter — these
 const ADMIN_RATE_LIMIT_WINDOW = 60; // are secret-protected, not device-id
                                      // protected, so this is what stops
                                      // someone brute-forcing ?secret=.
 const WRITE_EVERY_N = 20;          // only write to KV every 20th hit
+const DEVICE_UPDATE_THROTTLE_MS = 60 * 60 * 1000; // only update devices.last_seen once per hour per device
 
 async function checkRateLimit(env, key, max, windowSeconds) {
   if (!env.RATE_LIMIT) return true; // fail open if KV isn't bound yet
@@ -91,6 +93,15 @@ export async function onRequest(context) {
 
   if (url.pathname.startsWith('/api/auth/')) {
     return next();
+  }
+
+  // --- User-Agent check (blocks obvious scripts/bots before they touch KV) ---
+  const ua = request.headers.get('User-Agent') || '';
+  if (!ua || BAD_UA_RE.test(ua)) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // --- Origin check ---
@@ -136,10 +147,22 @@ export async function onRequest(context) {
 
   const now = Date.now();
   try {
-    await env.DB.prepare(
-      `INSERT INTO devices (device_id, first_seen, last_seen) VALUES (?1, ?2, ?2)
-       ON CONFLICT(device_id) DO UPDATE SET last_seen = ?2`
-    ).bind(deviceId, now).run();
+    // Only touch the devices row if it's new, or it's been >1hr since last
+    // write for this device. Cuts D1 writes from "every request" to "a
+    // handful per device per day" — reads are cheap, writes aren't.
+    const existing = await env.DB.prepare(
+      `SELECT last_seen FROM devices WHERE device_id = ?1`
+    ).bind(deviceId).first();
+
+    if (!existing) {
+      await env.DB.prepare(
+        `INSERT INTO devices (device_id, first_seen, last_seen) VALUES (?1, ?2, ?2)`
+      ).bind(deviceId, now).run();
+    } else if (now - existing.last_seen > DEVICE_UPDATE_THROTTLE_MS) {
+      await env.DB.prepare(
+        `UPDATE devices SET last_seen = ?2 WHERE device_id = ?1`
+      ).bind(deviceId, now).run();
+    }
   } catch (e) {
     console.error('devices upsert failed', e);
   }
