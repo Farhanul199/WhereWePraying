@@ -59,7 +59,7 @@ async function checkRateLimit(env, key, max, windowSeconds) {
     if (current >= max) return false;
     // Only write every WRITE_EVERY_N requests to save on the daily
     // free KV write quota. Slightly less precise, much cheaper.
-    if (current % WRITE_EVERY_N === 0) {
+    if (Math.random() < 1 / WRITE_EVERY_N) {
       await env.RATE_LIMIT.put(key, String(current + WRITE_EVERY_N), { expirationTtl: windowSeconds * 2 });
     }
     return true;
