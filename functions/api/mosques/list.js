@@ -64,17 +64,33 @@ export async function onRequestGet(context) {
         maghrib: row.maghrib_jamaah || null,
         isha: row.isha_jamaah || null,
       };
-      // A newly-added mosque sometimes has every prayer field filled in
-      // with the exact same placeholder value (the time it was added,
-      // "00:00", etc.) instead of real Jama'ah times — e.g. Fajr, Zuhr,
-      // Asr and Isha all reading "4:44". Five real daily prayers are
-      // never identical, so treat that pattern as "no data yet" and
-      // clear it, rather than showing a fabricated time as if it were
-      // real (this is what made "Redbridge Islamic Centre" show Isha
-      // at 4:44 while its own website says 8:49pm).
-      const filledValues = PRAYER_ORDER.map((p) => jamaah[p]).filter(Boolean);
-      if (filledValues.length >= 4 && new Set(filledValues).size === 1) {
-        for (const p of PRAYER_ORDER) jamaah[p] = null;
+      // A newly-added mosque sometimes has several prayer fields filled
+      // in with the exact same placeholder value (looks like whatever
+      // Fajr time was on hand at the time, stuffed into the empty slots
+      // instead of leaving them blank) instead of that prayer's own real
+      // Jama'ah time — e.g. Zuhr, Asr, Maghrib and Isha all reading
+      // "4:47" for a mosque whose real Fajr is "5:45". Five real daily
+      // prayers are never within minutes of each other, so whichever
+      // value repeats 4+ times across the five slots is the placeholder,
+      // not real data — clear ONLY those slots. Anything that differs
+      // from that repeated value (Fajr's own "5:45" here) is left alone,
+      // since that field was actually given its own real time. This is
+      // what made "Redbridge Islamic Centre" show Isha at 4:44 (all 5
+      // slots were the placeholder there) while its own site says
+      // 8:49pm, and made "Green Street Masjid" show Isha using what was
+      // really its Fajr-ish placeholder rather than a real Isha time.
+      const valueCounts = new Map();
+      for (const p of PRAYER_ORDER) {
+        const v = jamaah[p];
+        if (v) valueCounts.set(v, (valueCounts.get(v) || 0) + 1);
+      }
+      const placeholderValues = new Set(
+        [...valueCounts.entries()].filter(([, count]) => count >= 4).map(([value]) => value)
+      );
+      if (placeholderValues.size) {
+        for (const p of PRAYER_ORDER) {
+          if (placeholderValues.has(jamaah[p])) jamaah[p] = null;
+        }
       }
       const photoUrl = row.photo_key ? `/api/community/photo/${row.photo_key}` : null;
       let next = null;
