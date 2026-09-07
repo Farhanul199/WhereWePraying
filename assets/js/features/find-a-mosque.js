@@ -132,6 +132,29 @@
     return dayResult.items.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
   }
 
+  // "Which prayer is live right now" is decided by the LATEST jamaah
+  // time across every mosque nationwide (~800+ of them, independently
+  // managed). That makes it extremely fragile to a single bad entry —
+  // a mosque committee pasting the wrong time into the wrong field
+  // (e.g. Fajr's time typed into Zuhr, or "11:30" meant as "13:30")
+  // reads as a real, very-late time for that prayer, which then wins
+  // Math.max() and breaks the live status for every visitor site-wide,
+  // not just that one mosque's listing.
+  //
+  // Guard against that: a prayer's real jamaah times across the country
+  // only vary by minutes (jamaah delay after adhan, a bit of geographic
+  // drift) — never by hours. So before taking the max, drop anything
+  // further than OUTLIER_WINDOW_MIN from the median; the median barely
+  // moves for a handful of bad entries the way max() does.
+  const OUTLIER_WINDOW_MIN = 120;
+  function robustMax(times){
+    if (!times.length) return null;
+    const sorted = [...times].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const plausible = times.filter(t => Math.abs(t - median) <= OUTLIER_WINDOW_MIN);
+    return Math.max(...(plausible.length ? plausible : times));
+  }
+
   // Live/auto mode: finds the earliest prayer whose last mosque + buffer
   // hasn't passed yet, cycling through the day. Loops to tomorrow's Fajr
   // once every prayer today is done.
@@ -145,14 +168,14 @@
       if (prayer === 'zuhr' && friday) {
         const times = jummahLocations.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
         if (!times.length) continue;
-        if (nowMinutes < Math.max(...times) + BUFFER_MIN) {
+        if (nowMinutes < robustMax(times) + BUFFER_MIN) {
           return { items: jummahLocations, isJummah: true, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
         }
         continue;
       }
       const times = mosques.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
       if (!times.length) continue;
-      if (nowMinutes < Math.max(...times) + BUFFER_MIN) {
+      if (nowMinutes < robustMax(times) + BUFFER_MIN) {
         return { items: mosques, isJummah: false, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
       }
     }
@@ -171,7 +194,7 @@
     const { dateIso: todayIso, minutes: nowMinutes } = londonNow();
     const today = await getDayData(prayer, todayIso);
     const todayTimes = timesFor(prayer, today);
-    const donePastToday = todayTimes.length > 0 && nowMinutes >= Math.max(...todayTimes) + BUFFER_MIN;
+    const donePastToday = todayTimes.length > 0 && nowMinutes >= robustMax(todayTimes) + BUFFER_MIN;
 
     if (!donePastToday) {
       return { ...today, prayer, dateIso: todayIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
