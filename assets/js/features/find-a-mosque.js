@@ -749,16 +749,68 @@
       }
       const resultRow = e.target.closest('.mq-search-result');
       if (resultRow) {
-        const card = document.querySelector(`.mq-rank-card[data-slug="${CSS.escape(resultRow.dataset.slug)}"]`);
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          card.classList.add('mq-search-highlight');
-          setTimeout(() => card.classList.remove('mq-search-highlight'), 1800);
-        }
+        revealMosqueBySlug(resultRow.dataset.slug);
         results.classList.add('hidden');
         input.value = '';
       }
     });
+  }
+
+  // Search can name ANY mosque in the system, but the on-screen list
+  // only ever renders a subset of them: a mosque with no time for the
+  // currently-selected prayer isn't rendered at all, and one that does
+  // qualify can still be sitting behind a collapsed "Show N more" time
+  // group (By Time) or a collapsed/hidden region (By Area). Clicking a
+  // result used to just look for an already-visible card and quietly do
+  // nothing when it wasn't there — which, for most searches, it wasn't.
+  // Expand whatever's hiding it, then scroll; if it genuinely has no
+  // time for the prayer currently showing, say so instead of nothing.
+  function revealMosqueBySlug(slug){
+    const status = document.getElementById('mqStatus');
+    const notFound = (name) => { if (status) status.textContent = `${name || 'That mosque'} has no time listed for the prayer currently showing.`; };
+
+    if (mqViewMode === 'area') {
+      if (!mqLastAreaMosques) return;
+      const mosque = mqLastAreaMosques.find(m => m.slug === slug);
+      const computed = mosque ? computeAreaTime(mosque, mqLastAreaPrayer, mqLastAreaIsJummah) : null;
+      if (!mosque || !computed) { notFound(mosque && mosque.name); return; }
+      const region = mosque.region || 'Other';
+      let changed = false;
+      if (mqHiddenRegions.has(region) && !mqShowHiddenRegions) { mqShowHiddenRegions = true; changed = true; }
+      if (mqCollapsedRegions.has(region) && mqFavoriteRegion !== region) {
+        mqCollapsedRegions.delete(region);
+        saveCollapsedRegions();
+        changed = true;
+      }
+      if (changed) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
+      scrollToCard(slug, mosque.name);
+      return;
+    }
+
+    if (!mqLastRenderArgs) return;
+    const { items, prayer, isJummah } = mqLastRenderArgs;
+    const mosque = items.find(m => m.slug === slug);
+    const mins = mosque ? (isJummah ? mosque.firstMinutes : parseTimeToMinutes(prayer, mosque.jamaah[prayer])) : null;
+    if (!mosque || mins === null || mins === undefined) { notFound(mosque && mosque.name); return; }
+    const groupKey = prayer + ':' + mins;
+    if (!mqExpandedGroups.has(groupKey)) {
+      mqExpandedGroups.add(groupKey);
+      reRenderList();
+    }
+    scrollToCard(slug, mosque.name);
+  }
+
+  function scrollToCard(slug, name){
+    const status = document.getElementById('mqStatus');
+    const card = document.querySelector(`.mq-rank-card[data-slug="${CSS.escape(slug)}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('mq-search-highlight');
+      setTimeout(() => card.classList.remove('mq-search-highlight'), 1800);
+      if (status) status.textContent = '';
+    } else if (status) {
+      status.textContent = `Couldn't find ${name || 'that mosque'} in the current list.`;
+    }
   }
 
   function openMosqueRequestModal(prefillName){
