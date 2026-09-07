@@ -48,7 +48,7 @@ const ADMIN_RATE_LIMIT_MAX = 10;   // /api/admin/*: much stricter — these
 const ADMIN_RATE_LIMIT_WINDOW = 60; // are secret-protected, not device-id
                                      // protected, so this is what stops
                                      // someone brute-forcing ?secret=.
-const WRITE_EVERY_N = 5;           // only write to KV every 5th hit
+const WRITE_EVERY_N = 20;          // only write to KV every 20th hit
 
 async function checkRateLimit(env, key, max, windowSeconds) {
   if (!env.RATE_LIMIT) return true; // fail open if KV isn't bound yet
