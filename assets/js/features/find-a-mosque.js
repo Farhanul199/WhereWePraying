@@ -141,17 +141,25 @@
   // Math.max() and breaks the live status for every visitor site-wide,
   // not just that one mosque's listing.
   //
-  // Guard against that: a prayer's real jamaah times across the country
-  // only vary by minutes (jamaah delay after adhan, a bit of geographic
-  // drift) — never by hours. So before taking the max, drop anything
-  // further than OUTLIER_WINDOW_MIN from the median; the median barely
-  // moves for a handful of bad entries the way max() does.
-  const OUTLIER_WINDOW_MIN = 120;
+  // Guard against that with a median-absolute-deviation cutoff instead
+  // of a single fixed window: real spread differs a lot by prayer (Zuhr
+  // jamaahs across the country cluster within a couple of minutes of
+  // each other; Isha legitimately varies by an hour or more, mosque to
+  // mosque, since some pair it with a lecture or tarawih). MAD scales
+  // to each prayer's own natural spread instead of guessing one number
+  // for all five. MAD_FLOOR_MIN keeps a very tightly-clustered day
+  // (MAD ≈ 0) from flagging completely normal few-minute spread as
+  // an outlier.
+  const MAD_MULTIPLIER = 4;
+  const MAD_FLOOR_MIN = 25;
   function robustMax(times){
     if (!times.length) return null;
     const sorted = [...times].sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)];
-    const plausible = times.filter(t => Math.abs(t - median) <= OUTLIER_WINDOW_MIN);
+    const deviations = sorted.map(t => Math.abs(t - median)).sort((a, b) => a - b);
+    const mad = deviations[Math.floor(deviations.length / 2)];
+    const threshold = Math.max(mad * MAD_MULTIPLIER, MAD_FLOOR_MIN);
+    const plausible = times.filter(t => Math.abs(t - median) <= threshold);
     return Math.max(...(plausible.length ? plausible : times));
   }
 
@@ -381,7 +389,8 @@
     (window.LocalCache && window.LocalCache.get(COLLAPSED_NATIONS_KEY, [])) || []
   );
   let mqLastAreaMosques = null;        // kept so toggling a section can re-render without refetching
-  let mqLastAreaPrayer = null;         // which prayer selection was used for the last render
+  let mqLastAreaPrayer = null;         // which prayer was actually resolved for the last render
+  let mqLastAreaIsJummah = null;       // whether that render was Jummah-slot data (Friday Dhuhr)
   let mqHiddenRegions = new Set();     // synced from account, signed-in users only
   let mqFavoriteRegion = null;         // synced from account, signed-in users only
   let mqShowHiddenRegions = false;     // session-only "show all hidden areas" reveal
@@ -398,7 +407,7 @@
     if (mqCollapsedNations.has(nation)) mqCollapsedNations.delete(nation);
     else mqCollapsedNations.add(nation);
     saveCollapsedNations();
-    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
+    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
   }
 
   // Works out what time (in minutes) and which prayer label to show
@@ -408,16 +417,13 @@
   // (as already computed server-side). Either way, returns null when
   // no usable time exists so the mosque can be filtered out rather
   // than shown with a placeholder.
-  function computeAreaTime(m, selectedPrayer){
-    if (selectedPrayer) {
-      const mins = parseTimeToMinutes(selectedPrayer, m.jamaah[selectedPrayer]);
-      return mins === null ? null : { mins, prayer: selectedPrayer };
-    }
-    if (m.next) {
-      const mins = parseTimeToMinutes(m.next.prayer, m.next.time);
-      return mins === null ? null : { mins, prayer: m.next.prayer };
-    }
-    return null;
+  // Mirrors exactly how By Time (renderRankList) reads a time off an
+  // item, so the two views can never disagree about what a given
+  // mosque's time for the resolved prayer is.
+  function computeAreaTime(m, prayer, isJummah){
+    if (!prayer) return null;
+    const mins = isJummah ? m.firstMinutes : parseTimeToMinutes(prayer, m.jamaah[prayer]);
+    return (mins === null || mins === undefined) ? null : { mins, prayer };
   }
 
   // Always ask the server rather than trusting the client-side auth
@@ -457,7 +463,7 @@
         } else {
           mqHiddenRegions.delete(region);
         }
-        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
+        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
       }
     } catch (e) {
       // leave state as-is; next refresh will resync
@@ -477,7 +483,7 @@
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         mqFavoriteRegion = data.favorite || null;
-        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
+        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
       }
     } catch (e) {
       // leave state as-is; next refresh will resync
@@ -545,9 +551,10 @@
       </div>`;
   }
 
-  function renderAreaList(mosques, selectedPrayer){
+  function renderAreaList(mosques, prayer, isJummah){
     mqLastAreaMosques = mosques;
-    mqLastAreaPrayer = selectedPrayer;
+    mqLastAreaPrayer = prayer;
+    mqLastAreaIsJummah = isJummah;
     const list = document.getElementById('mqList');
     const status = document.getElementById('mqStatus');
     if (!list || !status) return;
@@ -556,7 +563,7 @@
     // prayer selection, dropping any that have no usable time at all
     // instead of showing a "not available" placeholder.
     const withTimes = mosques
-      .map(m => ({ m, computed: computeAreaTime(m, selectedPrayer) }))
+      .map(m => ({ m, computed: computeAreaTime(m, prayer, isJummah) }))
       .filter(r => r.computed !== null);
 
     if (!withTimes.length) {
@@ -651,16 +658,18 @@
     if (mqCollapsedRegions.has(region)) mqCollapsedRegions.delete(region);
     else mqCollapsedRegions.add(region);
     saveCollapsedRegions();
-    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer);
+    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
   }
 
-  async function loadAreaList(selectedPrayer){
+  // `result` is whatever resolveLive()/resolveManual() returned — same
+  // shape By Time renders from, so both views show the same prayer, the
+  // same day (today vs. rolled to tomorrow), and the same mosques.
+  async function loadAreaList(result){
     const status = document.getElementById('mqStatus');
     if (status) status.textContent = 'Loading mosques by area…';
     try {
-      const { dateIso } = londonNow();
-      const [mosques] = await Promise.all([fetchMosques(dateIso), fetchRegionPreferences()]);
-      renderAreaList(mosques, selectedPrayer);
+      await fetchRegionPreferences();
+      renderAreaList(result.items, result.prayer, result.isJummah);
     } catch (e) {
       if (status) status.textContent = "Couldn't load mosques right now — please try again shortly.";
     }
@@ -937,7 +946,7 @@
     const showHiddenBtn = e.target.closest('#mqShowHiddenRegionsBtn');
     if (showHiddenBtn) {
       mqShowHiddenRegions = !mqShowHiddenRegions;
-      if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques);
+      if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
       return;
     }
 
@@ -1023,26 +1032,27 @@
     ensureViewToggle();
 
     if (mqViewMode === 'area') {
-      const { dateIso: todayIso } = londonNow();
-      // Live mode has no single "current" prayer of its own here
-      // (each mosque can have a different next prayer) — borrow the
-      // same system-wide live calculation used by By Time purely so
-      // the header tab highlight has something sensible to show.
-      let activePrayerForHeader = mqSelectedPrayer;
-      if (!activePrayerForHeader) {
-        try {
-          const live = await resolveLive();
-          activePrayerForHeader = live.prayer;
-        } catch (e) {
-          activePrayerForHeader = '';
-        }
+      // By Area used to fetch its own raw mosque list and rank it off
+      // either the server's `next` field (live mode) or today's raw
+      // jamaah value with no "already passed → show tomorrow" handling
+      // (pinned mode). That's a second, separate notion of "what time is
+      // it for this mosque" from the one By Time uses (resolveLive /
+      // resolveManual), so the two views could disagree — same prayer,
+      // different ranking, sometimes a stale/wrong prayer entirely.
+      // Route through the exact same resolver By Time uses so both
+      // views always agree.
+      const status = document.getElementById('mqStatus');
+      try {
+        const result = mqSelectedPrayer ? await resolveManual(mqSelectedPrayer) : await resolveLive();
+        renderHeader(result.prayer, result.dateIso);
+        const header = document.getElementById('mqPrayerHeader');
+        if (header) header.classList.remove('hidden');
+        const liveToggle = document.getElementById('mqLiveToggle');
+        if (liveToggle) liveToggle.classList.toggle('hidden', !mqSelectedPrayer);
+        await loadAreaList(result);
+      } catch (e) {
+        if (status) status.textContent = "Couldn't load mosques right now — please try again shortly.";
       }
-      renderHeader(activePrayerForHeader || '', todayIso);
-      const header = document.getElementById('mqPrayerHeader');
-      if (header) header.classList.remove('hidden');
-      const liveToggle = document.getElementById('mqLiveToggle');
-      if (liveToggle) liveToggle.classList.toggle('hidden', !mqSelectedPrayer);
-      await loadAreaList(mqSelectedPrayer);
       return;
     }
 
