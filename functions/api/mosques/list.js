@@ -64,6 +64,18 @@ export async function onRequestGet(context) {
         maghrib: row.maghrib_jamaah || null,
         isha: row.isha_jamaah || null,
       };
+      // A newly-added mosque sometimes has every prayer field filled in
+      // with the exact same placeholder value (the time it was added,
+      // "00:00", etc.) instead of real Jama'ah times — e.g. Fajr, Zuhr,
+      // Asr and Isha all reading "4:44". Five real daily prayers are
+      // never identical, so treat that pattern as "no data yet" and
+      // clear it, rather than showing a fabricated time as if it were
+      // real (this is what made "Redbridge Islamic Centre" show Isha
+      // at 4:44 while its own website says 8:49pm).
+      const filledValues = PRAYER_ORDER.map((p) => jamaah[p]).filter(Boolean);
+      if (filledValues.length >= 4 && new Set(filledValues).size === 1) {
+        for (const p of PRAYER_ORDER) jamaah[p] = null;
+      }
       const photoUrl = row.photo_key ? `/api/community/photo/${row.photo_key}` : null;
       let next = null;
       if (isToday) {
