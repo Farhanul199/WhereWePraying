@@ -1,0 +1,9 @@
+{
+  "policies": [
+    {
+      "location": "/.well-known/tdmrep.json",
+      "tdm-reservation": "1",
+      "tdm-policy": "https://wherewepraying.com/tdm-policy.html"
+    }
+  ]
+}
