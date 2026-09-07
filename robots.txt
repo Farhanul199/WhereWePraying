@@ -32,6 +32,7 @@ Disallow: /test/
 Disallow: /staging/
 Disallow: /_internal/
 Disallow: /_private/
+Disallow: /trap/
 
 # PWA manifest must stay crawlable — search engines check this for
 # "installable web app" signals. Placed before the generic .json block
