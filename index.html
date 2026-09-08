@@ -84,6 +84,9 @@ window.__wwpGoogleAuthResult = (function(){
 </head>
 <body data-theme="light" data-mobile-pane="categories">
 <div id="bootLoader"><img src="/assets/logo.png" alt="" width="56" height="56"></div>
+<script>
+setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 400);
+</script>
 <!-- Honeypot: never visible to real users, never linked from anywhere
      a human would click. Bots that parse raw HTML instead of rendering
      CSS will follow this and land in the /trap/ route, getting their
@@ -2548,8 +2551,6 @@ window.__wwpGoogleAuthResult = (function(){
      hero's actual image(s) to finish loading (or confirms they're
      already cached) before revealing the matching glow. */
 
-<script>
-setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 400);
-</script>
+
 </body>
 </html>
