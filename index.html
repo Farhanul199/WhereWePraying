@@ -58,7 +58,7 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 <!-- Critical CSS: needed for first paint on every page (home + prayer times widgets appear on the home page itself). -->
-<link rel="stylesheet" href="/assets/css/app.css?v=8">
+<link rel="stylesheet" href="/assets/css/app.css?v=9">
 <link rel="stylesheet" href="/assets/css/features/home.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
@@ -516,6 +516,20 @@ window.__wwpGoogleAuthResult = (function(){
               <label class="auth-settings-radio" style="display:inline-flex;">
                 <input type="checkbox" id="glassModeToggle">
                 <span>Enable Glass mode</span>
+              </label>
+            </div>
+          </details>
+
+          <details class="auth-collapsible">
+            <summary class="auth-collapsible-summary">
+              <span>App Display</span>
+              <svg class="auth-collapsible-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </summary>
+            <div class="auth-collapsible-body">
+              <p class="auth-popup-text" style="margin-bottom:8px;">Only affects the installed app (Play Store / "Add to Home Screen"), not the website in a browser. Off by default for a full-screen, edge-to-edge look.</p>
+              <label class="auth-settings-radio" style="display:inline-flex;">
+                <input type="checkbox" id="safeAreaPaddingToggle">
+                <span>Add padding around the status bar &amp; gesture bar</span>
               </label>
             </div>
           </details>
@@ -2468,7 +2482,7 @@ window.__wwpGoogleAuthResult = (function(){
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>
 <script src="/assets/js/services/twinkle.js?v=2" defer></script>
-<script src="/assets/js/features/glass-mode.js?v=2" defer></script>
+<script src="/assets/js/features/glass-mode.js?v=3" defer></script>
 <script src="/assets/js/features/misc-widgets.js?v=2" defer></script>
 <!-- Page-specific bundles (quran, journal, dua, guides, find-a-mosque,
      travel-mode, community) are NOT listed here anymore — wwp-core.js's
