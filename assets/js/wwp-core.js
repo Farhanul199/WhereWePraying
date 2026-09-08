@@ -116,6 +116,83 @@ function escapeHtml(str){
 function dkey(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 function todayKey(){ return dkey(new Date()); }
 
+/* ============================================================
+   FEATURE LOADER :: lazy-loads a page's JS bundle + CSS the first
+   time the user actually navigates there, instead of every feature
+   downloading on every visit regardless of which page is used.
+   Hooks into the existing wwp-page-shown event dispatched by
+   switchPage() below, so no change to the router itself is needed.
+   `deps` lets a module declare another module it needs loaded (and
+   executed) first — e.g. guides.js reads window.CATEGORIES that
+   dua.js defines, so guides declares dua as a dependency.
+   ============================================================ */
+const FEATURE_MODULES = {
+  quran:   { js:['/assets/js/features/quran.js?v=6'],        css:['/assets/css/features/quran.css?v=1'] },
+  journal: { js:['/assets/js/features/journal.js?v=3'],      css:['/assets/css/features/journal.css?v=1'] },
+  dua:     { js:['/assets/js/features/dua.js?v=4'],          css:['/assets/css/features/dua.css?v=1'] },
+  guides:  { js:['/assets/js/features/guides.js?v=4'],       css:['/assets/css/features/guides.css?v=1'] },
+  mosque:  { js:['/assets/js/features/find-a-mosque.js?v=6'],css:['/assets/css/features/find-a-mosque.css?v=1'] },
+  travel:  { js:['/assets/js/features/travel-mode.js?v=4'],  css:['/assets/css/features/travel-mode.css?v=2'] },
+  community:{js:['/assets/js/features/community.js?v=2'],    css:['/assets/css/features/community.css?v=1'] }
+};
+const loadedModules = new Set();
+const loadingModules = {};
+
+function loadCss(href){
+  if(document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+function loadScript(src){
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = ()=> reject(new Error('Failed to load '+src));
+    document.body.appendChild(s);
+  });
+}
+function loadFeature(id){
+  const mod = FEATURE_MODULES[id];
+  if(!mod) return Promise.resolve(); // not a lazy-loaded feature (e.g. home/prayertimes)
+  if(loadedModules.has(id)) return Promise.resolve();
+  if(loadingModules[id]) return loadingModules[id];
+
+  loadingModules[id] = (async ()=>{
+    if(mod.deps){
+      for(const dep of mod.deps){ await loadFeature(dep); }
+    }
+    (mod.css||[]).forEach(loadCss);
+    for(const src of (mod.js||[])){ await loadScript(src); }
+    loadedModules.add(id);
+  })();
+  return loadingModules[id];
+}
+window.WWP_loadFeature = loadFeature;
+
+// Fetch-with-offline-cache for large, rarely-changing feature data
+// (guides content, du'a text, etc). Network-first so content updates
+// reach users normally; falls back to the last cached copy in
+// IndexedDB when offline or the request fails, so a page that has
+// been opened before still works with no signal.
+window.WWP_fetchCached = async function(url, cacheKey){
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('bad status '+res.status);
+    const data = await res.json();
+    OfflineData.set('metadata', {key:cacheKey, value:data}).catch(()=>0);
+    return data;
+  }catch(err){
+    try{
+      const cached = await OfflineData.get('metadata', cacheKey);
+      if(cached && cached.value) return cached.value;
+    }catch(_e){}
+    throw err;
+  }
+};
+
 const PAGES = ['home','mosque','prayertimes','quran','journal','dua','guides','travel','community'];
 
 /* ============================================================
@@ -364,6 +441,14 @@ function switchPage(id, opts){
   window.dispatchEvent(new CustomEvent('wwp-page-shown', {detail:{id:id}}));
 }
 window.switchPage = switchPage;
+
+// Kick off lazy-loading a page's feature bundle the moment it's shown —
+// including the very first page shown on load, since the initialRoute()
+// call at the bottom of this file also goes through switchPage() and
+// therefore fires this same event.
+window.addEventListener('wwp-page-shown', (e)=>{
+  if(e.detail && e.detail.id) window.WWP_loadFeature(e.detail.id).catch(()=>0);
+});
 
 // Browser back/forward support.
 window.addEventListener('popstate', (e)=>{
