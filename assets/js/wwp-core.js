@@ -84,9 +84,15 @@ window.WWP = (function(){
 
   async function get(section){
     try{
+      // 8s (was 3.5s) — on a slow connection, 3.5s can time out before a
+      // small JSON GET genuinely completes, falling back to the local
+      // offline cache (or empty defaults, on a first-ever visit with no
+      // cache yet) even though the real data was still on its way. Kept
+      // well under the 15s save timeout below since this blocks the
+      // visible page render, unlike a background save.
       const res = await requestWithTimeout('/api/state/'+section, {
         headers: { 'X-Device-Id': deviceId }
-      }, 3500);
+      }, 8000);
       if(!res.ok) throw new Error('Load request failed: '+res.status);
       const json = await res.json();
       const data = (json && json.data !== undefined) ? json.data : null;
