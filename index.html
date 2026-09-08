@@ -50,6 +50,7 @@ window.__wwpGoogleAuthResult = (function(){
 <link rel="icon" type="image/png" href="/assets/logo.png">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#F4714E">
+<meta name="color-scheme" content="light dark">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -90,8 +91,35 @@ window.__wwpGoogleAuthResult = (function(){
     var saved = localStorage.getItem('wwp:theme');
     if(saved && ['light','sepia','dark','amoled'].indexOf(saved) !== -1){
       document.body.setAttribute('data-theme', saved);
+    } else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+      // No explicit choice yet (first visit) and the device is set to
+      // dark mode — default to our Dark theme instead of Light. Beyond
+      // just matching the user's stated preference, this also avoids a
+      // jarring white-topbar-under-black-status-bar look on Android:
+      // Chrome forces the status bar of an installed PWA to a generic
+      // dark colour whenever system dark mode is on, ignoring our
+      // theme-color entirely (a known, still-open Chromium bug) — so a
+      // light app theme sits directly under a black system bar with no
+      // way to make that particular combination blend. Starting in our
+      // own Dark theme means the two dark colours sit next to each
+      // other instead, which reads as intentional rather than broken.
+      document.body.setAttribute('data-theme', 'dark');
     }
   }catch(e){}
+  // Keep the browser/OS chrome (installed PWA status bar, browser tab
+  // colour) in sync with whichever theme is actually active, instead
+  // of a single fixed brand colour regardless of theme. Chrome ignores
+  // this specific combination when the OS is in dark mode (see above),
+  // but it's honoured correctly in light mode, in other browsers
+  // (Samsung Internet, Firefox, Edge), and for the ordinary browser-tab
+  // theming case — so it's still worth setting properly everywhere.
+  var THEME_BAR_COLORS = { light:'#F4714E', sepia:'#F2E7DC', dark:'#1B1816', amoled:'#000000' };
+  function syncThemeColorMeta(){
+    var theme = document.body.getAttribute('data-theme') || 'light';
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(meta) meta.setAttribute('content', THEME_BAR_COLORS[theme] || THEME_BAR_COLORS.light);
+  }
+  syncThemeColorMeta();
   // There are several setTheme()/cycleTheme() functions across the app
   // (topbar toggle, Qur'an reader, Journal, Du'a) that all just set
   // body[data-theme] directly. Rather than editing each one, watch the
@@ -102,6 +130,7 @@ window.__wwpGoogleAuthResult = (function(){
     new MutationObserver(function(){
       var val = document.body.getAttribute('data-theme');
       if(val){ try{ localStorage.setItem('wwp:theme', val); }catch(e){} }
+      syncThemeColorMeta();
     }).observe(document.body, {attributes:true, attributeFilter:['data-theme']});
   }catch(e){}
 })();
