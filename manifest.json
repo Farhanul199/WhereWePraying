@@ -6,7 +6,7 @@
   "id": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#FBF3EC",
   "theme_color": "#F4714E",
   "lang": "en",
@@ -14,8 +14,13 @@
   "categories": ["lifestyle", "utilities", "religion"],
   "display_override": ["standalone", "minimal-ui", "browser"],
   "scope_extensions": [
-    { "origin": "wherewepraying.com" }
+    { "origin": "wherewepraying.com" },
+    { "origin": "www.wherewepraying.com" }
   ],
+  "related_applications": [
+    { "platform": "play", "url": "https://play.google.com/store/apps/details?id=com.wherewepraying.app", "id": "com.wherewepraying.app" }
+  ],
+  "prefer_related_applications": false,
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
