@@ -1,7 +1,8 @@
 // functions/api/auth/google.js
 // GET /api/auth/google — redirects to Google's OAuth consent screen
-
-const GOOGLE_CLIENT_ID = '662750148844-ongjct7hv8vi4ai0h51feir16p6j4ccd.apps.googleusercontent.com';
+//
+// Client ID comes from env.GOOGLE_CLIENT_ID (Cloudflare Pages env var),
+// not hardcoded — see functions/api/auth/google/callback.js for why.
 
 export async function onRequestGet(context) {
   const origin = new URL(context.request.url).origin;
@@ -11,7 +12,7 @@ export async function onRequestGet(context) {
   const state = crypto.randomUUID();
 
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: context.env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email',

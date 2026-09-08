@@ -11,6 +11,8 @@
 // If a second or third friend pokes the same person later that day,
 // no further email goes out — only the push/in-app notification.
 
+import { resolveSession } from '../../_lib/session.js';
+
 import { sendWebPush } from './_webpush.js';
 
 // Same convention used consistently across poke.js and quran-streak.js
@@ -40,21 +42,6 @@ function json(payload, status) {
     status: status || 200,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
 }
 
 // Same layout/palette as the subscribe.js welcome email (cream page

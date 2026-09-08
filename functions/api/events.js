@@ -16,6 +16,8 @@
 // DELETE /api/events  body: { id }
 //   Creator-only. Removes the event and all its invites.
 
+import { resolveSession } from '../_lib/session.js';
+
 import { sendWebPush } from './push/_webpush.js';
 
 function json(payload, status) {
@@ -23,21 +25,6 @@ function json(payload, status) {
     status: status || 200,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
 }
 
 export async function onRequestGet(context) {

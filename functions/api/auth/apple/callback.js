@@ -37,6 +37,8 @@
 // have to remember to regenerate them" trap.
 // ---------------------------------------------------------------------
 
+import { getCookie } from '../../../_lib/session.js';
+
 function generateSessionId() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -138,7 +140,7 @@ export async function onRequestPost(context) {
 
     // Verify CSRF state matches the cookie set before redirecting to Apple.
     const cookies = request.headers.get('cookie') || '';
-    const cookieState = cookies.split('; ').find((c) => c.startsWith('wwp_apple_oauth_state='))?.split('=')[1];
+    const cookieState = getCookie(cookies, 'wwp_apple_oauth_state');
 
     if (!code || !state || !cookieState || state !== cookieState) {
       return Response.redirect(`${url.origin}/?auth_error=invalid_state`, 302);

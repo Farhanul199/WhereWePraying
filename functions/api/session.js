@@ -2,10 +2,12 @@
 // GET /api/session — fetch current session
 // POST /api/session — signout (delete session)
 
+import { getCookie } from '../_lib/session.js';
+
 export async function onRequestGet(context) {
   try {
     const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
+    const sessionId = getCookie(cookies, 'wwp_session');
 
     if (!sessionId) {
       return new Response(JSON.stringify({ authenticated: false }), {
@@ -70,7 +72,7 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   try {
     const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
+    const sessionId = getCookie(cookies, 'wwp_session');
 
     if (sessionId) {
       await context.env.SESSIONS.delete(sessionId);

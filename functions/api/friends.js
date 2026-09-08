@@ -6,6 +6,8 @@
 //   action 'decline': { requestId }
 //   action 'remove':  { friendUserId }
 
+import { resolveSession } from '../_lib/session.js';
+
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L — easy to read aloud/type
 
 function json(payload, status) {
@@ -13,21 +15,6 @@ function json(payload, status) {
     status: status || 200,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
 }
 
 function generateFriendCode() {

@@ -12,6 +12,8 @@
 //
 //      Public path (signed-in users, same session cookie as favourites):
 //        { name, address, website, notes } -> creates a pending request.
+
+import { resolveSession } from '../../_lib/session.js';
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
@@ -22,21 +24,6 @@ function isAdmin(context) {
   const key = context.request.headers.get("X-Broadcast-Key");
   return !!(context.env.BROADCAST_SECRET && key === context.env.BROADCAST_SECRET);
 }
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get("cookie") || "";
-    const sessionId = cookies.split("; ").find((c) => c.startsWith("wwp_session="))?.split("=")[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
-}
-
 export async function onRequestGet(context) {
   if (!isAdmin(context)) return json({ error: "Unauthorized" }, 401);
   try {

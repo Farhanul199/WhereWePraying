@@ -18,20 +18,7 @@
 //     updated_at TEXT NOT NULL
 //   )
 
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
-}
+import { resolveSession } from '../../_lib/session.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;

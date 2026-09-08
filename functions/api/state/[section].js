@@ -17,6 +17,8 @@
 // link intact if a write ever comes in unauthenticated (e.g. signed
 // out on this device) — it won't unlink the row.
 
+import { resolveSession } from '../../_lib/session.js';
+
 const ALLOWED_SECTIONS = new Set(['quran', 'journal', 'dua', 'guides', 'prayertimes']);
 const MAX_BODY_BYTES = 200 * 1024; // 200KB is generous headroom per section
 
@@ -28,18 +30,8 @@ function json(payload, status) {
 }
 
 async function resolveUserId(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session=')).split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session.userId || null;
-  } catch (e) {
-    return null;
-  }
+  const session = await resolveSession(context);
+  return (session && session.userId) || null;
 }
 
 export async function onRequestGet(context) {

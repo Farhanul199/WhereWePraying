@@ -8,6 +8,8 @@
 //      overwriting this device's (and therefore the account's) current
 //      data for those sections. Signed-in only.
 
+import { resolveSession } from '../../_lib/session.js';
+
 const ALLOWED_SECTIONS = ['quran', 'journal', 'dua', 'guides', 'prayertimes'];
 const MAX_SECTION_BYTES = 200 * 1024;   // matches /api/state/:section per-section cap
 const MAX_TOTAL_BYTES = 1024 * 1024;    // 1MB across the whole backup file
@@ -17,21 +19,6 @@ function json(payload, status) {
     status: status || 200,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
 }
 
 export async function onRequestGet(context) {

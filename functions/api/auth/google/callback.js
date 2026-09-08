@@ -1,7 +1,11 @@
 // functions/api/auth/google/callback.js
 // GET /api/auth/google/callback — Google redirects here after consent
+//
+// Client ID comes from env.GOOGLE_CLIENT_ID (Cloudflare Pages env var),
+// not hardcoded — it's not secret, but keeping it in one place lets it
+// rotate per-environment without a code change.
 
-const GOOGLE_CLIENT_ID = '662750148844-ongjct7hv8vi4ai0h51feir16p6j4ccd.apps.googleusercontent.com';
+import { getCookie } from '../../../_lib/session.js';
 
 function generateSessionId() {
   const bytes = new Uint8Array(32);
@@ -37,6 +41,7 @@ function isValidGoogleIdToken(claims, expectedClientId) {
 
 export async function onRequestGet(context) {
   try {
+    const GOOGLE_CLIENT_ID = context.env.GOOGLE_CLIENT_ID;
     const url = new URL(context.request.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
@@ -48,7 +53,7 @@ export async function onRequestGet(context) {
 
     // Verify CSRF state matches the cookie set before redirecting to Google.
     const cookies = context.request.headers.get('cookie') || '';
-    const cookieState = cookies.split('; ').find((c) => c.startsWith('wwp_oauth_state='))?.split('=')[1];
+    const cookieState = getCookie(cookies, 'wwp_oauth_state');
 
     if (!code || !state || !cookieState || state !== cookieState) {
       return Response.redirect(`${url.origin}/?auth_error=invalid_state`, 302);

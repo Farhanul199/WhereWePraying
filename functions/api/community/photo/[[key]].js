@@ -11,22 +11,9 @@
 // screenshot, shared link, browser history — it shouldn't be enough on
 // its own to view someone's not-yet-approved submission.
 
-import { isAdminRequest } from '../../../_lib/auth.js';
+import { resolveSession } from '../../../_lib/session.js';
 
-async function resolveSession(context) {
-  try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = cookies.split('; ').find((c) => c.startsWith('wwp_session='))?.split('=')[1];
-    if (!sessionId) return null;
-    const raw = await context.env.SESSIONS.get(sessionId);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (new Date(session.expiresAt) < new Date()) return null;
-    return session;
-  } catch (e) {
-    return null;
-  }
-}
+import { isAdminRequest } from '../../../_lib/auth.js';
 
 export async function onRequestGet(context) {
   const { env, params } = context;
