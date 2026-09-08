@@ -75,8 +75,15 @@ window.__wwpGoogleAuthResult = (function(){
 <link rel="stylesheet" href="/assets/css/features/community.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/travel-mode.css?v=2">
 </noscript>
+<style>
+#bootLoader{position:fixed;inset:0;z-index:99999;background:#FBF3EC;display:flex;align-items:center;justify-content:center;transition:opacity .25s ease}
+#bootLoader img{width:56px;height:56px;animation:bootPulse 1.1s ease-in-out infinite}
+#bootLoader.hide{opacity:0;pointer-events:none}
+@keyframes bootPulse{0%,100%{opacity:.5;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}
+</style>
 </head>
 <body data-theme="light" data-mobile-pane="categories">
+<div id="bootLoader"><img src="/assets/logo.png" alt="" width="56" height="56"></div>
 <!-- Honeypot: never visible to real users, never linked from anywhere
      a human would click. Bots that parse raw HTML instead of rendering
      CSS will follow this and land in the /trap/ route, getting their
@@ -2541,5 +2548,12 @@ window.__wwpGoogleAuthResult = (function(){
      hero's actual image(s) to finish loading (or confirms they're
      already cached) before revealing the matching glow. */
 
+<script>
+window.addEventListener('DOMContentLoaded', function(){
+  var l = document.getElementById('bootLoader');
+  if(l){ l.classList.add('hide'); setTimeout(function(){ l.remove(); }, 300); }
+});
+setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 6000);
+</script>
 </body>
 </html>
