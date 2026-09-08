@@ -29,6 +29,49 @@ window.WWP = (function(){
   const saveTimers = {};
   const SAVE_DEBOUNCE_MS = 700;
 
+  /* ============================================================
+     OFFLINE DURABILITY :: every section saved through WWP (Qur'an
+     reading position/bookmarks, Journal, Du'a bookmarks, Guides
+     progress, etc.) is mirrored into localStorage the moment it's
+     saved — not just sent to the backend. That means:
+       - toggling a bookmark, switching surah, etc. while offline
+         still survives a reload (previously this lived only in
+         page memory and vanished the instant the tab closed).
+       - if the backend PUT fails (no signal), the section is
+         flagged "pending" and automatically retried the next time
+         the browser reports it's back online, or on the next app
+         open if that never happened while the tab was open — so an
+         offline change reaches the server on its own instead of
+         being silently dropped and lost for good.
+     ============================================================ */
+  const OFFLINE_PREFIX = 'wwp_offline_';
+  const PENDING_KEY = 'wwp_pending_sections';
+
+  function offlineKey(section){ return OFFLINE_PREFIX + section; }
+  function readOfflineCache(section){
+    try{
+      const raw = localStorage.getItem(offlineKey(section));
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function writeOfflineCache(section, data){
+    try{ localStorage.setItem(offlineKey(section), JSON.stringify(data)); }catch(e){ /* storage full/unavailable — save still attempts the network write */ }
+  }
+  function getPending(){
+    try{ return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); }catch(e){ return []; }
+  }
+  function setPending(list){
+    try{ localStorage.setItem(PENDING_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function markPending(section){
+    const list = getPending();
+    if(list.indexOf(section)===-1){ list.push(section); setPending(list); }
+  }
+  function clearPending(section){
+    const list = getPending().filter(function(s){ return s!==section; });
+    setPending(list);
+  }
+
   // GET the saved blob for a section. Returns null if nothing saved
   // yet (first visit) or if the request fails (offline, API not
   // deployed yet, etc.) — callers should fall back to local defaults.
@@ -44,11 +87,26 @@ window.WWP = (function(){
       const res = await requestWithTimeout('/api/state/'+section, {
         headers: { 'X-Device-Id': deviceId }
       }, 3500);
-      if(!res.ok) return null;
+      if(!res.ok) throw new Error('Load request failed: '+res.status);
       const json = await res.json();
-      return (json && json.data !== undefined) ? json.data : null;
+      const data = (json && json.data !== undefined) ? json.data : null;
+      // If this device has an unsynced offline edit for this section
+      // waiting to go out, keep serving that instead of the (now
+      // stale, about-to-be-overwritten) server copy — otherwise a
+      // successful background load could clobber a change the user
+      // made moments ago while offline, before it's had a chance to
+      // sync.
+      if(getPending().indexOf(section)!==-1){
+        const cached = readOfflineCache(section);
+        if(cached) return cached;
+      }
+      if(data !== null) writeOfflineCache(section, data);
+      return data;
     }catch(e){
-      return null;
+      // Offline, timed out, or the API errored — fall back to the
+      // last known local copy (a previous successful sync, or an
+      // unsynced offline edit) instead of null/empty defaults.
+      return readOfflineCache(section);
     }
   }
 
@@ -57,31 +115,72 @@ window.WWP = (function(){
       method:'PUT',
       headers:{ 'Content-Type':'application/json', 'X-Device-Id': deviceId },
       body: JSON.stringify({ data })
-    }, 15000);
+    }, 15000).then(function(res){
+      if(!res.ok) throw new Error('Save request failed: '+res.status);
+      return res;
+    });
+  }
+
+  // Writes to the local offline cache immediately — before attempting
+  // the network at all — so the data survives a reload no matter what
+  // happens next, then tries to push it to the backend. On failure,
+  // flags the section "pending" so it's retried automatically (see
+  // the 'online' listener and startup flush below) rather than the
+  // change just being lost.
+  function _persist(section, data){
+    writeOfflineCache(section, data);
+    return _put(section, data).then(function(res){
+      clearPending(section);
+      return res;
+    }).catch(function(err){
+      markPending(section);
+      throw err;
+    });
   }
 
   // Debounced save — call this freely on every small mutation (a
   // checkbox tick, a bookmark toggle); rapid repeated calls coalesce
   // into a single network write ~700ms after the last change. Silent
-  // on failure — the change still lives in local state/localStorage,
-  // and the next successful save (or the next app open) reconciles it,
-  // so nagging the user over a background auto-save blip would be
-  // more annoying than useful.
+  // on failure — the change is already durable in the local offline
+  // cache and queued for automatic retry, so nagging the user over a
+  // background auto-save blip would be more annoying than useful.
   function save(section, data){
     clearTimeout(saveTimers[section]);
-    saveTimers[section] = setTimeout(function(){ _put(section, data).catch(function(){}); }, SAVE_DEBOUNCE_MS);
+    writeOfflineCache(section, data); // durable immediately, even before the debounce timer fires
+    saveTimers[section] = setTimeout(function(){ _persist(section, data).catch(function(){}); }, SAVE_DEBOUNCE_MS);
   }
 
   // Immediate save — use for explicit "Save" button actions where the
   // user expects the write to happen right away and to know if it
-  // didn't. 15s timeout (was 5s) — a PUT with a large entry on slow
-  // 3G could genuinely take longer than 5s, and a silently-aborted
-  // save previously looked identical to a successful one.
+  // didn't reach the server yet. The data itself is never lost (it's
+  // cached locally and queued for retry either way) — the toast is
+  // just about setting expectations for when it'll show up elsewhere.
   function saveNow(section, data){
     clearTimeout(saveTimers[section]);
-    return _put(section, data).catch(function(err){
-      showToast('Save failed — please check your connection');
+    return _persist(section, data).catch(function(err){
+      showToast("Saved on this device — will sync once you're back online");
       throw err;
+    });
+  }
+
+  // Retry any sections that failed to sync while offline, the moment
+  // the browser reports connectivity is back — instead of waiting for
+  // the user to make another edit before the next save attempt.
+  window.addEventListener('online', function(){
+    getPending().forEach(function(section){
+      const data = readOfflineCache(section);
+      if(data) _persist(section, data).catch(function(){});
+    });
+  });
+
+  // Covers the case the 'online' event above doesn't: the tab was
+  // closed (or never reloaded) while offline, so no online->offline
+  // transition ever fires in this session, even though the device is
+  // connected by the time the app is opened again.
+  if(getPending().length && navigator.onLine !== false){
+    getPending().forEach(function(section){
+      const data = readOfflineCache(section);
+      if(data) _persist(section, data).catch(function(){});
     });
   }
 
