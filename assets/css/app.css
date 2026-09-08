@@ -31,20 +31,21 @@ body[data-event-theme="jummah"]{
    already applies env(safe-area-inset-*) padding to the topbar,
    bottom-nav and footer — but only inside its max-width:767px
    media query. A TWA (installed from Play Store) can also run on
-   a wider Android tablet/foldable where that query never fires,
-   leaving content flush under the system status bar / gesture
-   bar. This block applies the same safe-area padding whenever the
-   app is actually running standalone, independent of viewport
-   width, and hides the redundant "install as an app" help button
-   since the user has already installed it.
+   a wider Android tablet/foldable where that query never fires.
+   Off by default (full-bleed, no padding — the preferred look) and
+   gated behind body[data-safe-area="on"], set via the "Padding
+   around status bar" toggle in Account > Settings, for anyone who
+   wants breathing room around the system status bar / gesture bar
+   instead of edge-to-edge content. See misc-widgets.js for the
+   toggle wiring.
    ============================================================ */
 @media (display-mode: standalone) {
-  .topbar {
+  body[data-safe-area="on"] .topbar {
     padding-top: max(14px, env(safe-area-inset-top)) !important;
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
   }
-  .bottom-nav {
+  body[data-safe-area="on"] .bottom-nav {
     padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
   }
   .help-badge-btn { display: none !important; }
