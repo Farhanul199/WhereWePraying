@@ -25,3 +25,27 @@ body[data-event-theme="jummah"]{
   --coral-soft:#E1E9DA !important;
   --beam:#AFC7A2 !important;
 }
+
+/* ============================================================
+   TWA / standalone safe-area handling. responsive-mobile.css
+   already applies env(safe-area-inset-*) padding to the topbar,
+   bottom-nav and footer — but only inside its max-width:767px
+   media query. A TWA (installed from Play Store) can also run on
+   a wider Android tablet/foldable where that query never fires,
+   leaving content flush under the system status bar / gesture
+   bar. This block applies the same safe-area padding whenever the
+   app is actually running standalone, independent of viewport
+   width, and hides the redundant "install as an app" help button
+   since the user has already installed it.
+   ============================================================ */
+@media (display-mode: standalone) {
+  .topbar {
+    padding-top: max(14px, env(safe-area-inset-top)) !important;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  .bottom-nav {
+    padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
+  }
+  .help-badge-btn { display: none !important; }
+}
