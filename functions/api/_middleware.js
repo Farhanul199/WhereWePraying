@@ -129,9 +129,9 @@ export async function onRequest(context) {
 
   // Admin-secret-protected routes: /api/admin/* by path, or anything
   // presenting the X-Broadcast-Key / X-Sync-Key header regardless of
-  // path (broadcast.js, mosques/manage.js, mosques/scrape.js, and the
-  // admin side of community/photos.js all live outside /api/admin/ but
-  // are gated the same way) — the secret is the ONLY gate on these, so
+  // path (broadcast.js, mosques/manage.js, and the admin side of
+  // community/photos.js all live outside /api/admin/ but are gated
+  // the same way) — the secret is the ONLY gate on these, so
   // they get their own stricter, exact-count rate limit here rather
   // than the general one below, and skip the device-id requirement
   // since they were never device-scoped to begin with.
