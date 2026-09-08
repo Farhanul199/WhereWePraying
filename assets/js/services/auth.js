@@ -967,9 +967,11 @@
     if (!token) return;
 
     try {
-      const res = await fetch(`/api/verify-token?token=${encodeURIComponent(token)}`, {
+      const res = await fetch('/api/verify-token', {
+        method: 'POST',
         credentials: 'include',
-        headers: { 'X-Device-Id': window.WWP?.deviceId || '' }
+        headers: { 'Content-Type': 'application/json', 'X-Device-Id': window.WWP?.deviceId || '' },
+        body: JSON.stringify({ token })
       });
 
       const data = await res.json();

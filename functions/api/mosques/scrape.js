@@ -23,6 +23,8 @@
 //   curl -X POST "https://wherewepraying.com/api/mosques/scrape?limit=50" \
 //     -H "X-Broadcast-Key: YOUR_SECRET"
 
+import { isAdminRequest } from '../../_lib/auth.js';
+
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
@@ -30,10 +32,7 @@ function json(payload, status) {
   });
 }
 
-function isAdmin(context) {
-  const key = context.request.headers.get("X-Broadcast-Key");
-  return !!(context.env.BROADCAST_SECRET && key === context.env.BROADCAST_SECRET);
-}
+const isAdmin = isAdminRequest;
 
 function londonTodayIso() {
   const parts = new Intl.DateTimeFormat("en-GB", {

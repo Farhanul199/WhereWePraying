@@ -13,12 +13,13 @@
 //     "text": "Hey! We just shipped ..."
 //   }'
 
+import { isAdminRequest } from '../_lib/auth.js';
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
   // --- auth check ---
-  const key = request.headers.get('X-Broadcast-Key');
-  if (!env.BROADCAST_SECRET || key !== env.BROADCAST_SECRET) {
+  if (!isAdminRequest(context)) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 

@@ -23,6 +23,10 @@ export async function onRequestGet(context) {
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
   headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  // Belt-and-braces alongside the site-wide nosniff in _headers: this is
+  // the one route serving a content-type that came from an uploader's
+  // own claim, so pin it explicitly here too.
+  headers.set('X-Content-Type-Options', 'nosniff');
 
   return new Response(object.body, { headers });
 }

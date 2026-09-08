@@ -8,8 +8,13 @@
 // of one .run() per mosque, to stay well under Cloudflare's per-invocation
 // subrequest limit. This lets each visit cover a much bigger date range.
 //
-// USAGE - visit in browser (swap in your secret):
-//   https://wherewepraying.com/api/admin/sync-thm-jamaah?secret=YOUR_SYNC_SECRET&start=1&end=120
+// USAGE - prefer curl with a header (query-string secrets end up in
+// Cloudflare's request logs and your browser history):
+//   curl "https://wherewepraying.com/api/admin/sync-thm-jamaah?start=1&end=120" \
+//     -H "X-Sync-Key: YOUR_SYNC_SECRET"
+//
+// Pasting the URL straight into a browser with ?secret=... still works as
+// a fallback for a quick one-off trigger, it's just the weaker option.
 //
 // Suggested ranges (4 visits should cover the full year now):
 //   start=1&end=120
@@ -17,6 +22,8 @@
 //   start=241&end=366
 //   (run start=1&end=366 in one go if it completes without timing out -
 //    try a smaller range first if you're not sure)
+
+import { isSyncRequest } from '../../_lib/auth.js';
 
 const YEAR = 2026;
 const SOURCE_URL = "https://www.towerhamletsmosques.co.uk/wp-content/themes/squared/masajid-files/request.php?showJumma=true";
@@ -60,8 +67,7 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  const secret = url.searchParams.get("secret");
-  if (!secret || secret !== env.SYNC_SECRET) {
+  if (!isSyncRequest(context)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

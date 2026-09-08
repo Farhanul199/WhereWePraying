@@ -4,6 +4,8 @@
 //      role: 'user' | 'moderator'  (granting 'admin' is intentionally not exposed here —
 //      that's done directly in the D1 console so it can never be done by mistake)
 
+import { isAdminRequest } from '../../_lib/auth.js';
+
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
@@ -11,10 +13,7 @@ function json(payload, status) {
   });
 }
 
-function isAdmin(context) {
-  const key = context.request.headers.get('X-Broadcast-Key');
-  return !!(context.env.BROADCAST_SECRET && key === context.env.BROADCAST_SECRET);
-}
+const isAdmin = isAdminRequest;
 
 export async function onRequestGet(context) {
   if (!isAdmin(context)) return json({ error: 'Unauthorized' }, 401);

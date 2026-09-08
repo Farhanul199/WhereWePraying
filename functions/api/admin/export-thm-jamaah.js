@@ -5,11 +5,17 @@
 // Paginated by day-of-year range, same pattern as the sync tool, to stay
 // under response size limits.
 //
-// USAGE (browser or fetch):
-//   https://wherewepraying.com/api/admin/export-thm-jamaah?secret=YOUR_SYNC_SECRET&start=1&end=366
+// USAGE - prefer curl with a header (query-string secrets end up in
+// Cloudflare's request logs and your browser history):
+//   curl "https://wherewepraying.com/api/admin/export-thm-jamaah?start=1&end=366&mosques=1" \
+//     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 //   &mosques=1   -> include the mosques table once (add to any one call)
 //
-// Reuses the same SYNC_SECRET as the sync tool - no extra setup needed.
+// Pasting the URL straight into a browser with ?secret=... still works as
+// a fallback, it's just the weaker option. Reuses the same SYNC_SECRET as
+// the sync tool - no extra setup needed.
+
+import { isSyncRequest } from '../../_lib/auth.js';
 
 const YEAR = 2026;
 
@@ -23,8 +29,7 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  const secret = url.searchParams.get("secret");
-  if (!secret || secret !== env.SYNC_SECRET) {
+  if (!isSyncRequest(context)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

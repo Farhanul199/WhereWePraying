@@ -104,10 +104,22 @@ function decodeIdTokenPayload(idToken) {
   // Trusted the same way the Google callback trusts its id_token: it came
   // straight from Apple over HTTPS in the server-to-server exchange below
   // (not passed through the browser), so we decode without re-verifying
-  // the signature.
+  // the signature. That only covers "these bytes came from Apple" though
+  // — see isValidAppleIdToken below for the aud/iss/exp checks that
+  // actually gate which client and time window we accept.
   const payload = idToken.split('.')[1];
   const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
   return JSON.parse(json);
+}
+
+function isValidAppleIdToken(claims, expectedClientId) {
+  if (!claims || typeof claims !== 'object') return false;
+  if (claims.aud !== expectedClientId) return false;
+  if (claims.iss !== 'https://appleid.apple.com') return false;
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof claims.exp !== 'number' || claims.exp < now) return false;
+  if (claims.email_verified === false || claims.email_verified === 'false') return false;
+  return true;
 }
 
 export async function onRequestPost(context) {
@@ -154,6 +166,11 @@ export async function onRequestPost(context) {
 
     const tokenData = await tokenRes.json();
     const claims = decodeIdTokenPayload(tokenData.id_token);
+
+    if (!isValidAppleIdToken(claims, env.APPLE_CLIENT_ID)) {
+      return Response.redirect(`${url.origin}/?auth_error=invalid_token`, 302);
+    }
+
     const email = claims.email;
 
     if (!email) {

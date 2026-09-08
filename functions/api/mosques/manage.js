@@ -23,6 +23,8 @@
 //        the given slots (Jummah is always assumed to be run on the
 //        Friday you provide as `date`).
 
+import { isAdminRequest } from '../../_lib/auth.js';
+
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
@@ -30,10 +32,7 @@ function json(payload, status) {
   });
 }
 
-function isAdmin(context) {
-  const key = context.request.headers.get("X-Broadcast-Key");
-  return !!(context.env.BROADCAST_SECRET && key === context.env.BROADCAST_SECRET);
-}
+const isAdmin = isAdminRequest;
 
 function slugify(name) {
   return String(name || "")

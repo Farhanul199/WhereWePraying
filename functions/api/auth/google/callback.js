@@ -10,13 +10,29 @@ function generateSessionId() {
 }
 
 function decodeIdTokenPayload(idToken) {
-  // id_token is a JWT: header.payload.signature. We trust it because it
-  // came straight from Google over HTTPS in the server-to-server token
-  // exchange below (not passed through the browser), so we just decode
-  // the payload rather than re-verifying the signature.
+  // id_token is a JWT: header.payload.signature. We trust its origin
+  // because it came straight from Google over HTTPS in the server-to-
+  // server token exchange below (not passed through the browser), so we
+  // don't re-verify the RS256 signature. That trust only covers "this
+  // bytes came from Google's token endpoint" though — it says nothing
+  // about which client the token was minted for, so the caller still
+  // checks aud/iss/exp below before using any claims from it.
   const payload = idToken.split('.')[1];
   const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
   return JSON.parse(json);
+}
+
+// Defense-in-depth even though the token came over a trusted channel: an
+// id_token minted for a different Google client, or one that's expired,
+// should never be accepted just because it decoded successfully.
+function isValidGoogleIdToken(claims, expectedClientId) {
+  if (!claims || typeof claims !== 'object') return false;
+  if (claims.aud !== expectedClientId) return false;
+  if (claims.iss !== 'https://accounts.google.com' && claims.iss !== 'accounts.google.com') return false;
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof claims.exp !== 'number' || claims.exp < now) return false;
+  if (claims.email_verified === false) return false; // explicit false only; some issuers omit the field
+  return true;
 }
 
 export async function onRequestGet(context) {
@@ -59,6 +75,11 @@ export async function onRequestGet(context) {
 
     const tokenData = await tokenRes.json();
     const claims = decodeIdTokenPayload(tokenData.id_token);
+
+    if (!isValidGoogleIdToken(claims, GOOGLE_CLIENT_ID)) {
+      return Response.redirect(`${url.origin}/?auth_error=invalid_token`, 302);
+    }
+
     const email = claims.email;
 
     if (!email) {

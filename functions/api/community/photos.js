@@ -34,14 +34,45 @@ async function resolveSession(context) {
   }
 }
 
-function isAdmin(context) {
-  const key = context.request.headers.get('X-Broadcast-Key');
-  return !!(context.env.BROADCAST_SECRET && key === context.env.BROADCAST_SECRET);
-}
+import { isAdminRequest } from '../../_lib/auth.js';
+const isAdmin = isAdminRequest;
 
 function extFromType(type) {
   const map = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
   return map[type] || 'jpg';
+}
+
+// The browser-supplied `file.type` is just a label the uploader's client
+// sent — nothing stops someone from claiming "image/png" for an arbitrary
+// file. Since we serve these straight out of R2 with that same claimed
+// content-type, an unchecked mismatch is how you get MIME-sniffing-based
+// content injection from a crafted "image". Check the actual leading
+// bytes against the type being claimed before accepting the upload.
+// HEIC/HEIF share the ISO-BMFF container (same as MP4) and put their
+// brand a few bytes in rather than at offset 0, so they get a slightly
+// different check.
+async function matchesClaimedType(file) {
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const bytesStartWith = (sig) => sig.every((b, i) => head[i] === b);
+
+  switch (file.type) {
+    case 'image/jpeg':
+      return bytesStartWith([0xff, 0xd8, 0xff]);
+    case 'image/png':
+      return bytesStartWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    case 'image/webp':
+      return bytesStartWith([0x52, 0x49, 0x46, 0x46]) &&
+        head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50; // RIFF....WEBP
+    case 'image/heic':
+    case 'image/heif': {
+      // ISO-BMFF: bytes 4-7 are "ftyp", brand follows at 8-11.
+      if (!(head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70)) return false;
+      const brand = String.fromCharCode(head[8], head[9], head[10], head[11]);
+      return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+    }
+    default:
+      return false;
+  }
 }
 
 export async function onRequestGet(context) {
@@ -124,6 +155,9 @@ export async function onRequestPost(context) {
   if (!file || typeof file === 'string') return json({ error: 'No photo provided.' }, 400);
   if (!ALLOWED_TYPES.includes(file.type)) return json({ error: 'Please upload a JPEG, PNG, WEBP, or HEIC photo.' }, 400);
   if (file.size > MAX_BYTES) return json({ error: 'Photo is too large (max 8MB).' }, 400);
+  if (!(await matchesClaimedType(file))) {
+    return json({ error: "That file doesn't look like a valid image of the type it claims to be." }, 400);
+  }
 
   const masjidName = String(form.get('masjidName') || '').trim().slice(0, 120);
   const note = String(form.get('note') || '').trim().slice(0, 500);
