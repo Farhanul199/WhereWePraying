@@ -2549,11 +2549,7 @@ window.__wwpGoogleAuthResult = (function(){
      already cached) before revealing the matching glow. */
 
 <script>
-window.addEventListener('DOMContentLoaded', function(){
-  var l = document.getElementById('bootLoader');
-  if(l){ l.classList.add('hide'); setTimeout(function(){ l.remove(); }, 300); }
-});
-setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 2000);
+setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 400);
 </script>
 </body>
 </html>
