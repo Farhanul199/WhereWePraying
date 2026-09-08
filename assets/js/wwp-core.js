@@ -57,22 +57,32 @@ window.WWP = (function(){
       method:'PUT',
       headers:{ 'Content-Type':'application/json', 'X-Device-Id': deviceId },
       body: JSON.stringify({ data })
-    }, 5000).catch(function(){});
+    }, 15000);
   }
 
   // Debounced save — call this freely on every small mutation (a
   // checkbox tick, a bookmark toggle); rapid repeated calls coalesce
-  // into a single network write ~700ms after the last change.
+  // into a single network write ~700ms after the last change. Silent
+  // on failure — the change still lives in local state/localStorage,
+  // and the next successful save (or the next app open) reconciles it,
+  // so nagging the user over a background auto-save blip would be
+  // more annoying than useful.
   function save(section, data){
     clearTimeout(saveTimers[section]);
-    saveTimers[section] = setTimeout(function(){ _put(section, data); }, SAVE_DEBOUNCE_MS);
+    saveTimers[section] = setTimeout(function(){ _put(section, data).catch(function(){}); }, SAVE_DEBOUNCE_MS);
   }
 
-  // Immediate save — use for explicit "Save" button actions where
-  // the user expects the write to happen right away.
+  // Immediate save — use for explicit "Save" button actions where the
+  // user expects the write to happen right away and to know if it
+  // didn't. 15s timeout (was 5s) — a PUT with a large entry on slow
+  // 3G could genuinely take longer than 5s, and a silently-aborted
+  // save previously looked identical to a successful one.
   function saveNow(section, data){
     clearTimeout(saveTimers[section]);
-    return _put(section, data);
+    return _put(section, data).catch(function(err){
+      showToast('Save failed — please check your connection');
+      throw err;
+    });
   }
 
   return { deviceId: deviceId, get: get, save: save, saveNow: saveNow };
@@ -104,10 +114,14 @@ function deviceHeaders(extra){
 // Shared HTML-escaping for any user-submitted or dynamic text rendered
 // via innerHTML. Was previously copy-pasted (2 identical DOM-based
 // copies + 1 narrower regex-based copy) across 3 feature files.
+// Plain string replacement instead of creating/discarding a DOM element
+// per call — matters on pages that escape hundreds of list items.
 function escapeHtml(str){
-  const d = document.createElement('div');
-  d.textContent = str == null ? '' : String(str);
-  return d.innerHTML;
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // Shared local-date-key formatter ("YYYY-MM-DD"), used for day-scoped
@@ -365,7 +379,10 @@ window.__WWP_guideSectionReady = function(){
     document.documentElement.style.setProperty('--header-h', h + 'px');
   }
   syncHeaderHeight();
-  window.addEventListener('resize', syncHeaderHeight);
+  // ResizeObserver below already covers header size changes (and fires
+  // more precisely/less often than a blanket window resize listener) —
+  // a separate `resize` listener calling the same function was redundant
+  // extra layout work on every resize event.
   window.addEventListener('resize', function(){
     const wrap = document.getElementById('ptMapImgWrap');
     if(wrap && window.__PTRenderMapSvg && window.__PTMapState && window.__PTDateForAnchorMinutes){
