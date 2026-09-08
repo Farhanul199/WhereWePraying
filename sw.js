@@ -1,9 +1,37 @@
-const CACHE_NAME = 'wwp-v10';
+const CACHE_NAME = 'wwp-v11';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/offline.html',
+];
+// Core app shell: JS/CSS needed to render and run the app itself.
+// Without these, the offline fallback above loads a blank/broken page —
+// index.html alone is useless offline if none of its scripts/styles
+// are cached alongside it. This list intentionally excludes the
+// lazy-loaded, page-specific feature bundles (quran/journal/dua/guides/
+// mosque/travel/community + their CSS) — those are cached on-demand by
+// the stale-while-revalidate handler below the first time each page is
+// actually visited, so a first-time offline visitor still gets a
+// working home + prayer-times experience without downloading everything.
+const CORE_ASSETS = [
+  '/assets/js/wwp-core.js?v=9',
+  '/assets/js/services/storage.js?v=2',
+  '/assets/js/services/platform.js?v=3',
+  '/assets/js/features/prayer-times.js?v=5',
+  '/assets/js/services/auth.js?v=4',
+  '/assets/js/services/twinkle.js?v=2',
+  '/assets/js/features/seasonal-themes.js?v=3',
+  '/assets/js/features/glass-mode.js?v=2',
+  '/assets/js/features/misc-widgets.js?v=2',
+  '/assets/js/features/backup-restore.js?v=3',
+  '/assets/js/features/supporter-checkout.js?v=2',
+  '/assets/css/app.css?v=7',
+  '/assets/css/features/home.css?v=1',
+  '/assets/css/features/prayer-times.css?v=2',
+  '/assets/css/services/twinkle.css?v=2',
+  '/assets/logo.png',
+  '/assets/icons/icon-192.png',
 ];
 const DUA_IMAGES = [
   'assets/dua/tile/morning.webp','assets/dua/tile/evening.webp','assets/dua/tile/salah.webp',
@@ -14,7 +42,7 @@ const DUA_IMAGES = [
   'assets/dua/banner/qurandua.webp','assets/dua/banner/istighfar.webp','assets/dua/banner/ummah.webp',
   'assets/dua/banner/names.webp','assets/dua/banner/other.webp'
 ];
-const ALL_URLS = [...OFFLINE_URLS, ...DUA_IMAGES];
+const ALL_URLS = [...OFFLINE_URLS, ...CORE_ASSETS, ...DUA_IMAGES];
 
 // Precache an offline fallback set. This never blocks getting fresh content —
 // it's only used when the network is unavailable.
