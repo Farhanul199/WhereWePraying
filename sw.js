@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v15';
+const CACHE_NAME = 'wwp-v16';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -15,7 +15,7 @@ const OFFLINE_URLS = [
 // actually visited, so a first-time offline visitor still gets a
 // working home + prayer-times experience without downloading everything.
 const CORE_ASSETS = [
-  '/assets/js/wwp-core.js?v=11',
+  '/assets/js/wwp-core.js?v=12',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=3',
   '/assets/js/features/prayer-times.js?v=5',
