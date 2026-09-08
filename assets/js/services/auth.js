@@ -629,7 +629,11 @@
     const src = entry.avatarUrl || generateAvatarDataUri(entry.username || entry.userId || entry.email || 'x');
     const avatarClass = 'auth-avatar' + (entry.isSupporter ? ' auth-avatar-supporter' : '');
     const nameClass = entry.isSupporter ? 'username-supporter' : '';
-    const label = escapeHtml(entry.username || entry.email || 'Unnamed') + (extraLabel || '');
+    // No email fallback here on purpose — friends/followers responses no
+    // longer include one (see functions/api/friends.js), and other people's
+    // email addresses shouldn't show up in a name label regardless of
+    // which list this is rendering.
+    const label = escapeHtml(entry.username || 'Someone') + (extraLabel || '');
     return `<img src="${src}" class="${avatarClass}" alt=""><span class="${nameClass}">${label}</span>`;
   }
 

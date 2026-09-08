@@ -129,9 +129,15 @@ export async function onRequestGet(context) {
   try {
     const code = await ensureFriendCode(db, session.userId);
 
+    // No `email` in any of these three queries — the friends list is
+    // rendered from this response, and a friend's email address isn't
+    // something the other person needs (or should get) just for being
+    // friends. Search-by-email when *adding* someone stays working since
+    // that's a separate lookup (WHERE ... = ?) against input the adder
+    // already typed themselves, not something returned back to them.
     const friends = await db
       .prepare(
-        `SELECT u.id, u.username, u.email, u.avatar_url, u.is_supporter
+        `SELECT u.id, u.username, u.avatar_url, u.is_supporter
          FROM friendships f
          JOIN users u ON u.id = CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
          WHERE (f.requester_id = ?1 OR f.addressee_id = ?1) AND f.status = 'accepted'`
@@ -141,7 +147,7 @@ export async function onRequestGet(context) {
 
     const incoming = await db
       .prepare(
-        `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
+        `SELECT f.id AS request_id, u.id, u.username, u.avatar_url, u.is_supporter
          FROM friendships f
          JOIN users u ON u.id = f.requester_id
          WHERE f.addressee_id = ?1 AND f.status = 'pending'`
@@ -151,7 +157,7 @@ export async function onRequestGet(context) {
 
     const outgoing = await db
       .prepare(
-        `SELECT f.id AS request_id, u.id, u.username, u.email, u.avatar_url, u.is_supporter
+        `SELECT f.id AS request_id, u.id, u.username, u.avatar_url, u.is_supporter
          FROM friendships f
          JOIN users u ON u.id = f.addressee_id
          WHERE f.requester_id = ?1 AND f.status = 'pending'`
@@ -163,7 +169,6 @@ export async function onRequestGet(context) {
       return {
         id: r.id,
         username: r.username,
-        email: r.email,
         avatarUrl: r.avatar_url || null,
         isSupporter: !!r.is_supporter,
       };

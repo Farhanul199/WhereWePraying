@@ -11,9 +11,8 @@
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 //   &mosques=1   -> include the mosques table once (add to any one call)
 //
-// Pasting the URL straight into a browser with ?secret=... still works as
-// a fallback, it's just the weaker option. Reuses the same SYNC_SECRET as
-// the sync tool - no extra setup needed.
+// Header only, no ?secret= fallback — same reasoning as sync-thm-jamaah.js.
+// Reuses the same SYNC_SECRET as the sync tool - no extra setup needed.
 
 import { isSyncRequest } from '../../_lib/auth.js';
 

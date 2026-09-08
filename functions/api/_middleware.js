@@ -33,9 +33,16 @@
 //   id = "<the id Cloudflare gives you>"
 //
 // NOTE: to stay well under Cloudflare's free 1,000-writes-per-day KV
-// limit, we only WRITE the counter every 5th request instead of every
-// single one (we still READ every time, and reads are free/plentiful).
-// This makes the cap slightly less precise but cuts KV writes by 5x.
+// limit, general /api/* traffic only WRITES the counter every 20th
+// request instead of every single one (we still READ every time, and
+// reads are free/plentiful). That means the general limit is only
+// approximate — real enforcement kicks in up to ~20x later than the
+// stated max. That's an acceptable trade for high-volume routes, but
+// it's the wrong trade for routes that are naturally low-volume and
+// where abuse is expensive (spamming other people's inboxes, brute-
+// forcing an admin secret, chewing through upload storage): those use
+// `precise: true` below, which writes on every single request. Because
+// they're low-volume by nature, the extra KV writes are cheap.
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 const BAD_UA_RE = /curl|wget|python-requests|python-urllib|scrapy|go-http-client|okhttp|libwww-perl|java\/|axios\/|node-fetch|postmanruntime|httpclient|apache-httpclient/i;
@@ -49,17 +56,33 @@ const ADMIN_RATE_LIMIT_MAX = 10;   // /api/admin/*: much stricter — these
 const ADMIN_RATE_LIMIT_WINDOW = 60; // are secret-protected, not device-id
                                      // protected, so this is what stops
                                      // someone brute-forcing ?secret=.
-const WRITE_EVERY_N = 20;          // only write to KV every 20th hit
+                                     // Precise (every-request) counting —
+                                     // see note above.
+
+// Extra, tighter limits for specific low-volume/high-abuse-value routes,
+// checked in addition to (not instead of) the general per-IP limit
+// above. Also precise (every-request) counting.
+const SENSITIVE_RATE_LIMIT_MAX = 5;      // send-magic-link, subscribe
+const SENSITIVE_RATE_LIMIT_WINDOW = 900; // per 15 minutes per IP
+const UPLOAD_RATE_LIMIT_MAX = 20;        // community photo uploads
+const UPLOAD_RATE_LIMIT_WINDOW = 3600;   // per hour per IP
+const SENSITIVE_PATHS = new Set(['/api/send-magic-link', '/api/subscribe']);
+
+const WRITE_EVERY_N = 20;          // only write to KV every 20th hit (non-precise routes)
 const DEVICE_UPDATE_THROTTLE_MS = 60 * 60 * 1000; // only update devices.last_seen once per hour per device
 
-async function checkRateLimit(env, key, max, windowSeconds) {
+async function checkRateLimit(env, key, max, windowSeconds, { precise = false } = {}) {
   if (!env.RATE_LIMIT) return true; // fail open if KV isn't bound yet
   try {
     const current = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
     if (current >= max) return false;
-    // Only write every WRITE_EVERY_N requests to save on the daily
-    // free KV write quota. Slightly less precise, much cheaper.
-    if (Math.random() < 1 / WRITE_EVERY_N) {
+    if (precise) {
+      // Low-volume route: write every time, so the cap is exact.
+      await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+    } else if (Math.random() < 1 / WRITE_EVERY_N) {
+      // High-volume route: only write every WRITE_EVERY_N requests to
+      // save on the daily free KV write quota. Slightly less precise,
+      // much cheaper.
       await env.RATE_LIMIT.put(key, String(current + WRITE_EVERY_N), { expirationTtl: windowSeconds * 2 });
     }
     return true;
@@ -98,7 +121,7 @@ export async function onRequest(context) {
   // will let it, with nothing in front of it at all.
   if (url.pathname.startsWith('/api/admin/')) {
     const bucket = Math.floor(Date.now() / (ADMIN_RATE_LIMIT_WINDOW * 1000));
-    const ok = await checkRateLimit(env, `rl:admin:${ip}:${bucket}`, ADMIN_RATE_LIMIT_MAX, ADMIN_RATE_LIMIT_WINDOW);
+    const ok = await checkRateLimit(env, `rl:admin:${ip}:${bucket}`, ADMIN_RATE_LIMIT_MAX, ADMIN_RATE_LIMIT_WINDOW, { precise: true });
     if (!ok) {
       return new Response(JSON.stringify({ error: 'Too many requests' }), {
         status: 429,
@@ -147,6 +170,34 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: 'Too many requests' }), {
         status: 429,
         headers: { 'Content-Type': 'application/json', 'Retry-After': String(RATE_LIMIT_WINDOW) }
+      });
+    }
+  }
+
+  // --- Extra, tighter limit for low-volume/high-abuse-value routes ---
+  // (on top of the general per-IP limit above, not instead of it)
+  if (SENSITIVE_PATHS.has(url.pathname)) {
+    const bucket = Math.floor(Date.now() / (SENSITIVE_RATE_LIMIT_WINDOW * 1000));
+    const ok = await checkRateLimit(
+      env, `rl:sens:${ip}:${url.pathname}:${bucket}`,
+      SENSITIVE_RATE_LIMIT_MAX, SENSITIVE_RATE_LIMIT_WINDOW, { precise: true }
+    );
+    if (!ok) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(SENSITIVE_RATE_LIMIT_WINDOW) }
+      });
+    }
+  } else if (url.pathname === '/api/community/photos' && request.method === 'POST') {
+    const bucket = Math.floor(Date.now() / (UPLOAD_RATE_LIMIT_WINDOW * 1000));
+    const ok = await checkRateLimit(
+      env, `rl:upload:${ip}:${bucket}`,
+      UPLOAD_RATE_LIMIT_MAX, UPLOAD_RATE_LIMIT_WINDOW, { precise: true }
+    );
+    if (!ok) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(UPLOAD_RATE_LIMIT_WINDOW) }
       });
     }
   }

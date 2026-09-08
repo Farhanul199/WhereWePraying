@@ -40,46 +40,57 @@ export async function onRequestPost(context) {
     }
 
     const db = context.env.DB;
+    const now = new Date().toISOString();
 
-    // Find token
-    const tokenRecord = await db
-      .prepare(
-        `SELECT id, user_id, expires_at, used
-         FROM magic_tokens
-         WHERE token = ?
-         LIMIT 1`
-      )
-      .bind(token)
-      .first();
+    // Atomically claim the token: this single UPDATE only affects a row
+    // if it exists, hasn't been used, and hasn't expired — all three
+    // conditions are checked by the database as part of the same write,
+    // not by JS in a separate step beforehand. If the same link is
+    // opened twice at nearly the same instant (two tabs, a flaky
+    // network causing a retry, etc.), SQLite/D1 serializes the two
+    // UPDATEs: exactly one of them flips used 0 -> 1 and reports
+    // meta.changes === 1, the other reports 0 and is rejected below.
+    // The old code did SELECT (check used) then UPDATE as two separate
+    // steps, which left a gap both requests could pass through before
+    // either had written anything — that's what let two sessions get
+    // created from one single-use link.
+    const claim = await db
+      .prepare(`UPDATE magic_tokens SET used = 1 WHERE token = ?1 AND used = 0 AND expires_at > ?2`)
+      .bind(token, now)
+      .run();
 
-    if (!tokenRecord) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    if (!claim.meta || claim.meta.changes !== 1) {
+      // Wasn't claimed — figure out why, just for a clearer error message.
+      // This SELECT runs after the fact, purely for messaging; it can't
+      // reopen the race since the atomic UPDATE above already decided
+      // the outcome.
+      const existing = await db
+        .prepare(`SELECT expires_at, used FROM magic_tokens WHERE token = ?1`)
+        .bind(token)
+        .first();
 
-    // Check expiry
-    if (new Date(tokenRecord.expires_at) < new Date()) {
+      if (!existing) {
+        return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (existing.used) {
+        return new Response(JSON.stringify({ error: 'Token already used' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(JSON.stringify({ error: 'Token expired' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Check if already used
-    if (tokenRecord.used) {
-      return new Response(JSON.stringify({ error: 'Token already used' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Mark token as used
-    await db.prepare('UPDATE magic_tokens SET used = 1 WHERE id = ?').bind(tokenRecord.id).run();
-
-    // Update user's last_login
-    const now = new Date().toISOString();
+    const tokenRecord = await db
+      .prepare(`SELECT id, user_id FROM magic_tokens WHERE token = ?1`)
+      .bind(token)
+      .first();
     await db
       .prepare('UPDATE users SET last_login = ? WHERE id = ?')
       .bind(now, tokenRecord.user_id)

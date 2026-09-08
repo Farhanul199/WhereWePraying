@@ -551,7 +551,7 @@ async function loadFriendsForInvitePicker(){
   listEl.innerHTML = friendsCache.map(f=>`
     <label class="event-invite-item">
       <input type="checkbox" data-friend-id="${f.id}" ${pendingInviteIds.has(f.id)?'checked':''}>
-      <span>${escapeHtml(f.username||f.email)}</span>
+      <span>${escapeHtml(f.username||'Someone')}</span>
     </label>
   `).join('');
   $$('.event-invite-item input', listEl).forEach(cb=>{

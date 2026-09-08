@@ -13,8 +13,9 @@
 //   curl "https://wherewepraying.com/api/admin/sync-thm-jamaah?start=1&end=120" \
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 //
-// Pasting the URL straight into a browser with ?secret=... still works as
-// a fallback for a quick one-off trigger, it's just the weaker option.
+// Header only, no ?secret= fallback — a query-string secret ends up in
+// Cloudflare's request logs and your browser history, so pasting the URL
+// into a browser no longer works here; use curl with the header above.
 //
 // Suggested ranges (4 visits should cover the full year now):
 //   start=1&end=120
