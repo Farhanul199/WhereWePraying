@@ -14,8 +14,8 @@
   "categories": ["lifestyle", "utilities", "religion"],
   "display_override": ["standalone", "minimal-ui", "browser"],
   "scope_extensions": [
-    { "type": "origin", "origin": "wherewepraying.com" },
-    { "type": "origin", "origin": "www.wherewepraying.com" }
+    { "type": "origin", "origin": "https://wherewepraying.com" },
+    { "type": "origin", "origin": "https://www.wherewepraying.com" }
   ],
   "related_applications": [
     { "platform": "play", "url": "https://play.google.com/store/apps/details?id=com.wherewepraying.app", "id": "com.wherewepraying.app" }
