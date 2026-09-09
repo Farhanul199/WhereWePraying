@@ -40,6 +40,14 @@ function parseTimeToMinutes(prayer, raw) {
 }
 export async function onRequestGet(context) {
   const { request, env } = context;
+
+  // Free Cloudflare edge cache: if someone already asked for this same
+  // date in the last 60 seconds, hand back that saved answer instead of
+  // touching the database again. Saves D1 usage for every repeat visitor.
+  const cache = caches.default;
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
   const url = new URL(request.url);
   const requestedDate = url.searchParams.get("date");
   const { dateIso: todayIso, minutes: nowMinutes } = londonNowParts();
@@ -111,10 +119,14 @@ export async function onRequestGet(context) {
       if (!a.next && b.next) return 1;
       return a.name.localeCompare(b.name);
     });
-    return new Response(
+    const response = new Response(
       JSON.stringify({ date: dateIso, isToday, mosques }),
       { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } }
     );
+    // Save a copy in Cloudflare's free edge cache so the next person
+    // asking for this same date gets it instantly, no database hit.
+    context.waitUntil(cache.put(request, response.clone()));
+    return response;
   } catch (e) {
     return new Response(
       JSON.stringify({ error: "Failed to load mosque list", detail: String(e) }),
