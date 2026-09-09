@@ -58,6 +58,13 @@ function parseTimeToMinutes(raw) {
 
 export async function onRequestGet(context) {
   const { request, env } = context;
+
+  // Same free edge cache as list.js: repeat askers get the saved
+  // answer instead of hitting the database again.
+  const cache = caches.default;
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
   const url = new URL(request.url);
   const requestedDate = url.searchParams.get("date");
 
@@ -110,10 +117,12 @@ export async function onRequestGet(context) {
       return a.name.localeCompare(b.name);
     });
 
-    return new Response(
+    const response = new Response(
       JSON.stringify({ date: dateIso, locations }),
       { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } }
     );
+    context.waitUntil(cache.put(request, response.clone()));
+    return response;
   } catch (e) {
     return new Response(
       JSON.stringify({ error: "Failed to load Jummah times", detail: String(e) }),
