@@ -88,6 +88,16 @@
     return h12 + ':' + String(m).padStart(2, '0');
   }
 
+  function directionsUrl(m){
+    if (m.latitude != null && m.longitude != null) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${m.latitude}%2C${m.longitude}`;
+    }
+    if (m.address) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address)}`;
+    }
+    return null;
+  }
+
   function addDaysIso(iso, days){
     const d = new Date(iso + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + days);
@@ -246,7 +256,8 @@
       : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}${tomorrowTag}</div>${refHtml}`;
 
     const isFav = mqFavorites.has(r.m.slug);
-    const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}</div>`;
+    const dirUrl = directionsUrl(r.m);
+    const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
 
     return `
       <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
@@ -498,7 +509,8 @@
       ? `<img src="${escapeHtml(m.photoUrl)}" alt="">`
       : `<span class="mq-rank-photo-fallback">${initial}</span>`;
     const isFav = mqFavorites.has(m.slug);
-    const addressHtml = `<div class="mq-rank-address hidden">${m.address ? escapeHtml(m.address) : 'Address not added yet.'}</div>`;
+    const dirUrl = directionsUrl(m);
+    const addressHtml = `<div class="mq-rank-address hidden">${m.address ? escapeHtml(m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
     const timeHtml = `<div class="mq-rank-meta">${PRAYER_LABELS[computed.prayer] || computed.prayer}</div>`;
 
     return `
@@ -1065,6 +1077,12 @@
         else mqExpandedGroups.add(key);
         reRenderList();
       }
+      return;
+    }
+
+    // The directions link opens Maps in a new tab - let it navigate
+    // normally without also toggling the address visibility.
+    if (e.target.closest('[data-directions-link]')) {
       return;
     }
 
