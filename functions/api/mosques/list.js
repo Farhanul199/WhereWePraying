@@ -47,7 +47,7 @@ export async function onRequestGet(context) {
   const isToday = dateIso === todayIso;
   try {
     const { results } = await env.DB.prepare(
-      `SELECT m.slug, m.name, m.address, m.region, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
+      `SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
        FROM mosques m
        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
        LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
@@ -103,7 +103,7 @@ export async function onRequestGet(context) {
           }
         }
       }
-      return { slug: row.slug, name: row.name, address: row.address || null, region: row.region || "Other", jamaah, next, photoUrl };
+      return { slug: row.slug, name: row.name, address: row.address || null, postcode: row.postcode || null, latitude: row.latitude ?? null, longitude: row.longitude ?? null, region: row.region || "Other", jamaah, next, photoUrl };
     });
     mosques.sort((a, b) => {
       if (a.next && b.next) return a.next.minutesUntil - b.next.minutesUntil;
