@@ -1166,7 +1166,7 @@
     ensureViewToggle();
     fetchFavorites().then(loadMosqueList);
     clearInterval(mqTimer);
-    mqTimer = setInterval(loadMosqueList, 30000);
+    mqTimer = setInterval(loadMosqueList, 300000); // was 30000 (30s) — now 5 min, cuts requests ~10x
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
