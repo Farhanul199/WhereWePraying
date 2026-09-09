@@ -444,25 +444,6 @@ const PrayerTimes = (function(){
     return null;
   }
 
-  // 4. Third-party IP geolocation — extra redundancy in case the
-  // Cloudflare function above isn't deployed yet or is briefly down.
-  async function detectRoughLocationByIP(){
-    try{
-      const res = await fetchWithTimeout('https://ipapi.co/json/', null, 4000);
-      if(!res.ok) throw new Error('ip lookup failed');
-      const d = await res.json();
-      if(d && typeof d.latitude === 'number' && typeof d.longitude === 'number'){
-        return {
-          lat: d.latitude, lon: d.longitude,
-          label: [d.city, d.region, d.country_name].filter(Boolean).join(', '),
-          tz: d.timezone || null,
-          source: 'ip'
-        };
-      }
-    }catch(e){ /* offline, blocked, or rate-limited — fall through */ }
-    return null;
-  }
-
   const GEO_EXPLAINER_KEY = 'wwp:geo:explainerAnswered';
   // Shows the "why we need this" explainer once, waits for the tap,
   // then makes the real (native-prompting) GPS request if allowed.
@@ -502,8 +483,6 @@ const PrayerTimes = (function(){
     let loc = await detectSilentGeolocation();
     if(loc) return loc;
     loc = await detectCloudflareGeo();
-    if(loc) return loc;
-    loc = await detectRoughLocationByIP();
     return loc;
   }
 
