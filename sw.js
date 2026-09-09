@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v16';
+const CACHE_NAME = 'wwp-v17';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -18,7 +18,7 @@ const CORE_ASSETS = [
   '/assets/js/wwp-core.js?v=12',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=3',
-  '/assets/js/features/prayer-times.js?v=5',
+  '/assets/js/features/prayer-times.js?v=6',
   '/assets/js/services/auth.js?v=4',
   '/assets/js/services/twinkle.js?v=2',
   '/assets/js/features/seasonal-themes.js?v=3',
