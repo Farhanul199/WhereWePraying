@@ -53,6 +53,22 @@ export async function onRequestGet(context) {
   const { dateIso: todayIso, minutes: nowMinutes } = londonNowParts();
   const dateIso = requestedDate || todayIso;
   const isToday = dateIso === todayIso;
+
+  // Second, bigger memory: a shared store (not just this one Cloudflare
+  // location's edge cache) that every visitor worldwide shares. First
+  // person to ask for this date in a 10-min window hits the database;
+  // everyone else, anywhere, gets this saved copy instead.
+  const kvKey = "mq_list_v1:" + dateIso;
+  if (env.RATE_LIMIT) {
+    const kvHit = await env.RATE_LIMIT.get(kvKey);
+    if (kvHit) {
+      const response = new Response(kvHit, {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" },
+      });
+      context.waitUntil(cache.put(request, response.clone()));
+      return response;
+    }
+  }
   try {
     const { results } = await env.DB.prepare(
       `SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region, t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah, ph.r2_key AS photo_key
@@ -119,13 +135,20 @@ export async function onRequestGet(context) {
       if (!a.next && b.next) return 1;
       return a.name.localeCompare(b.name);
     });
+    const body = JSON.stringify({ date: dateIso, isToday, mosques });
     const response = new Response(
-      JSON.stringify({ date: dateIso, isToday, mosques }),
+      body,
       { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } }
     );
     // Save a copy in Cloudflare's free edge cache so the next person
     // asking for this same date gets it instantly, no database hit.
     context.waitUntil(cache.put(request, response.clone()));
+    // Also save to the shared store for 10 min, so EVERY visitor
+    // worldwide shares this one database result, not just people
+    // hitting the same Cloudflare location.
+    if (env.RATE_LIMIT) {
+      context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: 600 }));
+    }
     return response;
   } catch (e) {
     return new Response(

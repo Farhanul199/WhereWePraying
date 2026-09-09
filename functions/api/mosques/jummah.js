@@ -72,6 +72,18 @@ export async function onRequestGet(context) {
   const baseIso = requestedDate || todayIso;
   const dateIso = weekdayOfIso(baseIso) === 5 ? baseIso : nextFridayIso(baseIso);
 
+  const kvKey = "mq_jummah_v1:" + dateIso;
+  if (env.RATE_LIMIT) {
+    const kvHit = await env.RATE_LIMIT.get(kvKey);
+    if (kvHit) {
+      const response = new Response(kvHit, {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
+      });
+      context.waitUntil(cache.put(request, response.clone()));
+      return response;
+    }
+  }
+
   try {
     const { results } = await env.DB.prepare(
       `SELECT m.slug, m.name, m.type, m.address, ph.r2_key AS photo_key,
@@ -117,11 +129,15 @@ export async function onRequestGet(context) {
       return a.name.localeCompare(b.name);
     });
 
+    const body = JSON.stringify({ date: dateIso, locations });
     const response = new Response(
-      JSON.stringify({ date: dateIso, locations }),
+      body,
       { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } }
     );
     context.waitUntil(cache.put(request, response.clone()));
+    if (env.RATE_LIMIT) {
+      context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: 1800 }));
+    }
     return response;
   } catch (e) {
     return new Response(
