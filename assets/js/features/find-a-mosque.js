@@ -109,18 +109,45 @@
     return d.getUTCDay() === 5;
   }
 
+  // Browser memory: if we already fetched this exact date recently,
+  // reuse it instead of asking Cloudflare again. Cuts requests a lot
+  // for anyone reopening the app or switching tabs within a few minutes.
+  const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+
+  function readCache(key){
+    if (!window.LocalCache) return null;
+    const entry = window.LocalCache.get(key, null);
+    if (!entry || !entry.savedAt) return null;
+    if (Date.now() - entry.savedAt > CACHE_TTL_MS) return null;
+    return entry.data;
+  }
+  function writeCache(key, data){
+    if (!window.LocalCache) return;
+    window.LocalCache.set(key, { data, savedAt: Date.now() });
+  }
+
   async function fetchMosques(dateIso){
+    const cacheKey = 'wwp_mq_mosques_' + dateIso;
+    const cached = readCache(cacheKey);
+    if (cached) return cached;
     const res = await fetch('/api/mosques/list?date=' + dateIso, { headers: deviceHeaders() });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     const data = await res.json();
-    return data.mosques || [];
+    const mosques = data.mosques || [];
+    writeCache(cacheKey, mosques);
+    return mosques;
   }
 
   async function fetchJummah(dateIso){
+    const cacheKey = 'wwp_mq_jummah_' + dateIso;
+    const cached = readCache(cacheKey);
+    if (cached) return cached;
     const res = await fetch('/api/mosques/jummah?date=' + dateIso, { headers: deviceHeaders() });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     const data = await res.json();
-    return data.locations || [];
+    const locations = data.locations || [];
+    writeCache(cacheKey, locations);
+    return locations;
   }
 
   // On Fridays the Dhuhr slot is served by Jummah venues (mosques,
