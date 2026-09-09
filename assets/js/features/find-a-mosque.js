@@ -126,6 +126,31 @@
     window.LocalCache.set(key, { data, savedAt: Date.now() });
   }
 
+  // "Usual mosque": a person's saved go-to mosque. When set, the page
+  // shows just that one mosque's time (one small request) instead of
+  // fetching and ranking every mosque nearby every time it's opened.
+  const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug';
+  function getUsualMosque(){
+    return window.LocalCache ? window.LocalCache.get(USUAL_MOSQUE_KEY, null) : null;
+  }
+  function setUsualMosque(slug){
+    if (window.LocalCache) window.LocalCache.set(USUAL_MOSQUE_KEY, slug);
+  }
+  function clearUsualMosque(){
+    if (window.LocalCache) window.LocalCache.remove(USUAL_MOSQUE_KEY);
+  }
+
+  async function fetchOneMosque(slug, dateIso){
+    const cacheKey = 'wwp_mq_one_' + slug + '_' + dateIso;
+    const cached = readCache(cacheKey);
+    if (cached) return cached;
+    const res = await fetch('/api/mosques/one?slug=' + encodeURIComponent(slug) + '&date=' + dateIso, { headers: deviceHeaders() });
+    if (!res.ok) throw new Error('Request failed: ' + res.status);
+    const data = await res.json();
+    writeCache(cacheKey, data.mosque);
+    return data.mosque;
+  }
+
   async function fetchMosques(dateIso){
     const cacheKey = 'wwp_mq_mosques_' + dateIso;
     const cached = readCache(cacheKey);
@@ -285,6 +310,7 @@
     const isFav = mqFavorites.has(r.m.slug);
     const dirUrl = directionsUrl(r.m);
     const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
+    const usualHtml = `<button type="button" class="mq-usual-btn" data-usual-slug="${escapeHtml(r.m.slug)}" data-usual-name="${escapeHtml(r.m.name)}" style="background:none;border:none;padding:0;margin-top:2px;font-size:0.8em;text-decoration:underline;cursor:pointer;">Set as my usual mosque</button>`;
 
     return `
       <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
@@ -298,6 +324,7 @@
             <div class="mq-rank-name">${escapeHtml(r.m.name)}</div>
             ${metaHtml}
             ${addressHtml}
+            ${usualHtml}
           </div>
         </div>
         <div class="mq-rank-time">${formatMinutes(r.mins)}</div>
@@ -1096,6 +1123,26 @@
       return;
     }
 
+    const usualBtn = e.target.closest('.mq-usual-btn');
+    if (usualBtn) {
+      setUsualMosque(usualBtn.dataset.usualSlug);
+      usualBtn.textContent = 'Saved as your usual mosque ✓';
+      return;
+    }
+
+    const compareBtn = e.target.closest('#mqCompareUsualBtn');
+    if (compareBtn) {
+      switchToFullList();
+      return;
+    }
+
+    const resetUsualBtn = e.target.closest('#mqResetUsualBtn');
+    if (resetUsualBtn) {
+      clearUsualMosque();
+      onMosqueShown();
+      return;
+    }
+
     const toggleBtn = e.target.closest('.mq-group-toggle');
     if (toggleBtn && !toggleBtn.dataset.regionHide && !toggleBtn.dataset.regionFav && !toggleBtn.dataset.viewMode && toggleBtn.id !== 'mqShowHiddenRegionsBtn') {
       const key = toggleBtn.dataset.groupKey;
@@ -1187,13 +1234,69 @@
     loadMosqueList();
   });
 
+  async function showUsualMosqueView(slug){
+    const status = document.getElementById('mqStatus');
+    const list = document.getElementById('mqList');
+    const header = document.getElementById('mqPrayerHeader');
+    const liveToggle = document.getElementById('mqLiveToggle');
+    if (header) header.classList.add('hidden');
+    if (liveToggle) liveToggle.classList.add('hidden');
+    if (!list || !status) return;
+    if (!mqInitialized) status.textContent = "Loading your mosque…";
+    try {
+      const { dateIso } = londonNow();
+      const mosque = await fetchOneMosque(slug, dateIso);
+      if (!mosque) {
+        // Saved mosque no longer exists/active — fall back to the full list.
+        clearUsualMosque();
+        switchToFullList();
+        return;
+      }
+      status.textContent = '';
+      const next = mosque.next;
+      const nextHtml = next
+        ? `<div class="mq-rank-meta">${PRAYER_LABELS[next.prayer]}</div><div class="mq-rank-time">${formatMinutes(parseTimeToMinutes(next.prayer, next.time))}</div>`
+        : `<div class="mq-rank-meta">No more Jama'ah showing for today</div>`;
+      list.innerHTML = `
+        <div class="mq-time-group">
+          <div class="mq-time-group-cards">
+            <div class="mq-rank-card" data-slug="${escapeHtml(mosque.slug)}">
+              <div class="mq-rank-left">
+                <div style="min-width:0;flex:1;">
+                  <div class="mq-rank-name">${escapeHtml(mosque.name)}</div>
+                  ${nextHtml}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="mqCompareUsualBtn" class="mq-group-toggle">Compare nearby mosques</button>
+        <button type="button" id="mqResetUsualBtn" class="mq-group-toggle">Not your mosque? Reset</button>`;
+    } catch (e) {
+      status.textContent = "Couldn't load your mosque right now — please try again shortly.";
+    }
+  }
+
+  function switchToFullList(){
+    clearInterval(mqTimer);
+    const header = document.getElementById('mqPrayerHeader');
+    if (header) header.classList.remove('hidden');
+    fetchFavorites().then(loadMosqueList);
+    mqTimer = setInterval(loadMosqueList, 300000);
+  }
+
   function onMosqueShown(){
     mqInitialized = true;
     ensureSearchBar();
     ensureViewToggle();
-    fetchFavorites().then(loadMosqueList);
     clearInterval(mqTimer);
-    mqTimer = setInterval(loadMosqueList, 300000); // was 30000 (30s) — now 5 min, cuts requests ~10x
+    const usual = getUsualMosque();
+    if (usual) {
+      showUsualMosqueView(usual);
+      mqTimer = setInterval(() => showUsualMosqueView(usual), 300000);
+      return;
+    }
+    switchToFullList();
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
