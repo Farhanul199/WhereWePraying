@@ -152,6 +152,14 @@ export async function onRequest(context) {
     return next();
   }
 
+  // /api/geo: read-only, same-origin Cloudflare edge geo lookup used as a
+  // GPS fallback. No device tracking needed here, and requiring
+  // X-Device-Id was causing it to 400 before the frontend even has a
+  // chance to establish one.
+  if (url.pathname === '/api/geo') {
+    return next();
+  }
+
   // --- User-Agent check (blocks obvious scripts/bots before they touch KV) ---
   // Cheap and easy to bypass by anyone who bothers to set a browser-like
   // User-Agent — this is not a real security boundary, it's a filter
