@@ -541,25 +541,50 @@ let __routerLoaderObserver = null;
 function routerCreateLoader(){
   const el = document.createElement('div');
   el.id = ROUTER_BOOT_ID;
-  el.innerHTML = '<img src="/assets/logo.png" alt="" width="56" height="56">';
-  el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#FBF3EC;display:flex;align-items:center;justify-content:center;transition:opacity .25s ease;';
+  el.innerHTML = '<span class="wwp-router-logo-wrap"><img src="/assets/logo.png" alt="" width="56" height="56"></span>';
+  el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#FBF3EC;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .28s ease;';
+  const wrap = el.querySelector('.wwp-router-logo-wrap');
   const img = el.querySelector('img');
+  if(wrap){
+    wrap.style.cssText = 'display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.96);transition:opacity .32s ease,transform .38s ease;';
+  }
   if(img){
-    img.style.cssText = 'width:56px;height:56px;animation:wwpRouterBootPulse 1.1s ease-in-out infinite;mix-blend-mode:multiply;';
+    img.style.cssText = 'width:56px;height:56px;animation:wwpRouterBootPulse 1.4s ease-in-out .32s infinite;mix-blend-mode:multiply;';
   }
   return el;
 }
 
 function routerEnsureLoader(){
   let el = document.getElementById(ROUTER_BOOT_ID);
+  let isNew = false;
   if(!el){
     el = routerCreateLoader();
+    isNew = true;
     if(document.body) document.body.appendChild(el);
   }
   if(el){
     el.classList.remove('hide');
     el.style.opacity = '1';
     el.style.pointerEvents = 'auto';
+
+    // New transition loaders enter on the next frame so the logo never
+    // appears as a sudden pop. Existing index.html boot loaders are left
+    // untouched for the initial page load.
+    const wrap = el.querySelector('.wwp-router-logo-wrap');
+    if(wrap){
+      wrap.style.opacity = '0';
+      wrap.style.transform = 'scale(.96)';
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          if(!el.classList.contains('hide')){
+            wrap.style.opacity = '1';
+            wrap.style.transform = 'scale(1)';
+          }
+        });
+      });
+    }else if(isNew){
+      el.style.transition = 'opacity .28s ease';
+    }
   }
   return el;
 }
@@ -694,8 +719,15 @@ async function switchPage(id, opts){
   const guideSlug = (id === 'guides') ? opts.guide : null;
   updateSEOTags(id, guideSlug);
 
-  if(id === 'guides' && guideSlug && window.__WWP_currentGuide !== guideSlug){
-    openGuideWhenReady(guideSlug);
+  if(id === 'guides'){
+    // A plain /guides visit should open the first/continue guide again,
+    // rather than leaving the reader panel empty. Wudu is the existing
+    // "Continue with Wudu" default shown by the Guides section.
+    if(guideSlug && window.__WWP_currentGuide !== guideSlug){
+      openGuideWhenReady(guideSlug);
+    }else if(!guideSlug && !window.__WWP_currentGuide){
+      openGuideWhenReady('wudu');
+    }
   }
 
   if(!opts.fromPopState && !opts.skipHistory){
@@ -728,7 +760,7 @@ function initRouterTransitionGuard(){
 
   const style = document.createElement('style');
   style.textContent =
-    '@keyframes wwpRouterBootPulse{0%,100%{opacity:.5;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}' +
+    '@keyframes wwpRouterBootPulse{0%,100%{opacity:.55;transform:scale(.97)}50%{opacity:1;transform:scale(1)}}' +
     '#bootLoader.hide{opacity:0!important;pointer-events:none!important}';
   document.head.appendChild(style);
 }
