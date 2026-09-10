@@ -48,6 +48,15 @@ function londonNowParts() {
   };
 }
 
+// Plain calendar-date arithmetic on a YYYY-MM-DD string — used to look
+// up tomorrow's Fajr once today's prayers have all passed (e.g. after
+// Isha). UTC anchoring is safe here since we only care about the
+// calendar date, not a time-of-day.
+function addDaysIso(dateIso, days) {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 function parseTimeToMinutes(prayer, raw) {
   if (!raw) return null;
   const cleaned = raw.replace(".", ":").trim();
@@ -100,11 +109,15 @@ function travelEstimate(miles) {
   return { mode, minutes };
 }
 
+// tmr (tomorrow's row) only contributes fajr_jamaah — that's the only
+// field ever needed once today's own prayers have passed.
 const BOX_QUERY = `
   SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah
+         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
+         tmr.fajr_jamaah AS tomorrow_fajr
   FROM mosques m
   LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
+  LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
   WHERE m.active = 1 AND m.type = 'mosque'
     AND m.latitude BETWEEN ? AND ?
     AND m.longitude BETWEEN ? AND ?
@@ -112,9 +125,11 @@ const BOX_QUERY = `
 
 const NATIONWIDE_FALLBACK_QUERY = `
   SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah
+         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
+         tmr.fajr_jamaah AS tomorrow_fajr
   FROM mosques m
   LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
+  LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
   WHERE m.active = 1 AND m.type = 'mosque'
     AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL
 `;
@@ -128,6 +143,7 @@ function rowToCandidate(row) {
   return {
     slug: row.slug, name: row.name, address: row.address || null,
     latitude: row.latitude ?? null, longitude: row.longitude ?? null, jamaah,
+    tomorrowFajr: row.tomorrow_fajr || null,
   };
 }
 
@@ -138,8 +154,16 @@ function nextPrayerFor(candidate, nowMinutes) {
   for (const prayer of PRAYER_ORDER) {
     const mins = parseTimeToMinutes(prayer, candidate.jamaah[prayer]);
     if (mins !== null && mins >= nowMinutes) {
-      return { prayer, time: candidate.jamaah[prayer], minutesUntil: mins - nowMinutes };
+      return { prayer, time: candidate.jamaah[prayer], minutesUntil: mins - nowMinutes, isTomorrow: false };
     }
+  }
+  // Today's done (e.g. after Isha) — fall through to tomorrow's Fajr.
+  const tomorrowMins = parseTimeToMinutes("fajr", candidate.tomorrowFajr);
+  if (tomorrowMins !== null) {
+    return {
+      prayer: "fajr", time: candidate.tomorrowFajr,
+      minutesUntil: (1440 - nowMinutes) + tomorrowMins, isTomorrow: true,
+    };
   }
   return null;
 }
@@ -150,6 +174,7 @@ function buildPlanEntry(candidate, dist, next, travel) {
     distanceMiles: Math.round(dist * 10) / 10,
     travelMode: travel.mode, travelMinutes: travel.minutes,
     prayer: next.prayer, time: next.time, jamaahInMinutes: next.minutesUntil,
+    isTomorrow: next.isTomorrow,
   };
 }
 
@@ -229,8 +254,9 @@ export async function onRequestGet(context) {
     try {
       const latDelta = milesToLatDegrees(CANDIDATE_BOX_MILES);
       const lonDelta = milesToLonDegrees(CANDIDATE_BOX_MILES, gridLat);
+      const tomorrowIso = addDaysIso(dateIso, 1);
       const { results } = await env.DB.prepare(BOX_QUERY)
-        .bind(dateIso, gridLat - latDelta, gridLat + latDelta, gridLon - lonDelta, gridLon + lonDelta)
+        .bind(dateIso, tomorrowIso, gridLat - latDelta, gridLat + latDelta, gridLon - lonDelta, gridLon + lonDelta)
         .all();
       candidates = (results || []).map(rowToCandidate);
     } catch (e) {
@@ -258,7 +284,7 @@ export async function onRequestGet(context) {
   // nationwide query, sorted properly, as a last resort.
   if (feasible.length < 3) {
     try {
-      const { results } = await env.DB.prepare(NATIONWIDE_FALLBACK_QUERY).bind(dateIso).all();
+      const { results } = await env.DB.prepare(NATIONWIDE_FALLBACK_QUERY).bind(dateIso, addDaysIso(dateIso, 1)).all();
       const all = (results || []).map(rowToCandidate);
       const nationwide = computeFeasible(all, lat, lon, nowMinutes);
       if (nationwide.length > feasible.length) {
@@ -271,7 +297,7 @@ export async function onRequestGet(context) {
   }
 
   const { primary, backups } = pickPrimaryAndBackups(feasible);
-  const note = !primary ? "No more Jama'ah times today nearby — check back after Fajr." : null;
+  const note = !primary ? "No Jama'ah times found nearby — none of the nearby mosques have Fajr times on record yet." : null;
 
   return new Response(
     JSON.stringify({ date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, expanded, note }),
