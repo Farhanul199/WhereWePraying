@@ -4,12 +4,19 @@
 // no key needed. Discovered via browser DevTools; endpoints documented
 // publicly (see github.com/RaulMalik/mymasjid-widget-design).
 //
-// IMPORTANT: unlike MasjidBox, this endpoint returns a FULL YEAR of data
-// per mosque in one call (366 day/month entries, no year attached — day
-// 60/month 2 = Feb 29, which does not exist in 2026, so that entry is
-// skipped). This means MyMasjid does NOT need a daily cron like MasjidBox
-// — a periodic refresh (e.g. monthly, to catch DST/Ramadan updates
-// committees make) is enough.
+// The API returns a FULL YEAR of data per mosque (366 day/month entries,
+// no year attached). We only WRITE a rolling 90-day-ahead window of that
+// to D1, not all 365 days — writing the full year for all 553 mosques
+// (~200k rows) blew the D1 free tier's 100,000-rows-written/day cap in a
+// single Sunday run. 90 days keeps a full cycle (553 mosques) to roughly
+// 50k rows written even if it all lands in one day, with headroom for
+// MasjidBox's daily ~2.4k rows on top.
+//
+// Committee times are fixed almost all year (change only around DST
+// shifts and Ramadan — see jamaah-data-accuracy-plan), so this does NOT
+// need a daily or even weekly cron. Run it MONTHLY. A 90-day window
+// refreshed monthly always covers 2-3 months ahead, which is enough
+// lead time to catch any committee update.
 //
 // KNOWN LIMITATION: some mosques (e.g. Collier Row) exist on BOTH MyMasjid
 // and MasjidBox. This script writes MyMasjid rows keyed by MyMasjid's own
@@ -38,7 +45,7 @@ const API_BASE = "https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimi
 const EXCLUDED_MOSQUES = new Set(); // matched by name below if ever needed
 const EXCLUDED_NAME_MATCH = "imamia"; // safety net, case-insensitive substring
 const DELAY_MS = 200; // politeness delay between requests
-const YEAR = 2026;
+const WINDOW_DAYS = 90; // rolling forward window written to D1 (see header note)
 
 const MYMASJID_MOSQUES = [
   { guid: "1472725f-a243-422c-afe0-ea1be35183c2", name: "Masjid Abdulhamid Han" },
@@ -600,14 +607,31 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// day/month (no year) -> ISO date string for YEAR, or null if invalid
-// (e.g. Feb 29 in a non-leap year)
-function dayMonthToIso(day, month) {
-  const isLeap = (YEAR % 4 === 0 && YEAR % 100 !== 0) || YEAR % 400 === 0;
-  if (month === 2 && day === 29 && !isLeap) return null;
-  const d = new Date(Date.UTC(YEAR, month - 1, day));
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null; // guards any other invalid combo
-  return d.toISOString().slice(0, 10);
+// day/month (no year) -> ISO date string, resolved against the NEXT
+// occurrence of that day/month from today (rolls into next year once
+// this year's date has passed), or null if invalid (e.g. Feb 29 in a
+// non-leap year) or outside the WINDOW_DAYS forward window.
+function dayMonthToIso(day, month, today) {
+  const tryYear = (y) => {
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    if (month === 2 && day === 29 && !isLeap) return null;
+    const d = new Date(Date.UTC(y, month - 1, day));
+    if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null; // invalid combo
+    return d;
+  };
+
+  const todayMidnight = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const windowEnd = todayMidnight + WINDOW_DAYS * 86400000;
+
+  // Try this year first, then next year (handles the wrap at year-end).
+  let candidate = tryYear(today.getUTCFullYear());
+  if (!candidate || candidate.getTime() < todayMidnight) {
+    candidate = tryYear(today.getUTCFullYear() + 1);
+  }
+  if (!candidate) return null;
+  if (candidate.getTime() < todayMidnight || candidate.getTime() > windowEnd) return null; // outside the rolling window
+
+  return candidate.toISOString().slice(0, 10);
 }
 
 const UPSERT_SQL = `
@@ -635,6 +659,7 @@ export async function onRequestGet(context) {
   const start = parseInt(url.searchParams.get("start") || "0", 10);
   const end = parseInt(url.searchParams.get("end") || "30", 10);
   const nowIso = new Date().toISOString();
+  const today = new Date(); // reference point for the 90-day rolling window
 
   const results = { processed: [], failed: [], skipped: [], recordsSaved: 0 };
 
@@ -661,8 +686,8 @@ export async function onRequestGet(context) {
 
       const statements = [];
       for (const day of timings) {
-        const dateIso = dayMonthToIso(day.day, day.month);
-        if (!dateIso) continue; // e.g. Feb 29 in non-leap year
+        const dateIso = dayMonthToIso(day.day, day.month, today);
+        if (!dateIso) continue; // outside the 90-day window, or e.g. Feb 29 in non-leap year
 
         statements.push(
           env.DB.prepare(UPSERT_SQL).bind(
