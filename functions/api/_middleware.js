@@ -37,27 +37,25 @@
 // wwp_session cookie's SameSite=Strict attribute — this check is
 // defense-in-depth on top of that, not a replacement for it.)
 //
-// Rate limiting: a counter in KV, keyed by IP and time-bucketed. Uses
-// the RATE_LIMIT KV binding — create it in the Cloudflare dashboard
-// (Workers & Pages > KV > Create namespace, name it RATE_LIMIT) and add
-// the binding to wrangler.toml:
+// Rate limiting: GENERAL per-IP rate limiting on ordinary /api/* traffic
+// now happens at the Cloudflare edge via native Rate Limiting Rules
+// (Security > WAF > Rate limiting rules in the dashboard), NOT KV.
+// Reason: the old approach wrote a KV counter on every single request
+// with no sampling, and the KV free tier caps out at 1,000 writes/day —
+// normal site traffic blew through that in hours. Native Rate Limiting
+// Rules run at the edge with atomic counting and cost zero KV quota.
 //
-//   [[kv_namespaces]]
-//   binding = "RATE_LIMIT"
-//   id = "<the id Cloudflare gives you>"
+// >>> ACTION NEEDED IN CLOUDFLARE DASHBOARD (one-time, ~2 min): <<<
+// Security > WAF > Rate limiting rules > Create rule
+//   - Match: URI Path starts with /api/  (exclude /api/admin/ — that
+//     one keeps its own KV-based limiter below, it's low volume)
+//   - Rate: 300 requests per 5 minutes, per IP
+//   - Action: Block for 5 minutes
+// This replaces exactly what the old KV code below used to do.
 //
-// Every request writes its count (no sampling) so the cap is exact
-// rather than approximate. Worth knowing this still isn't a perfectly
-// airtight limiter: Workers KV is eventually consistent (writes can
-// take up to ~60s to be visible at every edge location), so a genuinely
-// distributed burst hitting many Cloudflare PoPs at once in that window
-// could still slip past the count before it catches up. If this site
-// ever sees real abuse (or just real growth) at the KV free tier's
-// 1,000-writes/day ceiling, the correct next step is Cloudflare's
-// native Rate Limiting Rules (Security > WAF > Rate limiting rules in
-// the dashboard) — those run at the edge with proper atomic counting
-// and don't have this consistency gap. That's a dashboard config
-// change, not something this file can do on its own.
+// KV is still used for: the honeypot ban check (a READ, cheap), and the
+// admin/sensitive/upload limiters below — all low-volume enough to stay
+// well under the 1,000-writes/day KV cap.
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 const BAD_UA_RE = /curl|wget|python-requests|python-urllib|scrapy|go-http-client|okhttp|libwww-perl|java\/|axios\/|node-fetch|postmanruntime|httpclient|apache-httpclient/i;
@@ -67,8 +65,6 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-const RATE_LIMIT_MAX = 300;        // normal /api/* routes: max requests
-const RATE_LIMIT_WINDOW = 300;     // per this many seconds (5 min bucket — fewer KV keys/day)
 const ADMIN_RATE_LIMIT_MAX = 10;   // admin-secret-protected routes: much
 const ADMIN_RATE_LIMIT_WINDOW = 60; // stricter — this is what stops
                                      // someone brute-forcing the secret.
@@ -198,17 +194,8 @@ export async function onRequest(context) {
     });
   }
 
-  // --- Rate limit (per IP) ---
-  {
-    const bucket = Math.floor(Date.now() / (RATE_LIMIT_WINDOW * 1000));
-    const ok = await checkRateLimit(env, `rl:${ip}:${bucket}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
-    if (!ok) {
-      return new Response(JSON.stringify({ error: 'Too many requests' }), {
-        status: 429,
-        headers: { 'Content-Type': 'application/json', 'Retry-After': String(RATE_LIMIT_WINDOW) }
-      });
-    }
-  }
+  // General per-IP rate limit now runs at the Cloudflare edge (native
+  // Rate Limiting Rules — see comment above). Nothing to do here.
 
   // --- Extra, tighter limit for low-volume/high-abuse-value routes ---
   // (on top of the general per-IP limit above, not instead of it)
