@@ -187,3 +187,46 @@
   white-space: nowrap;
 }
 .mq-directions-link:hover { text-decoration: underline; }
+
+/* ============================================================
+   FIND A MOSQUE :: "Explore Alternatives" plan card (replaces the
+   old nationwide list/By Time/By Area/postcode-search views). One
+   card: a header, then a Primary mosque row plus up to two Backup
+   rows. Re-uses .mq-usual-btn / .mq-reset-all-btn from above.
+   ============================================================ */
+.mq-plan-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:var(--shadow);}
+.mq-plan-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;}
+.mq-plan-icon{flex:none;width:40px;height:40px;border-radius:50%;background:var(--coral-soft);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.mq-plan-header h2{font-size:16.5px;font-weight:800;color:var(--text);margin:0 0 3px;}
+.mq-plan-header p{font-size:12.5px;color:var(--text-dim);line-height:1.45;margin:0;}
+.mq-plan-rows{display:flex;flex-direction:column;gap:10px;}
+.mq-plan-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--surface-alt, var(--cream));border:1px solid var(--border);}
+.mq-plan-row.is-primary{border-color:var(--coral);background:var(--coral-soft);}
+.mq-plan-row-icon{flex:none;font-size:15px;color:var(--coral);}
+.mq-plan-row-main{flex:1;min-width:0;}
+.mq-plan-row-name{font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;gap:6px;}
+.mq-plan-row-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--coral);color:#fff;}
+.mq-plan-row.is-primary .mq-plan-row-tag{background:var(--coral-dark);}
+.mq-plan-row:not(.is-primary) .mq-plan-row-tag{background:var(--text-faint);}
+.mq-plan-row-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.mq-plan-row-main .mq-usual-btn{display:block;margin-top:4px;}
+.mq-plan-chip{flex:none;text-align:right;background:var(--coral-soft);border-radius:12px;padding:6px 10px;}
+.mq-plan-chip-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--coral-dark);}
+.mq-plan-chip-time{font-size:12.5px;font-weight:800;color:var(--coral-dark);}
+.mq-plan-expanded-note{font-size:11.5px;color:var(--text-dim);text-align:center;margin-top:10px;}
+
+/* Empty / locate-prompt state */
+.mq-plan-empty{text-align:center;padding:32px 20px;}
+.mq-plan-empty .mq-plan-icon{margin:0 auto 12px;width:48px;height:48px;font-size:22px;}
+.mq-plan-empty h2{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.mq-plan-empty p{font-size:13px;color:var(--text-dim);max-width:340px;margin:0 auto;line-height:1.5;}
+.mq-plan-retry-btn{margin-top:14px;background:var(--coral);color:#fff;border:none;border-radius:12px;padding:10px 20px;font-size:13.5px;font-weight:700;cursor:pointer;}
+.mq-plan-retry-btn:hover{background:var(--coral-dark);}
+
+/* Skeleton loading state */
+.mq-plan-skeleton .mq-plan-row-icon{opacity:.3;}
+.mq-skel-line{height:12px;border-radius:6px;background:linear-gradient(90deg, var(--border) 25%, var(--surface-alt, var(--cream)) 50%, var(--border) 75%);background-size:200% 100%;animation:mq-shimmer 1.4s ease-in-out infinite;}
+.mq-skel-name{width:60%;margin-bottom:6px;}
+.mq-skel-sub{width:40%;height:10px;}
+.mq-skel-chip{flex:none;width:56px;height:32px;border-radius:12px;background:linear-gradient(90deg, var(--border) 25%, var(--surface-alt, var(--cream)) 50%, var(--border) 75%);background-size:200% 100%;animation:mq-shimmer 1.4s ease-in-out infinite;}
+@keyframes mq-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
