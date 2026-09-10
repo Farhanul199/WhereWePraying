@@ -161,8 +161,8 @@
           <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(entry.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>
         </div>
         <div class="mq-plan-chip">
-          <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}</div>
-          <div class="mq-plan-chip-time">in ${entry.jamaahInMinutes} min</div>
+          <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}${entry.isTomorrow ? ' · tomorrow' : ''}</div>
+          <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : 'in ' + entry.jamaahInMinutes + ' min'}</div>
         </div>
       </div>`;
   }
