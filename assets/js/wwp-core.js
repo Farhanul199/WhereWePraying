@@ -257,12 +257,34 @@ const FEATURE_MODULES = {
 const loadedModules = new Set();
 const loadingModules = {};
 
+const loadingStylesheets = {};
+
 function loadCss(href){
-  if(document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return;
+  const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+  if(existing){
+    // A stylesheet link may already exist but still be loading. Wait for it
+    // instead of treating its mere presence as "ready".
+    if(existing.sheet) return Promise.resolve();
+    if(loadingStylesheets[href]) return loadingStylesheets[href];
+    loadingStylesheets[href] = new Promise((resolve)=>{
+      existing.addEventListener('load', resolve, {once:true});
+      existing.addEventListener('error', resolve, {once:true});
+      // Cached/very fast stylesheets can finish before listeners attach.
+      if(existing.sheet) resolve();
+    });
+    return loadingStylesheets[href];
+  }
+
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = href;
+  const promise = new Promise((resolve)=>{
+    link.addEventListener('load', resolve, {once:true});
+    link.addEventListener('error', resolve, {once:true});
+  });
+  loadingStylesheets[href] = promise;
   document.head.appendChild(link);
+  return promise;
 }
 function loadScript(src){
   return new Promise((resolve, reject)=>{
@@ -283,7 +305,10 @@ function loadFeature(id){
     if(mod.deps){
       for(const dep of mod.deps){ await loadFeature(dep); }
     }
-    (mod.css||[]).forEach(loadCss);
+    // CSS and JS are both part of the feature's readiness contract.
+    // Do not mark the module ready until every stylesheet has loaded and
+    // every script has executed.
+    await Promise.all((mod.css||[]).map(loadCss));
     for(const src of (mod.js||[])){ await loadScript(src); }
     loadedModules.add(id);
   })();
@@ -499,30 +524,166 @@ window.__WWP_guideSectionReady = function(){
   new ResizeObserver(syncHeaderHeight).observe(header);
 })();
 
-function switchPage(id, opts){
+/* ============================================================
+   ROUTER TRANSITION CONTROL :: destination pages stay hidden until
+   their lazy feature bundle is genuinely ready. The old flow exposed
+   the page first and loaded its CSS/JS afterwards, which caused the
+   brief raw/un-styled HTML flash. The router now owns the reveal:
+       navigation -> loader -> feature CSS/JS -> paint -> reveal
+   A transition token prevents an older slow navigation from revealing
+   the wrong page after the user has already moved somewhere else.
+   ============================================================ */
+const ROUTER_BOOT_ID = 'bootLoader';
+let __routerTransitionToken = 0;
+let __routerLoaderReady = false;
+let __routerLoaderObserver = null;
+
+function routerCreateLoader(){
+  const el = document.createElement('div');
+  el.id = ROUTER_BOOT_ID;
+  el.innerHTML = '<img src="/assets/logo.png" alt="" width="56" height="56">';
+  el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#FBF3EC;display:flex;align-items:center;justify-content:center;transition:opacity .25s ease;';
+  const img = el.querySelector('img');
+  if(img){
+    img.style.cssText = 'width:56px;height:56px;animation:wwpRouterBootPulse 1.1s ease-in-out infinite;mix-blend-mode:multiply;';
+  }
+  return el;
+}
+
+function routerEnsureLoader(){
+  let el = document.getElementById(ROUTER_BOOT_ID);
+  if(!el){
+    el = routerCreateLoader();
+    if(document.body) document.body.appendChild(el);
+  }
+  if(el){
+    el.classList.remove('hide');
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+  }
+  return el;
+}
+
+function routerHideLoader(){
+  const el = document.getElementById(ROUTER_BOOT_ID);
+  if(!el) return;
+  el.classList.add('hide');
+  el.style.opacity = '0';
+  el.style.pointerEvents = 'none';
+  setTimeout(()=>{
+    if(__routerLoaderReady && el.classList.contains('hide')) el.remove();
+  },300);
+}
+
+function routerWaitForPaint(){
+  return new Promise(resolve=>{
+    requestAnimationFrame(()=>requestAnimationFrame(resolve));
+  });
+}
+
+/*
+ * index.html currently contains the original short boot-loader timeout.
+ * This observer keeps the same loader alive until the router has finished
+ * preparing the initial route, so the old timer cannot expose an
+ * unfinished lazy page.
+ */
+function routerWatchBootLoader(){
+  if(!document.body || __routerLoaderObserver) return;
+  __routerLoaderObserver = new MutationObserver(function(mutations){
+    if(__routerLoaderReady) return;
+    let restore = false;
+    for(const mutation of mutations){
+      if(mutation.type === 'childList'){
+        for(const node of mutation.removedNodes){
+          if(node.nodeType === 1 && node.id === ROUTER_BOOT_ID){
+            restore = true;
+            break;
+          }
+        }
+      }else if(mutation.type === 'attributes' && mutation.target &&
+                mutation.target.id === ROUTER_BOOT_ID){
+        if(mutation.target.classList.contains('hide') ||
+           mutation.target.style.opacity === '0'){
+          restore = true;
+          break;
+        }
+      }
+      if(restore) break;
+    }
+    if(restore) routerEnsureLoader();
+  });
+  __routerLoaderObserver.observe(document.body,{
+    childList:true,
+    subtree:true,
+    attributes:true,
+    attributeFilter:['class','style']
+  });
+}
+
+async function prepareAndShowPage(id, token){
+  routerEnsureLoader();
+  __routerLoaderReady = false;
+
+  try{
+    await loadFeature(id);
+    await routerWaitForPaint();
+  }catch(e){
+    // If a feature fails, still reveal the destination rather than
+    // leaving the user permanently behind the loading screen.
+  }
+
+  if(token !== __routerTransitionToken) return false;
+
+  const activePage = document.getElementById('page-'+id);
+  if(!activePage) return false;
+
+  activePage.classList.remove('hidden');
+
+  const pageHero = activePage.querySelector('img');
+  if(pageHero && pageHero.getAttribute('loading') === 'lazy'){
+    pageHero.setAttribute('loading','eager');
+    pageHero.setAttribute('fetchpriority','high');
+  }
+
+  activePage.classList.add('page-enter');
+  void activePage.offsetWidth;
+  requestAnimationFrame(()=> activePage.classList.remove('page-enter'));
+
+  await routerWaitForPaint();
+
+  if(token !== __routerTransitionToken) return false;
+
+  __routerLoaderReady = true;
+  routerHideLoader();
+  return true;
+}
+
+async function switchPage(id, opts){
   opts = opts || {};
   if(!PAGES.includes(id)) id = 'home';
 
+  const token = ++__routerTransitionToken;
+  __routerLoaderReady = false;
+  routerEnsureLoader();
+
+  // Hide everything immediately. The destination is deliberately not
+  // revealed until its CSS + JS bundle has finished loading.
   PAGES.forEach(p=>{
-    document.getElementById('page-'+p).classList.toggle('hidden', p!==id);
+    const page = document.getElementById('page-'+p);
+    if(page) page.classList.toggle('hidden', p!==id);
   });
+
   const activePage = document.getElementById('page-'+id);
   if(activePage){
-    // Promote only the first image of the page that is actually being
-    // viewed. Hidden SPA pages keep their artwork lazy, saving bandwidth
-    // on the common home-page entry path.
+    // Do this before waiting for the feature so the browser can begin
+    // fetching the hero image while the page itself remains covered.
     const pageHero = activePage.querySelector('img');
     if(pageHero && pageHero.getAttribute('loading') === 'lazy'){
       pageHero.setAttribute('loading','eager');
       pageHero.setAttribute('fetchpriority','high');
     }
-    activePage.classList.add('page-enter');
-    // Force a reflow so the browser registers the 'page-enter' start
-    // state before we remove it — otherwise the transition is skipped
-    // because both class changes land in the same paint frame.
-    void activePage.offsetWidth;
-    requestAnimationFrame(()=> activePage.classList.remove('page-enter'));
   }
+
   document.querySelectorAll('.nav a[data-page], .nav button[data-page], .bottom-nav a[data-page]').forEach(a=>{
     a.classList.toggle('active', a.dataset.page===id);
   });
@@ -533,19 +694,10 @@ function switchPage(id, opts){
   const guideSlug = (id === 'guides') ? opts.guide : null;
   updateSEOTags(id, guideSlug);
 
-  // Only ask the Guides section to select a guide if this navigation
-  // actually specifies one AND it isn't already the selected guide —
-  // selectGuide() and WWP_openGuide() both route back through here,
-  // so without this guard a guide-select would loop back into itself.
   if(id === 'guides' && guideSlug && window.__WWP_currentGuide !== guideSlug){
     openGuideWhenReady(guideSlug);
   }
 
-  // Update the address bar unless this call originated from a
-  // popstate event (browser back/forward) or from the guide-select
-  // handler itself (which manages its own URL), which already
-  // reflect the URL the user navigated to — pushing again would
-  // break history or fight with that other code.
   if(!opts.fromPopState && !opts.skipHistory){
     const path = (id === 'guides' && guideSlug) ? '/guides/'+guideSlug : (ROUTES[id]||ROUTES.home).path;
     if(location.pathname !== path){
@@ -555,24 +707,39 @@ function switchPage(id, opts){
 
   window.scrollTo({top:0, behavior:'auto'});
 
-  // Lets sections load their own data whenever they become the visible
-  // page — not just on a nav-link click. Direct loads/refreshes and
-  // popstate (back/forward) call switchPage() directly, so anything
-  // that only listened for nav clicks (e.g. Community Ideas) would
-  // silently never fetch its data on those paths.
+  const shown = await prepareAndShowPage(id, token);
+  if(!shown) return;
+
+  // This event now means "the page is actually ready and visible".
+  // Feature code may safely use the DOM here. Lazy loading no longer
+  // starts from this event, because it already happened before reveal.
   window.dispatchEvent(new CustomEvent('wwp-page-shown', {detail:{id:id}}));
 }
 window.switchPage = switchPage;
 
-// Kick off lazy-loading a page's feature bundle the moment it's shown —
-// including the very first page shown on load, since the initialRoute()
-// call at the bottom of this file also goes through switchPage() and
-// therefore fires this same event.
-window.addEventListener('wwp-page-shown', (e)=>{
-  if(e.detail && e.detail.id) window.WWP_loadFeature(e.detail.id).catch(()=>0);
-});
+// Start the transition system as soon as the DOM exists. The existing
+// index.html loader is reused rather than introducing a second visual.
+function initRouterTransitionGuard(){
+  if(!document.body) return;
+  routerWatchBootLoader();
 
-// Browser back/forward support.
+  const initialPages = Array.from(document.querySelectorAll('[id^="page-"]'));
+  initialPages.forEach(page=>page.classList.add('hidden'));
+
+  const style = document.createElement('style');
+  style.textContent =
+    '@keyframes wwpRouterBootPulse{0%,100%{opacity:.5;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}' +
+    '#bootLoader.hide{opacity:0!important;pointer-events:none!important}';
+  document.head.appendChild(style);
+}
+if(document.body){
+  initRouterTransitionGuard();
+}else{
+  document.addEventListener('DOMContentLoaded', initRouterTransitionGuard, {once:true});
+}
+
+// Browser back/forward support. switchPage() now owns the transition
+// and keeps the destination hidden until it is ready.
 window.addEventListener('popstate', (e)=>{
   const fromState = e.state;
   if(fromState && fromState.page){
