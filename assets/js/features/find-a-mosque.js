@@ -72,15 +72,35 @@
     }
   }
 
-  // GPS first, same-origin Cloudflare edge-geo fallback (no third-party
-  // call, no extra cost). Resolves {lat, lon} or null — never throws,
-  // callers just treat null as "couldn't find you."
-  async function detectLocation(){
-    if (window.Platform && typeof window.Platform.getLocation === 'function') {
-      try {
-        return await window.Platform.getLocation(LOCATION_OPTS);
-      } catch (e) { /* denied, unsupported, or timed out — fall through */ }
-    }
+  // Precise GPS needs the browser's native permission prompt, and on
+  // several mobile browsers (notably iOS Safari) that prompt is
+  // silently swallowed unless the request is fired from a direct user
+  // tap — a request made automatically on page load, with no click
+  // behind it, just fails with no dialog ever appearing. So the order
+  // here is deliberately NOT "try GPS, fall back if it fails":
+  //
+  // 1. SILENT GPS — only if this device already granted location
+  //    permission in an earlier visit (checked via the Permissions
+  //    API before calling anything). No prompt shown, resolves fast.
+  // 2. SAME-ORIGIN EDGE GEO (/api/geo) — reads Cloudflare's own
+  //    per-request geo data (from the visitor's IP). No permission
+  //    dialog at all, works for virtually everyone immediately. Less
+  //    precise than GPS (nearest town, not exact street), but easily
+  //    good enough to pick a mosque within a few miles.
+  // 3. ACTIVE GPS — only offered as a button in the "we need your
+  //    location" state (renderLocatePrompt), never called
+  //    automatically. A real tap behind it means the permission
+  //    prompt reliably appears everywhere, including iOS Safari.
+  async function silentGpsLocation(){
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) return null;
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      if (status.state !== 'granted') return null;
+      return await window.Platform.getLocation(LOCATION_OPTS);
+    } catch (e) { return null; }
+  }
+
+  async function edgeGeoLocation(){
     try {
       const res = await fetchWithTimeout('/api/geo', { cache: 'no-store' }, 3000);
       if (res.ok) {
@@ -89,6 +109,25 @@
       }
     } catch (e) { /* offline, or function not deployed — give up */ }
     return null;
+  }
+
+  async function detectLocation(){
+    if (window.Platform && typeof window.Platform.getLocation === 'function') {
+      const silent = await silentGpsLocation();
+      if (silent) return silent;
+    }
+    return await edgeGeoLocation();
+  }
+
+  // Only called from a real button tap (see renderLocatePrompt) — safe
+  // to request precise GPS directly here, prompt or no prompt.
+  async function requestActiveLocation(){
+    if (window.Platform && typeof window.Platform.getLocation === 'function') {
+      try {
+        return await window.Platform.getLocation(LOCATION_OPTS);
+      } catch (e) { /* denied or timed out — fall through */ }
+    }
+    return await edgeGeoLocation();
   }
 
   async function fetchPlan(lat, lon){
@@ -132,9 +171,21 @@
         <span class="mq-plan-icon" aria-hidden="true">📍</span>
         <h2>We need your location</h2>
         <p>Turn on location for this site to see nearby mosques and whether you can still make it in time.</p>
-        <button type="button" id="mqRetryLocation" class="mq-plan-retry-btn">Try again</button>
+        <button type="button" id="mqRetryLocation" class="mq-plan-retry-btn">Enable location</button>
       </div>`;
-    document.getElementById('mqRetryLocation')?.addEventListener('click', loadPlan);
+    document.getElementById('mqRetryLocation')?.addEventListener('click', async () => {
+      renderSkeleton();
+      const loc = await requestActiveLocation();
+      if (!loc) { renderLocatePrompt(); return; }
+      mqLastLocation = loc;
+      try {
+        const plan = await fetchPlan(loc.lat, loc.lon);
+        renderPlan(plan);
+        writeCachedPlan(loc.lat, loc.lon, plan);
+      } catch (e) {
+        renderLocatePrompt();
+      }
+    });
   }
 
   function renderNote(note){
