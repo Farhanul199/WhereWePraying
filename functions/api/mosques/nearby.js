@@ -164,8 +164,15 @@ export async function onRequestGet(context) {
 
   const lat = parseFloat(url.searchParams.get("lat"));
   const lon = parseFloat(url.searchParams.get("lon"));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return new Response(JSON.stringify({ error: "lat and lon query params required" }), {
+  // Sanity-bound the input before it touches anything — radius and
+  // result limit are fixed constants above (never read from the
+  // query string), so the only untrusted input here is lat/lon. A
+  // garbage or out-of-range value would otherwise sail through to the
+  // D1 query / distance math instead of failing fast and free.
+  const validLat = Number.isFinite(lat) && lat >= -90 && lat <= 90;
+  const validLon = Number.isFinite(lon) && lon >= -180 && lon <= 180;
+  if (!validLat || !validLon) {
+    return new Response(JSON.stringify({ error: "lat and lon must be valid coordinates" }), {
       status: 400, headers: { "Content-Type": "application/json" },
     });
   }
