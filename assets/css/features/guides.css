@@ -93,9 +93,8 @@
   margin-bottom: 1.2rem; 
   line-height: 1.5;
 }
-.guide-card {
-  cursor: pointer;
-}
+.guide-card { cursor: pointer; }
+
 @media (max-width: 768px) {
   .guides-grid { grid-template-columns: 1fr; }
   .guide-card { padding: 1.2rem; }
@@ -203,15 +202,88 @@
   #page-guides .g-stats{grid-template-columns:1fr 1fr;}
   #page-guides .rakah-grid{grid-template-columns:repeat(3,1fr);}
 }
+
 @media (max-width:760px){
   #page-guides .page{padding:18px 16px 40px;}
   #page-guides .guide-header{flex-wrap:wrap;}
   #page-guides .guide-actions{width:100%;}
   #page-guides .g-stats{grid-template-columns:1fr;}
+
+  /*
+   * Guides mobile hero
+   * The HTML empty state is retained so guide selection/functionality is
+   * untouched. The existing mobile artwork is used as the visual layer.
+   * Text remains live HTML via pseudo-elements so it can resize cleanly.
+   */
+  #page-guides .guide-pane{
+    border-radius:18px;
+  }
+
+  #page-guides .guide-pane-empty{
+    position:relative;
+    min-height:430px;
+    padding:0 22px 30px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    overflow:hidden;
+    background:
+      linear-gradient(to bottom,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.02) 46%,
+        rgba(255,255,255,0.86) 68%,
+        rgba(255,255,255,0.98) 100%),
+      url('/assets/hero/guides-mobile.webp') center 18% / 100% auto no-repeat,
+      var(--surface);
+  }
+
+  #page-guides .guide-pane-empty > svg{
+    display:none !important;
+  }
+
+  #page-guides .guide-pane-empty > p{
+    position:relative;
+    z-index:2;
+    width:100%;
+    margin:0;
+    padding:0;
+    color:var(--text);
+    font-size:0;
+    line-height:1.45;
+  }
+
+  #page-guides .guide-pane-empty > p::before{
+    content:'Choose a guide to begin';
+    display:block;
+    margin-bottom:8px;
+    font-family:'Manrope',sans-serif;
+    font-size:23px;
+    line-height:1.2;
+    font-weight:800;
+    letter-spacing:-.02em;
+    color:var(--text);
+  }
+
+  #page-guides .guide-pane-empty > p::after{
+    content:'Step-by-step help for everyday acts of worship.\\A\\A“ And say,\\A My Lord, increase me in knowledge.”\\A\\AQur’an 20:114';
+    white-space:pre-line;
+    display:block;
+    font-family:'Lora',serif;
+    font-size:14px;
+    line-height:1.55;
+    font-weight:500;
+    color:var(--text-dim);
+  }
+
+  /* Peach emphasis matching the approved welcome artwork */
+  #page-guides .guide-pane-empty > p::first-line{
+    color:var(--coral);
+  }
 }
 
-
-#page-guides .guides-layout { display: block !important; }
-#page-guides .guide-sidebar { display: none !important; }
-#page-guides .guides-container { width: 100%; }
-.grouped-guides { padding: 0; }
+/* Final layout safeguards from the existing Guides page */
+#page-guides .guides-layout { display:block !important; }
+#page-guides .guide-sidebar { display:none !important; }
+#page-guides .guides-container { width:100%; }
+.grouped-guides { padding:0; }
