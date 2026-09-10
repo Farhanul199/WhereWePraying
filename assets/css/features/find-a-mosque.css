@@ -213,6 +213,7 @@
 .mq-plan-chip{flex:none;text-align:right;background:var(--coral-soft);border-radius:12px;padding:6px 10px;}
 .mq-plan-chip-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--coral-dark);}
 .mq-plan-chip-time{font-size:12.5px;font-weight:800;color:var(--coral-dark);}
+.mq-plan-chip-countdown{font-size:10.5px;font-weight:600;color:var(--coral-dark);opacity:.75;margin-top:1px;}
 .mq-plan-expanded-note{font-size:11.5px;color:var(--text-dim);text-align:center;margin-top:10px;}
 
 /* Empty / locate-prompt state */
