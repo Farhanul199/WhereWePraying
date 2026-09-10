@@ -310,7 +310,8 @@
     const isFav = mqFavorites.has(r.m.slug);
     const dirUrl = directionsUrl(r.m);
     const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
-    const usualHtml = `<button type="button" class="mq-usual-btn" data-usual-slug="${escapeHtml(r.m.slug)}" data-usual-name="${escapeHtml(r.m.name)}" style="background:none;border:none;padding:0;margin-top:2px;font-size:0.8em;text-decoration:underline;cursor:pointer;">Set as my usual mosque</button>`;
+    const isUsual = getUsualMosque() === r.m.slug;
+    const usualHtml = `<button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(r.m.slug)}" data-usual-name="${escapeHtml(r.m.name)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>`;
 
     return `
       <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
@@ -1209,8 +1210,26 @@
 
     const usualBtn = e.target.closest('.mq-usual-btn');
     if (usualBtn) {
-      setUsualMosque(usualBtn.dataset.usualSlug);
-      usualBtn.textContent = 'Saved as your usual mosque ✓';
+      const slug = usualBtn.dataset.usualSlug;
+      if (getUsualMosque() === slug) {
+        clearUsualMosque();
+        usualBtn.classList.remove('is-usual');
+        usualBtn.textContent = 'Set as my usual mosque';
+      } else {
+        setUsualMosque(slug);
+        usualBtn.classList.add('is-usual');
+        usualBtn.textContent = 'Saved as your usual mosque ✓';
+        // Only one usual mosque at a time — un-mark any other card showing as saved.
+        document.querySelectorAll('.mq-usual-btn.is-usual').forEach(b => {
+          if (b !== usualBtn) { b.classList.remove('is-usual'); b.textContent = 'Set as my usual mosque'; }
+        });
+      }
+      return;
+    }
+
+    const resetAllBtn = e.target.closest('#mqResetAllBtn');
+    if (resetAllBtn) {
+      resetFindAMosqueData();
       return;
     }
 
@@ -1251,6 +1270,28 @@
       if (addr) addr.classList.toggle('hidden');
     }
   });
+
+  // "Reset everything" for this page: usual mosque, favourites, and
+  // remembered expanded groups. Favourites live server-side, so each
+  // one is un-favourited via the same toggle endpoint the heart button
+  // uses, rather than just forgotten locally.
+  async function resetFindAMosqueData(){
+    if (!confirm("Reset your usual mosque, favourites, and saved view for Find a Mosque? This can't be undone.")) return;
+    clearUsualMosque();
+    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
+    if (authState && authState.authenticated && mqFavorites.size) {
+      await Promise.all([...mqFavorites].map(slug =>
+        fetch('/api/mosques/favorites', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+          body: JSON.stringify({ mosque: slug }),
+        }).catch(() => {})
+      ));
+    }
+    mqFavorites = new Set();
+    mqExpandedGroups = new Set();
+    onMosqueShown();
+  }
 
   let mqInitialized = false;
   let mqTimer = null;
