@@ -762,6 +762,90 @@
     return mqAllMosquesCache;
   }
 
+  // Where the person is, saved so the rest of the app can use it later
+  // (nearby-mosque ranking). Postcode lookup uses postcodes.io — a
+  // free, open UK postcode service, no account or key needed.
+  const LOCATION_KEY = 'wwp_mq_location';
+  function getSavedLocation(){
+    return window.LocalCache ? window.LocalCache.get(LOCATION_KEY, null) : null;
+  }
+  function saveLocation(lat, lon, label){
+    if (window.LocalCache) window.LocalCache.set(LOCATION_KEY, { lat, lon, label, savedAt: Date.now() });
+  }
+
+  async function lookupPostcode(postcode){
+    const clean = postcode.trim().replace(/\s+/g, '');
+    if (!clean) throw new Error('Enter a postcode');
+    const res = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(clean));
+    const data = await res.json();
+    if (!res.ok || !data.result) throw new Error('Postcode not found');
+    return { lat: data.result.latitude, lon: data.result.longitude, label: data.result.postcode };
+  }
+
+  function ensureLocationBar(){
+    if (document.getElementById('mqLocationWrap')) return;
+    const list = document.getElementById('mqList');
+    if (!list || !list.parentNode) return;
+
+    const saved = getSavedLocation();
+    const wrap = document.createElement('div');
+    wrap.id = 'mqLocationWrap';
+    wrap.className = 'mq-search-wrap';
+    wrap.innerHTML = `
+      <div id="mqLocationStatus" style="font-size:0.85em;margin-bottom:4px;">
+        ${saved ? `Showing times near <strong>${escapeHtml(saved.label)}</strong> · <button type="button" id="mqLocationChange" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;">change</button>` : ''}
+      </div>
+      <div id="mqLocationForm"${saved ? ' class="hidden"' : ''} style="display:flex;gap:6px;">
+        <input type="text" id="mqPostcodeInput" class="mq-search-input" placeholder="Enter your postcode…" autocomplete="off" style="flex:1;">
+        <button type="button" id="mqPostcodeGo" class="mq-group-toggle">Go</button>
+        <button type="button" id="mqUseLocationBtn" class="mq-group-toggle">Use my location</button>
+      </div>
+    `;
+    list.parentNode.insertBefore(wrap, list);
+
+    const statusEl = wrap.querySelector('#mqLocationStatus');
+    const formEl = wrap.querySelector('#mqLocationForm');
+    const input = wrap.querySelector('#mqPostcodeInput');
+
+    function showSaved(loc){
+      statusEl.innerHTML = `Showing times near <strong>${escapeHtml(loc.label)}</strong> · <button type="button" id="mqLocationChange" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;">change</button>`;
+      formEl.classList.add('hidden');
+    }
+
+    wrap.querySelector('#mqPostcodeGo').addEventListener('click', async () => {
+      try {
+        const loc = await lookupPostcode(input.value);
+        saveLocation(loc.lat, loc.lon, loc.label);
+        showSaved(loc);
+      } catch (e) {
+        statusEl.textContent = "Couldn't find that postcode — check it and try again.";
+      }
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') wrap.querySelector('#mqPostcodeGo').click();
+    });
+
+    wrap.querySelector('#mqUseLocationBtn').addEventListener('click', () => {
+      if (!navigator.geolocation) { statusEl.textContent = 'Location not supported on this device.'; return; }
+      statusEl.textContent = 'Getting your location…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, label: 'your location' };
+          saveLocation(loc.lat, loc.lon, loc.label);
+          showSaved(loc);
+        },
+        () => { statusEl.textContent = 'Could not get your location — try entering a postcode instead.'; }
+      );
+    });
+
+    statusEl.addEventListener('click', (e) => {
+      if (e.target.closest('#mqLocationChange')) {
+        formEl.classList.remove('hidden');
+        statusEl.innerHTML = '';
+      }
+    });
+  }
+
   function ensureSearchBar(){
     if (document.getElementById('mqSearchWrap')) return;
     const list = document.getElementById('mqList');
@@ -1287,6 +1371,7 @@
 
   function onMosqueShown(){
     mqInitialized = true;
+    ensureLocationBar();
     ensureSearchBar();
     ensureViewToggle();
     clearInterval(mqTimer);
