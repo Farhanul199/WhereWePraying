@@ -1,0 +1,70 @@
+/* WhereWePraying Guides mobile hero
+   Add this stylesheet after guides.css in index.html. */
+
+#page-guides .wwp-mobile-hero-copy{display:none}
+
+@media (max-width:760px){
+  #page-guides .qh-hero{
+    position:relative;
+    display:block;
+    margin:0 -16px 18px;
+    min-height:360px;
+    overflow:hidden;
+    border-radius:18px;
+    background:#FBF3EC url('/assets/hero/guides-mobile.webp') center top/cover no-repeat;
+  }
+
+  #page-guides .qh-hero-art{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+  }
+
+  #page-guides .qh-hero-art img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center top;
+    filter:none;
+    content:url('/assets/hero/guides-mobile.webp');
+  }
+
+  /* Soft lower fade keeps the writing readable without hiding the artwork. */
+  #page-guides .qh-hero::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:linear-gradient(180deg,rgba(251,243,236,0) 42%,rgba(251,243,236,.10) 54%,rgba(251,243,236,.92) 100%);
+    pointer-events:none;
+  }
+
+  /* We use CSS-generated copy so no index.html edit is required. */
+  #page-guides .qh-hero::before{
+    content:'Choose a guide to begin\A Step-by-step help for everyday acts of worship.';
+    white-space:pre-line;
+    position:absolute;
+    z-index:2;
+    left:20px;
+    right:20px;
+    bottom:78px;
+    text-align:center;
+    color:#211C19;
+    font-family:'Manrope',sans-serif;
+    font-size:24px;
+    line-height:1.16;
+    font-weight:800;
+    letter-spacing:-.025em;
+    pointer-events:none;
+  }
+
+  /* The exact italic/coral treatment for “guide” is handled by the existing desktop
+     markup when available. This compact mobile copy keeps the same visual hierarchy. */
+  #page-guides .qh-hero .page-head{display:none}
+
+  #page-guides .qh-hero-art + .page-head::after{display:none}
+
+  #page-guides .qh-hero .qh-mobile-quote{display:block}
+}
