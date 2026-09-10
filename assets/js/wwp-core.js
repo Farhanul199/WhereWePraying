@@ -250,8 +250,8 @@ const FEATURE_MODULES = {
   journal: { js:['/assets/js/features/journal.js?v=3'],      css:['/assets/css/features/journal.css?v=1'] },
   dua:     { js:['/assets/js/features/dua.js?v=4'],          css:['/assets/css/features/dua.css?v=1'] },
   guides:  { js:['/assets/js/features/guides.js?v=4'],       css:['/assets/css/features/guides.css?v=1'] },
-  mosque:  { js:['/assets/js/features/find-a-mosque.js?v=6'],css:['/assets/css/features/find-a-mosque.css?v=1'] },
-  travel:  { js:['/assets/js/features/travel-mode.js?v=4'],  css:['/assets/css/features/travel-mode.css?v=2'] },
+  mosque:  { js:['/assets/js/features/find-a-mosque.js?v=7'],css:['/assets/css/features/find-a-mosque.css?v=2'] },
+  travel:  { js:['/assets/js/features/travel-mode.js?v=4'],  css:['/assets/css/features/travel-mode.css?v=3'] },
   community:{js:['/assets/js/features/community.js?v=2'],    css:['/assets/css/features/community.css?v=1'] }
 };
 const loadedModules = new Set();
