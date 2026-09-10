@@ -148,6 +148,13 @@
       </div>`;
   }
 
+  function formatMinutesUntil(mins){
+    if (mins < 60) return `in ${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m === 0 ? `in ${h}hr` : `in ${h}hr ${m}min`;
+  }
+
   function planRowHtml(entry, isPrimary){
     const label = isPrimary ? 'Primary' : 'Backup';
     const travelWord = entry.travelMode === 'walk' ? 'walk' : 'drive';
@@ -162,7 +169,7 @@
         </div>
         <div class="mq-plan-chip">
           <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}${entry.isTomorrow ? ' · tomorrow' : ''}</div>
-          <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : 'in ' + entry.jamaahInMinutes + ' min'}</div>
+          <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : formatMinutesUntil(entry.jamaahInMinutes)}</div>
         </div>
       </div>`;
   }
