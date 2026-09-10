@@ -170,6 +170,7 @@
         <div class="mq-plan-chip">
           <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}${entry.isTomorrow ? ' · tomorrow' : ''}</div>
           <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : formatMinutesUntil(entry.jamaahInMinutes)}</div>
+          ${entry.isTomorrow ? `<div class="mq-plan-chip-countdown">${formatMinutesUntil(entry.jamaahInMinutes)}</div>` : ''}
         </div>
       </div>`;
   }
@@ -190,33 +191,34 @@
         </div>
         <div class="mq-plan-rows">${rows}</div>
         ${plan.expanded ? '<div class="mq-plan-expanded-note">Widened the search area to find enough options nearby.</div>' : ''}
-        <button type="button" id="mqResetAllBtn" class="mq-reset-all-btn">Reset</button>
       </div>`;
   }
 
-  // Delegated click handler for the two small buttons rendered inside
-  // the plan card (usual-mosque toggle per row, reset at the bottom) —
-  // survives every re-render since it's bound once on the container.
+  // Delegated click handler for the usual-mosque toggle buttons rendered
+  // inside the plan card rows — survives every re-render since it's
+  // bound once on the container.
   document.getElementById('mqList')?.addEventListener('click', (e) => {
     const usualBtn = e.target.closest('.mq-usual-btn');
-    if (usualBtn) {
-      const slug = usualBtn.dataset.usualSlug;
-      if (getUsualMosque() === slug) {
-        clearUsualMosque();
-        usualBtn.classList.remove('is-usual');
-        usualBtn.textContent = 'Set as my usual mosque';
-      } else {
-        setUsualMosque(slug);
-        usualBtn.classList.add('is-usual');
-        usualBtn.textContent = 'Saved as your usual mosque ✓';
-        document.querySelectorAll('.mq-usual-btn.is-usual').forEach(b => {
-          if (b !== usualBtn) { b.classList.remove('is-usual'); b.textContent = 'Set as my usual mosque'; }
-        });
-      }
-      return;
+    if (!usualBtn) return;
+    const slug = usualBtn.dataset.usualSlug;
+    if (getUsualMosque() === slug) {
+      clearUsualMosque();
+      usualBtn.classList.remove('is-usual');
+      usualBtn.textContent = 'Set as my usual mosque';
+    } else {
+      setUsualMosque(slug);
+      usualBtn.classList.add('is-usual');
+      usualBtn.textContent = 'Saved as your usual mosque ✓';
+      document.querySelectorAll('.mq-usual-btn.is-usual').forEach(b => {
+        if (b !== usualBtn) { b.classList.remove('is-usual'); b.textContent = 'Set as my usual mosque'; }
+      });
     }
-    if (e.target.closest('#mqResetAllBtn')) resetFindAMosqueData();
   });
+
+  // The one visible "reset" control is the static button already in
+  // index.html right after #mqList ("Reset usual mosque & favourites")
+  // — not rendered by this file, just wired up here, once.
+  document.getElementById('mqResetAllBtn')?.addEventListener('click', resetFindAMosqueData);
 
   // "Reset" for this page: usual mosque + this device's cached
   // plan/location, so the next load starts completely fresh.
