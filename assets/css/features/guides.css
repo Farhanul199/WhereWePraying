@@ -142,6 +142,10 @@
 
 #page-guides .guide-pane{background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
 .guide-pane-empty{padding:70px 30px;text-align:center;color:var(--text-dim);font-size:14px;}
+.guide-empty-icon{opacity:.5;margin-bottom:10px;}
+.guide-empty-title{font-size:14px;font-weight:400;line-height:1.5;color:var(--text-dim);margin:0;}
+.guide-empty-title em{font-style:normal;color:inherit;font-weight:inherit;}
+.guide-empty-subtitle,.guide-empty-divider,.guide-empty-quote,.guide-empty-ref{display:none;}
 #page-guides .guide-header{padding:24px 26px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:16px;}
 #page-guides .guide-orn{width:48px;height:48px;border-radius:14px;background:var(--coral-soft);color:var(--coral);display:flex;align-items:center;justify-content:center;flex:none;}
 #page-guides .guide-title-wrap{flex:1;min-width:0;}
@@ -211,9 +215,9 @@
 
   /*
    * Guides mobile hero
-   * The HTML empty state is retained so guide selection/functionality is
-   * untouched. The existing mobile artwork is used as the visual layer.
-   * Text remains live HTML via pseudo-elements so it can resize cleanly.
+   * Real HTML elements (.guide-empty-content and children) carry the copy —
+   * no pseudo-element generated content. The existing mobile artwork is the
+   * visual layer via background-image.
    */
   #page-guides .guide-pane{
     border-radius:18px;
@@ -228,6 +232,7 @@
     align-items:center;
     justify-content:flex-end;
     overflow:hidden;
+    text-align:center;
     background:
       linear-gradient(to bottom,
         rgba(255,255,255,0) 0%,
@@ -238,25 +243,19 @@
       var(--surface);
   }
 
-  #page-guides .guide-pane-empty > svg{
+  #page-guides .guide-empty-icon{
     display:none !important;
   }
 
-  #page-guides .guide-pane-empty > p{
+  #page-guides .guide-empty-content{
     position:relative;
     z-index:2;
     width:100%;
-    margin:0;
-    padding:0;
-    color:var(--text);
-    font-size:0;
-    line-height:1.45;
   }
 
-  #page-guides .guide-pane-empty > p::before{
-    content:'Choose a guide to begin';
+  #page-guides .guide-empty-title{
     display:block;
-    margin-bottom:8px;
+    margin:0 0 8px;
     font-family:'Manrope',sans-serif;
     font-size:23px;
     line-height:1.2;
@@ -265,10 +264,15 @@
     color:var(--text);
   }
 
-  #page-guides .guide-pane-empty > p::after{
-    content:'Step-by-step help for everyday acts of worship.\\A\\A“ And say,\\A My Lord, increase me in knowledge.”\\A\\AQur’an 20:114';
-    white-space:pre-line;
+  #page-guides .guide-empty-title em{
+    font-style:italic;
+    font-weight:800;
+    color:var(--coral);
+  }
+
+  #page-guides .guide-empty-subtitle{
     display:block;
+    margin:0 0 14px;
     font-family:'Lora',serif;
     font-size:14px;
     line-height:1.55;
@@ -276,8 +280,31 @@
     color:var(--text-dim);
   }
 
-  /* Peach emphasis matching the approved welcome artwork */
-  #page-guides .guide-pane-empty > p::first-line{
+  #page-guides .guide-empty-divider{
+    display:block;
+    width:36px;
+    height:1px;
+    margin:0 auto 14px;
+    background:var(--border);
+  }
+
+  #page-guides .guide-empty-quote{
+    display:block;
+    margin:0 0 4px;
+    font-family:'Lora',serif;
+    font-style:italic;
+    font-size:13px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+
+  #page-guides .guide-empty-quote::before{ content:'\201C'; }
+  #page-guides .guide-empty-quote::after{ content:'\201D'; }
+
+  #page-guides .guide-empty-ref{
+    display:block;
+    font-family:'Lora',serif;
+    font-size:12px;
     color:var(--coral);
   }
 }
