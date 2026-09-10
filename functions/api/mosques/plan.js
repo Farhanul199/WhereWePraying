@@ -27,7 +27,7 @@
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const CANDIDATE_BOX_MILES = 22;
 const GRID_SIZE_DEG = 0.1;
-const CACHE_TTL_SECONDS = 600;
+const CACHE_TTL_SECONDS = 32400;
 
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
 const WALK_SPEED_MPH = 3;
