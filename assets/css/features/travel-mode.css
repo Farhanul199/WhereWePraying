@@ -4,7 +4,10 @@
    language (minimal, gradient/photographic hero, no card clutter)
    without changing the rest of WhereWePraying.
    ============================================================ */
-.nav-travel-icon{display:inline-flex!important;align-items:center;justify-content:center;padding:0 2px!important;}
+.nav-travel-icon{display:inline-flex!important;align-items:center;justify-content:center;padding:6px 2px 12px!important;margin:0;background:none;border:none;color:var(--text-dim);cursor:pointer;position:relative;-webkit-appearance:none;appearance:none;}
+.nav-travel-icon:hover{color:var(--coral);}
+.nav-travel-icon.active{color:var(--coral);}
+.nav-travel-icon.active::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;background:var(--coral);}
 .nav-travel-icon svg{display:block;}
 
 #page-travel{font-family:'Manrope',sans-serif;min-height:calc(100vh - var(--header-h,72px));}
