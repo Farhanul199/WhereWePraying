@@ -1,135 +1,45 @@
 (function(){
 /* ============================================================
-   FIND A MOSQUE :: ranked-by-Jama'ah view. A static header bar
-   lists the 5 prayer names. Below it, each mosque is its own
-   widget, ordered ascending by whichever prayer is currently
-   "live" (the earliest prayer whose last mosque + 10min buffer
-   hasn't passed yet). Mosques tied on the same time get a
-   coloured tie border. Once every mosque's Isha + buffer has
-   passed for today, ranking loops to tomorrow's Fajr.
+   FIND A MOSQUE :: "Explore Alternatives" plan view.
 
-   "By Time" / "By Area" toggle lets the person switch to a
-   region-grouped view instead (Tower Hamlets first, then other
-   regions alphabetically, each mosque listed under its region).
-   The toggle is inserted directly above the results list (NOT
-   inside the prayer header row) so it can never disturb that
-   row's own layout. Both toggle buttons and the region hide/★
-   buttons reuse the site's existing .mq-group-toggle button
-   style rather than ad-hoc CSS, so they match the rest of the
-   page. Area sections are collapsible (state remembered per
-   device). Signed-in users additionally get a "Hide" and
-   "★ Favourite" button on each region header: hidden regions
-   drop out of the list (each with a direct "Unhide" link, plus
-   a "Show N hidden areas" link to bring back all of them at
-   once), and the favourited region is always expanded regardless
-   of its collapsed state. Both sync to the account via
-   /api/mosques/region-preferences, same pattern as mosque
-   favourites — and that fetch always hits the server rather than
-   trusting a possibly-not-yet-ready client auth flag, so a page
-   refresh no longer looks like it "un-hides" everything.
+   Replaces the old nationwide ranked list / By Time / By Area /
+   postcode-search browser. The person never sees a big list — just
+   their ONE best mosque right now (Primary) plus up to TWO backup
+   mosques with later Jama'ah times in case they miss it, worked out
+   from their real location. Backed by functions/api/mosques/plan.js.
+
+   Two small things carried over from the old list view, since they
+   were built after the rewrite and are still worth keeping:
+   - "Set as my usual mosque" — a plain per-device bookmark (not a
+     mode switch like it used to be), shown as a small link under
+     each of the 3 cards.
+   - "Reset" — clears the usual-mosque bookmark and this device's
+     cached plan/location, then reloads.
+
+   Load order, cheapest-first:
+   1. Skeleton rows — paint instantly, no network wait.
+   2. Last-known plan from this device's own cache (LocalCache),
+      if recent — replaces the skeleton immediately while a fresh
+      fetch runs quietly in the background.
+   3. Real location (GPS via Platform.getLocation, falling back to
+      the same-origin /api/geo edge-geo lookup if GPS is denied,
+      unavailable, or times out) → fetch the real plan → replace
+      whatever's showing with the fresh result, and save it to
+      LocalCache for next time.
+
+   deviceHeaders, escapeHtml: shared, defined once in wwp-core.js.
    ============================================================ */
 (function(){
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
-  const PRAYER_ORDER = ['fajr','zuhr','asr','maghrib','isha'];
-  const TYPE_LABELS = {mosque:'Mosque', community_hall:'Community Hall', prayer_room:'Prayer Room'};
-  const BUFFER_MIN = 10;
-  const PINNED_REGION = 'Tower Hamlets';
-  const OTHER_AREAS_LABEL = 'Other areas';
+  const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — matches the plan endpoint's own refresh cadence
+  const REFRESH_MS = 5 * 60 * 1000;   // re-check every 5 min while the page is open
+  const PLAN_CACHE_KEY = 'wwp_mq_plan_v1';
+  const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
+  const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
 
-  // Maps known region/city names to their UK nation. Anything not
-  // listed here defaults to England, since that covers the large
-  // majority of current regions — add entries here as Scotland,
-  // Wales, or Northern Ireland coverage grows.
-  const NATION_ORDER = ['England', 'Scotland', 'Wales', 'Northern Ireland'];
-  const NATION_BY_REGION = {
-    'Glasgow': 'Scotland',
-    'Haverfordwest': 'Wales',
-  };
-  function nationFor(region){
-    return NATION_BY_REGION[region] || 'England';
-  }
+  let mqTimer = null;
+  let mqLastLocation = null; // {lat, lon} once known, reused for auto-refresh
 
-  // deviceHeaders, escapeHtml: shared, defined once in wwp-core.js — no local copy needed.
-
-  function londonNow(){
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date());
-    const get = t => parts.find(p => p.type === t)?.value;
-    return {
-      dateIso: `${get('year')}-${get('month')}-${get('day')}`,
-      minutes: parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10),
-    };
-  }
-
-  function parseTimeToMinutes(prayer, raw){
-    if (!raw) return null;
-    const cleaned = raw.replace('.', ':').trim();
-    const m = cleaned.match(/^(\d{1,2}):(\d{2})$/);
-    if (!m) return null;
-    let h = parseInt(m[1], 10);
-    const min = parseInt(m[2], 10);
-    if (prayer !== 'fajr' && h >= 1 && h <= 11) h += 12;
-    return h * 60 + min;
-  }
-
-  // The source mixes "1:30", "01:30" and 24h "13:30" for the same
-  // prayer across mosques. Always display from the already-parsed
-  // minutes-since-midnight value so every mosque renders the same
-  // 12h style (no leading zero, no stray 24h times) regardless of
-  // how the raw string was written.
-  function formatMinutes(mins){
-    if (mins == null) return '—';
-    const h = Math.floor(mins / 60) % 24;
-    const m = mins % 60;
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return h12 + ':' + String(m).padStart(2, '0');
-  }
-
-  function directionsUrl(m){
-    if (m.latitude != null && m.longitude != null) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${m.latitude}%2C${m.longitude}`;
-    }
-    if (m.address) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address)}`;
-    }
-    return null;
-  }
-
-  function addDaysIso(iso, days){
-    const d = new Date(iso + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
-  }
-
-  function isFridayIso(iso){
-    const d = new Date(iso + 'T12:00:00Z');
-    return d.getUTCDay() === 5;
-  }
-
-  // Browser memory: if we already fetched this exact date recently,
-  // reuse it instead of asking Cloudflare again. Cuts requests a lot
-  // for anyone reopening the app or switching tabs within a few minutes.
-  const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
-
-  function readCache(key){
-    if (!window.LocalCache) return null;
-    const entry = window.LocalCache.get(key, null);
-    if (!entry || !entry.savedAt) return null;
-    if (Date.now() - entry.savedAt > CACHE_TTL_MS) return null;
-    return entry.data;
-  }
-  function writeCache(key, data){
-    if (!window.LocalCache) return;
-    window.LocalCache.set(key, { data, savedAt: Date.now() });
-  }
-
-  // "Usual mosque": a person's saved go-to mosque. When set, the page
-  // shows just that one mosque's time (one small request) instead of
-  // fetching and ranking every mosque nearby every time it's opened.
-  const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug';
   function getUsualMosque(){
     return window.LocalCache ? window.LocalCache.get(USUAL_MOSQUE_KEY, null) : null;
   }
@@ -140,1074 +50,147 @@
     if (window.LocalCache) window.LocalCache.remove(USUAL_MOSQUE_KEY);
   }
 
-  async function fetchOneMosque(slug, dateIso){
-    const cacheKey = 'wwp_mq_one_' + slug + '_' + dateIso;
-    const cached = readCache(cacheKey);
-    if (cached) return cached;
-    const res = await fetch('/api/mosques/one?slug=' + encodeURIComponent(slug) + '&date=' + dateIso, { headers: deviceHeaders() });
-    if (!res.ok) throw new Error('Request failed: ' + res.status);
-    const data = await res.json();
-    writeCache(cacheKey, data.mosque);
-    return data.mosque;
+  function readCachedPlan(){
+    if (!window.LocalCache) return null;
+    const entry = window.LocalCache.get(PLAN_CACHE_KEY, null);
+    if (!entry || !entry.savedAt) return null;
+    if (Date.now() - entry.savedAt > CACHE_TTL_MS) return null;
+    return entry;
+  }
+  function writeCachedPlan(lat, lon, plan){
+    if (!window.LocalCache) return;
+    window.LocalCache.set(PLAN_CACHE_KEY, { lat, lon, plan, savedAt: Date.now() });
   }
 
-  async function fetchMosques(dateIso){
-    const cacheKey = 'wwp_mq_mosques_' + dateIso;
-    const cached = readCache(cacheKey);
-    if (cached) return cached;
-    const res = await fetch('/api/mosques/list?date=' + dateIso, { headers: deviceHeaders() });
-    if (!res.ok) throw new Error('Request failed: ' + res.status);
-    const data = await res.json();
-    const mosques = data.mosques || [];
-    writeCache(cacheKey, mosques);
-    return mosques;
-  }
-
-  async function fetchJummah(dateIso){
-    const cacheKey = 'wwp_mq_jummah_' + dateIso;
-    const cached = readCache(cacheKey);
-    if (cached) return cached;
-    const res = await fetch('/api/mosques/jummah?date=' + dateIso, { headers: deviceHeaders() });
-    if (!res.ok) throw new Error('Request failed: ' + res.status);
-    const data = await res.json();
-    const locations = data.locations || [];
-    writeCache(cacheKey, locations);
-    return locations;
-  }
-
-  // On Fridays the Dhuhr slot is served by Jummah venues (mosques,
-  // community halls, prayer rooms — any of which can run one or more
-  // Jummah slots) instead of the daily mosque list.
-  async function getDayData(prayer, dateIso){
-    if (prayer === 'zuhr' && isFridayIso(dateIso)) {
-      const locations = await fetchJummah(dateIso);
-      return { items: locations, isJummah: true };
+  async function fetchWithTimeout(url, opts, ms){
+    const controller = new AbortController();
+    const t = setTimeout(()=> controller.abort(), ms);
+    try {
+      return await fetch(url, Object.assign({}, opts, { signal: controller.signal }));
+    } finally {
+      clearTimeout(t);
     }
-    const mosques = await fetchMosques(dateIso);
-    return { items: mosques, isJummah: false };
   }
 
-  function timesFor(prayer, dayResult){
-    if (dayResult.isJummah) {
-      return dayResult.items.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
+  // GPS first, same-origin Cloudflare edge-geo fallback (no third-party
+  // call, no extra cost). Resolves {lat, lon} or null — never throws,
+  // callers just treat null as "couldn't find you."
+  async function detectLocation(){
+    if (window.Platform && typeof window.Platform.getLocation === 'function') {
+      try {
+        return await window.Platform.getLocation(LOCATION_OPTS);
+      } catch (e) { /* denied, unsupported, or timed out — fall through */ }
     }
-    return dayResult.items.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
-  }
-
-  // "Which prayer is live right now" is decided by the LATEST jamaah
-  // time across every mosque nationwide (~800+ of them, independently
-  // managed). That makes it extremely fragile to a single bad entry —
-  // a mosque committee pasting the wrong time into the wrong field
-  // (e.g. Fajr's time typed into Zuhr, or "11:30" meant as "13:30")
-  // reads as a real, very-late time for that prayer, which then wins
-  // Math.max() and breaks the live status for every visitor site-wide,
-  // not just that one mosque's listing.
-  //
-  // Guard against that with a median-absolute-deviation cutoff instead
-  // of a single fixed window: real spread differs a lot by prayer (Zuhr
-  // jamaahs across the country cluster within a couple of minutes of
-  // each other; Isha legitimately varies by an hour or more, mosque to
-  // mosque, since some pair it with a lecture or tarawih). MAD scales
-  // to each prayer's own natural spread instead of guessing one number
-  // for all five. MAD_FLOOR_MIN keeps a very tightly-clustered day
-  // (MAD ≈ 0) from flagging completely normal few-minute spread as
-  // an outlier.
-  const MAD_MULTIPLIER = 4;
-  const MAD_FLOOR_MIN = 25;
-  function robustMax(times){
-    if (!times.length) return null;
-    const sorted = [...times].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const deviations = sorted.map(t => Math.abs(t - median)).sort((a, b) => a - b);
-    const mad = deviations[Math.floor(deviations.length / 2)];
-    const threshold = Math.max(mad * MAD_MULTIPLIER, MAD_FLOOR_MIN);
-    const plausible = times.filter(t => Math.abs(t - median) <= threshold);
-    return Math.max(...(plausible.length ? plausible : times));
-  }
-
-  // Live/auto mode: finds the earliest prayer whose last mosque + buffer
-  // hasn't passed yet, cycling through the day. Loops to tomorrow's Fajr
-  // once every prayer today is done.
-  async function resolveLive(){
-    const { dateIso, minutes: nowMinutes } = londonNow();
-    const mosques = await fetchMosques(dateIso);
-    const friday = isFridayIso(dateIso);
-    const jummahLocations = friday ? await fetchJummah(dateIso) : [];
-
-    for (const prayer of PRAYER_ORDER) {
-      if (prayer === 'zuhr' && friday) {
-        const times = jummahLocations.flatMap(l => l.slots.map(s => s.minutes)).filter(t => t !== null);
-        if (!times.length) continue;
-        if (nowMinutes < robustMax(times) + BUFFER_MIN) {
-          return { items: jummahLocations, isJummah: true, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
-        }
-        continue;
+    try {
+      const res = await fetchWithTimeout('/api/geo', { cache: 'no-store' }, 3000);
+      if (res.ok) {
+        const d = await res.json();
+        if (typeof d.lat === 'number' && typeof d.lon === 'number') return { lat: d.lat, lon: d.lon };
       }
-      const times = mosques.map(m => parseTimeToMinutes(prayer, m.jamaah[prayer])).filter(t => t !== null);
-      if (!times.length) continue;
-      if (nowMinutes < robustMax(times) + BUFFER_MIN) {
-        return { items: mosques, isJummah: false, prayer, dateIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
-      }
-    }
-
-    const tomorrowIso = addDaysIso(dateIso, 1);
-    const tomorrowMosques = await fetchMosques(tomorrowIso);
-    return { items: tomorrowMosques, isJummah: false, prayer: 'fajr', dateIso: tomorrowIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
+    } catch (e) { /* offline, or function not deployed — give up */ }
+    return null;
   }
 
-  // Manual mode: shows whichever prayer the person clicked in the
-  // header. If every mosque's time for that prayer + buffer has already
-  // passed today, shows tomorrow's time instead (a prayer's time can
-  // shift day to day), keeping today's now-passed time as a small
-  // reference on each card.
-  async function resolveManual(prayer){
-    const { dateIso: todayIso, minutes: nowMinutes } = londonNow();
-    const today = await getDayData(prayer, todayIso);
-    const todayTimes = timesFor(prayer, today);
-    const donePastToday = todayTimes.length > 0 && nowMinutes >= robustMax(todayTimes) + BUFFER_MIN;
-
-    if (!donePastToday) {
-      return { ...today, prayer, dateIso: todayIso, isTomorrow: false, referenceItems: null, referenceIsJummah: false };
-    }
-
-    const tomorrowIso = addDaysIso(todayIso, 1);
-    const tomorrow = await getDayData(prayer, tomorrowIso);
-    return { ...tomorrow, prayer, dateIso: tomorrowIso, isTomorrow: true, referenceItems: today.items, referenceIsJummah: today.isJummah };
+  async function fetchPlan(lat, lon){
+    const res = await fetch(`/api/mosques/plan?lat=${lat}&lon=${lon}`, { headers: deviceHeaders() });
+    if (!res.ok) throw new Error('Request failed: ' + res.status);
+    return res.json();
   }
 
-  function renderHeader(activePrayer, dateIso){
-    const header = document.getElementById('mqPrayerHeader');
-    if (!header) return;
-    const friday = isFridayIso(dateIso);
-    header.innerHTML = PRAYER_ORDER.map(p => {
-      const label = (p === 'zuhr' && friday) ? 'Jummah' : PRAYER_LABELS[p];
-      return `<span data-prayer="${p}"${p === activePrayer ? ' class="is-active"' : ''}>${label}</span>`;
-    }).join('');
-  }
-
-  function renderCard(r, prayer, isJummah, isTomorrow, tieClass, refBySlug){
-    const initial = escapeHtml((r.m.name || '?').trim().charAt(0).toUpperCase());
-    const photoHtml = r.m.photoUrl
-      ? `<img src="${escapeHtml(r.m.photoUrl)}" alt="">`
-      : `<span class="mq-rank-photo-fallback">${initial}</span>`;
-
-    const typeBadge = isJummah
-      ? `<span class="mq-type-badge">${escapeHtml(TYPE_LABELS[r.m.type] || 'Mosque')}</span>`
-      : '';
-    const tomorrowTag = isTomorrow ? `<span class="mq-tomorrow-tag">Tomorrow</span>` : '';
-    const refMins = refBySlug.get(r.m.slug);
-    const refHtml = (isTomorrow && refMins !== undefined)
-      ? `<div class="mq-rank-ref">Today was ${formatMinutes(refMins)}</div>`
-      : '';
-
-    const metaHtml = isJummah
-      ? `<div class="mq-rank-meta">Jummah${typeBadge}${tomorrowTag}</div>
-         <div class="mq-slot-chips">${r.m.slots.map(s =>
-           `<span class="mq-slot-chip${s.minutes === r.m.firstMinutes ? ' is-first' : ''}">${formatMinutes(s.minutes)}</span>`
-         ).join('')}</div>${refHtml}`
-      : `<div class="mq-rank-meta">${PRAYER_LABELS[prayer]}${tomorrowTag}</div>${refHtml}`;
-
-    const isFav = mqFavorites.has(r.m.slug);
-    const dirUrl = directionsUrl(r.m);
-    const addressHtml = `<div class="mq-rank-address hidden">${r.m.address ? escapeHtml(r.m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
-    const isUsual = getUsualMosque() === r.m.slug;
-    const usualHtml = `<button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(r.m.slug)}" data-usual-name="${escapeHtml(r.m.name)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>`;
-
-    return `
-      <div class="mq-rank-card${tieClass}" data-slug="${escapeHtml(r.m.slug)}">
-        <div class="mq-rank-left">
-          <div class="mq-rank-photo">
-            ${photoHtml}
-            <button type="button" class="mq-fav-btn${isFav ? ' is-fav' : ''}" data-slug="${escapeHtml(r.m.slug)}" aria-label="Favourite ${escapeHtml(r.m.name)}">♥</button>
-            <button type="button" class="mq-photo-add" data-slug="${escapeHtml(r.m.slug)}" data-name="${escapeHtml(r.m.name)}" aria-label="Add a photo of ${escapeHtml(r.m.name)}">+</button>
-          </div>
-          <div style="min-width:0;flex:1;">
-            <div class="mq-rank-name">${escapeHtml(r.m.name)}</div>
-            ${metaHtml}
-            ${addressHtml}
-            ${usualHtml}
+  function renderSkeleton(){
+    const list = document.getElementById('mqList');
+    if (!list) return;
+    list.innerHTML = `
+      <div class="mq-plan-card">
+        <div class="mq-plan-header">
+          <span class="mq-plan-icon" aria-hidden="true">🕌</span>
+          <div>
+            <h2>Explore Alternatives</h2>
+            <p>See alternative mosques nearby so you can always find a place to pray.</p>
           </div>
         </div>
-        <div class="mq-rank-time">${formatMinutes(r.mins)}</div>
-      </div>`;
-  }
-
-  const DEFAULT_GROUP_VISIBLE = 3;
-  let mqLastRenderArgs = null;
-
-  function renderRankList(items, prayer, isJummah, isTomorrow, referenceItems, referenceIsJummah){
-    mqLastRenderArgs = { items, prayer, isJummah, isTomorrow, referenceItems, referenceIsJummah };
-    const list = document.getElementById('mqList');
-    const status = document.getElementById('mqStatus');
-    if (!list || !status) return;
-
-    const label = isJummah ? 'Jummah' : PRAYER_LABELS[prayer];
-    const ranked = items
-      .map(m => ({ m, mins: isJummah ? m.firstMinutes : parseTimeToMinutes(prayer, m.jamaah[prayer]) }))
-      .filter(r => r.mins !== null)
-      .sort((a, b) => a.mins - b.mins);
-
-    if (!ranked.length) {
-      list.innerHTML = '';
-      status.textContent = 'No ' + label + " Jama'ah times available right now.";
-      return;
-    }
-    status.textContent = '';
-
-    const refBySlug = new Map();
-    if (isTomorrow && referenceItems) {
-      referenceItems.forEach(m => {
-        const mins = referenceIsJummah ? m.firstMinutes : parseTimeToMinutes(prayer, m.jamaah[prayer]);
-        if (mins !== null) refBySlug.set(m.slug, mins);
-      });
-    }
-
-    // FLIP: capture current on-screen positions before re-render so the
-    // widgets can animate into their new ranked positions.
-    const before = new Map();
-    list.querySelectorAll('[data-slug]').forEach(el => before.set(el.dataset.slug, el.getBoundingClientRect()));
-
-    // Group ascending times into distinct clusters (earliest group
-    // first). Each group gets its own colour wash and, once it has
-    // more than a few mosques, only shows the first few by default so
-    // the person doesn't have to scroll through everything to see
-    // which time is next.
-    const groups = [];
-    let lastMins = null;
-    ranked.forEach(r => {
-      if (r.mins !== lastMins) { groups.push({ mins: r.mins, items: [] }); lastMins = r.mins; }
-      groups[groups.length - 1].items.push(r);
-    });
-
-    list.innerHTML = groups.map((group, groupIdx) => {
-      const groupKey = prayer + ':' + group.mins;
-      const expanded = mqExpandedGroups.has(groupKey);
-      const showCount = (group.items.length <= DEFAULT_GROUP_VISIBLE || expanded) ? group.items.length : DEFAULT_GROUP_VISIBLE;
-      const hiddenCount = group.items.length - showCount;
-      const tieClass = ` mq-tie-${groupIdx % 6}`;
-
-      const cardsHtml = group.items.slice(0, showCount)
-        .map(r => renderCard(r, prayer, isJummah, isTomorrow, tieClass, refBySlug))
-        .join('');
-
-      const toggleHtml = group.items.length > DEFAULT_GROUP_VISIBLE
-        ? `<button type="button" class="mq-group-toggle" data-group-key="${escapeHtml(groupKey)}">${expanded ? 'Show less' : 'Show ' + hiddenCount + ' more'}</button>`
-        : '';
-
-      return `
-        <div class="mq-time-group">
-          <div class="mq-time-group-header">
-            <span class="mq-time-group-time">${formatMinutes(group.mins)}</span>
-            <span class="mq-time-group-count">${group.items.length} location${group.items.length > 1 ? 's' : ''}</span>
-          </div>
-          <div class="mq-time-group-cards">${cardsHtml}</div>
-          ${toggleHtml}
-        </div>`;
-    }).join('');
-
-    list.querySelectorAll('[data-slug]').forEach(el => {
-      const prev = before.get(el.dataset.slug);
-      if (!prev) return;
-      const now = el.getBoundingClientRect();
-      const dx = prev.left - now.left, dy = prev.top - now.top;
-      if (dx || dy) {
-        el.style.transition = 'none';
-        el.style.transform = `translate(${dx}px, ${dy}px)`;
-        requestAnimationFrame(() => {
-          el.style.transition = '';
-          el.style.transform = '';
-        });
-      }
-    });
-  }
-
-  function reRenderList(){
-    if (!mqLastRenderArgs) return;
-    const a = mqLastRenderArgs;
-    renderRankList(a.items, a.prayer, a.isJummah, a.isTomorrow, a.referenceItems, a.referenceIsJummah);
-  }
-
-  /* ============================================================
-     BY AREA VIEW :: groups mosques by region instead of ranking
-     by time. Tower Hamlets is pinned first, then every other
-     region alphabetically. The same prayer tabs used in "By Time"
-     apply here too: picking a prayer (or leaving it on Live)
-     decides which time each mosque shows, in the SAME formatted
-     style as the ranked view (no more raw/inconsistent strings).
-     Mosques with no time for the active prayer are left out
-     entirely rather than shown as "Times not available", and each
-     region's mosques are sorted earliest-time-first. Sections are
-     collapsible (state remembered per device via LocalCache).
-     Signed-in users get Hide / ★ Favourite buttons on each region
-     header, synced to their account via
-     /api/mosques/region-preferences. Hidden regions drop out of
-     the list (each with a direct "Unhide" link, plus a "Show N
-     hidden areas" link for all of them at once); the favourited
-     region is always expanded.
-     ============================================================ */
-
-  const COLLAPSED_REGIONS_KEY = 'wwp_mosque_collapsed_regions';
-  let mqCollapsedRegions = new Set(
-    (window.LocalCache && window.LocalCache.get(COLLAPSED_REGIONS_KEY, [])) || []
-  );
-  const COLLAPSED_NATIONS_KEY = 'wwp_mosque_collapsed_nations';
-  let mqCollapsedNations = new Set(
-    (window.LocalCache && window.LocalCache.get(COLLAPSED_NATIONS_KEY, [])) || []
-  );
-  let mqLastAreaMosques = null;        // kept so toggling a section can re-render without refetching
-  let mqLastAreaPrayer = null;         // which prayer was actually resolved for the last render
-  let mqLastAreaIsJummah = null;       // whether that render was Jummah-slot data (Friday Dhuhr)
-  let mqHiddenRegions = new Set();     // synced from account, signed-in users only
-  let mqFavoriteRegion = null;         // synced from account, signed-in users only
-  let mqShowHiddenRegions = false;     // session-only "show all hidden areas" reveal
-
-  function saveCollapsedRegions(){
-    if (window.LocalCache) window.LocalCache.set(COLLAPSED_REGIONS_KEY, Array.from(mqCollapsedRegions));
-  }
-
-  function saveCollapsedNations(){
-    if (window.LocalCache) window.LocalCache.set(COLLAPSED_NATIONS_KEY, Array.from(mqCollapsedNations));
-  }
-
-  function toggleNationCollapsed(nation){
-    if (mqCollapsedNations.has(nation)) mqCollapsedNations.delete(nation);
-    else mqCollapsedNations.add(nation);
-    saveCollapsedNations();
-    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-  }
-
-  // Works out what time (in minutes) and which prayer label to show
-  // for a given mosque in Area view. If a specific prayer is
-  // selected, uses that mosque's time for exactly that prayer. If
-  // left on Live/auto, falls back to the mosque's own "next" prayer
-  // (as already computed server-side). Either way, returns null when
-  // no usable time exists so the mosque can be filtered out rather
-  // than shown with a placeholder.
-  // Mirrors exactly how By Time (renderRankList) reads a time off an
-  // item, so the two views can never disagree about what a given
-  // mosque's time for the resolved prayer is.
-  function computeAreaTime(m, prayer, isJummah){
-    if (!prayer) return null;
-    const mins = isJummah ? m.firstMinutes : parseTimeToMinutes(prayer, m.jamaah[prayer]);
-    return (mins === null || mins === undefined) ? null : { mins, prayer };
-  }
-
-  // Always ask the server rather than trusting the client-side auth
-  // flag here: on a fresh page load that flag can still be settling,
-  // and treating "not yet known" the same as "signed out" was wiping
-  // the hidden-regions list on every refresh. The endpoint itself
-  // still requires a valid session and returns empty defaults if not.
-  async function fetchRegionPreferences(){
-    try {
-      const res = await fetch('/api/mosques/region-preferences', { headers: deviceHeaders() });
-      if (!res.ok) { mqHiddenRegions = new Set(); mqFavoriteRegion = null; return; }
-      const data = await res.json();
-      mqHiddenRegions = new Set(data.hidden || []);
-      mqFavoriteRegion = data.favorite || null;
-    } catch (e) {
-      mqHiddenRegions = new Set();
-      mqFavoriteRegion = null;
-    }
-  }
-
-  async function toggleRegionHidden(region, btn){
-    if (btn) btn.disabled = true;
-    try {
-      const res = await fetch('/api/mosques/region-preferences', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-        body: JSON.stringify({ region, action: 'hide' }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        if (data.hidden) {
-          mqHiddenRegions.add(region);
-          // Stay collapsed if later revealed via "Show N hidden areas"
-          // rather than popping back open unexpectedly.
-          mqCollapsedRegions.add(region);
-          saveCollapsedRegions();
-        } else {
-          mqHiddenRegions.delete(region);
-        }
-        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-      }
-    } catch (e) {
-      // leave state as-is; next refresh will resync
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  async function toggleRegionFavorite(region, btn){
-    if (btn) btn.disabled = true;
-    try {
-      const res = await fetch('/api/mosques/region-preferences', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-        body: JSON.stringify({ region, action: 'favorite' }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        mqFavoriteRegion = data.favorite || null;
-        if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-      }
-    } catch (e) {
-      // leave state as-is; next refresh will resync
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  function renderAreaCard(m, computed, tieClass){
-    const initial = escapeHtml((m.name || '?').trim().charAt(0).toUpperCase());
-    const photoHtml = m.photoUrl
-      ? `<img src="${escapeHtml(m.photoUrl)}" alt="">`
-      : `<span class="mq-rank-photo-fallback">${initial}</span>`;
-    const isFav = mqFavorites.has(m.slug);
-    const dirUrl = directionsUrl(m);
-    const addressHtml = `<div class="mq-rank-address hidden">${m.address ? escapeHtml(m.address) : 'Address not added yet.'}${dirUrl ? ` <a href="${escapeHtml(dirUrl)}" target="_blank" rel="noopener" class="mq-directions-link" data-directions-link>Get directions</a>` : ''}</div>`;
-    const timeHtml = `<div class="mq-rank-meta">${PRAYER_LABELS[computed.prayer] || computed.prayer}</div>`;
-
-    return `
-      <div class="mq-rank-card${tieClass || ''}" data-slug="${escapeHtml(m.slug)}">
-        <div class="mq-rank-left">
-          <div class="mq-rank-photo">
-            ${photoHtml}
-            <button type="button" class="mq-fav-btn${isFav ? ' is-fav' : ''}" data-slug="${escapeHtml(m.slug)}" aria-label="Favourite ${escapeHtml(m.name)}">♥</button>
-            <button type="button" class="mq-photo-add" data-slug="${escapeHtml(m.slug)}" data-name="${escapeHtml(m.name)}" aria-label="Add a photo of ${escapeHtml(m.name)}">+</button>
-          </div>
-          <div style="min-width:0;flex:1;">
-            <div class="mq-rank-name">${escapeHtml(m.name)}</div>
-            ${timeHtml}
-            ${addressHtml}
-          </div>
-        </div>
-        <div class="mq-rank-time">${formatMinutes(computed.mins)}</div>
-      </div>`;
-  }
-
-  function sortRegions(regions){
-    return regions.sort((a, b) => {
-      if (a === PINNED_REGION) return -1;
-      if (b === PINNED_REGION) return 1;
-      if (a === OTHER_AREAS_LABEL) return 1;
-      if (b === OTHER_AREAS_LABEL) return -1;
-      return a.localeCompare(b);
-    });
-  }
-
-  function renderRegionHeader(region, itemCount, collapsed){
-    const chevron = collapsed ? '▸' : '▾';
-    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    const signedIn = !!(authState && authState.authenticated);
-    const isFavRegion = mqFavoriteRegion === region;
-
-    const actionsHtml = signedIn
-      ? `<span class="mq-region-actions">
-           <button type="button" class="mq-region-action${isFavRegion ? ' is-fav' : ''}" data-region-fav="${escapeHtml(region)}" aria-label="Favourite ${escapeHtml(region)} area" title="Keep this area always expanded">${isFavRegion ? '★ Favourited' : '☆ Favourite'}</button>
-           <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" aria-label="Hide ${escapeHtml(region)} area" title="Hide this area">Hide</button>
-         </span>`
-      : '';
-
-    return `
-      <div class="mq-region-header" data-region-toggle="${escapeHtml(region)}">
-        <span class="mq-region-chevron">${chevron}</span>
-        <span class="mq-region-name">${escapeHtml(region)}</span>
-        <span class="mq-region-count">${itemCount} location${itemCount > 1 ? 's' : ''}</span>
-        ${actionsHtml}
-      </div>`;
-  }
-
-  function renderAreaList(mosques, prayer, isJummah){
-    mqLastAreaMosques = mosques;
-    mqLastAreaPrayer = prayer;
-    mqLastAreaIsJummah = isJummah;
-    const list = document.getElementById('mqList');
-    const status = document.getElementById('mqStatus');
-    if (!list || !status) return;
-
-    // Annotate each mosque with its computed time for the active
-    // prayer selection, dropping any that have no usable time at all
-    // instead of showing a "not available" placeholder.
-    const withTimes = mosques
-      .map(m => ({ m, computed: computeAreaTime(m, prayer, isJummah) }))
-      .filter(r => r.computed !== null);
-
-    if (!withTimes.length) {
-      list.innerHTML = '';
-      status.textContent = 'No mosque times available for this selection right now.';
-      return;
-    }
-    status.textContent = '';
-
-    // Group by nation first, then by region within each nation.
-    const byNation = new Map();
-    withTimes.forEach(r => {
-      const region = r.m.region || 'Other';
-      const nation = nationFor(region);
-      if (!byNation.has(nation)) byNation.set(nation, new Map());
-      const byRegion = byNation.get(nation);
-      if (!byRegion.has(region)) byRegion.set(region, []);
-      byRegion.get(region).push(r);
-    });
-
-    let totalHiddenCount = 0;
-    const nationsHtml = NATION_ORDER
-      .filter(nation => byNation.has(nation))
-      .map(nation => {
-        const byRegion = byNation.get(nation);
-
-        // Regions with only one mosque get folded into a single
-        // "Other areas" catch-all (per nation) instead of each
-        // showing up as its own tiny section. The pinned region is
-        // exempt so it's never swallowed.
-        const singleItemEntries = [];
-        Array.from(byRegion.entries()).forEach(([region, items]) => {
-          if (items.length === 1 && region !== PINNED_REGION) {
-            singleItemEntries.push(items[0]);
-            byRegion.delete(region);
-          }
-        });
-        if (singleItemEntries.length > 0) {
-          byRegion.set(OTHER_AREAS_LABEL, singleItemEntries);
-        }
-
-        const allRegions = sortRegions(Array.from(byRegion.keys()));
-        const visibleRegions = allRegions.filter(r => mqShowHiddenRegions || !mqHiddenRegions.has(r));
-        const hiddenCount = allRegions.length - visibleRegions.length;
-        totalHiddenCount += hiddenCount;
-
-        const sectionsHtml = visibleRegions.map((region, regionIdx) => {
-          // Earliest time first within each region.
-          const items = byRegion.get(region).slice().sort((a, b) => a.computed.mins - b.computed.mins);
-          const isFavRegion = mqFavoriteRegion === region;
-          const collapsed = !isFavRegion && mqCollapsedRegions.has(region); // favourited region always expanded
-          // Each region gets one of the same rotating accent colours
-          // already used for tied prayer times in By Time, so mosques
-          // read as a cohesive, vibrant group rather than flat rows.
-          const tieClass = ` mq-tie-${regionIdx % 6}`;
-          const cardsHtml = items.map(r => renderAreaCard(r.m, r.computed, tieClass)).join('');
-          const hiddenNote = mqHiddenRegions.has(region)
-            ? `<div class="mq-rank-ref">This area is hidden. <button type="button" class="mq-region-action" data-region-hide="${escapeHtml(region)}" style="display:inline;">Unhide</button></div>`
-            : '';
-
-          return `
-            <div class="mq-region-card" data-region="${escapeHtml(region)}">
-              ${renderRegionHeader(region, items.length, collapsed)}
-              ${hiddenNote}
-              <div class="mq-region-body${collapsed ? ' is-collapsed' : ''}"><div>${cardsHtml}</div></div>
-            </div>`;
-        }).join('');
-
-        if (!sectionsHtml) return '';
-
-        const nationCollapsed = mqCollapsedNations.has(nation);
-        const nationChevron = nationCollapsed ? '▸' : '▾';
-
-        return `
-          <div class="mq-nation-group" data-nation="${escapeHtml(nation)}">
-            <div class="mq-nation-heading" data-nation-toggle="${escapeHtml(nation)}">
-              <span class="mq-nation-chevron">${nationChevron}</span>
-              <span class="mq-nation-name">${escapeHtml(nation)}</span>
+        <div class="mq-plan-rows">
+          ${[0,1,2].map(()=>`
+            <div class="mq-plan-row mq-plan-skeleton">
+              <span class="mq-plan-row-icon" aria-hidden="true">📍</span>
+              <div class="mq-plan-row-main">
+                <div class="mq-skel-line mq-skel-name"></div>
+                <div class="mq-skel-line mq-skel-sub"></div>
+              </div>
+              <div class="mq-skel-chip"></div>
             </div>
-            <div class="mq-nation-sections${nationCollapsed ? ' is-collapsed' : ''}"><div>${sectionsHtml}</div></div>
-          </div>`;
-      }).join('');
-
-    const revealHtml = totalHiddenCount > 0
-      ? `<button type="button" class="mq-group-toggle" id="mqShowHiddenRegionsBtn">${mqShowHiddenRegions ? 'Hide hidden areas again' : 'Show ' + totalHiddenCount + ' hidden area' + (totalHiddenCount > 1 ? 's' : '')}</button>`
-      : '';
-
-    list.innerHTML = nationsHtml + revealHtml;
-  }
-
-  function toggleRegionCollapsed(region){
-    if (mqCollapsedRegions.has(region)) mqCollapsedRegions.delete(region);
-    else mqCollapsedRegions.add(region);
-    saveCollapsedRegions();
-    if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-  }
-
-  // `result` is whatever resolveLive()/resolveManual() returned — same
-  // shape By Time renders from, so both views show the same prayer, the
-  // same day (today vs. rolled to tomorrow), and the same mosques.
-  async function loadAreaList(result){
-    const status = document.getElementById('mqStatus');
-    if (status) status.textContent = 'Loading mosques by area…';
-    try {
-      await fetchRegionPreferences();
-      renderAreaList(result.items, result.prayer, result.isJummah);
-    } catch (e) {
-      if (status) status.textContent = "Couldn't load mosques right now — please try again shortly.";
-    }
-  }
-
-  /* ============================================================
-     SEARCH :: a search box above the view toggle. Filters against
-     whatever mosque list is already loaded (fetched once and cached
-     here, independent of By Time / By Area). If nothing matches,
-     offers a "Request this mosque" button that opens a small modal;
-     submitting posts to /api/mosques/requests for admin review.
-     ============================================================ */
-
-  let mqAllMosquesCache = null;
-
-  async function ensureAllMosquesCache(){
-    if (mqAllMosquesCache) return mqAllMosquesCache;
-    try {
-      const { dateIso } = londonNow();
-      mqAllMosquesCache = await fetchMosques(dateIso);
-    } catch (e) {
-      mqAllMosquesCache = [];
-    }
-    return mqAllMosquesCache;
-  }
-
-  // Where the person is, saved so the rest of the app can use it later
-  // (nearby-mosque ranking). Postcode lookup uses postcodes.io — a
-  // free, open UK postcode service, no account or key needed.
-  const LOCATION_KEY = 'wwp_mq_location';
-  function getSavedLocation(){
-    return window.LocalCache ? window.LocalCache.get(LOCATION_KEY, null) : null;
-  }
-  function saveLocation(lat, lon, label){
-    if (window.LocalCache) window.LocalCache.set(LOCATION_KEY, { lat, lon, label, savedAt: Date.now() });
-  }
-
-  async function lookupPostcode(postcode){
-    const clean = postcode.trim().replace(/\s+/g, '');
-    if (!clean) throw new Error('Enter a postcode');
-    const res = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(clean));
-    const data = await res.json();
-    if (!res.ok || !data.result) throw new Error('Postcode not found');
-    return { lat: data.result.latitude, lon: data.result.longitude, label: data.result.postcode };
-  }
-
-  function ensureLocationBar(){
-    if (document.getElementById('mqLocationWrap')) return;
-    const list = document.getElementById('mqList');
-    if (!list || !list.parentNode) return;
-
-    const saved = getSavedLocation();
-    const wrap = document.createElement('div');
-    wrap.id = 'mqLocationWrap';
-    wrap.className = 'mq-search-wrap';
-    wrap.innerHTML = `
-      <div id="mqLocationStatus" style="font-size:0.85em;margin-bottom:4px;">
-        ${saved ? `Showing times near <strong>${escapeHtml(saved.label)}</strong> · <button type="button" id="mqLocationChange" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;">change</button>` : ''}
-      </div>
-      <div id="mqLocationForm"${saved ? ' class="hidden"' : ''} style="display:flex;gap:6px;">
-        <input type="text" id="mqPostcodeInput" class="mq-search-input" placeholder="Enter your postcode…" autocomplete="off" style="flex:1;">
-        <button type="button" id="mqPostcodeGo" class="mq-group-toggle">Go</button>
-        <button type="button" id="mqUseLocationBtn" class="mq-group-toggle">Use my location</button>
-      </div>
-    `;
-    list.parentNode.insertBefore(wrap, list);
-
-    const statusEl = wrap.querySelector('#mqLocationStatus');
-    const formEl = wrap.querySelector('#mqLocationForm');
-    const input = wrap.querySelector('#mqPostcodeInput');
-
-    function showSaved(loc){
-      statusEl.innerHTML = `Showing times near <strong>${escapeHtml(loc.label)}</strong> · <button type="button" id="mqLocationChange" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;">change</button>`;
-      formEl.classList.add('hidden');
-    }
-
-    wrap.querySelector('#mqPostcodeGo').addEventListener('click', async () => {
-      try {
-        const loc = await lookupPostcode(input.value);
-        saveLocation(loc.lat, loc.lon, loc.label);
-        showSaved(loc);
-      } catch (e) {
-        statusEl.textContent = "Couldn't find that postcode — check it and try again.";
-      }
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') wrap.querySelector('#mqPostcodeGo').click();
-    });
-
-    wrap.querySelector('#mqUseLocationBtn').addEventListener('click', () => {
-      if (!navigator.geolocation) { statusEl.textContent = 'Location not supported on this device.'; return; }
-      statusEl.textContent = 'Getting your location…';
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, label: 'your location' };
-          saveLocation(loc.lat, loc.lon, loc.label);
-          showSaved(loc);
-        },
-        () => { statusEl.textContent = 'Could not get your location — try entering a postcode instead.'; }
-      );
-    });
-
-    statusEl.addEventListener('click', (e) => {
-      if (e.target.closest('#mqLocationChange')) {
-        formEl.classList.remove('hidden');
-        statusEl.innerHTML = '';
-      }
-    });
-  }
-
-  function ensureSearchBar(){
-    if (document.getElementById('mqSearchWrap')) return;
-    const list = document.getElementById('mqList');
-    if (!list || !list.parentNode) return;
-
-    const wrap = document.createElement('div');
-    wrap.id = 'mqSearchWrap';
-    wrap.className = 'mq-search-wrap';
-    wrap.innerHTML = `
-      <input type="text" id="mqSearchInput" class="mq-search-input" placeholder="Search for a mosque by name…" autocomplete="off">
-      <div id="mqSearchResults" class="mq-search-results hidden"></div>
-    `;
-
-    list.parentNode.insertBefore(wrap, list);
-
-    const input = wrap.querySelector('#mqSearchInput');
-    const results = wrap.querySelector('#mqSearchResults');
-
-    input.addEventListener('input', async () => {
-      const q = input.value.trim().toLowerCase();
-      if (!q) {
-        results.classList.add('hidden');
-        results.innerHTML = '';
-        return;
-      }
-      const all = await ensureAllMosquesCache();
-      const matches = all.filter(m => (m.name || '').toLowerCase().includes(q));
-
-      results.classList.remove('hidden');
-      if (matches.length) {
-        results.innerHTML = matches.slice(0, 8).map(m => `
-          <div class="mq-search-result" data-slug="${escapeHtml(m.slug)}">
-            <span class="mq-search-result-name">${escapeHtml(m.name)}</span>
-            <span class="mq-search-result-region">${escapeHtml(m.region || '')}</span>
-          </div>
-        `).join('');
-      } else {
-        results.innerHTML = `
-          <div class="mq-search-no-match">
-            Couldn't find that mosque.
-            <button type="button" class="mq-group-toggle" id="mqRequestMosqueBtn" style="margin-top:8px;">Request this mosque be added</button>
-          </div>`;
-      }
-    });
-
-    results.addEventListener('click', (e) => {
-      const requestBtn = e.target.closest('#mqRequestMosqueBtn');
-      if (requestBtn) {
-        openMosqueRequestModal(input.value.trim());
-        return;
-      }
-      const resultRow = e.target.closest('.mq-search-result');
-      if (resultRow) {
-        revealMosqueBySlug(resultRow.dataset.slug);
-        results.classList.add('hidden');
-        input.value = '';
-      }
-    });
-  }
-
-  // Search can name ANY mosque in the system, but the on-screen list
-  // only ever renders a subset of them: a mosque with no time for the
-  // currently-selected prayer isn't rendered at all, and one that does
-  // qualify can still be sitting behind a collapsed "Show N more" time
-  // group (By Time) or a collapsed/hidden region (By Area). Clicking a
-  // result used to just look for an already-visible card and quietly do
-  // nothing when it wasn't there — which, for most searches, it wasn't.
-  // Expand whatever's hiding it, then scroll; if it genuinely has no
-  // time for the prayer currently showing, say so instead of nothing.
-  function revealMosqueBySlug(slug){
-    const status = document.getElementById('mqStatus');
-    const notFound = (name) => { if (status) status.textContent = `${name || 'That mosque'} has no time listed for the prayer currently showing.`; };
-
-    if (mqViewMode === 'area') {
-      if (!mqLastAreaMosques) return;
-      const mosque = mqLastAreaMosques.find(m => m.slug === slug);
-      const computed = mosque ? computeAreaTime(mosque, mqLastAreaPrayer, mqLastAreaIsJummah) : null;
-      if (!mosque || !computed) { notFound(mosque && mosque.name); return; }
-      const region = mosque.region || 'Other';
-      let changed = false;
-      if (mqHiddenRegions.has(region) && !mqShowHiddenRegions) { mqShowHiddenRegions = true; changed = true; }
-      if (mqCollapsedRegions.has(region) && mqFavoriteRegion !== region) {
-        mqCollapsedRegions.delete(region);
-        saveCollapsedRegions();
-        changed = true;
-      }
-      if (changed) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-      scrollToCard(slug, mosque.name);
-      return;
-    }
-
-    if (!mqLastRenderArgs) return;
-    const { items, prayer, isJummah } = mqLastRenderArgs;
-    const mosque = items.find(m => m.slug === slug);
-    const mins = mosque ? (isJummah ? mosque.firstMinutes : parseTimeToMinutes(prayer, mosque.jamaah[prayer])) : null;
-    if (!mosque || mins === null || mins === undefined) { notFound(mosque && mosque.name); return; }
-    const groupKey = prayer + ':' + mins;
-    if (!mqExpandedGroups.has(groupKey)) {
-      mqExpandedGroups.add(groupKey);
-      reRenderList();
-    }
-    scrollToCard(slug, mosque.name);
-  }
-
-  function scrollToCard(slug, name){
-    const status = document.getElementById('mqStatus');
-    const card = document.querySelector(`.mq-rank-card[data-slug="${CSS.escape(slug)}"]`);
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card.classList.add('mq-search-highlight');
-      setTimeout(() => card.classList.remove('mq-search-highlight'), 1800);
-      if (status) status.textContent = '';
-    } else if (status) {
-      status.textContent = `Couldn't find ${name || 'that mosque'} in the current list.`;
-    }
-  }
-
-  function openMosqueRequestModal(prefillName){
-    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    if (!authState || !authState.authenticated) {
-      window.WWP_promptSignIn && window.WWP_promptSignIn();
-      return;
-    }
-
-    let overlay = document.getElementById('mqRequestOverlay');
-    if (overlay) overlay.remove();
-
-    overlay = document.createElement('div');
-    overlay.id = 'mqRequestOverlay';
-    overlay.className = 'mq-request-overlay';
-    overlay.innerHTML = `
-      <div class="mq-request-card">
-        <h3>Request a mosque be added</h3>
-        <p class="mq-request-sub">Not on the map yet? Send us the details and we'll review it.</p>
-        <label>Mosque name</label>
-        <input type="text" id="mqReqName" value="${escapeHtml(prefillName || '')}">
-        <label>Address (optional)</label>
-        <input type="text" id="mqReqAddress">
-        <label>Website (optional)</label>
-        <input type="text" id="mqReqWebsite">
-        <label>Notes (optional)</label>
-        <textarea id="mqReqNotes" rows="3"></textarea>
-        <div class="mq-request-actions">
-          <button type="button" class="mq-group-toggle" id="mqReqCancel">Cancel</button>
-          <button type="button" class="mq-group-toggle" id="mqReqSubmit">Submit request</button>
+          `).join('')}
         </div>
-        <div id="mqReqStatus" class="mq-request-status"></div>
       </div>`;
-    document.body.appendChild(overlay);
-
-    document.getElementById('mqReqCancel').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-    document.getElementById('mqReqSubmit').addEventListener('click', async () => {
-      const name = document.getElementById('mqReqName').value.trim();
-      const statusEl = document.getElementById('mqReqStatus');
-      if (!name) { statusEl.textContent = 'Please enter a mosque name.'; return; }
-      const submitBtn = document.getElementById('mqReqSubmit');
-      submitBtn.disabled = true;
-      statusEl.textContent = 'Submitting…';
-      try {
-        const res = await fetch('/api/mosques/requests', {
-          method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-          body: JSON.stringify({
-            name,
-            address: document.getElementById('mqReqAddress').value.trim(),
-            website: document.getElementById('mqReqWebsite').value.trim(),
-            notes: document.getElementById('mqReqNotes').value.trim(),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Request failed.');
-        statusEl.textContent = "Thanks! We'll take a look and add it if we can.";
-        setTimeout(() => overlay.remove(), 1800);
-      } catch (e) {
-        statusEl.textContent = e.message || "Couldn't submit that — please try again.";
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
   }
 
-  /* ---- View mode toggle (By Time / By Area) ----
-     Inserted directly above #mqList (NOT inside the prayer header
-     row) so it can never affect that row's own layout or visibility. */
-  const VIEW_MODE_KEY = 'wwp_mosque_view_mode';
-  let mqViewMode = (window.LocalCache && window.LocalCache.get(VIEW_MODE_KEY, 'time')) || 'time';
-
-  function ensureViewToggle(){
-    if (document.getElementById('mqViewToggle')) return;
+  function renderLocatePrompt(){
     const list = document.getElementById('mqList');
-    if (!list || !list.parentNode) return;
-
-    const wrap = document.createElement('div');
-    wrap.id = 'mqViewToggle';
-    wrap.className = 'mq-view-toggle';
-    wrap.setAttribute('role', 'tablist');
-
-    const makeBtn = (mode, label) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'mq-view-toggle-btn' + (mode === mqViewMode ? ' is-active' : '');
-      btn.textContent = label;
-      btn.dataset.viewMode = mode;
-      return btn;
-    };
-
-    wrap.appendChild(makeBtn('time', 'By Time'));
-    wrap.appendChild(makeBtn('area', 'By Area'));
-
-    wrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-view-mode]');
-      if (!btn) return;
-      setViewMode(btn.dataset.viewMode);
-    });
-
-    list.parentNode.insertBefore(wrap, list);
+    if (!list) return;
+    list.innerHTML = `
+      <div class="mq-plan-card mq-plan-empty">
+        <span class="mq-plan-icon" aria-hidden="true">📍</span>
+        <h2>We need your location</h2>
+        <p>Turn on location for this site to see nearby mosques and whether you can still make it in time.</p>
+        <button type="button" id="mqRetryLocation" class="mq-plan-retry-btn">Try again</button>
+      </div>`;
+    document.getElementById('mqRetryLocation')?.addEventListener('click', loadPlan);
   }
 
-  function updateViewToggleUI(){
-    const wrap = document.getElementById('mqViewToggle');
-    if (!wrap) return;
-    wrap.querySelectorAll('[data-view-mode]').forEach(btn => {
-      btn.classList.toggle('is-active', btn.dataset.viewMode === mqViewMode);
-    });
+  function renderNote(note){
+    const list = document.getElementById('mqList');
+    if (!list) return;
+    list.innerHTML = `
+      <div class="mq-plan-card mq-plan-empty">
+        <span class="mq-plan-icon" aria-hidden="true">🕌</span>
+        <h2>Nothing left today nearby</h2>
+        <p>${escapeHtml(note)}</p>
+      </div>`;
   }
 
-  function setViewMode(mode){
-    if (mode === mqViewMode) return;
-    mqViewMode = mode;
-    if (window.LocalCache) window.LocalCache.set(VIEW_MODE_KEY, mode);
-    updateViewToggleUI();
-
-    const header = document.getElementById('mqPrayerHeader');
-    const liveToggle = document.getElementById('mqLiveToggle');
-    if (header) header.classList.toggle('hidden', mode === 'area');
-    if (liveToggle) liveToggle.classList.toggle('hidden', mode === 'area' || !mqSelectedPrayer);
-
-    loadMosqueList();
+  function planRowHtml(entry, isPrimary){
+    const label = isPrimary ? 'Primary' : 'Backup';
+    const travelWord = entry.travelMode === 'walk' ? 'walk' : 'drive';
+    const isUsual = getUsualMosque() === entry.slug;
+    return `
+      <div class="mq-plan-row${isPrimary ? ' is-primary' : ''}" data-slug="${escapeHtml(entry.slug)}">
+        <span class="mq-plan-row-icon" aria-hidden="true">${isPrimary ? '🕌' : '📍'}</span>
+        <div class="mq-plan-row-main">
+          <div class="mq-plan-row-name">${escapeHtml(entry.name)}<span class="mq-plan-row-tag">${label}</span></div>
+          <div class="mq-plan-row-sub">${entry.distanceMiles} mi · ${entry.travelMinutes} min ${travelWord}</div>
+          <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(entry.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>
+        </div>
+        <div class="mq-plan-chip">
+          <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}</div>
+          <div class="mq-plan-chip-time">in ${entry.jamaahInMinutes} min</div>
+        </div>
+      </div>`;
   }
 
-  // ---- Add a photo (signed-in users submit for review; admin flow
-  // lives separately in admin/broadcast.html) ----
-  function uploadMosquePhoto(slug, mosqueName, file){
-    const status = document.getElementById('mqStatus');
-    const fd = new FormData();
-    fd.append('photo', file);
-    fd.append('mosque', slug);
-    if (status) status.textContent = `Uploading photo for ${mosqueName}…`;
-    return fetch('/api/mosques/photos', { method: 'POST', body: fd })
-      .then(async res => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Upload failed.');
-        if (status) status.textContent = "Thanks! Your photo is pending admin review.";
-      })
-      .catch(e => {
-        if (status) status.textContent = e.message || "Couldn't upload that photo — please try again.";
-      });
+  function renderPlan(plan){
+    const list = document.getElementById('mqList');
+    if (!list) return;
+    if (!plan.primary) { renderNote(plan.note || "No mosques with Jama'ah times found nearby."); return; }
+    const rows = [planRowHtml(plan.primary, true), ...(plan.backups || []).map(b => planRowHtml(b, false))].join('');
+    list.innerHTML = `
+      <div class="mq-plan-card">
+        <div class="mq-plan-header">
+          <span class="mq-plan-icon" aria-hidden="true">🕌</span>
+          <div>
+            <h2>Explore Alternatives</h2>
+            <p>See alternative mosques nearby so you can always find a place to pray.</p>
+          </div>
+        </div>
+        <div class="mq-plan-rows">${rows}</div>
+        ${plan.expanded ? '<div class="mq-plan-expanded-note">Widened the search area to find enough options nearby.</div>' : ''}
+        <button type="button" id="mqResetAllBtn" class="mq-reset-all-btn">Reset</button>
+      </div>`;
   }
 
-  // ---- Favourites (signed-in only) ----
-  let mqFavorites = new Set();
-  let mqExpandedGroups = new Set();
-
-  async function fetchFavorites(){
-    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    if (!authState || !authState.authenticated) { mqFavorites = new Set(); return; }
-    try {
-      const res = await fetch('/api/mosques/favorites', { headers: deviceHeaders() });
-      if (!res.ok) { mqFavorites = new Set(); return; }
-      const data = await res.json();
-      mqFavorites = new Set(data.slugs || []);
-    } catch (e) {
-      mqFavorites = new Set();
-    }
-  }
-
-  async function toggleFavorite(slug, btn){
-    btn.disabled = true;
-    try {
-      const res = await fetch('/api/mosques/favorites', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-        body: JSON.stringify({ mosque: slug }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        if (data.favorited) mqFavorites.add(slug); else mqFavorites.delete(slug);
-        btn.classList.toggle('is-fav', !!data.favorited);
-      }
-    } catch (e) {
-      // leave state as-is; next refresh will resync
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
+  // Delegated click handler for the two small buttons rendered inside
+  // the plan card (usual-mosque toggle per row, reset at the bottom) —
+  // survives every re-render since it's bound once on the container.
   document.getElementById('mqList')?.addEventListener('click', (e) => {
-    const showHiddenBtn = e.target.closest('#mqShowHiddenRegionsBtn');
-    if (showHiddenBtn) {
-      mqShowHiddenRegions = !mqShowHiddenRegions;
-      if (mqLastAreaMosques) renderAreaList(mqLastAreaMosques, mqLastAreaPrayer, mqLastAreaIsJummah);
-      return;
-    }
-
-    const regionFavBtn = e.target.closest('[data-region-fav]');
-    if (regionFavBtn) {
-      toggleRegionFavorite(regionFavBtn.dataset.regionFav, regionFavBtn);
-      return;
-    }
-
-    const regionHideBtn = e.target.closest('[data-region-hide]');
-    if (regionHideBtn) {
-      toggleRegionHidden(regionHideBtn.dataset.regionHide, regionHideBtn);
-      return;
-    }
-
-    const nationToggle = e.target.closest('[data-nation-toggle]');
-    if (nationToggle) {
-      toggleNationCollapsed(nationToggle.dataset.nationToggle);
-      return;
-    }
-
-    const regionToggle = e.target.closest('[data-region-toggle]');
-    if (regionToggle) {
-      toggleRegionCollapsed(regionToggle.dataset.regionToggle);
-      return;
-    }
-
-    const photoBtn = e.target.closest('.mq-photo-add');
-    if (photoBtn) {
-      const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-      if (!authState || !authState.authenticated) {
-        window.WWP_promptSignIn && window.WWP_promptSignIn();
-        return;
-      }
-      const slug = photoBtn.dataset.slug;
-      const name = photoBtn.dataset.name || 'this mosque';
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-      input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
-        if (file) uploadMosquePhoto(slug, name, file);
-      });
-      input.click();
-      return;
-    }
-
-    const favBtn = e.target.closest('.mq-fav-btn');
-    if (favBtn) {
-      const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-      if (!authState || !authState.authenticated) {
-        window.WWP_promptSignIn && window.WWP_promptSignIn();
-        return;
-      }
-      toggleFavorite(favBtn.dataset.slug, favBtn);
-      return;
-    }
-
     const usualBtn = e.target.closest('.mq-usual-btn');
     if (usualBtn) {
       const slug = usualBtn.dataset.usualSlug;
@@ -1219,210 +202,68 @@
         setUsualMosque(slug);
         usualBtn.classList.add('is-usual');
         usualBtn.textContent = 'Saved as your usual mosque ✓';
-        // Only one usual mosque at a time — un-mark any other card showing as saved.
         document.querySelectorAll('.mq-usual-btn.is-usual').forEach(b => {
           if (b !== usualBtn) { b.classList.remove('is-usual'); b.textContent = 'Set as my usual mosque'; }
         });
       }
       return;
     }
-
-    const resetAllBtn = e.target.closest('#mqResetAllBtn');
-    if (resetAllBtn) {
-      resetFindAMosqueData();
-      return;
-    }
-
-    const compareBtn = e.target.closest('#mqCompareUsualBtn');
-    if (compareBtn) {
-      switchToFullList();
-      return;
-    }
-
-    const resetUsualBtn = e.target.closest('#mqResetUsualBtn');
-    if (resetUsualBtn) {
-      clearUsualMosque();
-      onMosqueShown();
-      return;
-    }
-
-    const toggleBtn = e.target.closest('.mq-group-toggle');
-    if (toggleBtn && !toggleBtn.dataset.regionHide && !toggleBtn.dataset.regionFav && !toggleBtn.dataset.viewMode && toggleBtn.id !== 'mqShowHiddenRegionsBtn') {
-      const key = toggleBtn.dataset.groupKey;
-      if (key) {
-        if (mqExpandedGroups.has(key)) mqExpandedGroups.delete(key);
-        else mqExpandedGroups.add(key);
-        reRenderList();
-      }
-      return;
-    }
-
-    // The directions link opens Maps in a new tab - let it navigate
-    // normally without also toggling the address visibility.
-    if (e.target.closest('[data-directions-link]')) {
-      return;
-    }
-
-    // Tapping the card itself (not a button on it) reveals the address.
-    const card = e.target.closest('.mq-rank-card');
-    if (card) {
-      const addr = card.querySelector('.mq-rank-address');
-      if (addr) addr.classList.toggle('hidden');
-    }
+    if (e.target.closest('#mqResetAllBtn')) resetFindAMosqueData();
   });
 
-  // "Reset everything" for this page: usual mosque, favourites, and
-  // remembered expanded groups. Favourites live server-side, so each
-  // one is un-favourited via the same toggle endpoint the heart button
-  // uses, rather than just forgotten locally.
-  async function resetFindAMosqueData(){
-    if (!confirm("Reset your usual mosque, favourites, and saved view for Find a Mosque? This can't be undone.")) return;
+  // "Reset" for this page: usual mosque + this device's cached
+  // plan/location, so the next load starts completely fresh.
+  function resetFindAMosqueData(){
+    if (!confirm("Reset your usual mosque and cached location for Find a Mosque? This can't be undone.")) return;
     clearUsualMosque();
-    const authState = window.WWP_getAuthState ? window.WWP_getAuthState() : null;
-    if (authState && authState.authenticated && mqFavorites.size) {
-      await Promise.all([...mqFavorites].map(slug =>
-        fetch('/api/mosques/favorites', {
-          method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-          body: JSON.stringify({ mosque: slug }),
-        }).catch(() => {})
-      ));
-    }
-    mqFavorites = new Set();
-    mqExpandedGroups = new Set();
-    onMosqueShown();
+    if (window.LocalCache) window.LocalCache.remove(PLAN_CACHE_KEY);
+    mqLastLocation = null;
+    loadPlan();
   }
 
-  let mqInitialized = false;
-  let mqTimer = null;
-  let mqSelectedPrayer = null; // null = live/auto mode; else pinned to one prayer
+  async function loadPlan(){
+    const status = document.getElementById('mqStatus');
+    if (status) status.textContent = '';
 
-  async function loadMosqueList(){
-    ensureViewToggle();
+    renderSkeleton();
 
-    if (mqViewMode === 'area') {
-      // By Area used to fetch its own raw mosque list and rank it off
-      // either the server's `next` field (live mode) or today's raw
-      // jamaah value with no "already passed → show tomorrow" handling
-      // (pinned mode). That's a second, separate notion of "what time is
-      // it for this mosque" from the one By Time uses (resolveLive /
-      // resolveManual), so the two views could disagree — same prayer,
-      // different ranking, sometimes a stale/wrong prayer entirely.
-      // Route through the exact same resolver By Time uses so both
-      // views always agree.
-      const status = document.getElementById('mqStatus');
-      try {
-        const result = mqSelectedPrayer ? await resolveManual(mqSelectedPrayer) : await resolveLive();
-        renderHeader(result.prayer, result.dateIso);
-        const header = document.getElementById('mqPrayerHeader');
-        if (header) header.classList.remove('hidden');
-        const liveToggle = document.getElementById('mqLiveToggle');
-        if (liveToggle) liveToggle.classList.toggle('hidden', !mqSelectedPrayer);
-        await loadAreaList(result);
-      } catch (e) {
-        if (status) status.textContent = "Couldn't load mosques right now — please try again shortly.";
-      }
+    // Instant paint from last time, if recent — real fetch still runs
+    // right after regardless, this just avoids a blank/skeleton wait
+    // for a returning visitor.
+    const cached = readCachedPlan();
+    if (cached) {
+      renderPlan(cached.plan);
+      mqLastLocation = { lat: cached.lat, lon: cached.lon };
+    }
+
+    const loc = mqLastLocation || await detectLocation();
+    if (!loc) {
+      if (!cached) renderLocatePrompt();
       return;
     }
-
-    const status = document.getElementById('mqStatus');
-    if (!status) return;
-    if (!mqInitialized) status.textContent = "Loading Jama'ah times…";
+    mqLastLocation = loc;
 
     try {
-      const result = mqSelectedPrayer ? await resolveManual(mqSelectedPrayer) : await resolveLive();
-      renderHeader(result.prayer, result.dateIso);
-      const header = document.getElementById('mqPrayerHeader');
-      if (header) header.classList.remove('hidden');
-      const liveToggle = document.getElementById('mqLiveToggle');
-      if (liveToggle) liveToggle.classList.toggle('hidden', !mqSelectedPrayer);
-      if (!result.items.length) {
-        status.textContent = 'No mosque data available right now.';
-        document.getElementById('mqList').innerHTML = '';
-        return;
-      }
-      renderRankList(result.items, result.prayer, result.isJummah, result.isTomorrow, result.referenceItems, result.referenceIsJummah);
+      const plan = await fetchPlan(loc.lat, loc.lon);
+      renderPlan(plan);
+      writeCachedPlan(loc.lat, loc.lon, plan);
     } catch (e) {
-      status.textContent = "Couldn't load mosque times right now — please try again shortly.";
-    }
-  }
-
-  document.getElementById('mqPrayerHeader')?.addEventListener('click', (e) => {
-    const span = e.target.closest('[data-prayer]');
-    if (!span) return;
-    mqSelectedPrayer = span.dataset.prayer;
-    loadMosqueList();
-  });
-
-  document.getElementById('mqLiveToggle')?.addEventListener('click', () => {
-    mqSelectedPrayer = null;
-    loadMosqueList();
-  });
-
-  async function showUsualMosqueView(slug){
-    const status = document.getElementById('mqStatus');
-    const list = document.getElementById('mqList');
-    const header = document.getElementById('mqPrayerHeader');
-    const liveToggle = document.getElementById('mqLiveToggle');
-    if (header) header.classList.add('hidden');
-    if (liveToggle) liveToggle.classList.add('hidden');
-    if (!list || !status) return;
-    if (!mqInitialized) status.textContent = "Loading your mosque…";
-    try {
-      const { dateIso } = londonNow();
-      const mosque = await fetchOneMosque(slug, dateIso);
-      if (!mosque) {
-        // Saved mosque no longer exists/active — fall back to the full list.
-        clearUsualMosque();
-        switchToFullList();
-        return;
+      if (!cached) {
+        if (status) status.textContent = "Couldn't load nearby mosques right now — please try again shortly.";
+        const list = document.getElementById('mqList');
+        if (list) list.innerHTML = '';
       }
-      status.textContent = '';
-      const next = mosque.next;
-      const nextHtml = next
-        ? `<div class="mq-rank-meta">${PRAYER_LABELS[next.prayer]}</div><div class="mq-rank-time">${formatMinutes(parseTimeToMinutes(next.prayer, next.time))}</div>`
-        : `<div class="mq-rank-meta">No more Jama'ah showing for today</div>`;
-      list.innerHTML = `
-        <div class="mq-time-group">
-          <div class="mq-time-group-cards">
-            <div class="mq-rank-card" data-slug="${escapeHtml(mosque.slug)}">
-              <div class="mq-rank-left">
-                <div style="min-width:0;flex:1;">
-                  <div class="mq-rank-name">${escapeHtml(mosque.name)}</div>
-                  ${nextHtml}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button type="button" id="mqCompareUsualBtn" class="mq-group-toggle">Compare nearby mosques</button>
-        <button type="button" id="mqResetUsualBtn" class="mq-group-toggle">Not your mosque? Reset</button>`;
-    } catch (e) {
-      status.textContent = "Couldn't load your mosque right now — please try again shortly.";
     }
-  }
-
-  function switchToFullList(){
-    clearInterval(mqTimer);
-    const header = document.getElementById('mqPrayerHeader');
-    if (header) header.classList.remove('hidden');
-    fetchFavorites().then(loadMosqueList);
-    mqTimer = setInterval(loadMosqueList, 300000);
   }
 
   function onMosqueShown(){
-    mqInitialized = true;
-    ensureLocationBar();
-    ensureSearchBar();
-    ensureViewToggle();
+    const header = document.getElementById('mqPrayerHeader');
+    if (header) header.classList.add('hidden');
+    const liveToggle = document.getElementById('mqLiveToggle');
+    if (liveToggle) liveToggle.classList.add('hidden');
     clearInterval(mqTimer);
-    const usual = getUsualMosque();
-    if (usual) {
-      showUsualMosqueView(usual);
-      mqTimer = setInterval(() => showUsualMosqueView(usual), 300000);
-      return;
-    }
-    switchToFullList();
+    loadPlan();
+    mqTimer = setInterval(loadPlan, REFRESH_MS);
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
@@ -1431,14 +272,13 @@
   document.querySelectorAll('a[data-page="mosque"]').forEach(a=>{
     a.addEventListener('click', onMosqueShown);
   });
-  // Covers a direct load/refresh landing on /find-a-mosque, same pattern
-  // as Community Ideas above.
+  // Covers a direct load/refresh landing on /find-a-mosque.
   if(!document.getElementById('page-mosque')?.classList.contains('hidden')){
     onMosqueShown();
   }
 
   // ---- "Screen protector" sneak-peek overlay ----
-  // The real list loads in the background regardless (see above), so
+  // The real plan loads in the background regardless (see above), so
   // whichever state the overlay is in, revealing it just uncovers data
   // that's already there. Choice persists across visits via localStorage.
   const PEEK_KEY = 'wwp_mosque_preview_unlocked';
