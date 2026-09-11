@@ -16,29 +16,73 @@
    - "Reset" — clears the usual-mosque bookmark and this device's
      cached plan/location, then reloads.
 
-   Load order, cheapest-first:
-   1. Skeleton rows — paint instantly, no network wait.
-   2. Last-known plan from this device's own cache (LocalCache),
-      if recent — replaces the skeleton immediately while a fresh
-      fetch runs quietly in the background.
-   3. Real location (GPS via Platform.getLocation, falling back to
-      the same-origin /api/geo edge-geo lookup if GPS is denied,
-      unavailable, or times out) → fetch the real plan → replace
-      whatever's showing with the fresh result, and save it to
-      LocalCache for next time.
+   ---- LOCATION :: four independent sources, best-wins ----
+   Previous version only tried GPS *silently* (skipped unless the
+   browser already had a saved "granted" permission), which meant
+   almost every visit — desktop or mobile, first time or returning —
+   fell straight to IP-based geo, which can be miles off. That's the
+   "always shows the same random mosques" bug.
+
+   Now all four sources are genuinely independent — no source's
+   success or failure depends on another:
+     1. GEO    — real GPS (Platform.getLocation). Requested directly
+                 on load, not gated behind a silent permission check.
+                 iOS Safari can swallow an auto-prompt with no tap
+                 behind it, so this may quietly do nothing there —
+                 harmless, since it races against three others, and
+                 the always-visible "Use precise location" button
+                 below covers that case with a real tap.
+     2. EDGE   — same-origin /api/geo, Cloudflare's own per-request
+                 IP geolocation. No permission dialog, no 3rd party.
+     3. IP     — a second, separate IP-geolocation provider
+                 (geojs.io), queried directly from the browser. A
+                 genuinely different network path/provider to EDGE,
+                 so if Cloudflare's own geo data is missing or wrong
+                 for a given PoP, this doesn't share the same blind
+                 spot. Note: this sends the visitor's IP directly to
+                 geojs.io, a third party — same trade-off as any
+                 "detect my location" widget.
+     4. MANUAL — a postcode/place box (always visible, not gated
+                 behind failure), geocoded via the same Open-Meteo
+                 API already used by Prayer Times. Always wins over
+                 an automatic guess since it's what the person typed.
+
+   All four race in parallel; whichever most-precise one lands wins
+   (rank: manual 5 > geo 4 > edge/ip 2 > cached-from-last-visit 1),
+   and a later, more precise result silently upgrades an earlier,
+   coarser one — never the other way round.
+
+   Privacy: coordinates are rounded to 3 decimal places (~110m) the
+   moment they're received, before they're used, cached, or sent
+   anywhere — plenty precise for picking the right mosque, without
+   keeping or transmitting an exact GPS fix. The plan request itself
+   is a POST with the coordinates in the body, not a GET with them in
+   the URL, so they don't end up in access logs, browser history, or
+   a Referer header. The server already never stores a visitor's
+   location (functions/api/mosques/plan.js computes the match and
+   returns it — nothing is written to D1/KV); this doesn't change
+   that, it just keeps the coordinates out of transit-level logs too.
 
    deviceHeaders, escapeHtml: shared, defined once in wwp-core.js.
    ============================================================ */
-(function(){
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
   const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — matches the plan endpoint's own refresh cadence
   const REFRESH_MS = 5 * 60 * 1000;   // re-check every 5 min while the page is open
   const PLAN_CACHE_KEY = 'wwp_mq_plan_v1';
   const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
   const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
+  const IP_GEO_TIMEOUT_MS = 3500;
+  const GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
+  const REVERSE_GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/reverse';
+  const IP_GEO_URL = 'https://get.geojs.io/v1/ip/geo.json';
+  // Higher = more precise/trusted. A result only ever replaces the
+  // current one if it's strictly higher rank (or the person just
+  // explicitly asked for a fresh fix) — a fast-but-coarse source can
+  // never clobber a slow-but-precise one that already landed.
+  const LOCATION_RANK = { manual: 5, geo: 4, edge: 2, ip: 2, cached: 1 };
 
   let mqTimer = null;
-  let mqLastLocation = null; // {lat, lon} once known, reused for auto-refresh
+  let mqLocation = null; // {lat, lon, source, label} once known
 
   function getUsualMosque(){
     return window.LocalCache ? window.LocalCache.get(USUAL_MOSQUE_KEY, null) : null;
@@ -57,10 +101,17 @@
     if (Date.now() - entry.savedAt > CACHE_TTL_MS) return null;
     return entry;
   }
-  function writeCachedPlan(lat, lon, plan){
+  function writeCachedPlan(loc, plan){
     if (!window.LocalCache) return;
-    window.LocalCache.set(PLAN_CACHE_KEY, { lat, lon, plan, savedAt: Date.now() });
+    window.LocalCache.set(PLAN_CACHE_KEY, {
+      lat: loc.lat, lon: loc.lon, label: loc.label || null, plan, savedAt: Date.now()
+    });
   }
+
+  // Rounds to ~110m — enough to pick the right mosque, without
+  // keeping/sending an exact fix. Applied the instant a coordinate is
+  // received, before it touches state, cache, or the network.
+  function roundCoord(v){ return Math.round(v * 1000) / 1000; }
 
   async function fetchWithTimeout(url, opts, ms){
     const controller = new AbortController();
@@ -72,66 +123,106 @@
     }
   }
 
-  // Precise GPS needs the browser's native permission prompt, and on
-  // several mobile browsers (notably iOS Safari) that prompt is
-  // silently swallowed unless the request is fired from a direct user
-  // tap — a request made automatically on page load, with no click
-  // behind it, just fails with no dialog ever appearing. So the order
-  // here is deliberately NOT "try GPS, fall back if it fails":
-  //
-  // 1. SILENT GPS — only if this device already granted location
-  //    permission in an earlier visit (checked via the Permissions
-  //    API before calling anything). No prompt shown, resolves fast.
-  // 2. SAME-ORIGIN EDGE GEO (/api/geo) — reads Cloudflare's own
-  //    per-request geo data (from the visitor's IP). No permission
-  //    dialog at all, works for virtually everyone immediately. Less
-  //    precise than GPS (nearest town, not exact street), but easily
-  //    good enough to pick a mosque within a few miles.
-  // 3. ACTIVE GPS — only offered as a button in the "we need your
-  //    location" state (renderLocatePrompt), never called
-  //    automatically. A real tap behind it means the permission
-  //    prompt reliably appears everywhere, including iOS Safari.
-  async function silentGpsLocation(){
-    try {
-      if (!navigator.permissions || !navigator.permissions.query) return null;
-      const status = await navigator.permissions.query({ name: 'geolocation' });
-      if (status.state !== 'granted') return null;
-      return await window.Platform.getLocation(LOCATION_OPTS);
-    } catch (e) { return null; }
+  // ---- Source 1: real GPS ----
+  // Requested directly, not gated behind a silent permission check —
+  // on most browsers the native prompt appears fine without a prior
+  // tap. iOS Safari is the known exception (a hard-won gotcha from
+  // the old code): it can swallow an automatic prompt with no dialog
+  // ever appearing. That's harmless here since this races against
+  // three independent sources, and the always-visible "Use precise
+  // location" button covers iOS with a real tap.
+  function gpsLocation(){
+    if (!window.Platform || typeof window.Platform.getLocation !== 'function') return Promise.resolve(null);
+    return window.Platform.getLocation(LOCATION_OPTS)
+      .then(loc => ({ lat: roundCoord(loc.lat), lon: roundCoord(loc.lon), source: 'geo' }))
+      .catch(() => null);
   }
 
+  // ---- Source 2: same-origin Cloudflare edge geo ----
   async function edgeGeoLocation(){
     try {
       const res = await fetchWithTimeout('/api/geo', { cache: 'no-store' }, 3000);
       if (res.ok) {
         const d = await res.json();
-        if (typeof d.lat === 'number' && typeof d.lon === 'number') return { lat: d.lat, lon: d.lon };
+        if (typeof d.lat === 'number' && typeof d.lon === 'number') {
+          return { lat: roundCoord(d.lat), lon: roundCoord(d.lon), source: 'edge' };
+        }
       }
     } catch (e) { /* offline, or function not deployed — give up */ }
     return null;
   }
 
-  async function detectLocation(){
-    if (window.Platform && typeof window.Platform.getLocation === 'function') {
-      const silent = await silentGpsLocation();
-      if (silent) return silent;
-    }
-    return await edgeGeoLocation();
+  // ---- Source 3: independent 3rd-party IP geolocation ----
+  // Deliberately a different provider to EDGE so the two don't share
+  // a failure mode (e.g. a PoP where Cloudflare's own cf.latitude is
+  // null). Sends the visitor's IP to geojs.io directly from the
+  // browser — flagged in the header comment above.
+  async function ipGeoLocation(){
+    try {
+      const res = await fetchWithTimeout(IP_GEO_URL, { cache: 'no-store' }, IP_GEO_TIMEOUT_MS);
+      if (res.ok) {
+        const d = await res.json();
+        const lat = parseFloat(d.latitude), lon = parseFloat(d.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          return { lat: roundCoord(lat), lon: roundCoord(lon), source: 'ip' };
+        }
+      }
+    } catch (e) { /* offline, blocked, or provider down — give up */ }
+    return null;
   }
 
-  // Only called from a real button tap (see renderLocatePrompt) — safe
-  // to request precise GPS directly here, prompt or no prompt.
-  async function requestActiveLocation(){
-    if (window.Platform && typeof window.Platform.getLocation === 'function') {
-      try {
-        return await window.Platform.getLocation(LOCATION_OPTS);
-      } catch (e) { /* denied or timed out — fall through */ }
-    }
-    return await edgeGeoLocation();
+  // ---- Source 4: manual postcode/place entry ----
+  // Same geocoding API Prayer Times already uses — no key, free.
+  async function geocodeManual(query){
+    const url = GEOCODE_BASE + '?name=' + encodeURIComponent(query) + '&count=1&language=en&format=json&country=GB';
+    const res = await fetchWithTimeout(url, null, 5000);
+    if (!res.ok) throw new Error('Location search failed');
+    const data = await res.json();
+    const r = data && data.results && data.results[0];
+    if (!r) throw new Error("Couldn't find that place");
+    return {
+      lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
+      label: [r.name, r.admin1].filter(Boolean).join(', '),
+      source: 'manual'
+    };
+  }
+
+  // Best-effort place name for auto-detected fixes — never blocks
+  // rendering the plan; just fills in the label a moment later.
+  async function reverseGeocodeLabel(lat, lon){
+    try {
+      const url = REVERSE_GEOCODE_BASE + '?latitude=' + lat + '&longitude=' + lon + '&count=1&language=en&format=json';
+      const res = await fetchWithTimeout(url, null, 3500);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const r = data && data.results && data.results[0];
+      if (r) return [r.name, r.admin1].filter(Boolean).join(', ');
+    } catch (e) { /* skip — generic source label still shown */ }
+    return null;
+  }
+
+  function locationBarText(loc){
+    if (!loc) return '';
+    if (loc.source === 'manual') return 'Showing mosques near ' + escapeHtml(loc.label || 'your search') + '.';
+    if (loc.source === 'cached') return 'Last known location — updating…';
+    if (loc.source === 'geo') return loc.label ? 'Using your precise location near ' + escapeHtml(loc.label) + '.' : 'Using your precise location.';
+    return loc.label ? 'Using your approximate area near ' + escapeHtml(loc.label) + '.' : 'Using your approximate area.';
+  }
+
+  function renderLocationLabel(){
+    const el = document.getElementById('mqLocationLabel');
+    if (!el) return;
+    el.textContent = mqLocation ? locationBarText(mqLocation).replace(/<[^>]+>/g, '') : '';
   }
 
   async function fetchPlan(lat, lon){
-    const res = await fetch(`/api/mosques/plan?lat=${lat}&lon=${lon}`, { headers: deviceHeaders() });
+    // POST with coords in the body (not a GET query string) so they
+    // never land in access logs, browser history, or a Referer header.
+    const res = await fetch('/api/mosques/plan', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
+      body: JSON.stringify({ lat, lon })
+    });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
   }
@@ -163,29 +254,15 @@
       </div>`;
   }
 
-  function renderLocatePrompt(){
+  function renderNoLocationYet(){
     const list = document.getElementById('mqList');
     if (!list) return;
     list.innerHTML = `
       <div class="mq-plan-card mq-plan-empty">
         <span class="mq-plan-icon" aria-hidden="true">📍</span>
-        <h2>We need your location</h2>
-        <p>Turn on location for this site to see nearby mosques and whether you can still make it in time.</p>
-        <button type="button" id="mqRetryLocation" class="mq-plan-retry-btn">Enable location</button>
+        <h2>We couldn't work out your location</h2>
+        <p>Use "Use precise location" or enter a postcode/area above to see nearby mosques.</p>
       </div>`;
-    document.getElementById('mqRetryLocation')?.addEventListener('click', async () => {
-      renderSkeleton();
-      const loc = await requestActiveLocation();
-      if (!loc) { renderLocatePrompt(); return; }
-      mqLastLocation = loc;
-      try {
-        const plan = await fetchPlan(loc.lat, loc.lon);
-        renderPlan(plan);
-        writeCachedPlan(loc.lat, loc.lon, plan);
-      } catch (e) {
-        renderLocatePrompt();
-      }
-    });
   }
 
   function renderNote(note){
@@ -277,44 +354,122 @@
     if (!confirm("Reset your usual mosque and cached location for Find a Mosque? This can't be undone.")) return;
     clearUsualMosque();
     if (window.LocalCache) window.LocalCache.remove(PLAN_CACHE_KEY);
-    mqLastLocation = null;
-    loadPlan();
+    mqLocation = null;
+    renderLocationLabel();
+    kickOffLocationDetection();
   }
 
-  async function loadPlan(){
-    const status = document.getElementById('mqStatus');
-    if (status) status.textContent = '';
-
-    renderSkeleton();
-
-    // Instant paint from last time, if recent — real fetch still runs
-    // right after regardless, this just avoids a blank/skeleton wait
-    // for a returning visitor.
-    const cached = readCachedPlan();
-    if (cached) {
-      renderPlan(cached.plan);
-      mqLastLocation = { lat: cached.lat, lon: cached.lon };
-    }
-
-    const loc = mqLastLocation || await detectLocation();
-    if (!loc) {
-      if (!cached) renderLocatePrompt();
-      return;
-    }
-    mqLastLocation = loc;
-
+  // Fetches + renders the plan for a given location, and caches it.
+  // Shared by every source — cached instant-paint, the three
+  // automatic races, and manual/precise-button submissions all end
+  // up here once they have coordinates.
+  async function loadPlanForLocation(loc){
     try {
       const plan = await fetchPlan(loc.lat, loc.lon);
       renderPlan(plan);
-      writeCachedPlan(loc.lat, loc.lon, plan);
+      writeCachedPlan(loc, plan);
     } catch (e) {
-      if (!cached) {
-        if (status) status.textContent = "Couldn't load nearby mosques right now — please try again shortly.";
-        const list = document.getElementById('mqList');
-        if (list) list.innerHTML = '';
-      }
+      // A fetch failure for one source shouldn't nuke a result another
+      // source already painted — only show the "no location" state if
+      // nothing has ever rendered successfully this load.
+      if (!document.querySelector('#mqList .mq-plan-rows')) renderNoLocationYet();
     }
   }
+
+  // Adopts a location result if it's more precise than what's already
+  // showing (or `force` is set, for an explicit user action like the
+  // precise-location button or the postcode form — those always win).
+  function applyLocation(loc, force){
+    if (!loc) return;
+    const rank = LOCATION_RANK[loc.source] || 0;
+    const currentRank = mqLocation ? (LOCATION_RANK[mqLocation.source] || 0) : -1;
+    if (!force && rank <= currentRank) return;
+    mqLocation = loc;
+    renderLocationLabel();
+    loadPlanForLocation(loc);
+    // Best-effort place name for auto-detected fixes — fills in the
+    // label a moment later without blocking anything above.
+    if ((loc.source === 'geo' || loc.source === 'edge' || loc.source === 'ip') && !loc.label) {
+      reverseGeocodeLabel(loc.lat, loc.lon).then(label => {
+        if (label && mqLocation === loc) { loc.label = label; renderLocationLabel(); }
+      });
+    }
+  }
+
+  // Kicks off all independent sources in parallel. Each one applies
+  // itself the instant it resolves (see applyLocation) rather than
+  // waiting for the others — fastest reasonable result paints first,
+  // then silently upgrades if something more precise lands after.
+  async function kickOffLocationDetection(){
+    const cached = readCachedPlan();
+    if (cached) {
+      renderPlan(cached.plan);
+      mqLocation = { lat: cached.lat, lon: cached.lon, source: 'cached', label: cached.label || null };
+      renderLocationLabel();
+    } else {
+      renderSkeleton();
+    }
+
+    const sources = [gpsLocation(), edgeGeoLocation(), ipGeoLocation()];
+    sources.forEach(p => p.then(loc => applyLocation(loc, false)));
+
+    const settled = await Promise.allSettled(sources);
+    const gotAny = settled.some(r => r.status === 'fulfilled' && r.value) || mqLocation;
+    if (!gotAny) renderNoLocationYet();
+  }
+
+  // Lighter-weight refresh for the periodic timer and page-revisit —
+  // reuses the already-known location instead of re-racing all four
+  // sources every 5 minutes.
+  function refreshPlan(){
+    const status = document.getElementById('mqStatus');
+    if (status) status.textContent = '';
+    if (mqLocation) loadPlanForLocation(mqLocation);
+    else kickOffLocationDetection();
+  }
+
+  // ---- Location bar: always-visible precise-location button + postcode form ----
+  const usePreciseBtn = document.getElementById('mqUsePreciseBtn');
+  const manualToggleBtn = document.getElementById('mqManualToggleBtn');
+  const manualForm = document.getElementById('mqManualLocationForm');
+  const manualInput = document.getElementById('mqManualLocationInput');
+  const manualStatus = document.getElementById('mqManualLocationStatus');
+
+  usePreciseBtn?.addEventListener('click', async () => {
+    const originalText = usePreciseBtn.textContent;
+    usePreciseBtn.disabled = true;
+    usePreciseBtn.textContent = 'Locating…';
+    // A real tap, so this reliably shows the permission prompt on every
+    // platform including iOS Safari — not gated behind any prior state.
+    const loc = await gpsLocation();
+    usePreciseBtn.disabled = false;
+    usePreciseBtn.textContent = originalText;
+    if (loc) {
+      applyLocation(loc, true);
+    } else if (manualStatus) {
+      manualStatus.textContent = "Couldn't get a precise location — check your device's location permission, or enter a postcode below.";
+    }
+  });
+
+  manualToggleBtn?.addEventListener('click', () => {
+    manualForm?.classList.toggle('hidden');
+    if (manualForm && !manualForm.classList.contains('hidden')) manualInput?.focus();
+  });
+
+  manualForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = (manualInput?.value || '').trim();
+    if (!query) return;
+    if (manualStatus) manualStatus.textContent = 'Searching…';
+    try {
+      const loc = await geocodeManual(query);
+      applyLocation(loc, true);
+      if (manualStatus) manualStatus.textContent = '';
+      manualForm.classList.add('hidden');
+    } catch (err) {
+      if (manualStatus) manualStatus.textContent = err.message || "Couldn't find that place — try a postcode instead.";
+    }
+  });
 
   function onMosqueShown(){
     const header = document.getElementById('mqPrayerHeader');
@@ -322,8 +477,8 @@
     const liveToggle = document.getElementById('mqLiveToggle');
     if (liveToggle) liveToggle.classList.add('hidden');
     clearInterval(mqTimer);
-    loadPlan();
-    mqTimer = setInterval(loadPlan, REFRESH_MS);
+    kickOffLocationDetection();
+    mqTimer = setInterval(refreshPlan, REFRESH_MS);
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
@@ -361,6 +516,4 @@
 
   peekBtn?.addEventListener('click', ()=> setPeekState(true));
   hideBtn?.addEventListener('click', ()=> setPeekState(false));
-})();
-
 })();
