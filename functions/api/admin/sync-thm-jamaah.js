@@ -62,6 +62,12 @@ const UPSERT_SQL = `
     asr_jamaah=excluded.asr_jamaah,
     maghrib_jamaah=excluded.maghrib_jamaah,
     isha_jamaah=excluded.isha_jamaah
+  WHERE
+    fajr_jamaah    IS NOT excluded.fajr_jamaah OR
+    zuhr_jamaah    IS NOT excluded.zuhr_jamaah OR
+    asr_jamaah     IS NOT excluded.asr_jamaah OR
+    maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
+    isha_jamaah    IS NOT excluded.isha_jamaah
 `;
 
 export async function onRequestGet(context) {
