@@ -231,3 +231,17 @@
 .mq-skel-sub{width:40%;height:10px;}
 .mq-skel-chip{flex:none;width:56px;height:32px;border-radius:12px;background:linear-gradient(90deg, var(--border) 25%, var(--surface-alt, var(--cream)) 50%, var(--border) 75%);background-size:200% 100%;animation:mq-shimmer 1.4s ease-in-out infinite;}
 @keyframes mq-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
+/* ---------- Find a Mosque :: location bar (4 independent sources) ---------- */
+.mq-location-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 10px;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;}
+.mq-location-label{flex:1 1 100%;text-align:center;font-size:12.5px;color:var(--text-dim);order:-1;min-height:16px;}
+.mq-location-btn{background:none;border:1px solid var(--border);border-radius:10px;padding:6px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;}
+.mq-location-btn:hover{border-color:var(--coral);color:var(--coral);}
+.mq-location-btn:disabled{opacity:.6;cursor:default;}
+.mq-location-btn-secondary{color:var(--text-dim);}
+.mq-manual-location{display:flex;gap:8px;margin:0 0 14px;}
+.mq-manual-location.hidden{display:none;}
+.mq-manual-location-input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:13.5px;background:var(--bg);color:var(--text);}
+.mq-manual-location-submit{background:var(--coral);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.mq-manual-location-submit:hover{background:var(--coral-dark);}
+.mq-manual-location-status{text-align:center;font-size:12px;color:var(--text-dim);margin:-8px 0 12px;}
