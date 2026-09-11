@@ -26,3 +26,7 @@ id = "8685fe2c0c8740bc8f3c48094e8e9d01"
 [[r2_buckets]]
 binding = "MASJID_PHOTOS"
 bucket_name = "wherewepraying-masjid-photos"
+
+[[r2_buckets]]
+binding = "CACHE_BUCKET"
+bucket_name = "wwp-cache"
