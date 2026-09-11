@@ -44,6 +44,7 @@ const WALK_SPEED_MPH = 3;
 const DRIVE_SPEED_MPH = 15;     // conservative — accounts for city traffic/parking, not motorway speed
 const ROUTE_FACTOR = 1.25;      // real roads/paths aren't a straight line
 const SAFETY_BUFFER_MIN = 5;    // arrive-by buffer, not arrive-exactly-on-time
+const PREFERRED_MAX_DRIVE_MIN = 20; // prioritise options within this drive time; never pad backups out with a far-flung option just to reach 3
 
 function londonNowParts() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -167,15 +168,37 @@ function computeFeasible(candidates, lat, lon, nowMinutes) {
 
 function pickPrimaryAndBackups(feasible) {
   if (!feasible.length) return { primary: null, backups: [] };
-  const primary = feasible[0];
-  const rest = feasible.slice(1);
-  const later = rest.filter((m) => m.jamaahInMinutes > primary.jamaahInMinutes);
-  const backups = later.slice(0, 2);
-  if (backups.length < 2) {
-    for (const m of rest) {
+
+  // Closest-first (drive time, then distance as a tiebreak) — "can
+  // you make it" already filtered to feasible mosques; among those,
+  // proximity decides ranking, not which one's Jama'ah happens to be
+  // soonest on the clock.
+  const byDistance = [...feasible].sort(
+    (a, b) => a.travelMinutes - b.travelMinutes || a.distanceMiles - b.distanceMiles
+  );
+
+  // Prefer a primary within the target drive-time ceiling; only reach
+  // further if nothing feasible is that close right now (better to
+  // show a real answer than none).
+  const withinCapAll = byDistance.filter((m) => m.travelMinutes <= PREFERRED_MAX_DRIVE_MIN);
+  const primary = withinCapAll[0] || byDistance[0];
+  const rest = byDistance.filter((m) => m !== primary);
+
+  // Backups are capped hard at PREFERRED_MAX_DRIVE_MIN — never padded
+  // out to 3 cards by reaching for a mosque that's an unreasonable
+  // drive away. Within that cap, prefer ones with a LATER Jama'ah
+  // than primary (genuinely useful if you miss it); fall back to any
+  // nearby one only if that's all that's close enough.
+  const withinCap = rest.filter((m) => m.travelMinutes <= PREFERRED_MAX_DRIVE_MIN);
+  const laterAndClose = withinCap.filter((m) => m.jamaahInMinutes > primary.jamaahInMinutes);
+
+  const backups = [];
+  for (const pool of [laterAndClose, withinCap]) {
+    for (const m of pool) {
       if (backups.length >= 2) break;
       if (!backups.includes(m)) backups.push(m);
     }
+    if (backups.length >= 2) break;
   }
   return { primary, backups };
 }
