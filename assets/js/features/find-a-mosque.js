@@ -44,8 +44,10 @@
                  "detect my location" widget.
      4. MANUAL — a postcode/place box (always visible, not gated
                  behind failure), geocoded via the same Open-Meteo
-                 API already used by Prayer Times. Always wins over
-                 an automatic guess since it's what the person typed.
+                 API already used by Prayer Times (same call shape,
+                 proven to work — no unofficial params added). Always
+                 wins over an automatic guess since it's what the
+                 person typed.
 
    All four race in parallel; whichever most-precise one lands wins
    (rank: manual 5 > geo 4 > edge/ip 2 > cached-from-last-visit 1),
@@ -172,9 +174,12 @@
   }
 
   // ---- Source 4: manual postcode/place entry ----
-  // Same geocoding API Prayer Times already uses — no key, free.
+  // Same geocoding API + exact call shape Prayer Times already uses
+  // (assets/js/features/prayer-times.js geocodeCity) — no key, free,
+  // proven to work. Deliberately not adding any extra/unofficial
+  // query params here.
   async function geocodeManual(query){
-    const url = GEOCODE_BASE + '?name=' + encodeURIComponent(query) + '&count=1&language=en&format=json&country=GB';
+    const url = GEOCODE_BASE + '?name=' + encodeURIComponent(query) + '&count=5&language=en&format=json';
     const res = await fetchWithTimeout(url, null, 5000);
     if (!res.ok) throw new Error('Location search failed');
     const data = await res.json();
@@ -203,16 +208,16 @@
 
   function locationBarText(loc){
     if (!loc) return '';
-    if (loc.source === 'manual') return 'Showing mosques near ' + escapeHtml(loc.label || 'your search') + '.';
+    if (loc.source === 'manual') return 'Showing mosques near ' + (loc.label || 'your search') + '.';
     if (loc.source === 'cached') return 'Last known location — updating…';
-    if (loc.source === 'geo') return loc.label ? 'Using your precise location near ' + escapeHtml(loc.label) + '.' : 'Using your precise location.';
-    return loc.label ? 'Using your approximate area near ' + escapeHtml(loc.label) + '.' : 'Using your approximate area.';
+    if (loc.source === 'geo') return loc.label ? 'Using your precise location near ' + loc.label + '.' : 'Using your precise location.';
+    return loc.label ? 'Using your approximate area near ' + loc.label + '.' : 'Using your approximate area.';
   }
 
   function renderLocationLabel(){
     const el = document.getElementById('mqLocationLabel');
     if (!el) return;
-    el.textContent = mqLocation ? locationBarText(mqLocation).replace(/<[^>]+>/g, '') : '';
+    el.textContent = mqLocation ? locationBarText(mqLocation) : '';
   }
 
   async function fetchPlan(lat, lon){
