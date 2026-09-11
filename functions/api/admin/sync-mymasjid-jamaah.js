@@ -646,6 +646,12 @@ const UPSERT_SQL = `
     isha_jamaah=excluded.isha_jamaah,
     source=excluded.source,
     updated_at=excluded.updated_at
+  WHERE
+    fajr_jamaah    IS NOT excluded.fajr_jamaah OR
+    zuhr_jamaah    IS NOT excluded.zuhr_jamaah OR
+    asr_jamaah     IS NOT excluded.asr_jamaah OR
+    maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
+    isha_jamaah    IS NOT excluded.isha_jamaah
 `;
 
 export async function onRequestGet(context) {
