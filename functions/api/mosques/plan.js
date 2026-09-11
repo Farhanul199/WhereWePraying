@@ -29,7 +29,7 @@
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const CANDIDATE_BOX_MILES = 22;
-const R2_EDGE_CACHE_SECONDS = 14400; // 4 hours — R2 file only changes twice/day anyway
+const R2_EDGE_CACHE_SECONDS = 43200; // 4 hours — R2 file only changes twice/day anyway
 
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
 const WALK_SPEED_MPH = 3;
