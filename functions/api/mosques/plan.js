@@ -1,23 +1,26 @@
 // functions/api/mosques/plan.js
 //
-// "Find a Mosque" plan endpoint — the real product surface (see
-// screenshots discussed in chat): given the visitor's lat/lon, works
+// "Find a Mosque" plan endpoint — given the visitor's lat/lon, works
 // out ONE primary mosque (the closest one they can still reach before
 // Jama'ah) plus up to TWO backup mosques with later Jama'ah times, in
 // case they miss the primary. Not a browsable list — three cards, done.
 //
-// COST DESIGN (same pattern as nearby.js — read that file's header
-// too if changing this one):
-// - Grid-bucketed cache (~0.1 degree, ~6-7 miles): visitors in the
-//   same rough area share one D1 hit every 10 minutes, not one each.
-// - The CACHE stores raw Jama'ah time strings only, never a
-//   precomputed "next prayer" — "next" depends on the current minute,
-//   and baking it into a 10-minute cache would go stale. Feasibility
-//   is recalculated fresh per request from the cached raw times —
-//   free (plain JS), no extra D1/KV cost.
-// - Bounding box before Haversine, same as nearby.js.
-// - Rare nationwide fallback only if the whole ~22-mile candidate set
-//   doesn't contain 3 mosques with any Jama'ah data at all.
+// COST DESIGN — R2 + edge cache, zero D1 / zero KV on the visitor path:
+//
+//   1. A cron Worker calls build-r2-cache.js twice daily. That job
+//      reads ALL mosques + times from D1 once, writes one JSON file
+//      to R2 keyed by date: `mosques/2026-09-12.json`.
+//   2. This endpoint reads that file from R2 on first request of the
+//      day (or on edge-cache miss), then caches it at the Cloudflare
+//      edge for hours. Subsequent visitors get the edge-cached copy —
+//      no R2 hit, no D1 hit, no KV hit.
+//   3. Bounding-box filtering and "next prayer" feasibility are
+//      computed in-memory per request from the cached data — free JS,
+//      no quota cost.
+//
+//   Result: D1 is only touched by the cron (twice/day), never by
+//   visitors. KV is not used at all. R2 is hit at most once per edge
+//   PoP per cache window. This scales to millions of visitors.
 //
 // Travel time is ESTIMATED, not routed (no Google Maps/routing API —
 // costs money and this is a free-tier project). Straight-line distance
@@ -26,8 +29,7 @@
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const CANDIDATE_BOX_MILES = 22;
-const GRID_SIZE_DEG = 0.1;
-const CACHE_TTL_SECONDS = 32400;
+const R2_EDGE_CACHE_SECONDS = 14400; // 4 hours — R2 file only changes twice/day anyway
 
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
 const WALK_SPEED_MPH = 3;
@@ -48,15 +50,6 @@ function londonNowParts() {
   };
 }
 
-// Plain calendar-date arithmetic on a YYYY-MM-DD string — used to look
-// up tomorrow's Fajr once today's prayers have all passed (e.g. after
-// Isha). UTC anchoring is safe here since we only care about the
-// calendar date, not a time-of-day.
-function addDaysIso(dateIso, days) {
-  const [y, m, d] = dateIso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
-}
-
 function parseTimeToMinutes(prayer, raw) {
   if (!raw) return null;
   const cleaned = raw.replace(".", ":").trim();
@@ -68,7 +61,7 @@ function parseTimeToMinutes(prayer, raw) {
   return h * 60 + min;
 }
 
-// Same placeholder-value cleanup as list.js/nearby.js.
+// Same placeholder-value cleanup as before.
 function clearPlaceholders(jamaah) {
   const valueCounts = new Map();
   for (const p of PRAYER_ORDER) {
@@ -109,31 +102,6 @@ function travelEstimate(miles) {
   return { mode, minutes };
 }
 
-// tmr (tomorrow's row) only contributes fajr_jamaah — that's the only
-// field ever needed once today's own prayers have passed.
-const BOX_QUERY = `
-  SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
-         tmr.fajr_jamaah AS tomorrow_fajr
-  FROM mosques m
-  LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
-  LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
-  WHERE m.active = 1 AND m.type = 'mosque'
-    AND m.latitude BETWEEN ? AND ?
-    AND m.longitude BETWEEN ? AND ?
-`;
-
-const NATIONWIDE_FALLBACK_QUERY = `
-  SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
-         tmr.fajr_jamaah AS tomorrow_fajr
-  FROM mosques m
-  LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
-  LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
-  WHERE m.active = 1 AND m.type = 'mosque'
-    AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL
-`;
-
 function rowToCandidate(row) {
   const jamaah = {
     fajr: row.fajr_jamaah || null, zuhr: row.zuhr_jamaah || null, asr: row.asr_jamaah || null,
@@ -142,14 +110,11 @@ function rowToCandidate(row) {
   clearPlaceholders(jamaah);
   return {
     slug: row.slug, name: row.name, address: row.address || null,
-    latitude: row.latitude ?? null, longitude: row.longitude ?? null, jamaah,
+    latitude: row.latitude, longitude: row.longitude, jamaah,
     tomorrowFajr: row.tomorrow_fajr || null,
   };
 }
 
-// Given a candidate (raw jamaah times) and the current minute-of-day,
-// find today's next upcoming prayer for that mosque. Returns null if
-// nothing left today.
 function nextPrayerFor(candidate, nowMinutes) {
   for (const prayer of PRAYER_ORDER) {
     const mins = parseTimeToMinutes(prayer, candidate.jamaah[prayer]);
@@ -157,7 +122,6 @@ function nextPrayerFor(candidate, nowMinutes) {
       return { prayer, time: candidate.jamaah[prayer], minutesUntil: mins - nowMinutes, isTomorrow: false };
     }
   }
-  // Today's done (e.g. after Isha) — fall through to tomorrow's Fajr.
   const tomorrowMins = parseTimeToMinutes("fajr", candidate.tomorrowFajr);
   if (tomorrowMins !== null) {
     return {
@@ -178,8 +142,6 @@ function buildPlanEntry(candidate, dist, next, travel) {
   };
 }
 
-// Feasible = can physically get there (travel time + safety buffer)
-// before Jama'ah starts.
 function computeFeasible(candidates, lat, lon, nowMinutes) {
   const feasible = [];
   for (const c of candidates) {
@@ -188,17 +150,13 @@ function computeFeasible(candidates, lat, lon, nowMinutes) {
     if (!next) continue;
     const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
     const travel = travelEstimate(dist);
-    if (next.minutesUntil - travel.minutes - SAFETY_BUFFER_MIN < 0) continue; // can't make it
+    if (next.minutesUntil - travel.minutes - SAFETY_BUFFER_MIN < 0) continue;
     feasible.push(buildPlanEntry(c, dist, next, travel));
   }
   feasible.sort((a, b) => a.jamaahInMinutes - b.jamaahInMinutes);
   return feasible;
 }
 
-// Primary = soonest feasible mosque. Backups = next two with a
-// genuinely LATER Jama'ah time (real fallbacks, not same-time ties).
-// If fewer than two qualify that way, fill remaining slots from
-// whatever's left so the visitor still gets options.
 function pickPrimaryAndBackups(feasible) {
   if (!feasible.length) return { primary: null, backups: [] };
   const primary = feasible[0];
@@ -213,6 +171,43 @@ function pickPrimaryAndBackups(feasible) {
   }
   return { primary, backups };
 }
+
+// ---------- R2 data loader with edge cache ----------
+
+async function loadMosquesFromR2(env, dateIso, ctx) {
+  const r2Key = `mosques/${dateIso}.json`;
+
+  // 1. Check Cloudflare edge cache first (free, uncounted)
+  const cache = caches.default;
+  const cacheUrl = new Request(`https://cache-key.internal/r2-mosques/${dateIso}`);
+  const edgeHit = await cache.match(cacheUrl);
+  if (edgeHit) {
+    const data = await edgeHit.json();
+    return data.mosques || [];
+  }
+
+  // 2. Edge miss — read from R2
+  if (!env.CACHE_BUCKET) return null;
+
+  const r2Object = await env.CACHE_BUCKET.get(r2Key);
+  if (!r2Object) return null;
+
+  const body = await r2Object.text();
+
+  // 3. Put into edge cache for next visitors
+  const cacheResponse = new Response(body, {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": `public, max-age=${R2_EDGE_CACHE_SECONDS}`,
+    },
+  });
+  ctx.waitUntil(cache.put(cacheUrl, cacheResponse));
+
+  const data = JSON.parse(body);
+  return data.mosques || [];
+}
+
+// ---------- Main handler ----------
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -230,69 +225,66 @@ export async function onRequestGet(context) {
 
   const { dateIso, minutes: nowMinutes } = londonNowParts();
 
-  const gridLat = Math.round(lat / GRID_SIZE_DEG) * GRID_SIZE_DEG;
-  const gridLon = Math.round(lon / GRID_SIZE_DEG) * GRID_SIZE_DEG;
-  const gridKey = `${gridLat.toFixed(2)},${gridLon.toFixed(2)}`;
+  // --- Load all mosques from R2 (edge-cached), fall back to D1 ---
+  let allMosques = await loadMosquesFromR2(env, dateIso, context);
+  let source = "r2";
 
-  const cache = caches.default;
-  const cacheKeyRequest = new Request(
-    `https://cache-key.internal/mosques/plan-candidates?grid=${gridKey}&date=${dateIso}`
-  );
-  const kvKey = `mq_plan_v1:${gridKey}:${dateIso}`;
-
-  let candidates = null;
-
-  const edgeHit = await cache.match(cacheKeyRequest);
-  if (edgeHit) candidates = await edgeHit.json();
-
-  if (!candidates && env.RATE_LIMIT) {
-    const kvHit = await env.RATE_LIMIT.get(kvKey);
-    if (kvHit) candidates = JSON.parse(kvHit);
-  }
-
-  if (!candidates) {
+  // Fallback: if R2 file doesn't exist yet (first deploy, cron hasn't
+  // run, or R2 not bound), query D1 directly so the site doesn't break.
+  if (!allMosques) {
+    source = "d1_fallback";
     try {
-      const latDelta = milesToLatDegrees(CANDIDATE_BOX_MILES);
-      const lonDelta = milesToLonDegrees(CANDIDATE_BOX_MILES, gridLat);
-      const tomorrowIso = addDaysIso(dateIso, 1);
-      const { results } = await env.DB.prepare(BOX_QUERY)
-        .bind(dateIso, tomorrowIso, gridLat - latDelta, gridLat + latDelta, gridLon - lonDelta, gridLon + lonDelta)
-        .all();
-      candidates = (results || []).map(rowToCandidate);
+      const tomorrowIso = new Date(Date.UTC(
+        ...dateIso.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))
+      ));
+      tomorrowIso.setUTCDate(tomorrowIso.getUTCDate() + 1);
+      const tmrStr = tomorrowIso.toISOString().slice(0, 10);
+
+      const { results } = await env.DB.prepare(`
+        SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
+               t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
+               tmr.fajr_jamaah AS tomorrow_fajr
+        FROM mosques m
+        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
+        LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
+        WHERE m.active = 1 AND m.type = 'mosque'
+          AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL
+      `).bind(dateIso, tmrStr).all();
+      allMosques = results || [];
     } catch (e) {
       return new Response(
-        JSON.stringify({ error: "Failed to load mosque plan", detail: String(e) }),
+        JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
-    const body = JSON.stringify(candidates);
-    const cacheResponse = new Response(body, {
-      headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` },
-    });
-    context.waitUntil(cache.put(cacheKeyRequest, cacheResponse.clone()));
-    if (env.RATE_LIMIT) {
-      context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: CACHE_TTL_SECONDS }));
+  }
+
+  // --- Filter to bounding box (in-memory, free) ---
+  const latDelta = milesToLatDegrees(CANDIDATE_BOX_MILES);
+  const lonDelta = milesToLonDegrees(CANDIDATE_BOX_MILES, lat);
+  const minLat = lat - latDelta, maxLat = lat + latDelta;
+  const minLon = lon - lonDelta, maxLon = lon + lonDelta;
+
+  const candidates = [];
+  for (const row of allMosques) {
+    if (row.latitude >= minLat && row.latitude <= maxLat &&
+        row.longitude >= minLon && row.longitude <= maxLon) {
+      candidates.push(rowToCandidate(row));
     }
   }
 
+  // --- Compute feasibility ---
   let feasible = computeFeasible(candidates, lat, lon, nowMinutes);
-  let expanded = false;
 
-  // Rare: the whole ~22-mile candidate box didn't produce 3 feasible
-  // options (very sparse area, or everything's already too far for
-  // the little time left before the next prayer). One uncached
-  // nationwide query, sorted properly, as a last resort.
+  // If local box didn't produce 3 results, try ALL mosques (already
+  // loaded in memory — no extra D1/R2 hit needed).
+  let expanded = false;
   if (feasible.length < 3) {
-    try {
-      const { results } = await env.DB.prepare(NATIONWIDE_FALLBACK_QUERY).bind(dateIso, addDaysIso(dateIso, 1)).all();
-      const all = (results || []).map(rowToCandidate);
-      const nationwide = computeFeasible(all, lat, lon, nowMinutes);
-      if (nationwide.length > feasible.length) {
-        feasible = nationwide;
-        expanded = true;
-      }
-    } catch (e) {
-      // Keep whatever we already had rather than failing outright.
+    const allCandidates = allMosques.map(rowToCandidate);
+    const nationwide = computeFeasible(allCandidates, lat, lon, nowMinutes);
+    if (nationwide.length > feasible.length) {
+      feasible = nationwide;
+      expanded = true;
     }
   }
 
@@ -300,7 +292,7 @@ export async function onRequestGet(context) {
   const note = !primary ? "No Jama'ah times found nearby — none of the nearby mosques have Fajr times on record yet." : null;
 
   return new Response(
-    JSON.stringify({ date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, expanded, note }),
+    JSON.stringify({ date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, expanded, note, source }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
   );
 }
