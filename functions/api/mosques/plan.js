@@ -26,6 +26,14 @@
 // costs money and this is a free-tier project). Straight-line distance
 // with a route-indirectness multiplier and a flat speed per mode.
 // Good enough for "can I make it", not turn-by-turn directions.
+//
+// PRIVACY: the frontend now sends coordinates as a POST body (see
+// onRequestPost below) rather than a GET query string, so they don't
+// land in access logs, browser history, or a Referer header. This
+// endpoint never writes the visitor's location anywhere — it's read
+// in memory for this one request, used to filter/sort, and discarded
+// when the response is sent. onRequestGet is kept only for backward
+// compatibility (e.g. direct testing) and shares the exact same logic.
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const CANDIDATE_BOX_MILES = 22;
@@ -207,26 +215,19 @@ async function loadMosquesFromR2(env, dateIso, ctx) {
   return data.mosques || [];
 }
 
-// ---------- Main handler ----------
+// ---------- Shared core (used by both POST and GET) ----------
 
-export async function onRequestGet(context) {
-  const { request, env } = context;
-  const url = new URL(request.url);
-
-  const lat = parseFloat(url.searchParams.get("lat"));
-  const lon = parseFloat(url.searchParams.get("lon"));
+function validateCoords(lat, lon) {
   const validLat = Number.isFinite(lat) && lat >= -90 && lat <= 90;
   const validLon = Number.isFinite(lon) && lon >= -180 && lon <= 180;
-  if (!validLat || !validLon) {
-    return new Response(JSON.stringify({ error: "lat and lon must be valid coordinates" }), {
-      status: 400, headers: { "Content-Type": "application/json" },
-    });
-  }
+  return validLat && validLon;
+}
 
+async function buildPlanResponse(lat, lon, env, ctx) {
   const { dateIso, minutes: nowMinutes } = londonNowParts();
 
   // --- Load all mosques from R2 (edge-cached), fall back to D1 ---
-  let allMosques = await loadMosquesFromR2(env, dateIso, context);
+  let allMosques = await loadMosquesFromR2(env, dateIso, ctx);
   let source = "r2";
 
   // Fallback: if R2 file doesn't exist yet (first deploy, cron hasn't
@@ -295,4 +296,41 @@ export async function onRequestGet(context) {
     JSON.stringify({ date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, expanded, note, source }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
   );
+}
+
+function badCoordsResponse() {
+  return new Response(JSON.stringify({ error: "lat and lon must be valid coordinates" }), {
+    status: 400, headers: { "Content-Type": "application/json" },
+  });
+}
+
+// ---------- Entry points ----------
+
+// Primary path — used by the frontend. Coordinates in the POST body
+// keep them out of URLs/access logs/Referer headers (see PRIVACY note
+// at the top of this file).
+export async function onRequestPost(context) {
+  const { request, env } = context;
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return badCoordsResponse();
+  }
+  const lat = parseFloat(body && body.lat);
+  const lon = parseFloat(body && body.lon);
+  if (!validateCoords(lat, lon)) return badCoordsResponse();
+  return buildPlanResponse(lat, lon, env, context);
+}
+
+// Kept for backward compatibility (direct URL testing, older cached
+// clients) — identical logic, just reads coordinates from the query
+// string instead of a POST body.
+export async function onRequestGet(context) {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const lat = parseFloat(url.searchParams.get("lat"));
+  const lon = parseFloat(url.searchParams.get("lon"));
+  if (!validateCoords(lat, lon)) return badCoordsResponse();
+  return buildPlanResponse(lat, lon, env, context);
 }
