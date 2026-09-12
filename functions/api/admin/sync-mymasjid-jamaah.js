@@ -18,11 +18,18 @@
 // refreshed monthly always covers 2-3 months ahead, which is enough
 // lead time to catch any committee update.
 //
-// v2: writes into jamaah_raw (the raw inbox) under source
-// 'mymasjid_scrape' keyed by MyMasjid's guid, and registers guid + name
-// on the translator sheet (mosque_sources). The fused thm_jamaah_times
-// view resolves overlaps between sources by priority, so a mosque on
-// both MyMasjid and MasjidBox now produces ONE clean row per day.
+// KNOWN LIMITATION: some mosques (e.g. Collier Row) exist on BOTH MyMasjid
+// and MasjidBox. This script writes MyMasjid rows keyed by MyMasjid's own
+// guid, which is NOT the same key MasjidBox/THM use (their "mosque" key is
+// a name-based slug). That means a mosque on both platforms currently gets
+// TWO separate rows in thm_jamaah_times - one per source - rather than one
+// row with the higher-priority source winning. There is no automatic
+// dedup/priority resolution yet. Proper fix requires a canonical mosques
+// table that maps every source's identifier (THM slug, MasjidBox slug,
+// MyMasjid guid) to one mosque record - this is the "add mosques to the
+// main listing" step already flagged as a separate task. Until that
+// exists, do not assume MasjidBox automatically wins on overlapping
+// mosques; both rows will be present and need manual awareness.
 //
 // USAGE - prefer curl with a header (query-string secrets end up in
 // Cloudflare's request logs and your browser history):
@@ -122,7 +129,7 @@ const MYMASJID_MOSQUES = [
   { guid: "083b8beb-c71e-48d1-8bc4-959fb8dff24c", name: "Jamiatul Ilm Wal Huda" },
   { guid: "9dfb3b0f-b337-449f-9579-ccc89385c342", name: "Khanqah Blackburn" },
   { guid: "360fa517-59dc-4b93-b16d-99ec70c79c3b", name: "Kurdish mosque" },
-  { guid: "c26b6388-b5b5-4be3-a535-56e99eecf243", name: "Madni Masjid" },
+  { guid: "c26d6388-b5b5-4be3-a535-56e99eecf243", name: "Madni Masjid" },
   { guid: "a350603a-09ae-40c5-b821-b11686498902", name: "Masjid Alberr" },
   { guid: "744000f0-e279-4e13-876b-256074b500f3", name: "Masjid Al-Hidayah" },
   { guid: "0e1a4a27-9119-4164-8605-cb25d120605e", name: "Masjid al-Momineen" },
