@@ -1,4 +1,4 @@
-// functions/api/admin/sync-masjidbox-jamaah.js
+// functions/api/admin/sync-masjidbox-jamaah-staggered.js
 //
 // Scraper for MasjidBox Jama'ah times (public frontend API, discovered via
 // browser DevTools Network tab on masjidbox.com/prayer-times/{slug}).
@@ -16,13 +16,18 @@
 // Combined with the WHERE clause in the UPSERT (only write if values changed),
 // each run writes ~350 rows, and steady-state should be near zero most days.
 //
+// v2: writes into jamaah_raw (the raw inbox) under source 'masjidbox_scrape'
+// and registers each MasjidBox slug + display name on the translator sheet
+// (mosque_sources). The fused thm_jamaah_times view shows these times for
+// the correct official mosque automatically once the slug is linked.
+//
 // USAGE - prefer curl with a header (query-string secrets end up in
 // Cloudflare's request logs and your browser history):
-//   curl "https://wherewepraying.com/api/admin/sync-masjidbox-jamaah" \
+//   curl "https://wherewepraying.com/api/admin/sync-masjidbox-jamaah-staggered" \
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 //
 // Manual testing (override auto-stagger): pass ?start=N&end=M:
-//   curl "https://wherewepraying.com/api/admin/sync-masjidbox-jamaah?start=0&end=50" \
+//   curl "https://wherewepraying.com/api/admin/sync-masjidbox-jamaah-staggered?start=0&end=50" \
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 
 import { isSyncRequest } from '../../_lib/auth.js';
@@ -398,16 +403,15 @@ function isoToHms(iso) {
 }
 
 const UPSERT_SQL = `
-  INSERT INTO thm_jamaah_times
-    (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(mosque, date) DO UPDATE SET
+  INSERT INTO jamaah_raw
+    (source, source_ref, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, updated_at)
+  VALUES ('masjidbox_scrape', ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref, date) DO UPDATE SET
     fajr_jamaah=excluded.fajr_jamaah,
     zuhr_jamaah=excluded.zuhr_jamaah,
     asr_jamaah=excluded.asr_jamaah,
     maghrib_jamaah=excluded.maghrib_jamaah,
     isha_jamaah=excluded.isha_jamaah,
-    source=excluded.source,
     updated_at=excluded.updated_at
   WHERE
     fajr_jamaah    IS NOT excluded.fajr_jamaah OR
@@ -415,6 +419,17 @@ const UPSERT_SQL = `
     asr_jamaah     IS NOT excluded.asr_jamaah OR
     maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
     isha_jamaah    IS NOT excluded.isha_jamaah
+`;
+
+// Registers this source's mosque code on the translator sheet
+// (mosque_sources). Never touches mosque_slug, so manual matching is
+// preserved no matter how many times a sync runs.
+const REGISTER_SOURCE_SQL = `
+  INSERT INTO mosque_sources (source, source_ref, name, first_seen, last_seen)
+  VALUES ('masjidbox_scrape', ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref) DO UPDATE SET
+    name = COALESCE(mosque_sources.name, excluded.name),
+    last_seen = excluded.last_seen
 `;
 
 function calculateWeeklySlice(dayOfWeek) {
@@ -434,7 +449,7 @@ export async function onRequestGet(context) {
 
   const startParam = url.searchParams.get("start");
   const endParam = url.searchParams.get("end");
-  
+
   let start, end;
   if (startParam !== null && endParam !== null) {
     // Manual override: use provided start/end for testing
@@ -450,7 +465,7 @@ export async function onRequestGet(context) {
     start = weekly.start;
     end = weekly.end;
   }
-  
+
   const nowIso = new Date().toISOString();
 
   const results = { processed: [], failed: [], skipped: [], recordsSaved: 0 };
@@ -483,6 +498,9 @@ export async function onRequestGet(context) {
       const data = await resp.json();
       const timetable = data.timetable || [];
 
+      // Register this mosque's MasjidBox code + display name on the translator sheet.
+      await env.DB.prepare(REGISTER_SOURCE_SQL).bind(slug, name, nowIso, nowIso).run();
+
       const statements = [];
       for (const day of timetable) {
         const dateIso = (day.date || "").slice(0, 10);
@@ -498,7 +516,6 @@ export async function onRequestGet(context) {
             isoToHms(iq.asr),
             isoToHms(iq.maghrib),
             isoToHms(iq.isha),
-            "masjidbox_scrape",
             nowIso
           )
         );
