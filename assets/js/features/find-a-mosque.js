@@ -43,11 +43,13 @@
                  geojs.io, a third party — same trade-off as any
                  "detect my location" widget.
      4. MANUAL — a postcode/place box (always visible, not gated
-                 behind failure), geocoded via the same Open-Meteo
-                 API already used by Prayer Times (same call shape,
-                 proven to work — no unofficial params added). Always
-                 wins over an automatic guess since it's what the
-                 person typed.
+                 behind failure). A postcode or outcode ("IG2 7HS",
+                 "E14") is looked up via postcodes.io (real Royal
+                 Mail data); a free-text area name ("Poplar",
+                 "Redbridge") via Photon (OpenStreetMap), which has
+                 proper London neighbourhood-level detail, filtered
+                 to a UK match. Always wins over an automatic guess
+                 since it's what the person typed.
 
    All four race in parallel; whichever most-precise one lands wins
    (rank: manual 5 > geo 4 > edge/ip 2 > cached-from-last-visit 1),
@@ -74,9 +76,15 @@
   const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
   const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
   const IP_GEO_TIMEOUT_MS = 3500;
-  const GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
-  const REVERSE_GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/reverse';
+  const POSTCODES_IO_BASE = 'https://api.postcodes.io';
+  const PHOTON_BASE = 'https://photon.komoot.io/api/';
   const IP_GEO_URL = 'https://get.geojs.io/v1/ip/geo.json';
+  // A full UK postcode ("IG2 7HS") vs just its first half, an "outcode"
+  // ("IG2", "E14") — both are looked up via postcodes.io, which has
+  // real Royal Mail data, rather than a general place-name geocoder
+  // (which doesn't carry postcode-level data at all).
+  const FULL_POSTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\d[A-Za-z]{2}$/;
+  const OUTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?$/;
   // Higher = more precise/trusted. A result only ever replaces the
   // current one if it's strictly higher rank (or the person just
   // explicitly asked for a fresh fix) — a fast-but-coarse source can
@@ -174,34 +182,89 @@
   }
 
   // ---- Source 4: manual postcode/place entry ----
-  // Same geocoding API + exact call shape Prayer Times already uses
-  // (assets/js/features/prayer-times.js geocodeCity) — no key, free,
-  // proven to work. Deliberately not adding any extra/unofficial
-  // query params here.
-  async function geocodeManual(query){
-    const url = GEOCODE_BASE + '?name=' + encodeURIComponent(query) + '&count=5&language=en&format=json';
-    const res = await fetchWithTimeout(url, null, 5000);
-    if (!res.ok) throw new Error('Location search failed');
+  // Two different lookups depending on what was typed, since neither
+  // service alone covers both well:
+  //   - A postcode or outcode ("IG2 7HS", "E14") → postcodes.io, the
+  //     real Royal Mail/ONS dataset. A general place-name geocoder
+  //     (tried first, originally) simply doesn't have postcode-level
+  //     UK data, which is why postcodes always came back "not found".
+  //   - A free-text place/area name ("Poplar", "Redbridge") → Photon
+  //     (OpenStreetMap data), which has proper London
+  //     neighbourhood-level detail. The previous Open-Meteo geocoder
+  //     is city-level only — it matched "Poplar" to whichever
+  //     same-named place ranked first worldwide, which is why it
+  //     silently returned the wrong location instead of E14.
+  async function geocodePostcode(compact){
+    const res = await fetchWithTimeout(POSTCODES_IO_BASE + '/postcodes/' + encodeURIComponent(compact), null, 5000);
+    if (!res.ok) return null; // 404 = genuinely not a postcode on record
     const data = await res.json();
-    const r = data && data.results && data.results[0];
-    if (!r) throw new Error("Couldn't find that place");
+    const r = data && data.result;
+    if (!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
     return {
       lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
-      label: [r.name, r.admin1].filter(Boolean).join(', '),
+      label: [r.admin_ward, r.admin_district].filter(Boolean).join(', ') || r.postcode,
       source: 'manual'
     };
   }
 
+  async function geocodeOutcode(compact){
+    const res = await fetchWithTimeout(POSTCODES_IO_BASE + '/outcodes/' + encodeURIComponent(compact), null, 5000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = data && data.result;
+    if (!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    return {
+      lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
+      label: r.admin_district && r.admin_district[0] ? r.admin_district[0] : (r.outcode || compact),
+      source: 'manual'
+    };
+  }
+
+  async function geocodePlaceName(query){
+    const url = PHOTON_BASE + '?q=' + encodeURIComponent(query) + '&limit=5&lang=en';
+    const res = await fetchWithTimeout(url, null, 6000);
+    if (!res.ok) throw new Error('Location search failed');
+    const data = await res.json();
+    const features = (data && data.features) || [];
+    if (!features.length) throw new Error("Couldn't find that place");
+    // This is a UK-only mosque finder, so among same-named matches
+    // worldwide, prefer one actually in the UK rather than blindly
+    // taking whichever ranks first.
+    const uk = features.find(f => f.properties && f.properties.country === 'United Kingdom');
+    const f = uk || features[0];
+    const coords = f.geometry && f.geometry.coordinates; // Photon returns [lon, lat]
+    if (!coords) throw new Error("Couldn't find that place");
+    const p = f.properties || {};
+    const label = [p.name, p.city || p.district || p.county || p.state].filter(Boolean).join(', ') || query;
+    return { lat: roundCoord(coords[1]), lon: roundCoord(coords[0]), label, source: 'manual' };
+  }
+
+  async function geocodeManual(query){
+    const trimmed = query.trim();
+    const compact = trimmed.replace(/\s+/g, '').toUpperCase();
+    if (FULL_POSTCODE_RE.test(compact)) {
+      const loc = await geocodePostcode(compact);
+      if (loc) return loc;
+    } else if (OUTCODE_RE.test(compact)) {
+      const loc = await geocodeOutcode(compact);
+      if (loc) return loc;
+    }
+    return geocodePlaceName(trimmed);
+  }
+
   // Best-effort place name for auto-detected fixes — never blocks
   // rendering the plan; just fills in the label a moment later.
+  // postcodes.io's "nearest postcodes" lookup doubles as a UK-relevant
+  // reverse geocoder — ward + district reads better than a generic
+  // city name for this app's audience.
   async function reverseGeocodeLabel(lat, lon){
     try {
-      const url = REVERSE_GEOCODE_BASE + '?latitude=' + lat + '&longitude=' + lon + '&count=1&language=en&format=json';
+      const url = POSTCODES_IO_BASE + '/postcodes?lon=' + lon + '&lat=' + lat + '&limit=1';
       const res = await fetchWithTimeout(url, null, 3500);
       if (!res.ok) return null;
       const data = await res.json();
-      const r = data && data.results && data.results[0];
-      if (r) return [r.name, r.admin1].filter(Boolean).join(', ');
+      const r = data && data.result && data.result[0];
+      if (r) return [r.admin_ward, r.admin_district].filter(Boolean).join(', ');
     } catch (e) { /* skip — generic source label still shown */ }
     return null;
   }
