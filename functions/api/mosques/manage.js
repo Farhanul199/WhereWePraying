@@ -16,10 +16,10 @@
 //   { action:'update_location', slug, name?, type?, active? }
 //     -> updates an existing location's basic fields.
 //   { action:'set_daily_times', slug, date, fajr?, zuhr?, asr?, maghrib?, isha? }
-//     -> replaces that location's row in `thm_jamaah_times` for the
-//        given date. Empty/omitted fields are stored as null.
+//     -> saves that location's daily times under source 'manual', which
+//        always wins over scraped sources. Empty/omitted fields are null.
 //   { action:'set_jummah_times', slug, date, slots:[{slot,time}, ...] }
-//     -> replaces all `jummah_times` rows for that location+date with
+//     -> replaces all manual Jummah slots for that location+date with
 //        the given slots (Jummah is always assumed to be run on the
 //        Friday you provide as `date`).
 
@@ -121,13 +121,33 @@ export async function onRequestPost(context) {
         return json({ error: "slug and a YYYY-MM-DD date are required." }, 400);
       }
       const clean = (v) => (v && String(v).trim() ? String(v).trim() : null);
-      await db.prepare(`DELETE FROM thm_jamaah_times WHERE mosque = ?1 AND date = ?2`).bind(slug, date).run();
+      const nowIso = new Date().toISOString();
+      // Manual times live in jamaah_raw under source 'manual' - the most
+      // trusted source, so they always win over every scrape.
       await db
         .prepare(
-          `INSERT INTO thm_jamaah_times (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+          `INSERT INTO jamaah_raw (source, source_ref, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, updated_at)
+           VALUES ('manual', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+           ON CONFLICT(source, source_ref, date) DO UPDATE SET
+             fajr_jamaah=excluded.fajr_jamaah,
+             zuhr_jamaah=excluded.zuhr_jamaah,
+             asr_jamaah=excluded.asr_jamaah,
+             maghrib_jamaah=excluded.maghrib_jamaah,
+             isha_jamaah=excluded.isha_jamaah,
+             updated_at=excluded.updated_at`
         )
-        .bind(slug, date, clean(body.fajr), clean(body.zuhr), clean(body.asr), clean(body.maghrib), clean(body.isha))
+        .bind(slug, date, clean(body.fajr), clean(body.zuhr), clean(body.asr), clean(body.maghrib), clean(body.isha), nowIso)
+        .run();
+      // Self-mapping on the translator sheet: this manual code IS the
+      // official mosque slug.
+      await db
+        .prepare(
+          `INSERT INTO mosque_sources (source, source_ref, mosque_slug, first_seen, last_seen)
+           VALUES ('manual', ?1, ?1, ?2, ?2)
+           ON CONFLICT(source, source_ref) DO UPDATE SET
+             mosque_slug=excluded.mosque_slug, last_seen=excluded.last_seen`
+        )
+        .bind(slug, nowIso)
         .run();
       return json({ success: true });
     }
@@ -139,17 +159,28 @@ export async function onRequestPost(context) {
       if (!slug || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return json({ error: "slug and a YYYY-MM-DD date are required." }, 400);
       }
-      await db.prepare(`DELETE FROM jummah_times WHERE location = ?1 AND date = ?2`).bind(slug, date).run();
-      const now = Date.now();
+      // Manual Jummah slots live in jummah_raw under source 'manual'.
+      const nowIso2 = new Date().toISOString();
+      await db.prepare(`DELETE FROM jummah_raw WHERE source = 'manual' AND source_ref = ?1 AND date = ?2`).bind(slug, date).run();
       let slotNum = 1;
       for (const s of slots) {
         const time = String((s && s.time) || "").trim();
         if (!time) continue;
         await db
-          .prepare(`INSERT INTO jummah_times (location, date, slot, time, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`)
-          .bind(slug, date, slotNum++, time, now)
+          .prepare(`INSERT INTO jummah_raw (source, source_ref, date, slot, time, updated_at) VALUES ('manual', ?1, ?2, ?3, ?4, ?5)`)
+          .bind(slug, date, slotNum++, time, nowIso2)
           .run();
       }
+      // Self-mapping so the fused jummah_times view can see these rows.
+      await db
+        .prepare(
+          `INSERT INTO mosque_sources (source, source_ref, mosque_slug, first_seen, last_seen)
+           VALUES ('manual', ?1, ?1, ?2, ?2)
+           ON CONFLICT(source, source_ref) DO UPDATE SET
+             mosque_slug=excluded.mosque_slug, last_seen=excluded.last_seen`
+        )
+        .bind(slug, nowIso2)
+        .run();
       return json({ success: true, slotsSaved: slotNum - 1 });
     }
 
