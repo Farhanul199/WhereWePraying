@@ -12,7 +12,7 @@
 @import url('responsive-mobile.css?v=1');
 @import url('features/auth.css?v=1');
 @import url('features/leaderboard.css?v=1');
-@import url('features/notifications.css?v=1');
+@import url('features/notifications.css?v=2');
 
 /* Standalone Jummah (Friday) color override — deliberately duplicated
    here, independent of seasonal-themes.css, with !important, so this
