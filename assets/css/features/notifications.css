@@ -78,6 +78,7 @@
 .bn-sheet-backdrop{display:none;}
 @media (max-width:768px){
   .topbar .nav > a[data-page]:not(.nav-travel-icon){display:none;}
+  #navTravelIcon,#navCommunityIcon{display:none!important;}
   body{padding-bottom:calc(64px + env(safe-area-inset-bottom));}
   .bottom-nav{
     display:flex;position:fixed;left:0;right:0;bottom:0;z-index:150;
