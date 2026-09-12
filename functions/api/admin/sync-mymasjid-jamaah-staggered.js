@@ -143,7 +143,7 @@ const MYMASJID_MOSQUES = [
   { guid: "083b8beb-c71e-48d1-8bc4-959fb8dff24c", name: "Jamiatul Ilm Wal Huda" },
   { guid: "9dfb3b0f-b337-449f-9579-ccc89385c342", name: "Khanqah Blackburn" },
   { guid: "360fa517-59dc-4b93-b16d-99ec70c79c3b", name: "Kurdish mosque" },
-  { guid: "c26b6388-b5b5-4be3-a535-56e99eecf243", name: "Madni Masjid" },
+  { guid: "c26d6388-b5b5-4be3-a535-56e99eecf243", name: "Madni Masjid" },
   { guid: "a350603a-09ae-40c5-b821-b11686498902", name: "Masjid Alberr" },
   { guid: "744000f0-e279-4e13-876b-256074b500f3", name: "Masjid Al-Hidayah" },
   { guid: "0e1a4a27-9119-4164-8605-cb25d120605e", name: "Masjid al-Momineen" },
@@ -649,16 +649,15 @@ function dayMonthToIso(day, month, today) {
 }
 
 const UPSERT_SQL = `
-  INSERT INTO thm_jamaah_times
-    (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(mosque, date) DO UPDATE SET
+  INSERT INTO jamaah_raw
+    (source, source_ref, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, updated_at)
+  VALUES ('mymasjid_scrape', ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref, date) DO UPDATE SET
     fajr_jamaah=excluded.fajr_jamaah,
     zuhr_jamaah=excluded.zuhr_jamaah,
     asr_jamaah=excluded.asr_jamaah,
     maghrib_jamaah=excluded.maghrib_jamaah,
     isha_jamaah=excluded.isha_jamaah,
-    source=excluded.source,
     updated_at=excluded.updated_at
   WHERE
     fajr_jamaah    IS NOT excluded.fajr_jamaah OR
@@ -666,6 +665,17 @@ const UPSERT_SQL = `
     asr_jamaah     IS NOT excluded.asr_jamaah OR
     maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
     isha_jamaah    IS NOT excluded.isha_jamaah
+`;
+
+// Registers this source's mosque code on the translator sheet
+// (mosque_sources). Never touches mosque_slug, so manual matching is
+// preserved no matter how many times a sync runs.
+const REGISTER_SOURCE_SQL = `
+  INSERT INTO mosque_sources (source, source_ref, name, first_seen, last_seen)
+  VALUES ('mymasjid_scrape', ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref) DO UPDATE SET
+    name = COALESCE(mosque_sources.name, excluded.name),
+    last_seen = excluded.last_seen
 `;
 
 function calculateDailySlice(dayOfMonth) {
@@ -727,6 +737,9 @@ export async function onRequestGet(context) {
       const data = await resp.json();
       const timings = data.model?.salahTimings || [];
 
+      // Register this mosque's MyMasjid guid + display name on the translator sheet.
+      await env.DB.prepare(REGISTER_SOURCE_SQL).bind(guid, name, nowIso, nowIso).run();
+
       const statements = [];
       for (const day of timings) {
         const dateIso = dayMonthToIso(day.day, day.month, today);
@@ -741,7 +754,6 @@ export async function onRequestGet(context) {
             day.iqamah_Asr || null,
             day.iqamah_Maghrib || null,
             day.iqamah_Isha || null,
-            "mymasjid_scrape",
             nowIso
           )
         );
