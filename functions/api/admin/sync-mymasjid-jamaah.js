@@ -18,18 +18,11 @@
 // refreshed monthly always covers 2-3 months ahead, which is enough
 // lead time to catch any committee update.
 //
-// KNOWN LIMITATION: some mosques (e.g. Collier Row) exist on BOTH MyMasjid
-// and MasjidBox. This script writes MyMasjid rows keyed by MyMasjid's own
-// guid, which is NOT the same key MasjidBox/THM use (their "mosque" key is
-// a name-based slug). That means a mosque on both platforms currently gets
-// TWO separate rows in thm_jamaah_times - one per source - rather than one
-// row with the higher-priority source winning. There is no automatic
-// dedup/priority resolution yet. Proper fix requires a canonical mosques
-// table that maps every source's identifier (THM slug, MasjidBox slug,
-// MyMasjid guid) to one mosque record - this is the "add mosques to the
-// main listing" step already flagged as a separate task. Until that
-// exists, do not assume MasjidBox automatically wins on overlapping
-// mosques; both rows will be present and need manual awareness.
+// v2: writes into jamaah_raw (the raw inbox) under source
+// 'mymasjid_scrape' keyed by MyMasjid's guid, and registers guid + name
+// on the translator sheet (mosque_sources). The fused thm_jamaah_times
+// view resolves overlaps between sources by priority, so a mosque on
+// both MyMasjid and MasjidBox now produces ONE clean row per day.
 //
 // USAGE - prefer curl with a header (query-string secrets end up in
 // Cloudflare's request logs and your browser history):
@@ -635,16 +628,15 @@ function dayMonthToIso(day, month, today) {
 }
 
 const UPSERT_SQL = `
-  INSERT INTO thm_jamaah_times
-    (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, source, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(mosque, date) DO UPDATE SET
+  INSERT INTO jamaah_raw
+    (source, source_ref, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, updated_at)
+  VALUES ('mymasjid_scrape', ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref, date) DO UPDATE SET
     fajr_jamaah=excluded.fajr_jamaah,
     zuhr_jamaah=excluded.zuhr_jamaah,
     asr_jamaah=excluded.asr_jamaah,
     maghrib_jamaah=excluded.maghrib_jamaah,
     isha_jamaah=excluded.isha_jamaah,
-    source=excluded.source,
     updated_at=excluded.updated_at
   WHERE
     fajr_jamaah    IS NOT excluded.fajr_jamaah OR
@@ -652,6 +644,17 @@ const UPSERT_SQL = `
     asr_jamaah     IS NOT excluded.asr_jamaah OR
     maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
     isha_jamaah    IS NOT excluded.isha_jamaah
+`;
+
+// Registers this source's mosque code on the translator sheet
+// (mosque_sources). Never touches mosque_slug, so manual matching is
+// preserved no matter how many times a sync runs.
+const REGISTER_SOURCE_SQL = `
+  INSERT INTO mosque_sources (source, source_ref, name, first_seen, last_seen)
+  VALUES ('mymasjid_scrape', ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref) DO UPDATE SET
+    name = COALESCE(mosque_sources.name, excluded.name),
+    last_seen = excluded.last_seen
 `;
 
 export async function onRequestGet(context) {
@@ -690,6 +693,9 @@ export async function onRequestGet(context) {
       const data = await resp.json();
       const timings = data.model?.salahTimings || [];
 
+      // Register this mosque's MyMasjid guid + display name on the translator sheet.
+      await env.DB.prepare(REGISTER_SOURCE_SQL).bind(guid, name, nowIso, nowIso).run();
+
       const statements = [];
       for (const day of timings) {
         const dateIso = dayMonthToIso(day.day, day.month, today);
@@ -704,7 +710,6 @@ export async function onRequestGet(context) {
             day.iqamah_Asr || null,
             day.iqamah_Maghrib || null,
             day.iqamah_Isha || null,
-            "mymasjid_scrape",
             nowIso
           )
         );
