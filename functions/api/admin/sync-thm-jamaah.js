@@ -8,6 +8,11 @@
 // of one .run() per mosque, to stay well under Cloudflare's per-invocation
 // subrequest limit. This lets each visit cover a much bigger date range.
 //
+// v3: writes into jamaah_raw / jummah_raw (the raw inboxes) under source
+// 'thm_scrape' and registers THM's mosque codes on the translator sheet
+// (mosque_sources). The fused thm_jamaah_times / jummah_times views then
+// show these times for the correct official mosque automatically.
+//
 // USAGE - prefer curl with a header (query-string secrets end up in
 // Cloudflare's request logs and your browser history):
 //   curl "https://wherewepraying.com/api/admin/sync-thm-jamaah?start=1&end=120" \
@@ -37,7 +42,7 @@ function extractJamaahTimes(html) {
   const times = {};
   for (const prayer of PRAYERS) {
     const re = new RegExp(
-      `<tr id="${prayer}"[^>]*>[\\s\\S]*?<td class="prayer-jamaah"[^>]*>\\s*<span[^>]*>([^<]*)</span>`,
+      `<tr id="${prayer}"[^>]*>[\s\S]*?<td class="prayer-jamaah"[^>]*>\s*<span[^>]*>([^<]*)</span>`,
       "i"
     );
     const match = html.match(re);
@@ -53,15 +58,16 @@ function dayOfYearToDate(year, dayOfYear) {
 }
 
 const UPSERT_SQL = `
-  INSERT INTO thm_jamaah_times
-    (mosque, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(mosque, date) DO UPDATE SET
+  INSERT INTO jamaah_raw
+    (source, source_ref, date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah, updated_at)
+  VALUES ('thm_scrape', ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref, date) DO UPDATE SET
     fajr_jamaah=excluded.fajr_jamaah,
     zuhr_jamaah=excluded.zuhr_jamaah,
     asr_jamaah=excluded.asr_jamaah,
     maghrib_jamaah=excluded.maghrib_jamaah,
-    isha_jamaah=excluded.isha_jamaah
+    isha_jamaah=excluded.isha_jamaah,
+    updated_at=excluded.updated_at
   WHERE
     fajr_jamaah    IS NOT excluded.fajr_jamaah OR
     zuhr_jamaah    IS NOT excluded.zuhr_jamaah OR
@@ -69,6 +75,46 @@ const UPSERT_SQL = `
     maghrib_jamaah IS NOT excluded.maghrib_jamaah OR
     isha_jamaah    IS NOT excluded.isha_jamaah
 `;
+
+const JUMMAH_UPSERT_SQL = `
+  INSERT INTO jummah_raw (source, source_ref, date, slot, time, updated_at)
+  VALUES ('thm_scrape', ?, ?, ?, ?, ?)
+  ON CONFLICT(source, source_ref, date, slot) DO UPDATE SET
+    time=excluded.time,
+    updated_at=excluded.updated_at
+  WHERE time IS NOT excluded.time
+`;
+
+// Registers THM's mosque codes on the translator sheet (mosque_sources).
+// THM gives us only a code, no display name, so name stays NULL here;
+// the admin matching page links the code to the official mosque.
+const REGISTER_SOURCE_SQL = `
+  INSERT INTO mosque_sources (source, source_ref, name, first_seen, last_seen)
+  VALUES ('thm_scrape', ?, NULL, ?, ?)
+  ON CONFLICT(source, source_ref) DO UPDATE SET
+    last_seen = excluded.last_seen
+`;
+
+// Best-effort Jummah extraction from the THM page (it is requested with
+// showJumma=true). Looks for a row whose id mentions jummah/jumuah/jumma
+// and pulls every time-looking value out of it. If THM's markup has no
+// such row for a mosque, nothing is written - no harm done.
+function extractJummahTimes(html) {
+  if (!html) return [];
+  const times = [];
+  const rowRe = /<tr id="[^"]*ju[mm][mu][au]h?[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
+  let m;
+  while ((m = rowRe.exec(html))) {
+    const cellRe = />(\s*\d{1,2}[:.]\d{2}\s*)</g;
+    let c;
+    while ((c = cellRe.exec(m[1]))) times.push(c[1].trim().replace(".", ":"));
+  }
+  return [...new Set(times)];
+}
+
+function isFridayIso(dateIso) {
+  return new Date(dateIso + "T12:00:00Z").getUTCDay() === 5;
+}
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -82,6 +128,9 @@ export async function onRequestGet(context) {
   const end = parseInt(url.searchParams.get("end") || "40", 10);
 
   const results = { processed: [], failed: [], recordsSaved: 0 };
+
+  const nowIso = new Date().toISOString();
+  const seenRefs = new Set();
 
   for (let doy = start; doy <= end; doy++) {
     const date = dayOfYearToDate(YEAR, doy);
@@ -116,6 +165,8 @@ export async function onRequestGet(context) {
         const times = extractJamaahTimes(html);
         if (!times) continue;
 
+        seenRefs.add(mosqueSlug);
+
         statements.push(
           env.DB.prepare(UPSERT_SQL).bind(
             mosqueSlug,
@@ -124,9 +175,19 @@ export async function onRequestGet(context) {
             times.zuhr_jamaah,
             times.asr_jamaah,
             times.maghrib_jamaah,
-            times.isha_jamaah
+            times.isha_jamaah,
+            nowIso
           )
         );
+
+        // Jummah times only make sense on Fridays - save them there.
+        if (isFridayIso(dateIso)) {
+          extractJummahTimes(html).forEach((time, i) => {
+            statements.push(
+              env.DB.prepare(JUMMAH_UPSERT_SQL).bind(mosqueSlug, dateIso, i + 1, time, nowIso)
+            );
+          });
+        }
       }
 
       if (statements.length > 0) {
@@ -138,6 +199,14 @@ export async function onRequestGet(context) {
     } catch (e) {
       results.failed.push({ date: dateIso, error: String(e) });
     }
+  }
+
+  // One registration pass for every THM code seen this run.
+  const regs = [...seenRefs].map((ref) =>
+    env.DB.prepare(REGISTER_SOURCE_SQL).bind(ref, nowIso, nowIso)
+  );
+  for (let i = 0; i < regs.length; i += 100) {
+    await env.DB.batch(regs.slice(i, i + 100));
   }
 
   return new Response(JSON.stringify(results, null, 2), {
