@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>WhereWePraying — Mosques</title>
+<style>
+  :root{
+    --coral:#F4714E;
+    --cream:#FBF3EC;
+    --text:#3A2E28;
+    --muted:#8A7A70;
+    --border:#EADFD6;
+    --ok:#2E7D5B;
+    --warn:#B4541F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--cream);
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .card{
+    width:100%;
+    max-width:840px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:28px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.04);
+  }
+  h1{font-size:22px;margin:0 0 4px;}
+  h2{font-size:15px;margin:28px 0 12px;padding-top:20px;border-top:1px solid var(--border);}
+  h2:first-of-type{border-top:none;padding-top:0;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px;}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px;}
+  input,select,textarea{
+    width:100%;padding:11px 13px;font:inherit;font-size:15px;
+    border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--text);
+  }
+  input:focus,select:focus{outline:2px solid var(--coral);outline-offset:1px;border-color:var(--coral);}
+  button{
+    margin-top:16px;padding:11px 18px;font:inherit;font-weight:700;font-size:15px;
+    background:var(--coral);color:#fff;border:none;border-radius:11px;cursor:pointer;
+  }
+  button.ghost{background:#fff;color:var(--text);border:1px solid var(--border);}
+  button.danger{background:#fff;color:var(--warn);border:1px solid var(--warn);}
+  button:disabled{opacity:.5;cursor:default;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1 1 180px;min-width:0;}
+  .row > div label{margin-top:0;}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .searchrow{display:flex;gap:10px;}
+  .searchrow input{flex:1;}
+  .searchrow button{margin-top:0;}
+  .result{
+    padding:12px 14px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;
+    cursor:pointer;background:#fff;
+  }
+  .result:hover{border-color:var(--coral);}
+  .result b{display:block;font-size:15px;}
+  .result span{color:var(--muted);font-size:13px;}
+  .tag{
+    display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+    background:var(--cream);color:var(--muted);margin-left:6px;vertical-align:2px;
+  }
+  .tag.off{background:#FBE9E1;color:var(--warn);}
+  .tag.lock{background:#E7F1EC;color:var(--ok);}
+  .hint{color:var(--muted);font-size:13px;line-height:1.5;margin:6px 0 0;}
+  .status{margin-top:12px;font-size:14px;min-height:20px;}
+  .status.ok{color:var(--ok);}
+  .status.err{color:var(--warn);}
+  .hidden{display:none;}
+  .locked{font-size:12px;color:var(--ok);font-weight:600;margin-top:4px;}
+  .locked input{width:auto;margin-right:6px;vertical-align:-1px;}
+  .slot{display:flex;gap:8px;margin-bottom:8px;}
+  .slot input{flex:1;}
+  .slot button{margin-top:0;padding:8px 12px;}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div id="lockScreen">
+    <h1>Mosque admin</h1>
+    <p class="sub">Enter the admin key to continue.</p>
+    <div class="searchrow">
+      <input type="password" id="secretInput" placeholder="Admin key" autocomplete="off">
+      <button id="unlockBtn">Unlock</button>
+    </div>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+    <h1>Mosques</h1>
+    <p class="sub">Search a mosque to edit it, or add a new one. Edited details are locked so no scraper can overwrite them.</p>
+
+    <h2>Find a mosque</h2>
+    <div class="searchrow">
+      <input type="text" id="q" placeholder="Name, postcode, address or slug">
+      <button id="searchBtn">Search</button>
+    </div>
+    <div class="actions">
+      <button class="ghost" id="newBtn">Add a new mosque</button>
+    </div>
+    <div id="results"></div>
+
+    <div id="editor" class="hidden">
+      <h2 id="editorTitle">Edit mosque</h2>
+
+      <div class="row">
+        <div>
+          <label for="fName">Name</label>
+          <input type="text" id="fName" placeholder="e.g. Seven Kings Masjid">
+        </div>
+        <div>
+          <label for="fType">Type</label>
+          <select id="fType">
+            <option value="mosque">Mosque</option>
+            <option value="community_hall">Community hall</option>
+            <option value="prayer_room">Prayer room</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="fSlug">Slug</label>
+      <input type="text" id="fSlug" placeholder="left blank = made from the name">
+      <p class="hint" id="slugHint">Used in the mosque's web address. Can't be changed once created.</p>
+
+      <label for="fAddress">Address</label>
+      <input type="text" id="fAddress" placeholder="e.g. 645-647 High Road, Seven Kings">
+
+      <div class="row">
+        <div>
+          <label for="fPostcode">Postcode</label>
+          <input type="text" id="fPostcode" placeholder="IG3 8RA">
+        </div>
+        <div>
+          <label for="fCity">City</label>
+          <input type="text" id="fCity" placeholder="London">
+        </div>
+        <div>
+          <label for="fRegion">Region</label>
+          <input type="text" id="fRegion" placeholder="e.g. Redbridge">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="fLat">Latitude</label>
+          <input type="text" id="fLat" inputmode="decimal" placeholder="51.564485">
+        </div>
+        <div>
+          <label for="fLon">Longitude</label>
+          <input type="text" id="fLon" inputmode="decimal" placeholder="0.098057">
+        </div>
+      </div>
+      <p class="hint">No coordinates means the mosque never appears in Find a Mosque or nearby results.</p>
+
+      <label for="fWebsite">Website</label>
+      <input type="text" id="fWebsite" placeholder="skmet.org">
+
+      <div id="lockedBox" class="hidden">
+        <label>Locked from scrapers</label>
+        <div id="lockedList"></div>
+        <p class="hint">Tick a field to unlock it and let the matcher fill it in again.</p>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn">Save details</button>
+        <button class="ghost hidden" id="hideBtn">Hibernate</button>
+        <button class="ghost hidden" id="showBtn">Bring back</button>
+      </div>
+      <div class="status" id="saveStatus"></div>
+
+      <div id="timesBox" class="hidden">
+        <h2>Fallback prayer times</h2>
+        <p class="hint" id="fusedNote"></p>
+        <div class="row">
+          <div><label for="tFajr">Fajr</label><input type="text" id="tFajr" placeholder="5:15"></div>
+          <div><label for="tZuhr">Dhuhr</label><input type="text" id="tZuhr" placeholder="13:00"></div>
+          <div><label for="tAsr">Asr</label><input type="text" id="tAsr" placeholder="17:45"></div>
+          <div><label for="tMaghrib">Maghrib</label><input type="text" id="tMaghrib" placeholder="19:30"></div>
+          <div><label for="tIsha">Isha</label><input type="text" id="tIsha" placeholder="21:00"></div>
+        </div>
+
+        <label>Friday Jummah (optional)</label>
+        <div id="slots"></div>
+        <button class="ghost" id="addSlotBtn" type="button">Add another Jummah time</button>
+
+        <label for="tDays">Apply for how many days from today</label>
+        <input type="number" id="tDays" value="120" min="1" max="370">
+
+        <p class="hint">These only show on days no scraper has times for. Any scraped time always wins.</p>
+        <div class="actions">
+          <button id="timesBtn">Save fallback times</button>
+          <button class="danger" id="clearTimesBtn">Clear fallback times</button>
+        </div>
+        <div class="status" id="timesStatus"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY = '';
+  var current = null;      // slug being edited, null = new
+  var lockedFields = [];
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function headers(){
+    return { 'Content-Type': 'application/json', 'X-Broadcast-Key': KEY };
+  }
+
+  function say(el, msg, bad){
+    el.textContent = msg;
+    el.className = 'status ' + (bad ? 'err' : 'ok');
+  }
+
+  async function api(opts){
+    var res, data;
+    try {
+      res = await fetch(opts.url, opts.init);
+      data = await res.json();
+    } catch (e) {
+      return { error: 'Network problem. Try again.' };
+    }
+    if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
+    return data;
+  }
+
+  /* ---------------------------------------------------------- unlock */
+  $('unlockBtn').addEventListener('click', function(){
+    var v = $('secretInput').value.trim();
+    if (!v) return;
+    KEY = v;
+    $('lockScreen').classList.add('hidden');
+    $('mainScreen').classList.remove('hidden');
+    search('');
+  });
+  $('secretInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') $('unlockBtn').click();
+  });
+
+  /* ---------------------------------------------------------- search */
+  async function search(q){
+    $('results').innerHTML = '<p class="hint">Searching…</p>';
+    var data = await api({ url: '/api/mosques/manage?q=' + encodeURIComponent(q), init: { headers: headers() } });
+    if (data.error) { $('results').innerHTML = '<p class="hint">' + data.error + '</p>'; return; }
+    var list = data.locations || [];
+    if (!list.length) { $('results').innerHTML = '<p class="hint">Nothing matched. Try fewer words, or add it as new.</p>'; return; }
+    $('results').innerHTML = '';
+    list.forEach(function(m){
+      var el = document.createElement('div');
+      el.className = 'result';
+      var tags = '';
+      if (!m.active) tags += '<span class="tag off">Hibernated</span>';
+      if (m.merged_into) tags += '<span class="tag">Merged</span>';
+      if (m.locked_fields) tags += '<span class="tag lock">Edited</span>';
+      el.innerHTML = '<b>' + esc(m.name) + tags + '</b><span>' +
+        esc([m.address, m.postcode, m.city].filter(Boolean).join(' · ') || m.slug) + '</span>';
+      el.addEventListener('click', function(){ load(m.slug); });
+      $('results').appendChild(el);
+    });
+  }
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+    });
+  }
+
+  $('searchBtn').addEventListener('click', function(){ search($('q').value.trim()); });
+  $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('searchBtn').click(); });
+
+  /* ------------------------------------------------------------ form */
+  function setForm(m){
+    $('fName').value = (m && m.name) || '';
+    $('fType').value = (m && m.type) || 'mosque';
+    $('fSlug').value = (m && m.slug) || '';
+    $('fAddress').value = (m && m.address) || '';
+    $('fPostcode').value = (m && m.postcode) || '';
+    $('fCity').value = (m && m.city) || 'London';
+    $('fRegion').value = (m && m.region) || '';
+    $('fLat').value = (m && m.latitude != null) ? m.latitude : '';
+    $('fLon').value = (m && m.longitude != null) ? m.longitude : '';
+    $('fWebsite').value = (m && m.website_url) || '';
+  }
+
+  function renderLocked(){
+    if (!lockedFields.length) { $('lockedBox').classList.add('hidden'); return; }
+    $('lockedBox').classList.remove('hidden');
+    $('lockedList').innerHTML = lockedFields.map(function(f){
+      return '<div class="locked"><label style="font-weight:600;margin:4px 0;">' +
+        '<input type="checkbox" class="unlockChk" value="' + f + '"> ' + labelFor(f) + '</label></div>';
+    }).join('');
+  }
+
+  function labelFor(f){
+    return ({
+      name:'Name', city:'City', address:'Address', postcode:'Postcode',
+      latitude:'Latitude', longitude:'Longitude', website_url:'Website',
+      region:'Region', type:'Type'
+    })[f] || f;
+  }
+
+  $('newBtn').addEventListener('click', function(){
+    current = null;
+    lockedFields = [];
+    setForm(null);
+    renderLocked();
+    $('editorTitle').textContent = 'Add a new mosque';
+    $('fSlug').readOnly = false;
+    $('slugHint').textContent = "Used in the mosque's web address. Leave blank to build it from the name.";
+    $('hideBtn').classList.add('hidden');
+    $('showBtn').classList.add('hidden');
+    $('timesBox').classList.add('hidden');
+    $('editor').classList.remove('hidden');
+    $('saveStatus').textContent = '';
+    $('fName').focus();
+  });
+
+  async function load(slug){
+    var data = await api({ url: '/api/mosques/manage?slug=' + encodeURIComponent(slug), init: { headers: headers() } });
+    if (data.error) { alert(data.error); return; }
+    current = slug;
+    lockedFields = data.locked || [];
+    setForm(data.mosque);
+    renderLocked();
+    $('editorTitle').textContent = 'Edit ' + data.mosque.name;
+    $('fSlug').readOnly = true;
+    $('slugHint').textContent = "Used in the mosque's web address. Can't be changed once created.";
+    $('hideBtn').classList.toggle('hidden', !data.mosque.active);
+    $('showBtn').classList.toggle('hidden', !!data.mosque.active);
+    $('saveStatus').textContent = '';
+    $('timesStatus').textContent = '';
+
+    // Fallback times panel
+    var man = data.manual || {};
+    $('tFajr').value = man.fajr_jamaah || '';
+    $('tZuhr').value = man.zuhr_jamaah || '';
+    $('tAsr').value = man.asr_jamaah || '';
+    $('tMaghrib').value = man.maghrib_jamaah || '';
+    $('tIsha').value = man.isha_jamaah || '';
+    var jslots = (data.jummah || []).filter(function(s, i, arr){
+      return arr[0] && s.date === arr[0].date;
+    }).map(function(s){ return s.time; });
+    renderSlots(jslots);
+    var f = data.fused;
+    if (f && f.source && f.source !== 'manual') {
+      $('fusedNote').textContent = 'Today is covered by ' + f.source + ' (' +
+        [f.fajr_jamaah, f.zuhr_jamaah, f.asr_jamaah, f.maghrib_jamaah, f.isha_jamaah].join(' / ') +
+        '). Anything you enter below is only used on days that source misses.';
+    } else if (data.manual_days) {
+      $('fusedNote').textContent = 'No scraped times for today. ' + data.manual_days + ' day(s) of fallback times are stored.';
+    } else {
+      $('fusedNote').textContent = 'No scraped times for today and no fallback stored.';
+    }
+    $('timesBox').classList.remove('hidden');
+    $('editor').classList.remove('hidden');
+    $('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ------------------------------------------------------------ save */
+  $('saveBtn').addEventListener('click', async function(){
+    var btn = this;
+    var payload = {
+      name: $('fName').value.trim(),
+      type: $('fType').value,
+      address: $('fAddress').value.trim(),
+      postcode: $('fPostcode').value.trim(),
+      city: $('fCity').value.trim(),
+      region: $('fRegion').value.trim(),
+      latitude: $('fLat').value.trim(),
+      longitude: $('fLon').value.trim(),
+      website_url: $('fWebsite').value.trim()
+    };
+    if (!payload.name) { say($('saveStatus'), 'Name is required.', true); return; }
+
+    btn.disabled = true;
+    var data;
+    if (current) {
+      payload.action = 'update_location';
+      payload.slug = current;
+      payload.unlock = Array.prototype.slice.call(document.querySelectorAll('.unlockChk:checked'))
+        .map(function(c){ return c.value; });
+      data = await api({ url: '/api/mosques/manage', init: { method:'POST', headers: headers(), body: JSON.stringify(payload) } });
+    } else {
+      payload.action = 'create_location';
+      payload.slug = $('fSlug').value.trim();
+      data = await api({ url: '/api/mosques/manage', init: { method:'POST', headers: headers(), body: JSON.stringify(payload) } });
+    }
+    btn.disabled = false;
+
+    if (data.error) { say($('saveStatus'), data.error, true); return; }
+    say($('saveStatus'), 'Saved. Live on the site after the next cache rebuild.', false);
+    await load(data.slug || current);
+    search($('q').value.trim());
+  });
+
+  /* ------------------------------------------------- hibernate/wake */
+  async function setActive(active){
+    if (!current) return;
+    if (!active && !confirm('Hibernate this mosque? It disappears from the app but nothing is deleted.')) return;
+    var data = await api({
+      url: '/api/mosques/manage',
+      init: { method:'POST', headers: headers(), body: JSON.stringify({ action:'set_active', slug: current, active: active }) }
+    });
+    if (data.error) { say($('saveStatus'), data.error, true); return; }
+    say($('saveStatus'), data.note || 'Done.', false);
+    await load(current);
+    search($('q').value.trim());
+  }
+  $('hideBtn').addEventListener('click', function(){ setActive(false); });
+  $('showBtn').addEventListener('click', function(){ setActive(true); });
+
+  /* ----------------------------------------------------- jummah slots */
+  function renderSlots(times){
+    var wrap = $('slots');
+    wrap.innerHTML = '';
+    var list = (times && times.length) ? times : [''];
+    list.forEach(function(t){ addSlot(t); });
+  }
+  function addSlot(value){
+    var row = document.createElement('div');
+    row.className = 'slot';
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'e.g. 13:15';
+    inp.value = value || '';
+    inp.className = 'slotInput';
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'ghost';
+    rm.textContent = 'Remove';
+    rm.addEventListener('click', function(){ row.remove(); });
+    row.appendChild(inp);
+    row.appendChild(rm);
+    $('slots').appendChild(row);
+  }
+  $('addSlotBtn').addEventListener('click', function(){ addSlot(''); });
+
+  /* ------------------------------------------------------ save times */
+  $('timesBtn').addEventListener('click', async function(){
+    if (!current) return;
+    var btn = this;
+    var jummah = Array.prototype.slice.call(document.querySelectorAll('.slotInput'))
+      .map(function(i){ return i.value.trim(); })
+      .filter(Boolean);
+    btn.disabled = true;
+    var data = await api({
+      url: '/api/mosques/manage',
+      init: { method:'POST', headers: headers(), body: JSON.stringify({
+        action:'set_times_range',
+        slug: current,
+        days: parseInt($('tDays').value, 10) || 120,
+        fajr: $('tFajr').value.trim(),
+        zuhr: $('tZuhr').value.trim(),
+        asr: $('tAsr').value.trim(),
+        maghrib: $('tMaghrib').value.trim(),
+        isha: $('tIsha').value.trim(),
+        jummah: jummah
+      }) }
+    });
+    btn.disabled = false;
+    if (data.error) { say($('timesStatus'), data.error, true); return; }
+    say($('timesStatus'), 'Saved for ' + data.days + ' days as fallback. Scraped times still win.', false);
+  });
+
+  $('clearTimesBtn').addEventListener('click', async function(){
+    if (!current) return;
+    if (!confirm('Remove every manually entered time for this mosque?')) return;
+    var data = await api({
+      url: '/api/mosques/manage',
+      init: { method:'POST', headers: headers(), body: JSON.stringify({ action:'clear_manual_times', slug: current }) }
+    });
+    if (data.error) { say($('timesStatus'), data.error, true); return; }
+    say($('timesStatus'), 'Cleared.', false);
+    await load(current);
+  });
+})();
+</script>
+</body>
+</html>
