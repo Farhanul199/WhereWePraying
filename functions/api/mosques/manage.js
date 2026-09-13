@@ -22,6 +22,12 @@
 // POST /api/mosques/manage   (application/json)
 //   { action:'create_location', name, slug?, type?, city?, address?, postcode?,
 //     latitude?, longitude?, website_url?, region? }
+//   { action:'bulk_create', rows:[ {name, slug?, type?, city?, address?, postcode?,
+//     latitude?, longitude?, website_url?, region?}, ... ] }
+//     -> CSV import. Each row is created the same way as create_location.
+//        A row whose slug already exists is skipped (not overwritten - use
+//        the edit form for that, so an edit is never accidentally lost to
+//        a re-import). Returns { created:[...], skipped:[...], errors:[...] }.
 //   { action:'update_location', slug, <any editable field>, active?, unlock?:[fields] }
 //   { action:'set_active', slug, active:true|false }
 //   { action:'set_times_range', slug, days?, fajr?, zuhr?, asr?, maghrib?, isha?,
@@ -206,6 +212,53 @@ export async function onRequestGet(context) {
   }
 }
 
+// Shared by create_location and bulk_create. Returns { slug } on success
+// or { error } on failure - never throws, so a bad CSV row can't kill the
+// whole import.
+async function createOneLocation(db, body) {
+  const name = String(body.name || "").trim();
+  if (!name) return { error: "Name is required." };
+  const slug = slugify(body.slug || name);
+  if (!slug) return { error: "Couldn't work out a slug from the name." };
+
+  const existing = await db.prepare(`SELECT slug FROM mosques WHERE slug = ?1`).bind(slug).first();
+  if (existing) return { error: `slug "${slug}" already exists`, slug, existed: true };
+
+  const type = VALID_TYPES.indexOf(body.type) !== -1 ? body.type : "mosque";
+  const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const num = (v) => (v === "" || v == null || isNaN(Number(v)) ? null : Number(v));
+  const city = str(body.city) || "London";
+  const lat = num(body.latitude);
+  const lon = num(body.longitude);
+
+  if (body.latitude != null && body.latitude !== "" && lat == null) return { error: "Latitude isn't a number." };
+  if (body.longitude != null && body.longitude !== "" && lon == null) return { error: "Longitude isn't a number." };
+
+  const locked = serialiseLocked(
+    EDITABLE.filter((f) => {
+      if (f === "type" || f === "city") return true;
+      if (f === "latitude") return lat != null;
+      if (f === "longitude") return lon != null;
+      return str(body[f]) != null;
+    })
+  );
+
+  await db
+    .prepare(
+      `INSERT INTO mosques
+         (slug, name, city, address, postcode, latitude, longitude, website_url,
+          region, type, active, created_at, locked_fields)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12)`
+    )
+    .bind(
+      slug, name, city, str(body.address), str(body.postcode), lat, lon,
+      str(body.website_url), str(body.region), type, new Date().toISOString(), locked
+    )
+    .run();
+
+  return { slug };
+}
+
 /* ----------------------------------------------------------------- POST */
 
 export async function onRequestPost(context) {
@@ -222,44 +275,35 @@ export async function onRequestPost(context) {
   try {
     /* ---------------------------------------------------- create */
     if (body.action === "create_location") {
-      const name = String(body.name || "").trim();
-      if (!name) return json({ error: "Name is required." }, 400);
-      const slug = slugify(body.slug || name);
-      if (!slug) return json({ error: "Couldn't work out a slug from that name." }, 400);
+      const result = await createOneLocation(db, body);
+      if (result.error) return json({ error: result.error }, result.existed ? 409 : 400);
+      return json({ success: true, slug: result.slug });
+    }
 
-      const existing = await db.prepare(`SELECT slug FROM mosques WHERE slug = ?1`).bind(slug).first();
-      if (existing) return json({ error: `A location with slug "${slug}" already exists.` }, 409);
+    /* ------------------------------------------------ bulk create */
+    if (body.action === "bulk_create") {
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return json({ error: "No rows to import." }, 400);
+      if (rows.length > 500) return json({ error: "Import 500 rows or fewer at a time." }, 400);
 
-      const type = VALID_TYPES.indexOf(body.type) !== -1 ? body.type : "mosque";
-      const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
-      const num = (v) => (v === "" || v == null || isNaN(Number(v)) ? null : Number(v));
-      const city = str(body.city) || "London";
-      const lat = num(body.latitude);
-      const lon = num(body.longitude);
+      const created = [];
+      const skipped = [];
+      const errors = [];
 
-      const locked = serialiseLocked(
-        EDITABLE.filter((f) => {
-          if (f === "type" || f === "city") return true;
-          if (f === "latitude") return lat != null;
-          if (f === "longitude") return lon != null;
-          return str(body[f]) != null;
-        })
-      );
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx] || {};
+        const label = row.name || row.slug || `row ${idx + 1}`;
+        try {
+          const result = await createOneLocation(db, row);
+          if (result.error && result.existed) skipped.push({ row: idx + 1, name: label, reason: "already exists" });
+          else if (result.error) errors.push({ row: idx + 1, name: label, reason: result.error });
+          else created.push({ row: idx + 1, name: label, slug: result.slug });
+        } catch (e) {
+          errors.push({ row: idx + 1, name: label, reason: String(e) });
+        }
+      }
 
-      await db
-        .prepare(
-          `INSERT INTO mosques
-             (slug, name, city, address, postcode, latitude, longitude, website_url,
-              region, type, active, created_at, locked_fields)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12)`
-        )
-        .bind(
-          slug, name, city, str(body.address), str(body.postcode), lat, lon,
-          str(body.website_url), str(body.region), type, new Date().toISOString(), locked
-        )
-        .run();
-
-      return json({ success: true, slug });
+      return json({ success: true, created, skipped, errors });
     }
 
     /* ---------------------------------------------------- update */
