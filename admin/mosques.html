@@ -106,8 +106,21 @@
     </div>
     <div class="actions">
       <button class="ghost" id="newBtn">Add a new mosque</button>
+      <button class="ghost" id="importBtn">Import from CSV</button>
     </div>
     <div id="results"></div>
+
+    <div id="importBox" class="hidden">
+      <h2>Import mosques from CSV</h2>
+      <p class="hint">First row must be column headers. Recognised columns: name, slug, type, address, postcode, city, region, latitude, longitude, website_url. Only "name" is required. Rows whose slug already exists are skipped, not overwritten.</p>
+      <input type="file" id="csvFile" accept=".csv,text/csv">
+      <div class="actions">
+        <button id="csvPreviewBtn" disabled>Preview</button>
+        <button class="ghost" id="csvCancelBtn">Cancel</button>
+      </div>
+      <div id="csvPreview"></div>
+      <div class="status" id="csvStatus"></div>
+    </div>
 
     <div id="editor" class="hidden">
       <h2 id="editorTitle">Edit mosque</h2>
@@ -279,6 +292,99 @@
   $('searchBtn').addEventListener('click', function(){ search($('q').value.trim()); });
   $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('searchBtn').click(); });
 
+  /* -------------------------------------------------------- CSV import */
+  var csvRows = null;
+
+  function parseCsv(text){
+    var lines = text.replace(/\r\n/g, '\n').split('\n').filter(function(l){ return l.trim() !== ''; });
+    if (!lines.length) return { headers: [], rows: [] };
+    var splitLine = function(line){
+      var out = [], cur = '', inQ = false;
+      for (var i = 0; i < line.length; i++){
+        var c = line[i];
+        if (inQ) {
+          if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+          else if (c === '"') { inQ = false; }
+          else cur += c;
+        } else {
+          if (c === '"') inQ = true;
+          else if (c === ',') { out.push(cur); cur = ''; }
+          else cur += c;
+        }
+      }
+      out.push(cur);
+      return out.map(function(s){ return s.trim(); });
+    };
+    var headers = splitLine(lines[0]).map(function(h){ return h.toLowerCase(); });
+    var rows = lines.slice(1).map(function(line){
+      var cells = splitLine(line);
+      var obj = {};
+      headers.forEach(function(h, i){ obj[h] = cells[i] !== undefined ? cells[i] : ''; });
+      return obj;
+    });
+    return { headers: headers, rows: rows };
+  }
+
+  $('importBtn').addEventListener('click', function(){
+    $('editor').classList.add('hidden');
+    $('importBox').classList.remove('hidden');
+    $('csvFile').value = '';
+    $('csvPreview').innerHTML = '';
+    $('csvStatus').textContent = '';
+    $('csvPreviewBtn').disabled = true;
+    csvRows = null;
+  });
+  $('csvCancelBtn').addEventListener('click', function(){
+    $('importBox').classList.add('hidden');
+  });
+  $('csvFile').addEventListener('change', function(){
+    $('csvPreviewBtn').disabled = !this.files || !this.files.length;
+  });
+
+  $('csvPreviewBtn').addEventListener('click', function(){
+    var file = $('csvFile').files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var parsed = parseCsv(String(e.target.result));
+      if (!parsed.rows.length) { say($('csvStatus'), 'No rows found in that file.', true); return; }
+      if (parsed.headers.indexOf('name') === -1) { say($('csvStatus'), 'CSV needs a "name" column.', true); return; }
+      csvRows = parsed.rows;
+      var preview = csvRows.slice(0, 8).map(function(r){
+        return '<div class="result"><b>' + esc(r.name || '(missing name)') + '</b><span>' +
+          esc([r.address, r.postcode, r.city].filter(Boolean).join(' · ')) + '</span></div>';
+      }).join('');
+      $('csvPreview').innerHTML =
+        '<p class="hint">' + csvRows.length + ' row(s) found. Showing first 8:</p>' + preview +
+        '<button id="csvImportBtn">Import ' + csvRows.length + ' mosque(s)</button>';
+      $('csvStatus').textContent = '';
+      document.getElementById('csvImportBtn').addEventListener('click', doImport);
+    };
+    reader.readAsText(file);
+  });
+
+  async function doImport(){
+    if (!csvRows || !csvRows.length) return;
+    var btn = document.getElementById('csvImportBtn');
+    if (btn) btn.disabled = true;
+    say($('csvStatus'), 'Importing…', false);
+    var data = await api({
+      url: '/api/mosques/manage',
+      init: { method:'POST', headers: headers(), body: JSON.stringify({ action:'bulk_create', rows: csvRows }) }
+    });
+    if (btn) btn.disabled = false;
+    if (data.error) { say($('csvStatus'), data.error, true); return; }
+    var msg = data.created.length + ' added';
+    if (data.skipped.length) msg += ', ' + data.skipped.length + ' skipped (already exist)';
+    if (data.errors.length) msg += ', ' + data.errors.length + ' failed';
+    say($('csvStatus'), msg + '.', data.errors.length > 0);
+    if (data.errors.length) {
+      $('csvPreview').innerHTML += '<p class="hint">Failed rows: ' +
+        data.errors.map(function(e){ return esc(e.name) + ' (' + esc(e.reason) + ')'; }).join(', ') + '</p>';
+    }
+    search('');
+  }
+
   /* ------------------------------------------------------------ form */
   function setForm(m){
     $('fName').value = (m && m.name) || '';
@@ -311,6 +417,7 @@
   }
 
   $('newBtn').addEventListener('click', function(){
+    $('importBox').classList.add('hidden');
     current = null;
     lockedFields = [];
     setForm(null);
@@ -327,6 +434,7 @@
   });
 
   async function load(slug){
+    $('importBox').classList.add('hidden');
     var data = await api({ url: '/api/mosques/manage?slug=' + encodeURIComponent(slug), init: { headers: headers() } });
     if (data.error) { alert(data.error); return; }
     current = slug;

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>WhereWePraying — Sync status</title>
+<style>
+  :root{
+    --coral:#F4714E;
+    --cream:#FBF3EC;
+    --text:#3A2E28;
+    --muted:#8A7A70;
+    --border:#EADFD6;
+    --ok:#2E7D5B;
+    --okbg:#E7F1EC;
+    --warn:#B4541F;
+    --warnbg:#FBEDE1;
+    --err:#B23B3B;
+    --errbg:#FBE4E4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--cream);color:var(--text);display:flex;justify-content:center;padding:40px 16px;
+  }
+  .card{width:100%;max-width:840px;}
+  h1{font-size:22px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 24px;}
+  .searchrow{display:flex;gap:10px;margin-bottom:24px;}
+  .searchrow input{flex:1;padding:11px 13px;font:inherit;font-size:15px;border:1px solid var(--border);border-radius:11px;}
+  .searchrow button{padding:11px 18px;font:inherit;font-weight:700;background:var(--coral);color:#fff;border:none;border-radius:11px;cursor:pointer;}
+  .hidden{display:none;}
+  .box{
+    background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;
+  }
+  .headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .name{font-size:17px;font-weight:700;margin:0;}
+  .pill{
+    font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;white-space:nowrap;
+  }
+  .pill.ok{background:var(--okbg);color:var(--ok);}
+  .pill.warning{background:var(--warnbg);color:var(--warn);}
+  .pill.error{background:var(--errbg);color:var(--err);}
+  .pill.stale{background:#EEE;color:var(--muted);}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;margin-top:14px;}
+  .stat b{display:block;font-size:20px;}
+  .stat span{font-size:12px;color:var(--muted);}
+  .meta{color:var(--muted);font-size:13px;margin-top:10px;}
+  details{margin-top:12px;}
+  summary{cursor:pointer;font-size:13px;color:var(--warn);font-weight:600;}
+  .list{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--text);}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 0;}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div id="lockScreen">
+    <h1>Sync status</h1>
+    <p class="sub">Enter the admin key to continue.</p>
+    <div class="searchrow">
+      <input type="password" id="secretInput" placeholder="Admin key" autocomplete="off">
+      <button id="unlockBtn">Unlock</button>
+    </div>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+    <h1>Prayer-time robots</h1>
+    <p class="sub">How each automatic source is doing right now.</p>
+    <div id="sources"><p class="empty">Loading…</p></div>
+    <button id="refreshBtn" style="padding:11px 18px;font:inherit;font-weight:700;background:#fff;border:1px solid var(--border);border-radius:11px;cursor:pointer;">Refresh</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY = '';
+  var $ = function(id){ return document.getElementById(id); };
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+    });
+  }
+
+  function fmtWhen(iso){
+    if (!iso) return 'Never run yet';
+    var d = new Date(iso);
+    return d.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  var STATUS_TEXT = {
+    ok: 'Working fine',
+    warning: 'Ran, but with issues',
+    error: 'Failed',
+    stale: "Hasn't run recently"
+  };
+
+  $('unlockBtn').addEventListener('click', function(){
+    var v = $('secretInput').value.trim();
+    if (!v) return;
+    KEY = v;
+    $('lockScreen').classList.add('hidden');
+    $('mainScreen').classList.remove('hidden');
+    load();
+  });
+  $('secretInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('unlockBtn').click(); });
+  $('refreshBtn').addEventListener('click', load);
+
+  async function load(){
+    $('sources').innerHTML = '<p class="empty">Loading…</p>';
+    var res, data;
+    try {
+      res = await fetch('/api/admin/sync-status', { headers: { 'X-Broadcast-Key': KEY } });
+      data = await res.json();
+    } catch (e) {
+      $('sources').innerHTML = '<p class="empty">Network problem. Try again.</p>';
+      return;
+    }
+    if (!res.ok) {
+      $('sources').innerHTML = '<p class="empty">' + esc((data && data.error) || 'Something went wrong.') + '</p>';
+      return;
+    }
+    render(data.sources || []);
+  }
+
+  function render(sources){
+    if (!sources.length) { $('sources').innerHTML = '<p class="empty">No sources found.</p>'; return; }
+    $('sources').innerHTML = '';
+    sources.forEach(function(s){
+      var box = document.createElement('div');
+      box.className = 'box';
+
+      var gapsHtml = s.gaps && s.gaps.length
+        ? '<details><summary>' + s.gaps.length + ' mosque(s) got no times this run</summary>' +
+          '<ul class="list">' + s.gaps.slice(0, 20).map(function(g){ return '<li>' + esc(g) + '</li>'; }).join('') + '</ul></details>'
+        : '';
+
+      var errHtml = s.errors && s.errors.length
+        ? '<details><summary>' + s.errors.length + ' error(s) on the last run</summary>' +
+          '<ul class="list">' + s.errors.slice(0, 20).map(function(e){
+            return '<li>' + esc(e.name || e.slug || e.guid || e.date || 'Unknown') +
+              (e.error ? ' — ' + esc(e.error) : (e.status ? ' — HTTP ' + e.status : '')) + '</li>';
+          }).join('') + '</ul></details>'
+        : '';
+
+      var rangeHtml = (s.date_from && s.date_to)
+        ? '<div class="meta">Covers ' + esc(s.date_from) + ' to ' + esc(s.date_to) + '</div>' : '';
+
+      box.innerHTML =
+        '<div class="headrow"><h2 class="name">' + esc(s.label) + '</h2>' +
+        '<span class="pill ' + s.status + '">' + STATUS_TEXT[s.status] + '</span></div>' +
+        '<div class="meta">Last ran: ' + fmtWhen(s.last_run) + '</div>' +
+        rangeHtml +
+        '<div class="stats">' +
+          '<div class="stat"><b>' + s.items_ok + ' / ' + s.items_attempted + '</b><span>Succeeded</span></div>' +
+          '<div class="stat"><b>' + s.items_failed + '</b><span>Failed</span></div>' +
+          '<div class="stat"><b>' + s.rows_written + '</b><span>Times updated</span></div>' +
+        '</div>' +
+        gapsHtml + errHtml;
+
+      $('sources').appendChild(box);
+    });
+  }
+})();
+</script>
+</body>
+</html>
