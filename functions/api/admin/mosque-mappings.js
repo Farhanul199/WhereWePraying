@@ -111,11 +111,26 @@ function scoreCandidate(src, mosque) {
 
 const LINK_THRESHOLD = 85;
 
+// mosques.locked_fields is a comma-separated list of detail fields an admin
+// edited by hand on /admin/mosques.html. Locked fields are never overwritten
+// by the matcher or by any scraper backfill.
+function isLocked(mosqueRow, field) {
+  if (!mosqueRow || !mosqueRow.locked_fields) return false;
+  return String(mosqueRow.locked_fields)
+    .split(",")
+    .map((f) => f.trim())
+    .indexOf(field) !== -1;
+}
+
+function coordsLocked(mosqueRow) {
+  return isLocked(mosqueRow, "latitude") || isLocked(mosqueRow, "longitude");
+}
+
 async function loadMatcherData(db) {
   const [{ results: sources }, { results: mosques }] = await db.batch([
     db.prepare(`SELECT source, source_ref, name, lat, lon FROM mosque_sources WHERE mosque_slug IS NULL`),
     db.prepare(
-      `SELECT slug, name, latitude, longitude FROM mosques
+      `SELECT slug, name, latitude, longitude, locked_fields FROM mosques
        WHERE active = 1 AND merged_into IS NULL`
     ),
   ]);
@@ -177,6 +192,7 @@ export async function onRequestPost(context) {
   try {
     if (body.action === "rebuild") {
       const { sources, mosques } = await loadMatcherData(db);
+      const mosqueBySlug = new Map(mosques.map((m) => [m.slug, m]));
       const nowIso = new Date().toISOString();
       let linked = 0;
       const review = [];
@@ -193,8 +209,9 @@ export async function onRequestPost(context) {
             )
             .bind(best.slug, nowIso, s.source, s.source_ref)
             .run();
-          // Backfill missing coordinates on the official row.
-          if (s.lat != null && s.lon != null) {
+          // Backfill missing coordinates on the official row - but never
+          // touch coordinates an admin has edited by hand (locked_fields).
+          if (s.lat != null && s.lon != null && !coordsLocked(mosqueBySlug.get(best.slug))) {
             await db
               .prepare(
                 `UPDATE mosques SET latitude = ?1, longitude = ?2
