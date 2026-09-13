@@ -31,6 +31,7 @@
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 
 import { isSyncRequest } from '../../_lib/auth.js';
+import { logSyncRun } from '../../_lib/synclog.js';
 
 const API_BASE = "https://api.masjidbox.com/1.0/masjidbox/landing/athany/";
 const APIKEY = "JejYcMS7hsOsZTPDk2ZhKOAlW9IyQ6Px"; // public frontend key, embedded in MasjidBox's own JS bundle
@@ -466,7 +467,8 @@ export async function onRequestGet(context) {
     end = weekly.end;
   }
 
-  const nowIso = new Date().toISOString();
+  const startedAt = new Date().toISOString();
+  const nowIso = startedAt;
 
   const results = { processed: [], failed: [], skipped: [], recordsSaved: 0 };
 
@@ -533,6 +535,22 @@ export async function onRequestGet(context) {
 
     await sleep(DELAY_MS); // politeness delay between mosques
   }
+
+  const finishedAt = new Date().toISOString();
+  const gaps = results.processed.filter((p) => !p.days).map((p) => p.name || p.slug);
+  await logSyncRun(env.DB, {
+    source: "masjidbox_scrape",
+    startedAt,
+    finishedAt,
+    dateFrom: null,
+    dateTo: null,
+    itemsAttempted: slice.length,
+    itemsOk: results.processed.length,
+    itemsFailed: results.failed.length,
+    rowsWritten: results.recordsSaved,
+    gaps,
+    errors: results.failed,
+  });
 
   return new Response(JSON.stringify(results, null, 2), {
     headers: { "Content-Type": "application/json" },

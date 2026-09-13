@@ -54,6 +54,7 @@
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 
 import { isSyncRequest } from '../../_lib/auth.js';
+import { logSyncRun } from '../../_lib/synclog.js';
 
 const API_BASE = "https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings";
 const EXCLUDED_MOSQUES = new Set(); // matched by name below if ever needed
@@ -711,7 +712,8 @@ export async function onRequestGet(context) {
     end = daily.end;
   }
   
-  const nowIso = new Date().toISOString();
+  const startedAt = new Date().toISOString();
+  const nowIso = startedAt;
   const today = new Date(); // reference point for the 90-day rolling window
 
   const results = { processed: [], failed: [], skipped: [], recordsSaved: 0 };
@@ -771,6 +773,22 @@ export async function onRequestGet(context) {
 
     await sleep(DELAY_MS);
   }
+
+  const finishedAt = new Date().toISOString();
+  const gaps = results.processed.filter((p) => !p.days).map((p) => p.name || p.guid);
+  await logSyncRun(env.DB, {
+    source: "mymasjid_scrape",
+    startedAt,
+    finishedAt,
+    dateFrom: null,
+    dateTo: null,
+    itemsAttempted: slice.length,
+    itemsOk: results.processed.length,
+    itemsFailed: results.failed.length,
+    rowsWritten: results.recordsSaved,
+    gaps,
+    errors: results.failed,
+  });
 
   return new Response(JSON.stringify(results, null, 2), {
     headers: { "Content-Type": "application/json" },

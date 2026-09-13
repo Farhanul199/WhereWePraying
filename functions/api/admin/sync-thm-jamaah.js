@@ -30,6 +30,7 @@
 //    try a smaller range first if you're not sure)
 
 import { isSyncRequest } from '../../_lib/auth.js';
+import { logSyncRun } from '../../_lib/synclog.js';
 
 const YEAR = 2026;
 const SOURCE_URL = "https://www.towerhamletsmosques.co.uk/wp-content/themes/squared/masajid-files/request.php?showJumma=true";
@@ -129,7 +130,8 @@ export async function onRequestGet(context) {
 
   const results = { processed: [], failed: [], recordsSaved: 0 };
 
-  const nowIso = new Date().toISOString();
+  const startedAt = new Date().toISOString();
+  const nowIso = startedAt;
   const seenRefs = new Set();
 
   for (let doy = start; doy <= end; doy++) {
@@ -208,6 +210,21 @@ export async function onRequestGet(context) {
   for (let i = 0; i < regs.length; i += 100) {
     await env.DB.batch(regs.slice(i, i + 100));
   }
+
+  const finishedAt = new Date().toISOString();
+  await logSyncRun(env.DB, {
+    source: "thm_scrape",
+    startedAt,
+    finishedAt,
+    dateFrom: results.processed[0] || null,
+    dateTo: results.processed[results.processed.length - 1] || null,
+    itemsAttempted: results.processed.length + results.failed.length,
+    itemsOk: results.processed.length,
+    itemsFailed: results.failed.length,
+    rowsWritten: results.recordsSaved,
+    gaps: [], // THM is date-based, not per-mosque - no gap list here
+    errors: results.failed,
+  });
 
   return new Response(JSON.stringify(results, null, 2), {
     headers: { "Content-Type": "application/json" },
