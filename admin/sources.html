@@ -107,6 +107,16 @@
 
     <div class="stats" id="stats"></div>
 
+    <div id="failedWrap" class="hidden">
+      <div class="actions">
+        <button class="ghost" id="retryFailedBtn">Retry failed</button>
+        <button class="ghost" id="viewFailedBtn">View failed list</button>
+        <button class="ghost" id="downloadFailedBtn">Download failed (CSV)</button>
+      </div>
+      <div class="status" id="failedStatus"></div>
+      <table id="failedTable" class="hidden"><tbody></tbody></table>
+    </div>
+
     <h2>By country</h2>
     <table id="countryTable"><tbody></tbody></table>
 
@@ -340,6 +350,9 @@
     $('progressLine').style.display = noTimes ? 'none' : '';
     $('bar').parentElement.style.display = noTimes ? 'none' : '';
     $('recheckBtn').style.display = noTimes ? 'none' : '';
+    $('failedWrap').classList.toggle('hidden', noTimes || !s.failed);
+    $('failedTable').classList.add('hidden');
+    $('failedStatus').textContent = '';
 
     var countries = s.countries || [];
     $('countryTable').querySelector('tbody').innerHTML =
@@ -538,6 +551,74 @@
       ? 'Checked ' + data.attempted + ' · ' + data.succeeded + ' updated' + (data.failed ? ' · ' + data.failed + ' still failing' : '')
       : 'Nothing pending right now — the background worker is already caught up.');
     refresh();
+  });
+
+  /* ----------------------------------------------------------- failed */
+  // Retrying failed rows re-runs mode=times with retry=1, which every
+  // scraper now honours - it picks up 'failed' rows alongside 'pending'
+  // ones instead of ignoring them. Same cooldown pattern as Recheck now,
+  // so this can't be spammed into a request spike either.
+  var RETRY_FAILED_COOLDOWN = 60;
+  var retryFailedTimer = null;
+
+  function lockRetryFailed(seconds){
+    var btn = $('retryFailedBtn');
+    btn.disabled = true;
+    var remaining = seconds;
+    btn.textContent = 'Retry failed (' + remaining + 's)';
+    clearInterval(retryFailedTimer);
+    retryFailedTimer = setInterval(function(){
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(retryFailedTimer);
+        btn.disabled = false;
+        btn.textContent = 'Retry failed';
+      } else {
+        btn.textContent = 'Retry failed (' + remaining + 's)';
+      }
+    }, 1000);
+  }
+
+  $('retryFailedBtn').addEventListener('click', async function(){
+    lockRetryFailed(RETRY_FAILED_COOLDOWN);
+    say($('failedStatus'), 'Retrying…');
+    var data = await api('/api/admin/' + cfg().endpoint + '?mode=times&limit=' + cfg().timesLimit + '&retry=1');
+    if (data.error || data.ok === false) { say($('failedStatus'), data.error || 'Failed.', true); return; }
+    say($('failedStatus'), data.attempted
+      ? 'Retried ' + data.attempted + ' · ' + data.succeeded + ' fixed' + (data.failed ? ' · ' + data.failed + ' still failing' : '')
+      : 'Nothing to retry right now.');
+    refresh();
+  });
+
+  $('viewFailedBtn').addEventListener('click', async function(){
+    say($('failedStatus'), 'Loading failed list…');
+    var data = await api('/api/admin/sources?action=list&source=' + SOURCE + '&status=failed&limit=200');
+    if (data.error) { say($('failedStatus'), data.error, true); return; }
+    var rows = data.mosques || [];
+    var t = $('failedTable');
+    t.classList.remove('hidden');
+    t.querySelector('tbody').innerHTML =
+      '<tr><th>Name</th><th>Country</th><th>Error</th><th>Last checked</th></tr>' +
+      (rows.length ? rows.map(function(r){
+        return '<tr><td>' + (r.name || r.source_ref) + '</td><td>' + (r.country || '') + '</td><td>' +
+               (r.error || '—') + '</td><td>' + relTime(r.last_seen) + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="hint">No failed rows right now.</td></tr>');
+    say($('failedStatus'), 'Showing ' + rows.length + ' failed ' + (rows.length === 1 ? 'mosque' : 'mosques') + '.');
+  });
+
+  $('downloadFailedBtn').addEventListener('click', async function(){
+    say($('failedStatus'), 'Preparing file…');
+    var q = '/api/admin/sources?action=download&source=' + SOURCE + '&status=failed&format=csv';
+    var res;
+    try { res = await fetch(q, { headers: headers() }); } catch (e) { say($('failedStatus'), 'Network problem.', true); return; }
+    if (!res.ok) { say($('failedStatus'), 'Failed (' + res.status + ')', true); return; }
+    var blob = await res.blob();
+    var name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name ? name[1] : (SOURCE + '-failed.csv');
+    document.body.appendChild(a); a.click(); a.remove();
+    say($('failedStatus'), 'Downloaded.');
   });
 
   /* ---------------------------------------------------------- download */
