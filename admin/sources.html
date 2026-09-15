@@ -76,6 +76,8 @@
   .continentBtn .meta{font-size:12px;color:var(--muted);display:block;margin-top:2px;}
   .continentBtn:disabled{opacity:.5;cursor:default;}
   .continentBtn.running, .ghost.running{border-color:var(--coral);}
+  .continentBtn.done{opacity:.55;background:#F6FBF8;border-color:var(--ok);}
+  .continentBtn.done .name{color:var(--ok);}
   .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:8px;}
   .bar > i{display:block;height:100%;background:var(--coral);width:0;transition:width .3s;}
   .note{
@@ -127,6 +129,13 @@
         <button id="importBtn">1. Import CSV</button>
       </div>
       <p class="hint">Location data only, no prayer times — one-time import, re-upload a newer CSV any time to refresh.</p>
+    </div>
+
+    <div id="manualAllWrap" class="hidden">
+      <div class="actions" style="margin-top:10px;">
+        <button class="ghost" id="findManualAllBtn">Find every supported country</button>
+      </div>
+      <p class="hint" id="manualAllHint"></p>
     </div>
 
     <div id="continentWrap">
@@ -216,8 +225,9 @@
       endpoint: 'scrape-takbeertime',
       discovery: 'countryManual',    // country picker, but no continent grid - only 19 countries covered
       countryHint: 'Supported: DZ AZ BD CM EG IN ID IR LR LT MU PK RU SA ZA KR TN TR UZ (mainly South Asia + MENA)',
+      manualCodes: ['DZ','AZ','BD','CM','EG','IN','ID','IR','LR','LT','MU','PK','RU','SA','ZA','KR','TN','TR','UZ'], // must match COUNTRY_NAMES in scrape-takbeertime.js
       coverage: 'current',
-      coverageNote: 'Crowdsourced single-schedule times, not a full calendar - quality varies, some entries are unverified community submissions. No continent buttons here since only 19 countries are covered; type one of the codes below.',
+      coverageNote: 'Crowdsourced single-schedule times, not a full calendar - quality varies, some entries are unverified community submissions. No continent buttons here since only 19 countries are covered; type one of the codes below, or use "Find every supported country" to do them all one after another.',
       timesLimit: 10
     }
   };
@@ -298,9 +308,16 @@
     // that will always return nothing.
     var byCountry = c.discovery === 'country' || c.discovery === 'countryManual';
     var showContinents = c.discovery === 'country';
+    var showManualAll = c.discovery === 'countryManual';
     var byImport = c.discovery === 'import';
     $('countryRow').style.display     = byCountry ? '' : 'none';
     $('continentWrap').style.display  = showContinents ? '' : 'none';
+    if (showContinents) renderContinents(s.countries || []);
+    $('manualAllWrap').classList.toggle('hidden', !showManualAll);
+    if (showManualAll) {
+      $('manualAllHint').textContent = 'Runs "Find mosques" for all ' + (c.manualCodes || []).length +
+        ' supported countries, one after another (about 7 seconds each). Keep the tab open.';
+    }
     $('discoverBtn').style.display    = byImport ? 'none' : '';
     $('importWrap').classList.toggle('hidden', !byImport);
     if (!byImport) {
@@ -374,25 +391,47 @@
 
   function fmt(n){ return n.toLocaleString(); }
 
-  (function renderContinents(){
+  // Renders the continent grid using LIVE per-country stats from the
+  // summary API when available (real "with_times / total" for every code
+  // already discovered), falling back to the static mawaqit.net estimate
+  // for continents with nothing discovered yet. A continent is marked done
+  // once every one of its countries has been discovered AND every mosque
+  // in it has times - still clickable (not hard-disabled) in case new
+  // mosques appear on the platform later.
+  function renderContinents(liveCountries){
+    var byCode = {};
+    (liveCountries || []).forEach(function(c){ byCode[c.country] = c; });
+
     $('continentGrid').innerHTML = CONTINENT_ORDER.map(function(name){
       var c = CONTINENTS[name];
-      return '<button class="continentBtn" data-continent="' + name + '">' +
-             '<span class="name">' + name + '</span>' +
-             '<span class="meta">' + c.n + ' countries · ~' + fmt(c.total) + ' mosques</span>' +
+      var liveTotal = 0, liveWithTimes = 0, discoveredCodes = 0;
+      c.codes.forEach(function(code){
+        var row = byCode[code];
+        if (row) { discoveredCodes++; liveTotal += row.total; liveWithTimes += row.with_times; }
+      });
+      var hasData = discoveredCodes > 0;
+      var isDone = hasData && discoveredCodes === c.n && liveTotal > 0 && liveWithTimes >= liveTotal;
+      var metaText = hasData
+        ? (c.n + ' countries · ' + fmt(liveWithTimes) + '/' + fmt(liveTotal) + ' done' +
+           (discoveredCodes < c.n ? ' (' + discoveredCodes + '/' + c.n + ' countries found)' : ''))
+        : (c.n + ' countries · ~' + fmt(c.total) + ' mosques');
+      return '<button class="continentBtn' + (isDone ? ' done' : '') + '" data-continent="' + name + '"' +
+             (isDone ? ' title="Fully collected \u2014 click to re-check anyway"' : '') + '>' +
+             '<span class="name">' + name + (isDone ? ' \u2713' : '') + '</span>' +
+             '<span class="meta">' + metaText + '</span>' +
              '</button>';
     }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('.continentBtn'), function(b){
       b.addEventListener('click', function(){ runContinent(b.dataset.continent); });
     });
-  })();
+  }
 
   var discoverRunning = false;
 
   async function runCodes(label, codes, runningBtn){
     if (discoverRunning) return;
     discoverRunning = true;
-    var btns = document.querySelectorAll('.continentBtn, #discoverBtn, #findAllBtn');
+    var btns = document.querySelectorAll('.continentBtn, #discoverBtn, #findAllBtn, #findManualAllBtn');
     Array.prototype.forEach.call(btns, function(b){ b.disabled = true; });
     if (runningBtn) runningBtn.classList.add('running');
 
@@ -421,6 +460,11 @@
     var allCodes = [];
     CONTINENT_ORDER.forEach(function(name){ allCodes = allCodes.concat(CONTINENTS[name].codes); });
     return runCodes('every country', allCodes, $('findAllBtn'));
+  });
+
+  $('findManualAllBtn').addEventListener('click', function(){
+    var codes = cfg().manualCodes || [];
+    return runCodes('every supported country', codes, $('findManualAllBtn'));
   });
 
   $('discoverBtn').addEventListener('click', async function(){
