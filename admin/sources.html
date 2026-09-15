@@ -125,7 +125,7 @@
     <div class="actions" style="margin-top:10px;">
       <button class="ghost" id="findAllBtn">Find every country (all 175)</button>
     </div>
-    <p class="hint">Runs "Find mosques" for every country in that continent, one after another with a short gap between each — leave the tab open until it says done (a minute or so even for the biggest ones; the "every country" button takes a few minutes).</p>
+    <p class="hint">Runs "Find mosques" for every country in that continent, one after another — your own site allows 10 admin requests a minute, so each country takes about 7 seconds. Small ones (Oceania, South America) finish in under 2 minutes; Africa/Europe/Asia take 5–6 minutes; "every country" takes about 20 minutes. Keep the tab open and active (don't switch away on mobile — background tabs can pause the timer).</p>
 
     <div class="progressLine" id="progressLine">Timetables: —</div>
     <div class="bar"><i id="bar"></i></div>
@@ -298,7 +298,7 @@
       say($('runStatus'), 'Checking ' + label + ' (' + (i+1) + '/' + codes.length + ') — ' + cc + '…');
       var data = await api('/api/admin/scrape-mawaqit?mode=discover&country=' + cc);
       if (!data.error && data.ok !== false) totalFound += data.mosquesReturnedByMawaqit || 0;
-      await new Promise(function(r){ setTimeout(r, 500); }); // small gap between countries
+      await new Promise(function(r){ setTimeout(r, 7000); }); // your site's own admin API allows only 10 requests/min per IP — this keeps us safely under that
     }
 
     say($('runStatus'), 'Done — checked all ' + codes.length + ' ' + label + ' countries, found ' + fmt(totalFound) + ' mosques.');
