@@ -189,11 +189,12 @@ async function fetchOneTimes(env, ref) {
   }
 }
 
-async function times(env, limit) {
+async function times(env, limit, retry) {
+  const wanted = retry ? "('pending','failed')" : "('pending')";
   const rows = (await env.DB.prepare(
     `SELECT source_ref FROM source_discoveries
-      WHERE source = ? AND times_status = 'pending'
-      ORDER BY first_seen ASC
+      WHERE source = ? AND times_status IN ${wanted}
+      ORDER BY CASE WHEN times_status = 'pending' THEN 0 ELSE 1 END, first_seen ASC
       LIMIT ?`
   ).bind(SOURCE, Math.min(limit, TIMES_BUDGET)).all()).results || [];
 
@@ -222,7 +223,7 @@ export async function onRequestGet(context) {
 
   try {
     if (mode === 'discover') return await discover(env, (p.get('country') || '').toUpperCase());
-    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10);
+    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10, p.get('retry') === '1');
     return json({ error: 'unknown mode, use mode=discover or mode=times' }, 400);
   } catch (e) {
     return json({ error: String(e).slice(0, 300) }, 500);

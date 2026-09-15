@@ -208,18 +208,21 @@ function extract(data) {
   };
 }
 
-async function times(env, limit) {
+async function times(env, limit, retry) {
   const startedAt = new Date().toISOString();
   const nowIso = startedAt;
   const staleBefore = new Date(Date.now() - REFRESH_AFTER_DAYS * 86400000).toISOString();
 
   // Never-fetched first, then whichever windows are closest to expiring.
+  // retry=1 also picks up previously-failed rows (excluded by default so
+  // a normal pass doesn't keep hammering something that's actually broken).
+  const wanted = retry ? "('pending','failed')" : "('pending')";
   const { results } = await env.DB.prepare(
     `SELECT source_ref FROM source_discoveries
       WHERE source = ?
-        AND (times_status = 'pending'
+        AND (times_status IN ${wanted}
              OR (times_status = 'ok' AND (times_updated_at IS NULL OR times_updated_at < ?)))
-      ORDER BY CASE WHEN times_status = 'pending' THEN 0 ELSE 1 END,
+      ORDER BY CASE WHEN times_status = 'pending' THEN 0 WHEN times_status = 'failed' THEN 1 ELSE 2 END,
                COALESCE(times_updated_at, '')
       LIMIT ?`
   ).bind(SOURCE, staleBefore, limit).all();
@@ -325,7 +328,8 @@ export async function onRequestGet(context) {
     if (mode === 'discover') return await discover(env);
     if (mode === 'times') {
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '12', 10) || 12, MAX_LIMIT);
-      return await times(env, limit);
+      const retry = url.searchParams.get('retry') === '1';
+      return await times(env, limit, retry);
     }
     return json({ ok: false, error: 'mode must be "discover" or "times"' }, 400);
   } catch (e) {
