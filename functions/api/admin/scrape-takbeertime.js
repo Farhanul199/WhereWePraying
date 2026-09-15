@@ -151,8 +151,29 @@ async function fetchOneTimes(env, ref) {
     const detail = await res.json();
 
     const t = detail.effectiveTimings;
-    if (!t || !t.fajr || !t.dhuhr || !t.asr || !t.maghrib || !t.isha) {
-      throw new Error('no usable effectiveTimings on this mosque');
+    const hasFullTimes = t && t.fajr && t.dhuhr && t.asr && t.maghrib && t.isha;
+
+    if (!hasFullTimes) {
+      // Not a failure - we successfully reached a real mosque record
+      // (confirmed to exist, has a location), it just has no community-
+      // submitted schedule yet (prayerSchedules: [], effectiveTimings:
+      // null). Common on this source outside its more active countries.
+      // Still worth refreshing location details from the detail response,
+      // and the mosque stays visible on the live site with a "no live
+      // prayer data" note rather than being hidden or flagged as broken.
+      await env.DB.prepare(
+        `UPDATE source_discoveries
+            SET times_status='no_data', error=NULL,
+                site=COALESCE(?, site),
+                phone=COALESCE(?, phone),
+                email=COALESCE(?, email),
+                raw_json=?, times_updated_at=?, last_seen=?
+          WHERE source=? AND source_ref=?`
+      ).bind(
+        detail.website || null, detail.phoneNumber || null, detail.email || null,
+        JSON.stringify(detail), now, now, SOURCE, ref
+      ).run();
+      return 'no_data';
     }
 
     const jummah = Array.isArray(t.jummah) ? t.jummah : [];
@@ -179,13 +200,13 @@ async function fetchOneTimes(env, ref) {
       now, now, SOURCE, ref
     ).run();
 
-    return true;
+    return 'ok';
   } catch (e) {
     await env.DB.prepare(
       `UPDATE source_discoveries SET times_status='failed', error=?, last_seen=?
         WHERE source=? AND source_ref=?`
     ).bind(String(e).slice(0, 300), now, SOURCE, ref).run();
-    return false;
+    return 'failed';
   }
 }
 
@@ -200,14 +221,18 @@ async function times(env, limit, retry) {
 
   if (!rows.length) return json({ ok: true, attempted: 0, message: 'Nothing pending.' });
 
-  let succeeded = 0, failed = 0;
+  let succeeded = 0, failed = 0, noData = 0;
   for (let i = 0; i < rows.length; i += TIMES_CONCURRENCY) {
     const batch = rows.slice(i, i + TIMES_CONCURRENCY);
     const results = await Promise.all(batch.map((r) => fetchOneTimes(env, r.source_ref)));
-    results.forEach((ok) => (ok ? succeeded++ : failed++));
+    results.forEach((r) => {
+      if (r === 'ok') succeeded++;
+      else if (r === 'no_data') noData++;
+      else failed++;
+    });
   }
 
-  return json({ ok: true, attempted: rows.length, succeeded, failed });
+  return json({ ok: true, attempted: rows.length, succeeded, failed, noData });
 }
 
 /* --------------------------------------------------------------- entry */
