@@ -63,6 +63,7 @@ export async function onRequestPost(context) {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
 
   let imported = 0, skipped = 0;
+  const errors = [];
   const now = new Date().toISOString();
 
   for (const line of lines) {
@@ -80,7 +81,7 @@ export async function onRequestPost(context) {
             times_status, coverage, status, first_seen, last_seen, raw_json)
          VALUES ('muslimsinbritain', ?, ?, 'GB', ?, ?, ?, ?,
                  'not_applicable', 'none', 'new', ?, ?, ?)
-         ON CONFLICT(source_ref) DO UPDATE SET
+         ON CONFLICT(source, source_ref) DO UPDATE SET
            name=excluded.name,
            address=excluded.address,
            lat=excluded.lat,
@@ -95,10 +96,11 @@ export async function onRequestPost(context) {
       imported++;
     } catch (e) {
       skipped++;
+      if (errors.length < 5) errors.push(String(e).slice(0, 200));
     }
   }
 
-  return new Response(JSON.stringify({ imported, skipped, total: lines.length }), {
+  return new Response(JSON.stringify({ imported, skipped, total: lines.length, errors }), {
     headers: { "Content-Type": "application/json" },
   });
 }
