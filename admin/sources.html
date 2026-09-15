@@ -65,7 +65,9 @@
   .status{margin-top:12px;font-size:14px;min-height:20px;}
   .status.ok{color:var(--ok);}
   .status.err{color:var(--warn);}
-  .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:12px;}
+  .progressLine{font-size:15px;font-weight:700;margin-top:18px;}
+  .progressLine .sub{font-weight:500;color:var(--muted);font-size:13px;display:block;margin-top:2px;}
+  .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:8px;}
   .bar > i{display:block;height:100%;background:var(--coral);width:0;transition:width .3s;}
   .note{
     background:#FFF6F2;border:1px solid #F6D9CE;border-radius:12px;
@@ -103,19 +105,21 @@
         <label for="ccInput">Country code</label>
         <input type="text" id="ccInput" value="GB" maxlength="2">
       </div>
-      <div>
-        <label for="batchInput">Mosques per batch</label>
-        <input type="number" id="batchInput" value="20" min="1" max="40">
-      </div>
     </div>
     <div class="actions">
       <button id="discoverBtn">1. Find mosques</button>
-      <button class="ghost" id="timesBtn">2. Fetch timetables</button>
-      <button class="ghost" id="stopBtn" disabled>Stop</button>
     </div>
+    <p class="hint">One quick request — gets names, addresses and coordinates for every mosque in that country. Do this once per country.</p>
+
+    <div class="progressLine" id="progressLine">Timetables: —</div>
     <div class="bar"><i id="bar"></i></div>
+    <p class="hint">Timetables (the full-year prayer + jama'ah data) fetch themselves automatically in the background, 8 mosques every 15 minutes, so Mawaqit never sees more than a trickle of requests — no button to hold down, and it keeps going even with this page closed. Reopen any time to see progress.</p>
+
+    <div class="actions">
+      <button class="ghost" id="recheckBtn">Recheck now</button>
+    </div>
     <div class="status" id="runStatus"></div>
-    <p class="hint">Step 1 is one quick request and gets names, addresses and coordinates. Step 2 visits each mosque's own page for the full year of prayer and jama'ah times — it keeps going in batches until everything is done, and is safe to stop and resume.</p>
+    <p class="hint">Use "Recheck now" if you don't want to wait for the next automatic run, or to retry any that failed. It does one small batch and then locks itself for a minute, so it can't turn into a spike even if pressed repeatedly.</p>
 
     <h2>Raw data</h2>
     <div class="row">
@@ -147,7 +151,6 @@
 (function(){
   var KEY = '';
   var SOURCE = 'mawaqit';
-  var stop = false;
 
   var $ = function(id){ return document.getElementById(id); };
   function headers(){ return { 'X-Broadcast-Key': KEY }; }
@@ -216,6 +219,21 @@
 
     var pct = s.total ? Math.round((s.with_times / s.total) * 100) : 0;
     $('bar').style.width = pct + '%';
+    $('progressLine').innerHTML = pct + '% complete <span class="sub">' +
+      (s.with_times || 0) + ' of ' + (s.total || 0) + ' mosques have full-year times' +
+      (s.pending ? ' · ' + s.pending + ' left' : '') +
+      (s.failed ? ' · ' + s.failed + ' failed' : '') +
+      ' · last checked ' + relTime(s.last_run) + '</span>';
+  }
+
+  function relTime(iso){
+    if (!iso) return 'never';
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + ' hr ago';
+    return Math.round(hrs / 24) + ' days ago';
   }
 
   /* ---------------------------------------------------------- collect */
@@ -230,29 +248,41 @@
     refresh();
   });
 
-  $('timesBtn').addEventListener('click', async function(){
-    stop = false;
-    var cc = ($('ccInput').value || '').trim().toUpperCase();
-    var batch = parseInt($('batchInput').value, 10) || 20;
-    $('timesBtn').disabled = true; $('discoverBtn').disabled = true; $('stopBtn').disabled = false;
+  /* ------------------------------------------------------- recheck now */
+  // One small batch, then a cooldown — so this button can never become a
+  // spike even if someone holds it down or refreshes and presses again.
+  var RECHECK_COOLDOWN = 60; // seconds
+  var cooldownTimer = null;
 
-    var totalDone = 0;
-    while (!stop) {
-      var url = '/api/admin/scrape-mawaqit?mode=times&limit=' + batch + (cc ? '&country=' + cc : '');
-      var data = await api(url);
-      if (data.error || data.ok === false) { say($('runStatus'), data.error || 'Failed.', true); break; }
-      totalDone += data.succeeded || 0;
-      var p = data.progress || {};
-      say($('runStatus'), 'Fetched ' + p.withTimes + ' of ' + p.total + ' timetables · ' + p.stillToDo + ' left' + (p.failedSoFar ? ' · ' + p.failedSoFar + ' failed' : ''));
-      $('bar').style.width = (p.total ? Math.round((p.withTimes / p.total) * 100) : 0) + '%';
-      if (!data.moreToDo || !data.attempted) { say($('runStatus'), 'Done. ' + p.withTimes + ' of ' + p.total + ' mosques have full-year times.'); break; }
-    }
+  function lockRecheck(seconds){
+    var btn = $('recheckBtn');
+    btn.disabled = true;
+    var remaining = seconds;
+    btn.textContent = 'Recheck now (' + remaining + 's)';
+    clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(function(){
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(cooldownTimer);
+        btn.disabled = false;
+        btn.textContent = 'Recheck now';
+      } else {
+        btn.textContent = 'Recheck now (' + remaining + 's)';
+      }
+    }, 1000);
+  }
 
-    $('timesBtn').disabled = false; $('discoverBtn').disabled = false; $('stopBtn').disabled = true;
+  $('recheckBtn').addEventListener('click', async function(){
+    lockRecheck(RECHECK_COOLDOWN);
+    say($('runStatus'), 'Checking 8 mosques…');
+    var data = await api('/api/admin/scrape-mawaqit?mode=times&limit=8&retry=1');
+    if (data.error || data.ok === false) { say($('runStatus'), data.error || 'Failed.', true); return; }
+    var p = data.progress || {};
+    say($('runStatus'), data.attempted
+      ? 'Checked ' + data.attempted + ' · ' + data.succeeded + ' updated' + (data.failed ? ' · ' + data.failed + ' still failing' : '')
+      : 'Nothing pending right now — the background worker is already caught up.');
     refresh();
   });
-
-  $('stopBtn').addEventListener('click', function(){ stop = true; say($('runStatus'), 'Stopping after this batch…'); });
 
   /* ---------------------------------------------------------- download */
   $('dlBtn').addEventListener('click', async function(){
