@@ -15,14 +15,7 @@
 // upserts into source_discoveries with source='muslimsinbritain',
 // coverage='none', times_status='not_applicable'.
 
-function isAdminRequest(request, env) {
-  const key = request.headers.get("X-Broadcast-Key");
-  return key && env.SYNC_SECRET && key === env.SYNC_SECRET;
-}
-function isSyncRequest(request, env) {
-  const key = request.headers.get("X-Sync-Key");
-  return key && env.SYNC_SECRET && key === env.SYNC_SECRET;
-}
+import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
 
 function parseCsvLine(line) {
   // Simple CSV split: lon,lat,"quoted field with possible commas"
@@ -56,7 +49,7 @@ function parseCsvLine(line) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  if (!isAdminRequest(request, env) && !isSyncRequest(request, env)) {
+  if (!isAdminRequest(context) && !isSyncRequest(context)) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
   }
 
