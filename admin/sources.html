@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>WhereWePraying — Sources</title>
+<style>
+  :root{
+    --coral:#F4714E;
+    --cream:#FBF3EC;
+    --text:#3A2E28;
+    --muted:#8A7A70;
+    --border:#EADFD6;
+    --ok:#2E7D5B;
+    --warn:#B4541F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--cream);color:var(--text);
+    display:flex;justify-content:center;padding:40px 16px;
+  }
+  .card{
+    width:100%;max-width:980px;background:#fff;border:1px solid var(--border);
+    border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,0.04);
+  }
+  h1{font-size:22px;margin:0 0 4px;}
+  h2{font-size:15px;margin:26px 0 12px;padding-top:20px;border-top:1px solid var(--border);}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px;}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 0;}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px;}
+  input,select{
+    width:100%;padding:11px 13px;font:inherit;font-size:15px;
+    border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--text);
+  }
+  input:focus,select:focus{outline:2px solid var(--coral);outline-offset:1px;border-color:var(--coral);}
+  button{
+    margin-top:12px;padding:11px 18px;font:inherit;font-weight:700;font-size:15px;
+    background:var(--coral);color:#fff;border:none;border-radius:11px;cursor:pointer;
+  }
+  button.ghost{background:#fff;color:var(--text);border:1px solid var(--border);}
+  button:disabled{opacity:.5;cursor:default;}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1 1 200px;min-width:0;}
+  .row > div label{margin-top:0;}
+  .hidden{display:none;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px;}
+  .tab{
+    padding:9px 16px;border:1px solid var(--border);border-radius:999px;
+    background:#fff;font-size:14px;font-weight:700;cursor:pointer;margin:0;color:var(--text);
+  }
+  .tab.on{background:var(--coral);color:#fff;border-color:var(--coral);}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;}
+  .stat{
+    flex:1 1 150px;border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:#fff;
+  }
+  .stat .n{font-size:26px;font-weight:800;line-height:1.1;}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px;}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);}
+  th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .status{margin-top:12px;font-size:14px;min-height:20px;}
+  .status.ok{color:var(--ok);}
+  .status.err{color:var(--warn);}
+  .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:12px;}
+  .bar > i{display:block;height:100%;background:var(--coral);width:0;transition:width .3s;}
+  .note{
+    background:#FFF6F2;border:1px solid #F6D9CE;border-radius:12px;
+    padding:12px 14px;font-size:13px;color:var(--text);margin-top:16px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- ------------------------------------------------ lock -->
+  <div id="lockScreen">
+    <h1>Sources</h1>
+    <p class="sub">Scraped data waiting room. Nothing here is live on the site.</p>
+    <label for="secretInput">Admin key</label>
+    <input type="password" id="secretInput" autocomplete="off" placeholder="Broadcast secret">
+    <button id="unlockBtn">Unlock</button>
+  </div>
+
+  <!-- ------------------------------------------------ main -->
+  <div id="mainScreen" class="hidden">
+    <h1>Sources</h1>
+    <p class="sub">Every mosque pulled from an outside platform lands here first. It stays out of the live site until you promote it.</p>
+
+    <div class="tabs" id="sourceTabs"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <h2>By country</h2>
+    <table id="countryTable"><tbody></tbody></table>
+
+    <h2>Collect data</h2>
+    <div class="row">
+      <div>
+        <label for="ccInput">Country code</label>
+        <input type="text" id="ccInput" value="GB" maxlength="2">
+      </div>
+      <div>
+        <label for="batchInput">Mosques per batch</label>
+        <input type="number" id="batchInput" value="20" min="1" max="40">
+      </div>
+    </div>
+    <div class="actions">
+      <button id="discoverBtn">1. Find mosques</button>
+      <button class="ghost" id="timesBtn">2. Fetch timetables</button>
+      <button class="ghost" id="stopBtn" disabled>Stop</button>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="status" id="runStatus"></div>
+    <p class="hint">Step 1 is one quick request and gets names, addresses and coordinates. Step 2 visits each mosque's own page for the full year of prayer and jama'ah times — it keeps going in batches until everything is done, and is safe to stop and resume.</p>
+
+    <h2>Raw data</h2>
+    <div class="row">
+      <div>
+        <label for="dlCountry">Country</label>
+        <select id="dlCountry"></select>
+      </div>
+      <div>
+        <label for="dlFormat">Format</label>
+        <select id="dlFormat">
+          <option value="csv">CSV — mosque details (spreadsheet)</option>
+          <option value="json">JSON — mosque details</option>
+          <option value="json-full">JSON — details + full-year timetables</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="dlBtn">Download</button>
+      <button class="ghost" id="previewBtn">Preview first 50</button>
+    </div>
+    <div class="status" id="dlStatus"></div>
+    <table id="previewTable" class="hidden"><tbody></tbody></table>
+
+    <div class="note">Nothing on this page touches the mosque list, prayer times or the live site. Promoting a source into the live directory is a separate, deliberate step.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY = '';
+  var SOURCE = 'mawaqit';
+  var stop = false;
+
+  var $ = function(id){ return document.getElementById(id); };
+  function headers(){ return { 'X-Broadcast-Key': KEY }; }
+  function say(el, msg, bad){ el.textContent = msg; el.className = 'status ' + (bad ? 'err' : 'ok'); }
+
+  async function api(url){
+    var res, data;
+    try { res = await fetch(url, { headers: headers() }); data = await res.json(); }
+    catch (e) { return { error: 'Network problem. Try again.' }; }
+    if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
+    return data;
+  }
+
+  /* ---------------------------------------------------------- unlock */
+  $('unlockBtn').addEventListener('click', function(){
+    var v = $('secretInput').value.trim();
+    if (!v) return;
+    KEY = v;
+    $('lockScreen').classList.add('hidden');
+    $('mainScreen').classList.remove('hidden');
+    refresh();
+  });
+  $('secretInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') $('unlockBtn').click();
+  });
+
+  /* ---------------------------------------------------------- summary */
+  function stat(n, l){ return '<div class="stat"><div class="n">' + (n || 0) + '</div><div class="l">' + l + '</div></div>'; }
+
+  async function refresh(){
+    var data = await api('/api/admin/sources?action=summary');
+    if (data.error) { say($('runStatus'), data.error, true); return; }
+
+    var sources = data.sources || [];
+    if (!sources.length) sources = [{ source: 'mawaqit', total: 0, with_times: 0, pending: 0, failed: 0, with_jamaah: 0, countries: [] }];
+
+    $('sourceTabs').innerHTML = sources.map(function(s){
+      return '<button class="tab' + (s.source === SOURCE ? ' on' : '') + '" data-src="' + s.source + '">' +
+             s.source + ' · ' + (s.total || 0) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
+      b.addEventListener('click', function(){ SOURCE = b.dataset.src; refresh(); });
+    });
+
+    var s = sources.filter(function(x){ return x.source === SOURCE; })[0] || sources[0];
+    SOURCE = s.source;
+
+    $('stats').innerHTML =
+      stat(s.total, 'Mosques found') +
+      stat(s.with_times, 'With full-year times') +
+      stat(s.pending, 'Still to fetch') +
+      stat(s.with_jamaah, 'Publish real jama\'ah times') +
+      stat(s.failed, 'Failed');
+
+    var countries = s.countries || [];
+    $('countryTable').querySelector('tbody').innerHTML =
+      '<tr><th>Country</th><th>Mosques</th><th>With times</th></tr>' +
+      (countries.length
+        ? countries.map(function(c){
+            return '<tr><td>' + c.country + '</td><td>' + c.total + '</td><td>' + c.with_times + '</td></tr>';
+          }).join('')
+        : '<tr><td colspan="3" class="hint">Nothing collected yet.</td></tr>');
+
+    $('dlCountry').innerHTML = '<option value="">All countries</option>' +
+      countries.map(function(c){ return '<option value="' + c.country + '">' + c.country + ' (' + c.total + ')</option>'; }).join('');
+
+    var pct = s.total ? Math.round((s.with_times / s.total) * 100) : 0;
+    $('bar').style.width = pct + '%';
+  }
+
+  /* ---------------------------------------------------------- collect */
+  $('discoverBtn').addEventListener('click', async function(){
+    var cc = ($('ccInput').value || 'GB').trim().toUpperCase();
+    $('discoverBtn').disabled = true;
+    say($('runStatus'), 'Asking MAWAQIT for every mosque in ' + cc + '…');
+    var data = await api('/api/admin/scrape-mawaqit?mode=discover&country=' + encodeURIComponent(cc));
+    $('discoverBtn').disabled = false;
+    if (data.error || data.ok === false) { say($('runStatus'), data.error || data.message || 'Failed.', true); return; }
+    say($('runStatus'), 'Found ' + data.mosquesReturnedByMawaqit + ' mosques in ' + cc + ', saved ' + data.rowsSaved + '. Now press "Fetch timetables".');
+    refresh();
+  });
+
+  $('timesBtn').addEventListener('click', async function(){
+    stop = false;
+    var cc = ($('ccInput').value || '').trim().toUpperCase();
+    var batch = parseInt($('batchInput').value, 10) || 20;
+    $('timesBtn').disabled = true; $('discoverBtn').disabled = true; $('stopBtn').disabled = false;
+
+    var totalDone = 0;
+    while (!stop) {
+      var url = '/api/admin/scrape-mawaqit?mode=times&limit=' + batch + (cc ? '&country=' + cc : '');
+      var data = await api(url);
+      if (data.error || data.ok === false) { say($('runStatus'), data.error || 'Failed.', true); break; }
+      totalDone += data.succeeded || 0;
+      var p = data.progress || {};
+      say($('runStatus'), 'Fetched ' + p.withTimes + ' of ' + p.total + ' timetables · ' + p.stillToDo + ' left' + (p.failedSoFar ? ' · ' + p.failedSoFar + ' failed' : ''));
+      $('bar').style.width = (p.total ? Math.round((p.withTimes / p.total) * 100) : 0) + '%';
+      if (!data.moreToDo || !data.attempted) { say($('runStatus'), 'Done. ' + p.withTimes + ' of ' + p.total + ' mosques have full-year times.'); break; }
+    }
+
+    $('timesBtn').disabled = false; $('discoverBtn').disabled = false; $('stopBtn').disabled = true;
+    refresh();
+  });
+
+  $('stopBtn').addEventListener('click', function(){ stop = true; say($('runStatus'), 'Stopping after this batch…'); });
+
+  /* ---------------------------------------------------------- download */
+  $('dlBtn').addEventListener('click', async function(){
+    var cc = $('dlCountry').value;
+    var f = $('dlFormat').value;
+    var q = '/api/admin/sources?action=download&source=' + SOURCE +
+            (cc ? '&country=' + cc : '') +
+            '&format=' + (f === 'csv' ? 'csv' : 'json') +
+            (f === 'json-full' ? '&full=1' : '');
+    say($('dlStatus'), 'Preparing file…');
+    var res;
+    try { res = await fetch(q, { headers: headers() }); } catch (e) { say($('dlStatus'), 'Network problem.', true); return; }
+    if (!res.ok) { say($('dlStatus'), 'Failed (' + res.status + ')', true); return; }
+    var blob = await res.blob();
+    var name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name ? name[1] : (SOURCE + '-export');
+    document.body.appendChild(a); a.click(); a.remove();
+    say($('dlStatus'), 'Downloaded.');
+  });
+
+  $('previewBtn').addEventListener('click', async function(){
+    var cc = $('dlCountry').value;
+    var data = await api('/api/admin/sources?action=list&source=' + SOURCE + (cc ? '&country=' + cc : '') + '&limit=50');
+    if (data.error) { say($('dlStatus'), data.error, true); return; }
+    var rows = data.mosques || [];
+    var t = $('previewTable');
+    t.classList.remove('hidden');
+    t.querySelector('tbody').innerHTML =
+      '<tr><th>Name</th><th>City</th><th>Coordinates</th><th>Times</th></tr>' +
+      (rows.length ? rows.map(function(r){
+        return '<tr><td>' + (r.name || r.source_ref) + '</td><td>' + (r.city || '') + '</td><td>' +
+               (r.lat != null ? r.lat.toFixed(4) + ', ' + r.lon.toFixed(4) : '—') + '</td><td>' +
+               (r.times_status === 'ok' ? (r.iqama_enabled ? 'jama\'ah' : 'adhan only') : r.times_status) + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="hint">Nothing yet.</td></tr>');
+    say($('dlStatus'), 'Showing ' + rows.length + ' of them.');
+  });
+})();
+</script>
+</body>
+</html>
