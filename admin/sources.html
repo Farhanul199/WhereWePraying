@@ -592,18 +592,19 @@
 
   $('viewFailedBtn').addEventListener('click', async function(){
     say($('failedStatus'), 'Loading failed list…');
-    var data = await api('/api/admin/sources?action=list&source=' + SOURCE + '&status=failed&limit=200');
+    var data = await api('/api/admin/sources?action=list&source=' + SOURCE + '&status=failed&limit=1000');
     if (data.error) { say($('failedStatus'), data.error, true); return; }
     var rows = data.mosques || [];
     var t = $('failedTable');
     t.classList.remove('hidden');
     t.querySelector('tbody').innerHTML =
-      '<tr><th>Name</th><th>Country</th><th>Error</th><th>Last checked</th></tr>' +
+      '<tr><th>Name</th><th>ID</th><th>Country</th><th>Error</th><th>Last checked</th></tr>' +
       (rows.length ? rows.map(function(r){
-        return '<tr><td>' + (r.name || r.source_ref) + '</td><td>' + (r.country || '') + '</td><td>' +
+        return '<tr><td>' + (r.name || '—') + '</td><td>' + r.source_ref + '</td><td>' + (r.country || '') + '</td><td>' +
                (r.error || '—') + '</td><td>' + relTime(r.last_seen) + '</td></tr>';
-      }).join('') : '<tr><td colspan="4" class="hint">No failed rows right now.</td></tr>');
-    say($('failedStatus'), 'Showing ' + rows.length + ' failed ' + (rows.length === 1 ? 'mosque' : 'mosques') + '.');
+      }).join('') : '<tr><td colspan="5" class="hint">No failed rows right now.</td></tr>');
+    say($('failedStatus'), 'Showing ' + rows.length + ' failed ' + (rows.length === 1 ? 'mosque' : 'mosques') +
+      (rows.length >= 1000 ? ' (capped at 1,000 — download the CSV for the full set)' : '') + '.');
   });
 
   $('downloadFailedBtn').addEventListener('click', async function(){
