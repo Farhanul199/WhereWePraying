@@ -13,7 +13,13 @@
 //
 // mode=import — POST body is the raw CSV text. Parses every row and
 // upserts into source_discoveries with source='muslimsinbritain',
-// coverage='none', times_status='not_applicable'.
+// coverage='none'. times_status is set to 'pending' (the only values
+// ever used elsewhere in this codebase are 'pending'/'ok'/'failed' —
+// no other value is proven safe against whatever constraints the table
+// actually has). This source has no worker entry and no mode=times
+// handler, so these rows just sit as 'pending' forever, harmlessly —
+// the admin UI hides the progress bar for coverage='none' sources so
+// this doesn't read as "still fetching."
 
 import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
 
@@ -62,9 +68,26 @@ export async function onRequestPost(context) {
   const csvText = await request.text();
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
 
+  const now = new Date().toISOString();
+  const sql = `
+    INSERT INTO source_discoveries
+      (source, source_ref, name, country, address, lat, lon, phone,
+       times_status, coverage, status, first_seen, last_seen, raw_json)
+    VALUES ('muslimsinbritain', ?, ?, 'GB', ?, ?, ?, ?,
+            'pending', 'none', 'new', ?, ?, ?)
+    ON CONFLICT(source, source_ref) DO UPDATE SET
+      name=excluded.name,
+      address=excluded.address,
+      lat=excluded.lat,
+      lon=excluded.lon,
+      phone=excluded.phone,
+      last_seen=excluded.last_seen,
+      raw_json=excluded.raw_json
+  `;
+
   let imported = 0, skipped = 0;
   const errors = [];
-  const now = new Date().toISOString();
+  const statements = [];
 
   for (const line of lines) {
     const row = parseCsvLine(line);
@@ -74,28 +97,23 @@ export async function onRequestPost(context) {
     // rounded coordinates + name (stable across re-imports of the same file).
     const sourceRef = `mib_${row.lat.toFixed(6)}_${row.lon.toFixed(6)}`;
 
-    try {
-      await env.DB.prepare(
-        `INSERT INTO source_discoveries
-           (source, source_ref, name, country, address, lat, lon, phone,
-            times_status, coverage, status, first_seen, last_seen, raw_json)
-         VALUES ('muslimsinbritain', ?, ?, 'GB', ?, ?, ?, ?,
-                 'not_applicable', 'none', 'new', ?, ?, ?)
-         ON CONFLICT(source, source_ref) DO UPDATE SET
-           name=excluded.name,
-           address=excluded.address,
-           lat=excluded.lat,
-           lon=excluded.lon,
-           phone=excluded.phone,
-           last_seen=excluded.last_seen,
-           raw_json=excluded.raw_json`
-      ).bind(
+    statements.push(
+      env.DB.prepare(sql).bind(
         sourceRef, row.name, row.address, row.lat, row.lon, row.phone,
         now, now, JSON.stringify(row)
-      ).run();
-      imported++;
+      )
+    );
+  }
+
+  // Batched so this is ~44 D1 round-trips for 2,191 rows, not 2,191 —
+  // matches the pattern already used in scrape-masjidbox.js.
+  const CHUNK = 50;
+  for (let i = 0; i < statements.length; i += CHUNK) {
+    try {
+      await env.DB.batch(statements.slice(i, i + CHUNK));
+      imported += Math.min(CHUNK, statements.length - i);
     } catch (e) {
-      skipped++;
+      skipped += Math.min(CHUNK, statements.length - i);
       if (errors.length < 5) errors.push(String(e).slice(0, 200));
     }
   }
