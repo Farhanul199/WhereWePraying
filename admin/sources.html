@@ -210,6 +210,15 @@
       coverage: 'none',
       coverageNote: 'Location only - MuslimsInBritain.org publishes no prayer times. These mosques show "No live prayer time available" on the live site instead of being hidden.',
       timesLimit: 0
+    },
+    takbeertime: {
+      label: 'Takbeer Time',
+      endpoint: 'scrape-takbeertime',
+      discovery: 'countryManual',    // country picker, but no continent grid - only 19 countries covered
+      countryHint: 'Supported: DZ AZ BD CM EG IN ID IR LR LT MU PK RU SA ZA KR TN TR UZ (mainly South Asia + MENA)',
+      coverage: 'current',
+      coverageNote: 'Crowdsourced single-schedule times, not a full calendar - quality varies, some entries are unverified community submissions. No continent buttons here since only 19 countries are covered; type one of the codes below.',
+      timesLimit: 10
     }
   };
 
@@ -271,7 +280,7 @@
     var c = cfg();
     var rolling = c.coverage === 'rolling7';
     var noTimes = c.coverage === 'none';
-    var timesLabel = noTimes ? 'With live times (none from this source)' : (rolling ? 'With current times' : 'With full-year times');
+    var timesLabel = noTimes ? 'With live times (none from this source)' : (rolling ? 'With current times' : (c.coverage === 'current' ? 'With submitted times' : 'With full-year times'));
 
     $('stats').innerHTML =
       stat(s.total, 'Mosques found') +
@@ -283,17 +292,24 @@
     // Country box, continent buttons, and the normal discover button only
     // make sense for sources that support country-wide or fixed-list
     // discovery. Import sources (CSV upload) get their own block instead.
-    var byCountry = c.discovery === 'country';
+    // "countryManual" = a country picker exists, but no continent grid,
+    // because the source only covers a short known list of countries -
+    // running 175 continent-grid lookups would waste requests on ones
+    // that will always return nothing.
+    var byCountry = c.discovery === 'country' || c.discovery === 'countryManual';
+    var showContinents = c.discovery === 'country';
     var byImport = c.discovery === 'import';
     $('countryRow').style.display     = byCountry ? '' : 'none';
-    $('continentWrap').style.display  = byCountry ? '' : 'none';
+    $('continentWrap').style.display  = showContinents ? '' : 'none';
     $('discoverBtn').style.display    = byImport ? 'none' : '';
     $('importWrap').classList.toggle('hidden', !byImport);
     if (!byImport) {
-      $('discoverBtn').textContent      = byCountry ? '1. Find mosques' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')';
-      $('discoverHint').textContent     = byCountry
+      $('discoverBtn').textContent      = (byCountry && showContinents) ? '1. Find mosques' : (byCountry ? '1. Find mosques for this country' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')');
+      $('discoverHint').textContent     = showContinents
         ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
-        : c.label + ' has no "list all mosques" API, so this seeds a verified list of known mosques instead \u2014 instant, and it makes no requests to ' + c.label + '.';
+        : byCountry
+          ? (c.countryHint || 'Type a country code and run "Find mosques" for it - repeat for each country you want.')
+          : c.label + ' has no "list all mosques" API, so this seeds a verified list of known mosques instead \u2014 instant, and it makes no requests to ' + c.label + '.';
       $('discoverHint').style.display = '';
     } else {
       $('discoverHint').style.display = 'none';
@@ -322,8 +338,9 @@
 
     var pct = s.total ? Math.round((s.with_times / s.total) * 100) : 0;
     $('bar').style.width = pct + '%';
+    var timesWord = rolling ? 'current times' : (c.coverage === 'current' ? 'submitted times' : 'full-year times');
     $('progressLine').innerHTML = pct + '% complete <span class="sub">' +
-      (s.with_times || 0) + ' of ' + (s.total || 0) + ' mosques have ' + (rolling ? 'current times' : 'full-year times') +
+      (s.with_times || 0) + ' of ' + (s.total || 0) + ' mosques have ' + timesWord +
       (s.pending ? ' · ' + s.pending + ' left' : '') +
       (s.failed ? ' · ' + s.failed + ' failed' : '') +
       ' · last checked ' + relTime(s.last_run) + '</span>';
@@ -409,8 +426,8 @@
   $('discoverBtn').addEventListener('click', async function(){
     var cc = ($('ccInput').value || 'GB').trim().toUpperCase();
     $('discoverBtn').disabled = true;
-    say($('runStatus'), 'Asking MAWAQIT for every mosque in ' + cc + '…');
-    var qs = cfg().discovery === 'country' ? '&country=' + encodeURIComponent(cc) : '';
+    say($('runStatus'), 'Asking ' + cfg().label + ' for every mosque in ' + cc + '…');
+    var qs = (cfg().discovery === 'country' || cfg().discovery === 'countryManual') ? '&country=' + encodeURIComponent(cc) : '';
     var data = await api('/api/admin/' + cfg().endpoint + '?mode=discover' + qs);
     $('discoverBtn').disabled = false;
     if (data.error || data.ok === false) { say($('runStatus'), data.error || data.message || 'Failed.', true); return; }
