@@ -120,6 +120,15 @@
     </div>
     <p class="hint" id="discoverHint">One quick request — gets names, addresses and coordinates for every mosque in that country. Do this once per country.</p>
 
+    <div id="importWrap" class="hidden">
+      <label for="csvInput">MuslimsInBritain CSV file</label>
+      <input type="file" id="csvInput" accept=".csv,text/csv">
+      <div class="actions">
+        <button id="importBtn">1. Import CSV</button>
+      </div>
+      <p class="hint">Location data only, no prayer times — one-time import, re-upload a newer CSV any time to refresh.</p>
+    </div>
+
     <div id="continentWrap">
     <p class="hint" style="margin-top:18px;font-weight:700;color:var(--text);">Or find mosques by continent</p>
     <div class="continentGrid" id="continentGrid"></div>
@@ -193,6 +202,14 @@
       coverage: 'rolling7',
       coverageNote: 'MasjidBox only gives the next 7 days, so this one never "finishes" - it keeps topping itself up as windows expire.',
       timesLimit: 12
+    },
+    muslimsinbritain: {
+      label: 'MuslimsInBritain',
+      endpoint: 'scrape-muslimsinbritain',
+      discovery: 'import',           // CSV upload, no API discovery at all
+      coverage: 'none',
+      coverageNote: 'Location only - MuslimsInBritain.org publishes no prayer times. These mosques show "No live prayer time available" on the live site instead of being hidden.',
+      timesLimit: 0
     }
   };
 
@@ -253,28 +270,43 @@
 
     var c = cfg();
     var rolling = c.coverage === 'rolling7';
+    var noTimes = c.coverage === 'none';
+    var timesLabel = noTimes ? 'With live times (none from this source)' : (rolling ? 'With current times' : 'With full-year times');
 
     $('stats').innerHTML =
       stat(s.total, 'Mosques found') +
-      stat(s.with_times, rolling ? 'With current times' : 'With full-year times') +
+      stat(s.with_times, timesLabel) +
       stat(s.pending, 'Still to fetch') +
       stat(s.with_jamaah, 'Publish real jama\'ah times') +
       stat(s.failed, 'Failed');
 
-    // Country box + continent buttons only make sense for sources that
-    // actually support country-wide discovery.
+    // Country box, continent buttons, and the normal discover button only
+    // make sense for sources that support country-wide or fixed-list
+    // discovery. Import sources (CSV upload) get their own block instead.
     var byCountry = c.discovery === 'country';
+    var byImport = c.discovery === 'import';
     $('countryRow').style.display     = byCountry ? '' : 'none';
     $('continentWrap').style.display  = byCountry ? '' : 'none';
-    $('discoverBtn').textContent      = byCountry ? '1. Find mosques' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')';
-    $('discoverHint').textContent     = byCountry
-      ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
-      : c.label + ' has no "list all mosques" API, so this seeds a verified list of known mosques instead \u2014 instant, and it makes no requests to ' + c.label + '.';
+    $('discoverBtn').style.display    = byImport ? 'none' : '';
+    $('importWrap').classList.toggle('hidden', !byImport);
+    if (!byImport) {
+      $('discoverBtn').textContent      = byCountry ? '1. Find mosques' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')';
+      $('discoverHint').textContent     = byCountry
+        ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
+        : c.label + ' has no "list all mosques" API, so this seeds a verified list of known mosques instead \u2014 instant, and it makes no requests to ' + c.label + '.';
+      $('discoverHint').style.display = '';
+    } else {
+      $('discoverHint').style.display = 'none';
+    }
     $('coverageNote').textContent     = c.coverageNote || '';
-    $('workerHint').textContent =
-      'Timetables fetch themselves in the background in small batches, so ' + c.label +
-      ' never sees more than a trickle of requests \u2014 no button to hold down, and it keeps going with this page closed. Reopen any time to see progress.' +
-      (rolling ? ' Because this source expires, the background job keeps cycling through it rather than stopping at 100%.' : '');
+    $('workerHint').textContent = noTimes
+      ? 'No background worker runs for this source \u2014 it\u2019s a location-only, one-time import.'
+      : 'Timetables fetch themselves in the background in small batches, so ' + c.label +
+        ' never sees more than a trickle of requests \u2014 no button to hold down, and it keeps going with this page closed. Reopen any time to see progress.' +
+        (rolling ? ' Because this source expires, the background job keeps cycling through it rather than stopping at 100%.' : '');
+    $('progressLine').style.display = noTimes ? 'none' : '';
+    $('bar').parentElement.style.display = noTimes ? 'none' : '';
+    $('recheckBtn').style.display = noTimes ? 'none' : '';
 
     var countries = s.countries || [];
     $('countryTable').querySelector('tbody').innerHTML =
@@ -291,7 +323,7 @@
     var pct = s.total ? Math.round((s.with_times / s.total) * 100) : 0;
     $('bar').style.width = pct + '%';
     $('progressLine').innerHTML = pct + '% complete <span class="sub">' +
-      (s.with_times || 0) + ' of ' + (s.total || 0) + ' mosques have full-year times' +
+      (s.with_times || 0) + ' of ' + (s.total || 0) + ' mosques have ' + (rolling ? 'current times' : 'full-year times') +
       (s.pending ? ' · ' + s.pending + ' left' : '') +
       (s.failed ? ' · ' + s.failed + ' failed' : '') +
       ' · last checked ' + relTime(s.last_run) + '</span>';
@@ -383,6 +415,31 @@
     $('discoverBtn').disabled = false;
     if (data.error || data.ok === false) { say($('runStatus'), data.error || data.message || 'Failed.', true); return; }
     say($('runStatus'), 'Saved ' + fmt(data.rowsSaved || 0) + ' mosques. Timetables will fill in automatically in the background.');
+    refresh();
+  });
+
+  /* ------------------------------------------------------------ import */
+  $('importBtn').addEventListener('click', async function(){
+    var file = $('csvInput').files[0];
+    if (!file) { say($('runStatus'), 'Choose a CSV file first.', true); return; }
+    $('importBtn').disabled = true;
+    say($('runStatus'), 'Uploading and importing ' + file.name + '…');
+    var text = await file.text();
+    var res, data;
+    try {
+      res = await fetch('/api/admin/' + cfg().endpoint + '?mode=import', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'text/csv' }, headers()),
+        body: text
+      });
+      data = await res.json();
+    } catch (e) {
+      $('importBtn').disabled = false;
+      say($('runStatus'), 'Network problem.', true); return;
+    }
+    $('importBtn').disabled = false;
+    if (!res.ok || data.error) { say($('runStatus'), data.error || 'Import failed.', true); return; }
+    say($('runStatus'), 'Imported ' + fmt(data.imported || 0) + ' mosques' + (data.skipped ? ' · ' + data.skipped + ' rows skipped' : '') + '.');
     refresh();
   });
 
