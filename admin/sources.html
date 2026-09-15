@@ -557,36 +557,37 @@
   /* ----------------------------------------------------------- failed */
   // Retrying failed rows re-runs mode=times with retry=1, which every
   // scraper now honours - it picks up 'failed' rows alongside 'pending'
-  // ones instead of ignoring them. Same cooldown pattern as Recheck now,
-  // so this can't be spammed into a request spike either.
-  var RETRY_FAILED_COOLDOWN = 60;
-  var retryFailedTimer = null;
-
-  function lockRetryFailed(seconds){
-    var btn = $('retryFailedBtn');
-    btn.disabled = true;
-    var remaining = seconds;
-    btn.textContent = 'Retry failed (' + remaining + 's)';
-    clearInterval(retryFailedTimer);
-    retryFailedTimer = setInterval(function(){
-      remaining--;
-      if (remaining <= 0) {
-        clearInterval(retryFailedTimer);
-        btn.disabled = false;
-        btn.textContent = 'Retry failed';
-      } else {
-        btn.textContent = 'Retry failed (' + remaining + 's)';
-      }
-    }, 1000);
-  }
+  // ones instead of ignoring them. The button loops automatically until
+  // the failed backlog is cleared (or MAX_ROUNDS safety cap), rather than
+  // making you click it dozens of times for a large backlog - disabled
+  // for the loop's actual duration, not a fixed cooldown, so it can't be
+  // double-clicked into two overlapping loops.
 
   $('retryFailedBtn').addEventListener('click', async function(){
-    lockRetryFailed(RETRY_FAILED_COOLDOWN);
-    say($('failedStatus'), 'Retrying…');
-    var data = await api('/api/admin/' + cfg().endpoint + '?mode=times&limit=' + cfg().timesLimit + '&retry=1');
-    if (data.error || data.ok === false) { say($('failedStatus'), data.error || 'Failed.', true); return; }
-    say($('failedStatus'), data.attempted
-      ? 'Retried ' + data.attempted + ' · ' + data.succeeded + ' fixed' + (data.failed ? ' · ' + data.failed + ' still failing' : '')
+    var btn = $('retryFailedBtn');
+    btn.disabled = true;
+    var originalText = btn.textContent;
+    var totalAttempted = 0, totalFixed = 0, totalNoData = 0, totalStillFailed = 0;
+    var MAX_ROUNDS = 80; // safety cap - at ~30/round this covers ~2,400 failed rows in one press
+    for (var round = 0; round < MAX_ROUNDS; round++) {
+      btn.textContent = 'Retrying… (' + totalAttempted + ' done)';
+      say($('failedStatus'), 'Rechecking failed mosques… ' + totalAttempted + ' done so far.');
+      var data = await api('/api/admin/' + cfg().endpoint + '?mode=times&limit=' + cfg().timesLimit + '&retry=1');
+      if (data.error || data.ok === false) { say($('failedStatus'), data.error || 'Failed.', true); break; }
+      if (!data.attempted) break; // nothing left to retry
+      totalAttempted += data.attempted;
+      totalFixed += (data.succeeded || 0);
+      totalNoData += (data.noData || 0);
+      totalStillFailed += (data.failed || 0);
+      refresh(); // live-update the stats as it goes
+      await new Promise(function(r){ setTimeout(r, 400); }); // brief pause between rounds, polite
+    }
+    btn.disabled = false;
+    btn.textContent = originalText;
+    say($('failedStatus'), totalAttempted
+      ? 'Done — rechecked ' + totalAttempted + ' · ' + totalFixed + ' fixed' +
+        (totalNoData ? ' · ' + totalNoData + ' confirmed no data submitted' : '') +
+        (totalStillFailed ? ' · ' + totalStillFailed + ' still genuinely failing' : '') + '.'
       : 'Nothing to retry right now.');
     refresh();
   });
