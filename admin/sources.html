@@ -141,6 +141,15 @@
       <p class="hint">Location data only, no prayer times — one-time import, re-upload a newer CSV any time to refresh.</p>
     </div>
 
+    <div id="urlListWrap" class="hidden">
+      <label for="urlListInput">Mosque website URLs (one per line)</label>
+      <textarea id="urlListInput" rows="6" style="width:100%;font-family:monospace;" placeholder="https://mosque-website-1.com&#10;https://mosque-website-2.com"></textarea>
+      <div class="actions">
+        <button id="urlListBtn">1. Scan for Masjidal widgets</button>
+      </div>
+      <p class="hint">Masjidal has no "list all mosques" API — IDs only show up as widget embeds on a mosque's own site. Paste in mosque website URLs and this fetches each page and scans it for one. No mosque name/address comes back from Masjidal itself, so these rows stay unnamed until matched to a mosque record separately.</p>
+    </div>
+
     <div id="manualAllWrap" class="hidden">
       <div class="actions" style="margin-top:10px;">
         <button class="ghost" id="findManualAllBtn">Find every supported country</button>
@@ -239,6 +248,14 @@
       coverage: 'current',
       coverageNote: 'Crowdsourced single-schedule times, not a full calendar - quality varies, some entries are unverified community submissions. No continent buttons here since only 19 countries are covered; type one of the codes below, or use "Find every supported country" to do them all one after another.',
       timesLimit: 10
+    },
+    masjidal: {
+      label: 'Masjidal',
+      endpoint: 'scrape-masjidal',
+      discovery: 'urlList',          // no bulk API - IDs found via widget embeds on mosque sites
+      coverage: 'current',
+      coverageNote: 'Single submitted schedule (salah + separate iqamah times), not a full calendar. No name/address/coordinates come from Masjidal - discovered rows are location-blank until matched to a mosque record.',
+      timesLimit: 10
     }
   };
 
@@ -321,6 +338,7 @@
     var showContinents = c.discovery === 'country';
     var showManualAll = c.discovery === 'countryManual';
     var byImport = c.discovery === 'import';
+    var byUrlList = c.discovery === 'urlList';
     $('countryRow').style.display     = byCountry ? '' : 'none';
     $('continentWrap').style.display  = showContinents ? '' : 'none';
     if (showContinents) renderContinents(s.countries || []);
@@ -329,9 +347,10 @@
       $('manualAllHint').textContent = 'Runs "Find mosques" for all ' + (c.manualCodes || []).length +
         ' supported countries, one after another (about 7 seconds each). Keep the tab open.';
     }
-    $('discoverBtn').style.display    = byImport ? 'none' : '';
+    $('discoverBtn').style.display    = (byImport || byUrlList) ? 'none' : '';
     $('importWrap').classList.toggle('hidden', !byImport);
-    if (!byImport) {
+    $('urlListWrap').classList.toggle('hidden', !byUrlList);
+    if (!byImport && !byUrlList) {
       $('discoverBtn').textContent      = (byCountry && showContinents) ? '1. Find mosques' : (byCountry ? '1. Find mosques for this country' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')');
       $('discoverHint').textContent     = showContinents
         ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
@@ -515,6 +534,31 @@
     $('importBtn').disabled = false;
     if (!res.ok || data.error) { say($('runStatus'), data.error || 'Import failed.', true); return; }
     say($('runStatus'), 'Imported ' + fmt(data.imported || 0) + ' mosques' + (data.skipped ? ' · ' + data.skipped + ' rows skipped' : '') + '.');
+    refresh();
+  });
+
+  /* ----------------------------------------------------------- url list */
+  $('urlListBtn').addEventListener('click', async function(){
+    var text = ($('urlListInput').value || '').trim();
+    if (!text) { say($('runStatus'), 'Paste at least one mosque website URL first.', true); return; }
+    $('urlListBtn').disabled = true;
+    say($('runStatus'), 'Fetching pages and scanning for Masjidal widgets…');
+    var res, data;
+    try {
+      res = await fetch('/api/admin/' + cfg().endpoint + '?mode=discover', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'text/plain' }, headers()),
+        body: text
+      });
+      data = await res.json();
+    } catch (e) {
+      $('urlListBtn').disabled = false;
+      say($('runStatus'), 'Network problem.', true); return;
+    }
+    $('urlListBtn').disabled = false;
+    if (!res.ok || data.error) { say($('runStatus'), data.error || 'Scan failed.', true); return; }
+    say($('runStatus'), 'Checked ' + fmt(data.urlsChecked || 0) + ' URLs · found ' + fmt(data.rowsSaved || 0) +
+      ' mosque(s)' + (data.skipped ? ' · ' + data.skipped + ' had no widget' : '') + '. Timetables will fill in automatically in the background.');
     refresh();
   });
 
