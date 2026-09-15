@@ -109,7 +109,7 @@
     <table id="countryTable"><tbody></tbody></table>
 
     <h2>Collect data</h2>
-    <div class="row">
+    <div class="row" id="countryRow">
       <div>
         <label for="ccInput">Country code</label>
         <input type="text" id="ccInput" value="GB" maxlength="2">
@@ -118,18 +118,21 @@
     <div class="actions">
       <button id="discoverBtn">1. Find mosques</button>
     </div>
-    <p class="hint">One quick request — gets names, addresses and coordinates for every mosque in that country. Do this once per country.</p>
+    <p class="hint" id="discoverHint">One quick request — gets names, addresses and coordinates for every mosque in that country. Do this once per country.</p>
 
+    <div id="continentWrap">
     <p class="hint" style="margin-top:18px;font-weight:700;color:var(--text);">Or find mosques by continent</p>
     <div class="continentGrid" id="continentGrid"></div>
     <div class="actions" style="margin-top:10px;">
       <button class="ghost" id="findAllBtn">Find every country (all 175)</button>
     </div>
     <p class="hint">Runs "Find mosques" for every country in that continent, one after another — your own site allows 10 admin requests a minute, so each country takes about 7 seconds. Small ones (Oceania, South America) finish in under 2 minutes; Africa/Europe/Asia take 5–6 minutes; "every country" takes about 20 minutes. Keep the tab open and active (don't switch away on mobile — background tabs can pause the timer).</p>
+    </div>
 
     <div class="progressLine" id="progressLine">Timetables: —</div>
     <div class="bar"><i id="bar"></i></div>
-    <p class="hint">Timetables (the full-year prayer + jama'ah data) fetch themselves automatically in the background, 8 mosques every 15 minutes, so Mawaqit never sees more than a trickle of requests — no button to hold down, and it keeps going even with this page closed. Reopen any time to see progress.</p>
+    <p class="hint" id="coverageNote" style="font-weight:600;color:var(--text);"></p>
+    <p class="hint" id="workerHint"></p>
 
     <div class="actions">
       <button class="ghost" id="recheckBtn">Recheck now</button>
@@ -168,6 +171,33 @@
   var KEY = '';
   var SOURCE = 'mawaqit';
 
+  // Per-source behaviour. Sources genuinely differ - some let you list
+  // every mosque in a country, some only answer per-mosque if you
+  // already know the slug; some give a full year of times, some only
+  // the next 7 days. The UI reads this so each tab shows only the
+  // buttons that actually mean something for that source.
+  var SOURCE_CONFIG = {
+    mawaqit: {
+      label: 'Mawaqit',
+      endpoint: 'scrape-mawaqit',
+      discovery: 'country',          // pick a country / continent
+      coverage: 'year',
+      coverageNote: 'Full year of times per mosque - collected once, good for months.',
+      timesLimit: 8
+    },
+    masjidbox: {
+      label: 'MasjidBox',
+      endpoint: 'scrape-masjidbox',
+      discovery: 'fixed',            // fixed known list, no country picker
+      fixedNote: '348 verified UK mosques',
+      coverage: 'rolling7',
+      coverageNote: 'MasjidBox only gives the next 7 days, so this one never "finishes" - it keeps topping itself up as windows expire.',
+      timesLimit: 12
+    }
+  };
+
+  function cfg(){ return SOURCE_CONFIG[SOURCE] || SOURCE_CONFIG.mawaqit; }
+
   var $ = function(id){ return document.getElementById(id); };
   function headers(){ return { 'X-Broadcast-Key': KEY }; }
   function say(el, msg, bad){ el.textContent = msg; el.className = 'status ' + (bad ? 'err' : 'ok'); }
@@ -201,11 +231,18 @@
     if (data.error) { say($('runStatus'), data.error, true); return; }
 
     var sources = data.sources || [];
-    if (!sources.length) sources = [{ source: 'mawaqit', total: 0, with_times: 0, pending: 0, failed: 0, with_jamaah: 0, countries: [] }];
+    // Make sure every configured source has a tab even before its first
+    // run, otherwise a newly-added source is unreachable in the UI.
+    Object.keys(SOURCE_CONFIG).forEach(function(key){
+      if (!sources.some(function(x){ return x.source === key; })) {
+        sources.push({ source: key, total: 0, with_times: 0, pending: 0, failed: 0, with_jamaah: 0, countries: [] });
+      }
+    });
 
     $('sourceTabs').innerHTML = sources.map(function(s){
+      var label = (SOURCE_CONFIG[s.source] && SOURCE_CONFIG[s.source].label) || s.source;
       return '<button class="tab' + (s.source === SOURCE ? ' on' : '') + '" data-src="' + s.source + '">' +
-             s.source + ' · ' + (s.total || 0) + '</button>';
+             label + ' · ' + (s.total || 0) + '</button>';
     }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
       b.addEventListener('click', function(){ SOURCE = b.dataset.src; refresh(); });
@@ -214,12 +251,30 @@
     var s = sources.filter(function(x){ return x.source === SOURCE; })[0] || sources[0];
     SOURCE = s.source;
 
+    var c = cfg();
+    var rolling = c.coverage === 'rolling7';
+
     $('stats').innerHTML =
       stat(s.total, 'Mosques found') +
-      stat(s.with_times, 'With full-year times') +
+      stat(s.with_times, rolling ? 'With current times' : 'With full-year times') +
       stat(s.pending, 'Still to fetch') +
       stat(s.with_jamaah, 'Publish real jama\'ah times') +
       stat(s.failed, 'Failed');
+
+    // Country box + continent buttons only make sense for sources that
+    // actually support country-wide discovery.
+    var byCountry = c.discovery === 'country';
+    $('countryRow').style.display     = byCountry ? '' : 'none';
+    $('continentWrap').style.display  = byCountry ? '' : 'none';
+    $('discoverBtn').textContent      = byCountry ? '1. Find mosques' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')';
+    $('discoverHint').textContent     = byCountry
+      ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
+      : c.label + ' has no "list all mosques" API, so this seeds a verified list of known mosques instead \u2014 instant, and it makes no requests to ' + c.label + '.';
+    $('coverageNote').textContent     = c.coverageNote || '';
+    $('workerHint').textContent =
+      'Timetables fetch themselves in the background in small batches, so ' + c.label +
+      ' never sees more than a trickle of requests \u2014 no button to hold down, and it keeps going with this page closed. Reopen any time to see progress.' +
+      (rolling ? ' Because this source expires, the background job keeps cycling through it rather than stopping at 100%.' : '');
 
     var countries = s.countries || [];
     $('countryTable').querySelector('tbody').innerHTML =
@@ -296,8 +351,8 @@
     for (var i = 0; i < codes.length; i++) {
       var cc = codes[i];
       say($('runStatus'), 'Checking ' + label + ' (' + (i+1) + '/' + codes.length + ') — ' + cc + '…');
-      var data = await api('/api/admin/scrape-mawaqit?mode=discover&country=' + cc);
-      if (!data.error && data.ok !== false) totalFound += data.mosquesReturnedByMawaqit || 0;
+      var data = await api('/api/admin/' + cfg().endpoint + '?mode=discover&country=' + cc);
+      if (!data.error && data.ok !== false) totalFound += data.rowsSaved || data.mosquesReturnedByMawaqit || 0;
       await new Promise(function(r){ setTimeout(r, 7000); }); // your site's own admin API allows only 10 requests/min per IP — this keeps us safely under that
     }
 
@@ -323,10 +378,11 @@
     var cc = ($('ccInput').value || 'GB').trim().toUpperCase();
     $('discoverBtn').disabled = true;
     say($('runStatus'), 'Asking MAWAQIT for every mosque in ' + cc + '…');
-    var data = await api('/api/admin/scrape-mawaqit?mode=discover&country=' + encodeURIComponent(cc));
+    var qs = cfg().discovery === 'country' ? '&country=' + encodeURIComponent(cc) : '';
+    var data = await api('/api/admin/' + cfg().endpoint + '?mode=discover' + qs);
     $('discoverBtn').disabled = false;
     if (data.error || data.ok === false) { say($('runStatus'), data.error || data.message || 'Failed.', true); return; }
-    say($('runStatus'), 'Found ' + data.mosquesReturnedByMawaqit + ' mosques in ' + cc + ', saved ' + data.rowsSaved + '. Now press "Fetch timetables".');
+    say($('runStatus'), 'Saved ' + fmt(data.rowsSaved || 0) + ' mosques. Timetables will fill in automatically in the background.');
     refresh();
   });
 
@@ -357,7 +413,7 @@
   $('recheckBtn').addEventListener('click', async function(){
     lockRecheck(RECHECK_COOLDOWN);
     say($('runStatus'), 'Checking 8 mosques…');
-    var data = await api('/api/admin/scrape-mawaqit?mode=times&limit=8&retry=1');
+    var data = await api('/api/admin/' + cfg().endpoint + '?mode=times&limit=' + cfg().timesLimit + '&retry=1');
     if (data.error || data.ok === false) { say($('runStatus'), data.error || 'Failed.', true); return; }
     var p = data.progress || {};
     say($('runStatus'), data.attempted
