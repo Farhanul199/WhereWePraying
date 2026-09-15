@@ -307,6 +307,7 @@
       stat(s.with_times, timesLabel) +
       stat(noTimes ? 0 : s.pending, noTimes ? 'No live times tracked' : 'Still to fetch') +
       stat(s.with_jamaah, 'Publish real jama\'ah times') +
+      (s.no_data ? stat(s.no_data, 'Mosque found, no times submitted') : '') +
       stat(s.failed, 'Failed');
 
     // Country box, continent buttons, and the normal discover button only
