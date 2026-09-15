@@ -55,6 +55,7 @@ async function summary(db) {
             SUM(CASE WHEN times_status='ok' THEN 1 ELSE 0 END) AS with_times,
             SUM(CASE WHEN times_status='pending' THEN 1 ELSE 0 END) AS pending,
             SUM(CASE WHEN times_status='failed' THEN 1 ELSE 0 END) AS failed,
+            SUM(CASE WHEN times_status='no_data' THEN 1 ELSE 0 END) AS no_data,
             SUM(CASE WHEN iqama_enabled=1 THEN 1 ELSE 0 END) AS with_jamaah,
             SUM(CASE WHEN status='imported' THEN 1 ELSE 0 END) AS imported,
             MAX(last_seen) AS last_run
