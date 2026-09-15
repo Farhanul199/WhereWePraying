@@ -13,11 +13,15 @@
 //
 //   ?action=list&source=mawaqit&country=GB&limit=200
 //       -> the mosque rows themselves (no timetables, so it stays light).
+//   ?action=list&source=mawaqit&status=failed
+//       -> just the failed ones, with their error message.
 //
 //   ?action=download&source=mawaqit&country=GB&format=json
 //   ?action=download&source=mawaqit&country=GB&format=csv&full=0
+//   ?action=download&source=mawaqit&status=failed&format=csv
 //       -> a file. format=json&full=1 includes the full-year calendars.
 //          CSV is always the flat mosque details (no calendars).
+//          status=failed filters to just the failed rows, either format.
 
 import { isAdminRequest } from '../../_lib/auth.js';
 
@@ -41,7 +45,7 @@ const DETAIL_COLS = [
   'source_ref', 'name', 'country', 'city', 'address', 'zipcode',
   'lat', 'lon', 'site', 'email', 'phone',
   'jumua', 'jumua2', 'jumua_as_duhr', 'iqama_enabled',
-  'times_status', 'status', 'first_seen', 'last_seen', 'times_updated_at',
+  'times_status', 'status', 'error', 'first_seen', 'last_seen', 'times_updated_at',
 ];
 
 async function summary(db) {
@@ -96,18 +100,20 @@ async function list(db, p) {
 async function download(db, p) {
   const source = p.get('source') || 'mawaqit';
   const country = p.get('country') ? p.get('country').toUpperCase() : null;
+  const status = p.get('status') || null; // e.g. 'failed' - filters times_status
   const format = (p.get('format') || 'json').toLowerCase();
   const full = p.get('full') === '1' && format === 'json';
 
   const cols = full ? DETAIL_COLS.concat(['calendar_json', 'iqama_json']) : DETAIL_COLS;
   const binds = [source];
   let sql = `SELECT ${cols.join(', ')} FROM source_discoveries WHERE source = ?1`;
-  if (country) { binds.push(country); sql += ' AND country = ?2'; }
+  if (country) { binds.push(country); sql += ' AND country = ?' + binds.length; }
+  if (status) { binds.push(status); sql += ' AND times_status = ?' + binds.length; }
   sql += ` ORDER BY name LIMIT ${MAX_DOWNLOAD}`;
 
   const rows = (await db.prepare(sql).bind(...binds).all()).results || [];
   const stamp = new Date().toISOString().slice(0, 10);
-  const base = `${source}${country ? '-' + country : ''}-${stamp}`;
+  const base = `${source}${country ? '-' + country : ''}${status ? '-' + status : ''}-${stamp}`;
 
   if (format === 'csv') {
     const lines = [DETAIL_COLS.join(',')];
