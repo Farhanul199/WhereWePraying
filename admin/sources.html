@@ -276,7 +276,7 @@
     $('stats').innerHTML =
       stat(s.total, 'Mosques found') +
       stat(s.with_times, timesLabel) +
-      stat(s.pending, 'Still to fetch') +
+      stat(noTimes ? 0 : s.pending, noTimes ? 'No live times tracked' : 'Still to fetch') +
       stat(s.with_jamaah, 'Publish real jama\'ah times') +
       stat(s.failed, 'Failed');
 
