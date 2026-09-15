@@ -67,6 +67,15 @@
   .status.err{color:var(--warn);}
   .progressLine{font-size:15px;font-weight:700;margin-top:18px;}
   .progressLine .sub{font-weight:500;color:var(--muted);font-size:13px;display:block;margin-top:2px;}
+  .continentGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .continentBtn{
+    text-align:left;padding:12px 14px;border:1px solid var(--border);border-radius:13px;
+    background:#fff;cursor:pointer;font:inherit;color:var(--text);
+  }
+  .continentBtn .name{font-weight:700;font-size:14px;display:block;}
+  .continentBtn .meta{font-size:12px;color:var(--muted);display:block;margin-top:2px;}
+  .continentBtn:disabled{opacity:.5;cursor:default;}
+  .continentBtn.running, .ghost.running{border-color:var(--coral);}
   .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:8px;}
   .bar > i{display:block;height:100%;background:var(--coral);width:0;transition:width .3s;}
   .note{
@@ -110,6 +119,13 @@
       <button id="discoverBtn">1. Find mosques</button>
     </div>
     <p class="hint">One quick request — gets names, addresses and coordinates for every mosque in that country. Do this once per country.</p>
+
+    <p class="hint" style="margin-top:18px;font-weight:700;color:var(--text);">Or find mosques by continent</p>
+    <div class="continentGrid" id="continentGrid"></div>
+    <div class="actions" style="margin-top:10px;">
+      <button class="ghost" id="findAllBtn">Find every country (all 175)</button>
+    </div>
+    <p class="hint">Runs "Find mosques" for every country in that continent, one after another with a short gap between each — leave the tab open until it says done (a minute or so even for the biggest ones; the "every country" button takes a few minutes).</p>
 
     <div class="progressLine" id="progressLine">Timetables: —</div>
     <div class="bar"><i id="bar"></i></div>
@@ -237,6 +253,72 @@
   }
 
   /* ---------------------------------------------------------- collect */
+  // Mawaqit's own country list, grouped into the 7 continents, with each
+  // continent's countries sorted biggest-first. Counts are a snapshot
+  // from mawaqit.net's own stats page - just for the button labels, not
+  // used for anything functional.
+  var CONTINENTS = {
+    "Africa":        {"total": 16422, "n": 49, "codes": ["DZ","TN","MA","YT","LY","EG","SN","BF","ML","KM","MR","CI","ZA","NG","MU","DJ","GN","SO","CM","RE","UG","AO","LS","TG","BJ","ET","GH","KE","MG","TD","TZ","CD","CF","GA","GW","MW","NE","SD","BI","BW","CG","CV","ER","GM","GQ","MZ","SZ","ZM","ZW"]},
+    "Asia":          {"total": 3858,  "n": 40, "codes": ["JO","PS","SA","ID","IQ","TR","MY","KW","OM","IN","SY","AE","LK","BD","LB","PK","BH","QA","TH","IR","YE","KR","JP","KG","SG","CN","AF","AZ","HK","LA","PH","BN","VN","GE","KH","KZ","NP","TJ","TW","UZ"]},
+    "Europe":        {"total": 14427, "n": 43, "codes": ["FR","DE","ES","NL","IT","BE","GB","CH","SE","BA","AL","PT","AT","FI","ME","NO","IE","LU","PL","HU","RU","BG","MK","RO","DK","MT","RS","UA","CZ","BY","LT","SI","AD","CY","MD","FO","GI","GR","HR","IM","IS","LV","SM"]},
+    "North America": {"total": 1195,  "n": 21, "codes": ["US","CA","PA","MQ","AI","HT","MX","PR","CR","CU","DM","DO","GD","GP","GT","HN","KN","LC","NI","SV","TT"]},
+    "South America": {"total": 47,    "n": 12, "codes": ["BR","GF","AR","PE","BO","EC","SR","VE","CL","CO","UY","PY"]},
+    "Oceania":       {"total": 89,    "n": 8,  "codes": ["AU","NZ","FJ","NC","NR","PW","UM","WS"]},
+    "Antarctica":    {"total": 3,     "n": 2,  "codes": ["AQ","TF"]}
+  };
+  var CONTINENT_ORDER = ["Africa","Asia","Europe","North America","South America","Oceania","Antarctica"];
+
+  function fmt(n){ return n.toLocaleString(); }
+
+  (function renderContinents(){
+    $('continentGrid').innerHTML = CONTINENT_ORDER.map(function(name){
+      var c = CONTINENTS[name];
+      return '<button class="continentBtn" data-continent="' + name + '">' +
+             '<span class="name">' + name + '</span>' +
+             '<span class="meta">' + c.n + ' countries · ~' + fmt(c.total) + ' mosques</span>' +
+             '</button>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.continentBtn'), function(b){
+      b.addEventListener('click', function(){ runContinent(b.dataset.continent); });
+    });
+  })();
+
+  var discoverRunning = false;
+
+  async function runCodes(label, codes, runningBtn){
+    if (discoverRunning) return;
+    discoverRunning = true;
+    var btns = document.querySelectorAll('.continentBtn, #discoverBtn, #findAllBtn');
+    Array.prototype.forEach.call(btns, function(b){ b.disabled = true; });
+    if (runningBtn) runningBtn.classList.add('running');
+
+    var totalFound = 0;
+    for (var i = 0; i < codes.length; i++) {
+      var cc = codes[i];
+      say($('runStatus'), 'Checking ' + label + ' (' + (i+1) + '/' + codes.length + ') — ' + cc + '…');
+      var data = await api('/api/admin/scrape-mawaqit?mode=discover&country=' + cc);
+      if (!data.error && data.ok !== false) totalFound += data.mosquesReturnedByMawaqit || 0;
+      await new Promise(function(r){ setTimeout(r, 500); }); // small gap between countries
+    }
+
+    say($('runStatus'), 'Done — checked all ' + codes.length + ' ' + label + ' countries, found ' + fmt(totalFound) + ' mosques.');
+    if (runningBtn) runningBtn.classList.remove('running');
+    Array.prototype.forEach.call(btns, function(b){ b.disabled = false; });
+    discoverRunning = false;
+    refresh();
+  }
+
+  function runContinent(name){
+    var thisBtn = document.querySelector('.continentBtn[data-continent="' + name + '"]');
+    return runCodes(name, CONTINENTS[name].codes, thisBtn);
+  }
+
+  $('findAllBtn').addEventListener('click', function(){
+    var allCodes = [];
+    CONTINENT_ORDER.forEach(function(name){ allCodes = allCodes.concat(CONTINENTS[name].codes); });
+    return runCodes('every country', allCodes, $('findAllBtn'));
+  });
+
   $('discoverBtn').addEventListener('click', async function(){
     var cc = ($('ccInput').value || 'GB').trim().toUpperCase();
     $('discoverBtn').disabled = true;
