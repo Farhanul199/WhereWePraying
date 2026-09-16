@@ -115,14 +115,13 @@
 
   /* ---- Nearby Mosques ---- */
   .mosque-row{display:flex;gap:12px;margin-top:12px;}
-  .mcard{flex:1;background:var(--surface-alt);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:5px;min-height:0;}
-  .mcard[data-state="loading"] .m-body{opacity:.35;}
+  .mosque-row[data-state="loading"]{opacity:.5;}
+  .mcard{flex:1;background:var(--surface-alt);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:5px;min-height:76px;}
   .mcard .name{font-size:12px;font-weight:800;}
   .mcard .dist{font-size:10px;color:var(--text-dim);}
   .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:10px;font-weight:700;padding:5px 7px;border-radius:8px;text-align:center;}
-  .mcard .m-error{display:none;font-size:11px;color:var(--text-dim);text-align:center;padding:8px 0;}
-  .mcard[data-state="error"] .m-body,.mcard[data-state="offline"] .m-body{display:none;}
-  .mcard[data-state="error"] .m-error,.mcard[data-state="offline"] .m-error{display:block;}
+  .mcard .next.unconfirmed{background:var(--surface);color:var(--text-dim);font-weight:600;}
+  .mcard .mymosque-badge{font-size:9px;font-weight:800;color:var(--coral-dark);letter-spacing:.3px;}
 
   /* ---- Bottom widget row ---- */
   .bottom-row{display:flex;gap:14px;}
@@ -286,23 +285,8 @@
 
       <div class="card">
         <h2>📍 Nearby Mosques</h2>
-        <div class="mosque-row" data-group="mosques">
-          <div class="mcard focusable" data-widget="mosques" data-state="success" tabindex="-1">
-            <div class="m-body">
-              <div class="name">Newbury Park Masjid</div>
-              <div class="dist">0.8 mi · 6 min</div>
-              <div class="next">Next Dhuhr 12:55</div>
-            </div>
-            <div class="m-error">Times unavailable</div>
-          </div>
-          <div class="mcard focusable" data-widget="mosques" data-state="success" tabindex="-1">
-            <div class="m-body">
-              <div class="name">Redbridge Muslim Community Centre</div>
-              <div class="dist">1.4 mi · 9 min</div>
-              <div class="next">Next Dhuhr 13:00</div>
-            </div>
-            <div class="m-error">Times unavailable</div>
-          </div>
+        <div class="mosque-row" data-group="mosques" data-widget="mosques" data-state="loading" id="mosqueRow">
+          <div class="mcard"><div class="m-body"><div class="name">Loading nearby mosques…</div></div></div>
         </div>
       </div>
 
@@ -443,7 +427,11 @@ XP1.setLocation = function(label){
   }
 
   // Index every focusable within its nearest [data-group] ancestor.
-  document.querySelectorAll('[data-group]').forEach(function(container){
+  // Exposed as XP1.reindexGroup so a widget that replaces its own
+  // content after an async fetch (mosque cards, once real data
+  // arrives) can re-run this for just its group, rather than the
+  // whole page re-scanning on every data update.
+  function indexGroup(container){
     var name = container.dataset.group;
     var items = container.classList.contains('focusable') ? [container] : groupItems(name);
     items.forEach(function(el, i){
@@ -451,7 +439,13 @@ XP1.setLocation = function(label){
       el.dataset.groupIndex = i;
       el.addEventListener('click', function(){ el.focus(); });
     });
-  });
+  }
+  document.querySelectorAll('[data-group]').forEach(indexGroup);
+  window.XP1 = window.XP1 || {};
+  XP1.reindexGroup = function(name){
+    var container = document.querySelector('[data-group="' + name + '"]');
+    if(container) indexGroup(container);
+  };
 
   function move(dir){
     var el = document.activeElement;
@@ -695,8 +689,12 @@ window.XP1Prayer = (function(){
   var METHOD = 3; // Muslim World League — same default as prayer-times.js
   var PRAYERS = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
   var ICONS = { Fajr:'🌙', Dhuhr:'☀️', Asr:'🌤️', Maghrib:'🌇', Isha:'🌙' };
+  var MY_MOSQUE_KEY = 'xp1_my_mosque';
+  var PRAYER_LABEL = { fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' };
   var tickTimer = null;
   var lastLoc = null;
+  var mode = 'adhan'; // 'adhan' | 'jamaah' — which source is currently driving the Next Prayer card
+  var myMosqueSlug = null;
 
   function xp1Get(key, fallback){
     try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
@@ -712,6 +710,9 @@ window.XP1Prayer = (function(){
   function dateStr(d){
     return String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
   }
+  function isoDate(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
 
   async function fetchDay(d, loc){
     var url = API_BASE + '/timings/' + dateStr(d) + '?latitude=' + loc.lat + '&longitude=' + loc.lon + '&method=' + METHOD;
@@ -723,6 +724,15 @@ window.XP1Prayer = (function(){
     var timings = {};
     PRAYERS.forEach(function(p){ timings[p] = (t[p] || '').split(' ')[0]; });
     return timings;
+  }
+
+  async function fetchMosqueDay(slug, iso){
+    var url = '/api/mosques/one?slug=' + encodeURIComponent(slug) + '&date=' + iso;
+    var res = await fetchWithTimeout(url, 6000);
+    if(!res.ok) throw new Error('mosque http ' + res.status);
+    var data = await res.json();
+    if(!data.mosque) throw new Error('mosque not found');
+    return data.mosque;
   }
 
   function timeToday(hhmm, base){
@@ -758,7 +768,8 @@ window.XP1Prayer = (function(){
     return { next: { name:'Fajr', time: fajrDate }, active: 'Isha' };
   }
 
-  function render(todayTimings, next, active){
+  function render(todayTimings, next, active, opts){
+    opts = opts || {};
     PRAYERS.forEach(function(p){
       var el = document.getElementById('time' + p);
       if(el) el.textContent = todayTimings[p] || '--:--';
@@ -769,6 +780,7 @@ window.XP1Prayer = (function(){
     card.dataset.prayer = next.name.toLowerCase();
     document.getElementById('nextPrayerName').textContent = ICONS[next.name] + ' ' + next.name;
     document.getElementById('nextPrayerAt').textContent = 'at ' + next.time.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    document.getElementById('countdownLabel').textContent = opts.label || 'Begins in';
     tick(next.time);
     if(tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(function(){ tick(next.time); }, 1000);
@@ -780,9 +792,10 @@ window.XP1Prayer = (function(){
     var el = document.getElementById('countdown');
     if(diff <= 0){
       el.textContent = '00:00:00';
-      // The window has arrived — recompute against fresh data rather
-      // than letting the countdown run negative.
-      if(lastLoc) refresh(lastLoc);
+      // The window has arrived — recompute against whichever source
+      // (Adhan or the selected mosque's Jama'ah) is currently active,
+      // rather than letting the countdown run negative.
+      reRefresh();
       return;
     }
     var totalSec = Math.floor(diff / 1000);
@@ -794,6 +807,7 @@ window.XP1Prayer = (function(){
 
   async function refresh(loc){
     if(!loc || typeof loc.lat !== 'number') return;
+    mode = 'adhan';
     lastLoc = loc;
     if(window.XP1) XP1.setState('prayer', 'loading');
     var todayKey = CACHE_KEY + '_' + dateStr(new Date());
@@ -816,7 +830,181 @@ window.XP1Prayer = (function(){
     }
   }
 
-  window.addEventListener('online', function(){ if(lastLoc) refresh(lastLoc); });
+  // Jama'ah mode — driven by a specific mosque's real committee-submitted
+  // times via /api/mosques/one, not computed Adhan times. Never invents a
+  // time: if a mosque hasn't confirmed tomorrow's Fajr either, that's
+  // shown plainly rather than guessed.
+  async function refreshMosque(slug){
+    mode = 'jamaah';
+    myMosqueSlug = slug;
+    if(window.XP1) XP1.setState('prayer', 'loading');
+    try{
+      var today = new Date();
+      var mosque = await fetchMosqueDay(slug, isoDate(today));
+      var timings = {};
+      PRAYERS.forEach(function(p){
+        var key = p === 'Dhuhr' ? 'zuhr' : p.toLowerCase();
+        timings[p] = mosque.jamaah[key] || null;
+      });
+      if(mosque.next){
+        var label = PRAYER_LABEL[mosque.next.prayer];
+        var idx = PRAYERS.indexOf(label);
+        render(timings, { name: label, time: timeToday(mosque.next.time, today) }, idx > 0 ? PRAYERS[idx-1] : null, { label: "Jama'ah in" });
+        return;
+      }
+      // No more confirmed Jama'ah slots today — try tomorrow's Fajr.
+      var tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+      var tKey = MY_MOSQUE_KEY + '_tomorrow_fajr_' + isoDate(tomorrow) + '_' + slug;
+      var fajrTime = xp1Get(tKey, null);
+      if(!fajrTime){
+        var tMosque = await fetchMosqueDay(slug, isoDate(tomorrow));
+        fajrTime = tMosque.jamaah.fajr || null;
+        if(fajrTime) xp1Set(tKey, fajrTime);
+      }
+      if(fajrTime){
+        render(timings, { name:'Fajr', time: timeToday(fajrTime, tomorrow) }, 'Isha', { label: "Jama'ah in" });
+        return;
+      }
+      // Genuinely nothing confirmed — say so, don't fabricate a time.
+      PRAYERS.forEach(function(p){
+        var el = document.getElementById('time' + p);
+        if(el) el.textContent = timings[p] || '--:--';
+      });
+      var card = document.getElementById('nextPrayerCard');
+      card.dataset.prayer = 'isha';
+      document.getElementById('nextPrayerName').textContent = mosque.name;
+      document.getElementById('countdown').textContent = '--:--:--';
+      document.getElementById('nextPrayerAt').textContent = "Jama'ah times not confirmed yet";
+      document.getElementById('countdownLabel').textContent = "Jama'ah in";
+      if(tickTimer) clearInterval(tickTimer);
+      if(window.XP1) XP1.setState('prayer', 'success');
+    }catch(e){
+      if(window.XP1) XP1.setState('prayer', 'error');
+    }
+  }
+
+  function reRefresh(){
+    if(mode === 'jamaah' && myMosqueSlug) refreshMosque(myMosqueSlug);
+    else if(lastLoc) refresh(lastLoc);
+  }
+
+  // Called once on load / after location is saved — prefers a
+  // previously-selected mosque's real Jama'ah times over Adhan times.
+  function init(loc){
+    lastLoc = loc;
+    var saved = xp1Get(MY_MOSQUE_KEY, null);
+    if(saved && saved.slug) refreshMosque(saved.slug);
+    else refresh(loc);
+  }
+
+  function useMosque(slug, name){
+    xp1Set(MY_MOSQUE_KEY, { slug: slug, name: name });
+    refreshMosque(slug);
+  }
+  function currentMosqueSlug(){ return myMosqueSlug; }
+
+  window.addEventListener('online', function(){ reRefresh(); });
+
+  return { refresh: refresh, init: init, useMosque: useMosque, currentMosqueSlug: currentMosqueSlug };
+})();
+
+/* =========================================================
+   9. PHASE 5 — MOSQUES (real WWP nearby-mosques API)
+      GET /api/mosques/nearby?lat&lon — same endpoint find-a-mosque.js
+      uses. Response already includes each mosque's real committee-
+      submitted Jama'ah times and a precomputed "next" prayer, so no
+      separate calculation happens here. Distance only for now (no
+      travel time / leave-by yet — that's Phase 6).
+      Selecting a card sets it as "my mosque" (via XP1Prayer.useMosque),
+      which is what switches the Next Prayer card from computed Adhan
+      times to this mosque's real Jama'ah times.
+   ========================================================= */
+window.XP1Mosques = (function(){
+  var CACHE_KEY = 'xp1_mosques';
+  var SHOW_COUNT = 2; // matches the two card slots already in the layout
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+  function fetchWithTimeout(url, ms){
+    var controller = new AbortController();
+    var t = setTimeout(function(){ controller.abort(); }, ms);
+    return fetch(url, { signal: controller.signal }).finally(function(){ clearTimeout(t); });
+  }
+
+  function buildCard(m, isMine){
+    var el = document.createElement('div');
+    el.className = 'mcard focusable';
+    el.tabIndex = -1;
+    var nextHtml;
+    if(m.next){
+      var label = { fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }[m.next.prayer] || m.next.prayer;
+      nextHtml = '<div class="next">Next ' + label + ' ' + m.next.time + '</div>';
+    } else {
+      nextHtml = '<div class="next unconfirmed">Jama\u2019ah not confirmed</div>';
+    }
+    el.innerHTML =
+      (isMine ? '<div class="mymosque-badge">★ MY MOSQUE</div>' : '') +
+      '<div class="m-body">' +
+        '<div class="name">' + m.name + '</div>' +
+        '<div class="dist">' + m.distanceMiles + ' mi</div>' +
+      '</div>' +
+      nextHtml;
+    el.addEventListener('click', function(){
+      if(window.XP1Prayer) XP1Prayer.useMosque(m.slug, m.name);
+      render(lastList); // repaint so the ★ badge moves to the newly-picked card
+    });
+    return el;
+  }
+
+  var lastList = [];
+  function render(list){
+    lastList = list;
+    var row = document.getElementById('mosqueRow');
+    row.innerHTML = '';
+    var mySlug = window.XP1Prayer ? XP1Prayer.currentMosqueSlug() : null;
+    list.slice(0, SHOW_COUNT).forEach(function(m){
+      row.appendChild(buildCard(m, m.slug === mySlug));
+    });
+    if(window.XP1) XP1.reindexGroup('mosques');
+    if(window.XP1) XP1.setState('mosques', 'success');
+    row.dataset.state = 'success';
+  }
+
+  async function refresh(loc){
+    if(!loc || typeof loc.lat !== 'number') return;
+    row_loading();
+    try{
+      var url = '/api/mosques/nearby?lat=' + loc.lat + '&lon=' + loc.lon;
+      var res = await fetchWithTimeout(url, 6000);
+      if(!res.ok) throw new Error('mosques http ' + res.status);
+      var data = await res.json();
+      if(!data.mosques) throw new Error('mosques: unexpected response');
+      xp1Set(CACHE_KEY, data.mosques);
+      render(data.mosques);
+    }catch(e){
+      var cached = xp1Get(CACHE_KEY, null);
+      if(cached && cached.length){ render(cached); }
+      else{
+        var row = document.getElementById('mosqueRow');
+        row.innerHTML = '<div class="mcard"><div class="m-body"><div class="name">Nearby mosques unavailable</div></div></div>';
+        row.dataset.state = 'error';
+      }
+    }
+  }
+  function row_loading(){
+    var row = document.getElementById('mosqueRow');
+    row.dataset.state = 'loading';
+  }
+
+  window.addEventListener('online', function(){
+    // Re-uses whatever location the page already has via the same
+    // localStorage key Phase 2 writes to — no need to track it here too.
+    var loc = xp1Get('xp1_location', null);
+    if(loc) refresh(loc);
+  });
 
   return { refresh: refresh };
 })();
@@ -878,7 +1066,8 @@ window.XP1Prayer = (function(){
     xp1Set(LOC_KEY, loc);
     XP1.setLocation(loc.label);
     if(window.XP1Weather) XP1Weather.refresh(loc);
-    if(window.XP1Prayer) XP1Prayer.refresh(loc);
+    if(window.XP1Prayer) XP1Prayer.init(loc);
+    if(window.XP1Mosques) XP1Mosques.refresh(loc);
     closeOverlay();
   }
 
@@ -1020,7 +1209,8 @@ window.XP1Prayer = (function(){
   if(saved && typeof saved.lat === 'number'){
     XP1.setLocation(saved.label || 'Saved location');
     if(window.XP1Weather) XP1Weather.refresh(saved);
-    if(window.XP1Prayer) XP1Prayer.refresh(saved);
+    if(window.XP1Prayer) XP1Prayer.init(saved);
+    if(window.XP1Mosques) XP1Mosques.refresh(saved);
   } else {
     openOverlay();
   }
