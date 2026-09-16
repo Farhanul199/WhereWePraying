@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>WhereWePraying — xp1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --coral:#F4714E;
+    --coral-dark:#D85A38;
+    --coral-soft:#FBDACB;
+    --cream:#FBF3EC;
+    --ink:#20272F;
+    --muted:#6E7680;
+    --card:#FFFFFF;
+    --card-tint:#FFF8F3;
+    --r-lg:28px;
+    --r-md:20px;
+    --r-sm:14px;
+    --shadow:0 10px 28px rgba(32,39,47,0.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',sans-serif;}
+  html,body{background:var(--cream);color:var(--ink);width:1920px;height:1080px;overflow:hidden;}
+  body{padding:40px;display:flex;flex-direction:column;gap:22px;}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:24px;}
+  .brand{display:flex;align-items:center;gap:16px;}
+  .brand .mark{width:56px;height:56px;border-radius:16px;background:var(--coral-soft);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--coral-dark);}
+  .brand h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;}
+  .brand .tag{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0.4px;}
+  .datetime{margin-left:24px;font-size:16px;color:var(--ink);}
+  .datetime .clock{font-size:30px;font-weight:800;margin-left:14px;}
+  .datetime .loc{color:var(--muted);font-size:14px;display:block;}
+  .spacer{flex:1;}
+  .quote-box{background:var(--card);border-radius:var(--r-sm);padding:12px 20px;font-size:13px;font-style:italic;color:var(--muted);max-width:300px;box-shadow:var(--shadow);}
+  .icon-btn{width:48px;height:48px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:var(--shadow);margin-left:10px;}
+
+  /* ---------- layout grid ---------- */
+  .grid{flex:1;display:grid;grid-template-columns:340px 1fr 340px;gap:22px;min-height:0;}
+  .col{display:flex;flex-direction:column;gap:18px;min-height:0;}
+
+  .card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:22px;}
+  .card h2{font-size:18px;font-weight:800;}
+  .card .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  /* next prayer */
+  .next-prayer{background:linear-gradient(180deg,var(--card-tint),var(--card));text-align:center;padding:26px 20px;}
+  .next-prayer .label{font-size:14px;color:var(--muted);font-weight:600;}
+  .next-prayer .name{font-size:34px;font-weight:800;margin:6px 0 4px;}
+  .next-prayer .countdown-label{font-size:13px;color:var(--muted);margin-top:10px;}
+  .next-prayer .countdown{font-size:40px;font-weight:800;color:var(--coral-dark);letter-spacing:1px;}
+  .next-prayer .at{font-size:13px;color:var(--muted);margin-bottom:14px;}
+  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:14px;font-weight:700;font-size:14px;}
+
+  .timetable{flex:1;display:flex;flex-direction:column;gap:2px;}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:var(--r-sm);font-weight:700;font-size:15px;}
+  .row.active{background:var(--coral-soft);color:var(--coral-dark);}
+  .row .name{display:flex;align-items:center;gap:10px;color:inherit;}
+  .view-full{margin-top:8px;display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:var(--r-sm);background:var(--card-tint);font-weight:700;font-size:14px;}
+
+  /* center column */
+  .reminders{display:flex;flex-direction:column;flex:1;min-height:0;}
+  .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:999px;padding:10px 18px;font-weight:700;font-size:13px;}
+  .video-row{display:flex;gap:18px;flex:1;min-height:0;}
+  .video{flex:1;border-radius:var(--r-md);background:#111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="%23222"/></svg>');position:relative;display:flex;align-items:flex-end;padding:20px;color:#fff;overflow:hidden;}
+  .video::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
+  .video .vinfo{position:relative;z-index:1;}
+  .video .vinfo .title{font-size:20px;font-weight:800;}
+  .video .vinfo .speaker{font-size:12px;opacity:.85;margin-top:4px;}
+  .play-badge{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;z-index:1;}
+
+  .playlist{width:300px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+  .plitem{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r-sm);}
+  .plitem .thumb{width:56px;height:40px;border-radius:8px;background:#333;flex-shrink:0;}
+  .plitem .meta .t{font-size:13px;font-weight:700;}
+  .plitem .meta .s{font-size:11px;color:var(--muted);}
+
+  .mosques h2{margin-bottom:14px;}
+  .mosque-row{display:flex;gap:14px;}
+  .mcard{flex:1;background:var(--card-tint);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:6px;}
+  .mcard .name{font-size:13px;font-weight:800;}
+  .mcard .dist{font-size:11px;color:var(--muted);}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;text-align:center;}
+
+  .quicknav{display:flex;justify-content:space-between;gap:10px;}
+  .qn-item{flex:1;background:var(--card);border-radius:var(--r-md);box-shadow:var(--shadow);padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:700;}
+  .qn-item .ic{font-size:20px;}
+
+  /* right column */
+  .weather{}
+  .weather .temp{font-size:44px;font-weight:800;margin:4px 0;}
+  .weather .cond{font-size:13px;color:var(--muted);}
+  .weather .hilo{font-size:12px;color:var(--muted);float:right;text-align:right;}
+  .hourly{display:flex;justify-content:space-between;margin-top:16px;}
+  .hourly .h{text-align:center;font-size:12px;}
+  .hourly .h .t{font-weight:700;margin-top:4px;}
+
+  .journal{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .journal-quote{font-style:italic;font-size:14px;color:var(--muted);margin:10px 0 14px;}
+  .check-item{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;font-weight:600;}
+  .check-item .dot{width:20px;height:20px;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+  .check-item.pending .dot{background:transparent;border:2px solid #DADFE3;}
+
+  footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);}
+
+  /* ---------- focus / D-pad navigation ---------- */
+  .focusable{outline:none;cursor:pointer;transition:transform .12s ease, box-shadow .12s ease;}
+  .focusable:focus{
+    transform:scale(1.035);
+    box-shadow:0 0 0 4px var(--coral), var(--shadow);
+    z-index:2;
+    position:relative;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">⌂</div>
+    <div>
+      <h1>WhereWePraying</h1>
+      <div class="tag">CLOSER TO ALLAH, EVERY DAY</div>
+    </div>
+  </div>
+  <div class="datetime">
+    <span id="dateStr">Mon 15 Sep 2025</span><span class="clock" id="clockStr">12:34</span>
+    <span class="loc">📍 London, UK</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="quote-box">"So remember Me, I will remember you." (Qur'an 2:152)</div>
+  <div class="icon-btn focusable" tabindex="0">🔍</div>
+  <div class="icon-btn focusable" tabindex="0">⚙️</div>
+</header>
+
+<div class="grid">
+
+  <!-- LEFT COLUMN -->
+  <div class="col">
+    <div class="card next-prayer">
+      <div class="label">Next Prayer</div>
+      <div class="name">☀️ Dhuhr</div>
+      <div class="countdown-label">Jama'ah in</div>
+      <div class="countdown" id="countdown">00:17:26</div>
+      <div class="at">at 12:52</div>
+      <button class="notify-btn focusable" tabindex="0">🔔 Notify me before prayer</button>
+    </div>
+
+    <div class="card timetable">
+      <div class="row"><span class="name">🌙 Fajr</span><span>05:28</span></div>
+      <div class="row active"><span class="name">☀️ Dhuhr</span><span>12:52</span></div>
+      <div class="row"><span class="name">🌤️ Asr</span><span>16:23</span></div>
+      <div class="row"><span class="name">🌇 Maghrib</span><span>19:18</span></div>
+      <div class="row"><span class="name">🌙 Isha</span><span>20:43</span></div>
+      <div class="view-full focusable" tabindex="0"><span>📅 View Full Timetable</span><span>→</span></div>
+    </div>
+  </div>
+
+  <!-- CENTER COLUMN -->
+  <div class="col" style="flex:2;">
+    <div class="card reminders" style="flex:1.4;">
+      <div class="reminders-top">
+        <div>
+          <h2>Islamic Reminders</h2>
+          <div class="sub">A curated playlist to keep you connected</div>
+        </div>
+        <div class="browse-btn focusable" tabindex="0">Browse Playlists →</div>
+      </div>
+      <div class="video-row">
+        <div class="video focusable" tabindex="0">
+          <div class="play-badge">▶</div>
+          <div class="vinfo">
+            <div class="title">A Peaceful Heart</div>
+            <div class="speaker">Mufti Menk</div>
+          </div>
+        </div>
+        <div class="playlist">
+          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">A Peaceful Heart</div><div class="s">Mufti Menk · 10:24</div></div></div>
+          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">Patience Changes Everything</div><div class="s">Nouman Ali Khan · 12:36</div></div></div>
+          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">The Power of Dua</div><div class="s">Omar Suleiman · 11:18</div></div></div>
+          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">Be the Best Version of You</div><div class="s">Mufti Menk · 14:05</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mosques">
+      <h2>Nearby Mosques</h2>
+      <div class="mosque-row">
+        <div class="mcard focusable" tabindex="0"><div class="name">Whitechapel Mosque</div><div class="dist">0.8 mi · 3 min</div><div class="next">Next Dhuhr 12:55</div></div>
+        <div class="mcard focusable" tabindex="0"><div class="name">Brick Lane Masjid</div><div class="dist">1.1 mi · 6 min</div><div class="next">Next Dhuhr 13:00</div></div>
+        <div class="mcard focusable" tabindex="0"><div class="name">London Muslim Centre</div><div class="dist">1.6 mi · 8 min</div><div class="next">Next Dhuhr 13:00</div></div>
+        <div class="mcard focusable" tabindex="0"><div class="name">Stepney Shahjalal</div><div class="dist">2.1 mi · 10 min</div><div class="next">Next Dhuhr 13:05</div></div>
+      </div>
+    </div>
+
+    <div class="quicknav">
+      <div class="qn-item focusable" tabindex="0"><span class="ic">📍</span>Find a Mosque</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">🧭</span>Qibla Finder</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">📖</span>Qur'an</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">🤲</span>Du'a &amp; Dhikr</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">📔</span>My Journal</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">📆</span>Islamic Calendar</div>
+      <div class="qn-item focusable" tabindex="0"><span class="ic">⋯</span>More</div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="col">
+    <div class="card weather focusable" tabindex="0">
+      <h2>📍 London</h2>
+      <div class="hilo">H: 20°<br>L: 12°</div>
+      <div class="temp">18°C</div>
+      <div class="cond">Partly cloudy</div>
+      <div class="hourly">
+        <div class="h">1pm<div class="t">19°</div></div>
+        <div class="h">4pm<div class="t">20°</div></div>
+        <div class="h">7pm<div class="t">17°</div></div>
+        <div class="h">10pm<div class="t">14°</div></div>
+      </div>
+    </div>
+
+    <div class="card journal">
+      <h2>📖 Today's Journal</h2>
+      <div class="journal-quote">"A small step today is still progress in your journey to Allah."</div>
+      <div class="check-item"><div class="dot">✓</div>Read 1 page of Qur'an</div>
+      <div class="check-item"><div class="dot">✓</div>Make 10 du'a for family</div>
+      <div class="check-item pending"><div class="dot"></div>Be kind to someone today</div>
+      <div class="view-full focusable" tabindex="0" style="margin-top:auto;"><span>Open Journal</span><span>→</span></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>Better Muslims. Brighter Tomorrows.</span>
+  <span>🌙 Stay Connected · Stay Inspired</span>
+</footer>
+
+<script>
+  /* ---- demo countdown (replace with real prayer-times.js data on integration) ---- */
+  function tick(){
+    var now = new Date();
+    document.getElementById('clockStr').textContent =
+      now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  }
+  setInterval(tick,1000); tick();
+
+  /* ---- D-pad / remote spatial navigation ---- */
+  (function(){
+    function focusables(){ return Array.from(document.querySelectorAll('.focusable')); }
+    function rect(el){ return el.getBoundingClientRect(); }
+
+    function move(dir){
+      var current = document.activeElement;
+      var all = focusables();
+      if(!current || !current.classList || !current.classList.contains('focusable')){
+        all[0] && all[0].focus();
+        return;
+      }
+      var c = rect(current);
+      var cx = c.left + c.width/2, cy = c.top + c.height/2;
+      var best = null, bestScore = Infinity;
+
+      all.forEach(function(el){
+        if(el === current) return;
+        var r = rect(el);
+        var ex = r.left + r.width/2, ey = r.top + r.height/2;
+        var dx = ex - cx, dy = ey - cy;
+        var primary, secondary, ok;
+        if(dir === 'right'){ ok = dx > 10; primary = dx; secondary = Math.abs(dy); }
+        if(dir === 'left'){  ok = dx < -10; primary = -dx; secondary = Math.abs(dy); }
+        if(dir === 'down'){  ok = dy > 10; primary = dy; secondary = Math.abs(dx); }
+        if(dir === 'up'){    ok = dy < -10; primary = -dy; secondary = Math.abs(dx); }
+        if(!ok) return;
+        var score = primary + secondary * 1.5;
+        if(score < bestScore){ bestScore = score; best = el; }
+      });
+      if(best) best.focus();
+    }
+
+    document.addEventListener('keydown', function(e){
+      switch(e.key){
+        case 'ArrowRight': move('right'); e.preventDefault(); break;
+        case 'ArrowLeft':  move('left');  e.preventDefault(); break;
+        case 'ArrowDown':  move('down');  e.preventDefault(); break;
+        case 'ArrowUp':    move('up');    e.preventDefault(); break;
+        case 'Enter':
+          if(document.activeElement && document.activeElement.click){
+            document.activeElement.click();
+          }
+          break;
+      }
+    });
+
+    window.addEventListener('load', function(){
+      var first = document.querySelector('.focusable');
+      if(first) first.focus();
+    });
+  })();
+</script>
+</body>
+</html>
