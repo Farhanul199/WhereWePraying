@@ -28,7 +28,7 @@
   /* ===== Master canvas: fixed 1920x1080 logical design, scaled to fit
      any 16:9-ish viewport (720p / 1080p / 4K / browser window) without
      cropping or distorting proportions. See scaleCanvas() below. ===== */
-  #xp1-viewport{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+  #xp1-viewport{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;}
   #xp1-canvas{width:1920px;height:1080px;flex:none;position:relative;transform-origin:center center;background:var(--bg);color:var(--text);padding:40px;display:flex;flex-direction:column;gap:20px;}
 
   /* ===== Header ===== */
@@ -57,11 +57,11 @@
   /* ---- Next Prayer ---- */
   .next-prayer{
     flex:1; /* dominates the left column now — taller box shows far more of the artwork */
-    text-align:center;padding:24px 18px;position:relative;overflow:hidden;
+    text-align:center;padding:32px 24px;position:relative;overflow:hidden;
     background-size:cover;background-position:center;
     background-color:var(--surface-alt); /* shows briefly before the image paints */
     transition:background-image .4s ease;
-    display:flex;flex-direction:column;justify-content:flex-end;
+    display:flex;flex-direction:column;justify-content:flex-start;
   }
   .next-prayer[data-prayer="fajr"]{background-image:url('/assets/xp1/artwork/next-prayer/fajr.webp');}
   .next-prayer[data-prayer="dhuhr"]{background-image:url('/assets/xp1/artwork/next-prayer/dhuhr.webp');}
@@ -74,19 +74,19 @@
     z-index:0;
   }
   .next-prayer > *{position:relative;z-index:1;}
-  .next-prayer .label{font-size:12px;color:rgba(255,255,255,.85);font-weight:700;letter-spacing:.4px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .next-prayer .name{font-size:30px;font-weight:800;margin:6px 0 2px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.4);}
-  .next-prayer .countdown-label{font-size:12px;color:rgba(255,255,255,.85);margin-top:8px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .next-prayer .countdown{font-size:36px;font-weight:800;color:var(--coral);text-shadow:0 2px 10px rgba(0,0,0,.45);}
-  .next-prayer .at{font-size:12px;color:rgba(255,255,255,.85);margin-bottom:12px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:12px;font-weight:700;font-size:13px;}
+  .next-prayer .label{font-size:16px;color:rgba(255,255,255,.9);font-weight:700;letter-spacing:.6px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .next-prayer .name{font-size:46px;font-weight:800;margin:10px 0 4px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.4);}
+  .next-prayer .countdown-label{font-size:15px;color:rgba(255,255,255,.9);margin-top:14px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .next-prayer .countdown{font-size:58px;font-weight:800;color:var(--coral);text-shadow:0 2px 12px rgba(0,0,0,.5);}
+  .next-prayer .at{font-size:15px;color:rgba(255,255,255,.9);margin-bottom:18px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:15px;font-weight:700;font-size:15px;}
 
   /* ---- Timetable ---- */
-  .timetable{flex:0 0 auto;display:flex;flex-direction:column;gap:1px;padding:12px 14px;}
+  .timetable{flex:0 0 auto;display:flex;flex-direction:column;gap:2px;padding:16px 18px;}
   .next-prayer[data-state="loading"] .name,.next-prayer[data-state="loading"] .countdown{opacity:.55;}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:var(--r-sm);font-weight:700;font-size:12px;color:var(--text-dim);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:var(--r-sm);font-weight:700;font-size:15px;color:var(--text-dim);}
   .row.active{background:var(--coral-soft);color:var(--coral-dark);}
-  .view-full{margin-top:4px;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:11px;}
+  .view-full{margin-top:6px;display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:13px;}
 
   /* ---- YouTube / Islamic Reminders ---- */
   .reminders{display:flex;flex-direction:column;flex:1.3;min-height:0;}
@@ -137,7 +137,7 @@
   .bseg .bdesc{font-size:11px;color:var(--text-dim);line-height:1.4;}
 
   /* ---- Weather ---- */
-  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;}
+  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;padding:28px;}
   .weather .whead{display:flex;justify-content:space-between;align-items:flex-start;}
   .weather h2{font-size:20px;}
   .weather .hilo{font-size:14px;color:var(--text-dim);text-align:right;}
@@ -347,7 +347,12 @@
 (function(){
   var canvas = document.getElementById('xp1-canvas');
   function scaleCanvas(){
-    var scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    // Math.max (not .min): always fills the viewport edge-to-edge, cropping
+    // any overflow rather than letterboxing. On a real 16:9 TV this and
+    // Math.min produce the exact same result (vw/1920 === vh/1080), so
+    // this only changes behaviour when testing in a non-16:9 browser
+    // window — which is exactly where the gaps were coming from.
+    var scale = Math.max(window.innerWidth / 1920, window.innerHeight / 1080);
     canvas.style.transform = 'scale(' + scale + ')';
   }
   window.addEventListener('resize', scaleCanvas);
