@@ -2,118 +2,152 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1920, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive">
-<title>WhereWePraying — xp1</title>
+<title>WhereWePraying — XP1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* ===== Tokens — mirrors assets/css/base.css :root exactly, so XP1 stays
+     in sync with the main site's palette without importing its full
+     layout/component CSS (which isn't written for a TV canvas). ===== */
   :root{
-    --coral:#F4714E;
-    --coral-dark:#D85A38;
-    --coral-soft:#FBDACB;
-    --cream:#FBF3EC;
-    --ink:#20272F;
-    --muted:#6E7680;
-    --card:#FFFFFF;
-    --card-tint:#FFF8F3;
-    --r-lg:28px;
-    --r-md:20px;
-    --r-sm:14px;
-    --shadow:0 10px 28px rgba(32,39,47,0.10);
+    --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
+    --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
+    --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896;
+    --border:#EFE1CC; --shadow:0 10px 28px rgba(60,42,24,.07);
+    --green:#4C9A6A; --green-soft:#DCEFE2;
+    --amber:#D79A3C; --amber-soft:#F6E7CB;
+    --red:#D8654A; --red-soft:#F7DCD2;
+    --r-lg:26px; --r-md:18px; --r-sm:12px;
   }
   *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',sans-serif;}
-  html,body{background:var(--cream);color:var(--ink);width:1920px;height:1080px;overflow:hidden;}
-  body{padding:40px;display:flex;flex-direction:column;gap:22px;}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;}
 
-  /* ---------- header ---------- */
-  header{display:flex;align-items:center;gap:24px;}
-  .brand{display:flex;align-items:center;gap:16px;}
-  .brand .mark{width:56px;height:56px;border-radius:16px;background:var(--coral-soft);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--coral-dark);}
-  .brand h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;}
-  .brand .tag{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0.4px;}
-  .datetime{margin-left:24px;font-size:16px;color:var(--ink);}
-  .datetime .clock{font-size:30px;font-weight:800;margin-left:14px;}
-  .datetime .loc{color:var(--muted);font-size:14px;display:block;}
+  /* ===== Master canvas: fixed 1920x1080 logical design, scaled to fit
+     any 16:9-ish viewport (720p / 1080p / 4K / browser window) without
+     cropping or distorting proportions. See scaleCanvas() below. ===== */
+  #xp1-viewport{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+  #xp1-canvas{width:1920px;height:1080px;flex:none;position:relative;transform-origin:center center;background:var(--bg);color:var(--text);padding:40px;display:flex;flex-direction:column;gap:20px;}
+
+  /* ===== Header ===== */
+  header{display:flex;align-items:center;gap:20px;}
+  .xp1-logo{height:52px;width:auto;}
+  .brand h1{font-size:28px;font-weight:800;letter-spacing:-.4px;}
+  .brand .tag{font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;}
+  .datetime{margin-left:20px;font-size:15px;color:var(--text);}
+  .datetime .clock{font-size:28px;font-weight:800;margin-left:12px;}
+  .datetime .loc{display:block;font-size:13px;color:var(--text-dim);margin-top:2px;}
   .spacer{flex:1;}
-  .quote-box{background:var(--card);border-radius:var(--r-sm);padding:12px 20px;font-size:13px;font-style:italic;color:var(--muted);max-width:300px;box-shadow:var(--shadow);}
-  .icon-btn{width:48px;height:48px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:var(--shadow);margin-left:10px;}
+  .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);font-weight:600;margin-right:14px;}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .status-pill.offline .status-dot{background:var(--red);}
+  .icon-btn{width:44px;height:44px;border-radius:var(--r-sm);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:var(--shadow);}
 
-  /* ---------- layout grid ---------- */
-  .grid{flex:1;display:grid;grid-template-columns:340px 1fr 340px;gap:22px;min-height:0;}
-  .col{display:flex;flex-direction:column;gap:18px;min-height:0;}
+  /* ===== Shared card ===== */
+  .card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px;}
+  .card h2{font-size:16px;font-weight:800;}
+  .card .sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
 
-  .card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:22px;}
-  .card h2{font-size:18px;font-weight:800;}
-  .card .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  /* ===== Body grid: left / center / right, matches spec section 4 ===== */
+  .body-grid{flex:1;display:grid;grid-template-columns:320px 1fr 320px;gap:20px;min-height:0;}
+  .col{display:flex;flex-direction:column;gap:16px;min-height:0;}
 
-  /* next prayer */
-  .next-prayer{background:linear-gradient(180deg,var(--card-tint),var(--card));text-align:center;padding:26px 20px;}
-  .next-prayer .label{font-size:14px;color:var(--muted);font-weight:600;}
-  .next-prayer .name{font-size:34px;font-weight:800;margin:6px 0 4px;}
-  .next-prayer .countdown-label{font-size:13px;color:var(--muted);margin-top:10px;}
-  .next-prayer .countdown{font-size:40px;font-weight:800;color:var(--coral-dark);letter-spacing:1px;}
-  .next-prayer .at{font-size:13px;color:var(--muted);margin-bottom:14px;}
-  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:14px;font-weight:700;font-size:14px;}
+  /* ---- Next Prayer ---- */
+  .next-prayer{text-align:center;padding:24px 18px;background:linear-gradient(180deg,var(--surface-alt),var(--surface));}
+  .next-prayer .label{font-size:12px;color:var(--text-dim);font-weight:700;letter-spacing:.4px;}
+  .next-prayer .name{font-size:30px;font-weight:800;margin:6px 0 2px;}
+  .next-prayer .countdown-label{font-size:12px;color:var(--text-dim);margin-top:8px;}
+  .next-prayer .countdown{font-size:36px;font-weight:800;color:var(--coral-dark);}
+  .next-prayer .at{font-size:12px;color:var(--text-dim);margin-bottom:12px;}
+  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:12px;font-weight:700;font-size:13px;}
 
+  /* ---- Timetable ---- */
   .timetable{flex:1;display:flex;flex-direction:column;gap:2px;}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:var(--r-sm);font-weight:700;font-size:15px;}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r-sm);font-weight:700;font-size:14px;color:var(--text-dim);}
   .row.active{background:var(--coral-soft);color:var(--coral-dark);}
-  .row .name{display:flex;align-items:center;gap:10px;color:inherit;}
-  .view-full{margin-top:8px;display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:var(--r-sm);background:var(--card-tint);font-weight:700;font-size:14px;}
+  .view-full{margin-top:6px;display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:13px;}
 
-  /* center column */
-  .reminders{display:flex;flex-direction:column;flex:1;min-height:0;}
-  .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-  .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:999px;padding:10px 18px;font-weight:700;font-size:13px;}
-  .video-row{display:flex;gap:18px;flex:1;min-height:0;}
-  .video{flex:1;border-radius:var(--r-md);background:#111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="%23222"/></svg>');position:relative;display:flex;align-items:flex-end;padding:20px;color:#fff;overflow:hidden;}
-  .video::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
-  .video .vinfo{position:relative;z-index:1;}
-  .video .vinfo .title{font-size:20px;font-weight:800;}
-  .video .vinfo .speaker{font-size:12px;opacity:.85;margin-top:4px;}
-  .play-badge{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;z-index:1;}
+  /* ---- YouTube / Islamic Reminders ---- */
+  .reminders{display:flex;flex-direction:column;flex:1.3;min-height:0;}
+  .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:999px;padding:9px 16px;font-weight:700;font-size:12px;}
+  .video-row{display:flex;gap:16px;flex:1;min-height:0;}
+  .video-frame{flex:1;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:18px;color:#fff;}
+  .video-frame[data-state="success"] .state-success{display:flex;}
+  .video-frame[data-state="loading"] .state-loading{display:flex;align-items:center;justify-content:center;}
+  .video-frame[data-state="error"] .state-error{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;}
+  .video-frame[data-state="offline"] .state-offline{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;}
+  .video-frame .state-success::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
+  .video-frame .vinfo{position:relative;z-index:1;}
+  .video-frame .vinfo .title{font-size:18px;font-weight:800;}
+  .video-frame .vinfo .speaker{font-size:11px;opacity:.85;margin-top:3px;}
+  .play-badge{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:16px;z-index:1;color:#fff;}
+  .state-loading .spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:xp1-spin 1s linear infinite;}
+  @keyframes xp1-spin{to{transform:rotate(360deg);}}
+  .state-error, .state-offline{color:rgba(255,255,255,.85);font-size:13px;}
+  .state-error .big, .state-offline .big{font-size:26px;}
 
-  .playlist{width:300px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
-  .plitem{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r-sm);}
-  .plitem .thumb{width:56px;height:40px;border-radius:8px;background:#333;flex-shrink:0;}
-  .plitem .meta .t{font-size:13px;font-weight:700;}
-  .plitem .meta .s{font-size:11px;color:var(--muted);}
+  .playlist{width:280px;display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+  .plitem{display:flex;gap:9px;align-items:center;padding:7px;border-radius:var(--r-sm);}
+  .plitem .thumb{width:50px;height:36px;border-radius:7px;background:var(--border);flex-shrink:0;}
+  .plitem .meta .t{font-size:12px;font-weight:700;}
+  .plitem .meta .s{font-size:10px;color:var(--text-dim);}
 
-  .mosques h2{margin-bottom:14px;}
-  .mosque-row{display:flex;gap:14px;}
-  .mcard{flex:1;background:var(--card-tint);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:6px;}
-  .mcard .name{font-size:13px;font-weight:800;}
-  .mcard .dist{font-size:11px;color:var(--muted);}
-  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;text-align:center;}
+  /* ---- Nearby Mosques ---- */
+  .mosque-row{display:flex;gap:12px;margin-top:12px;}
+  .mcard{flex:1;background:var(--surface-alt);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:5px;min-height:0;}
+  .mcard[data-state="loading"] .m-body{opacity:.35;}
+  .mcard .name{font-size:12px;font-weight:800;}
+  .mcard .dist{font-size:10px;color:var(--text-dim);}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:10px;font-weight:700;padding:5px 7px;border-radius:8px;text-align:center;}
+  .mcard .m-error{display:none;font-size:11px;color:var(--text-dim);text-align:center;padding:8px 0;}
+  .mcard[data-state="error"] .m-body,.mcard[data-state="offline"] .m-body{display:none;}
+  .mcard[data-state="error"] .m-error,.mcard[data-state="offline"] .m-error{display:block;}
 
-  .quicknav{display:flex;justify-content:space-between;gap:10px;}
-  .qn-item{flex:1;background:var(--card);border-radius:var(--r-md);box-shadow:var(--shadow);padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:700;}
-  .qn-item .ic{font-size:20px;}
+  /* ---- Bottom widget row ---- */
+  .bottom-row{display:flex;gap:14px;}
+  .bcard{flex:1;background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px;}
+  .bcard .bicon{font-size:18px;}
+  .bcard .btitle{font-size:12px;font-weight:800;}
+  .bcard .bdesc{font-size:11px;color:var(--text-dim);line-height:1.4;}
 
-  /* right column */
-  .weather{}
-  .weather .temp{font-size:44px;font-weight:800;margin:4px 0;}
-  .weather .cond{font-size:13px;color:var(--muted);}
-  .weather .hilo{font-size:12px;color:var(--muted);float:right;text-align:right;}
-  .hourly{display:flex;justify-content:space-between;margin-top:16px;}
-  .hourly .h{text-align:center;font-size:12px;}
-  .hourly .h .t{font-weight:700;margin-top:4px;}
+  /* ---- Weather ---- */
+  .weather .whead{display:flex;justify-content:space-between;align-items:flex-start;}
+  .weather .hilo{font-size:11px;color:var(--text-dim);text-align:right;}
+  .weather .temp{font-size:38px;font-weight:800;margin:2px 0;}
+  .weather .cond{font-size:12px;color:var(--text-dim);}
+  .weather-icon{font-size:30px;display:inline-block;}
+  .weather-icon.sun{animation:xp1-sun-glow 4s ease-in-out infinite;}
+  .weather-icon.cloud{animation:xp1-cloud-drift 6s ease-in-out infinite;}
+  @keyframes xp1-sun-glow{0%,100%{filter:drop-shadow(0 0 0 rgba(244,113,78,0));}50%{filter:drop-shadow(0 0 10px rgba(244,113,78,.45));}}
+  @keyframes xp1-cloud-drift{0%,100%{transform:translateX(0);}50%{transform:translateX(4px);}}
+  .hourly{display:flex;justify-content:space-between;margin-top:14px;}
+  .hourly .h{text-align:center;font-size:11px;color:var(--text-dim);}
+  .hourly .h .t{font-weight:700;color:var(--text);margin-top:3px;}
+  .weather .w-error{display:none;font-size:12px;color:var(--text-dim);text-align:center;padding:10px 0;}
+  .weather[data-state="error"] .w-body,.weather[data-state="offline"] .w-body{display:none;}
+  .weather[data-state="error"] .w-error,.weather[data-state="offline"] .w-error{display:block;}
+  .weather[data-state="offline"] .w-error::after{content:" (showing last known)";}
 
+  /* ---- Journal ---- */
   .journal{flex:1;display:flex;flex-direction:column;min-height:0;}
-  .journal-quote{font-style:italic;font-size:14px;color:var(--muted);margin:10px 0 14px;}
-  .check-item{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;font-weight:600;}
-  .check-item .dot{width:20px;height:20px;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
-  .check-item.pending .dot{background:transparent;border:2px solid #DADFE3;}
+  .journal-quote{font-style:italic;font-size:13px;color:var(--text-dim);margin:8px 0 12px;line-height:1.4;}
+  .check-item{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:12px;font-weight:600;}
+  .check-item .dot{width:18px;height:18px;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+  .check-item.pending .dot{background:transparent;border:2px solid var(--border);}
 
-  footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);}
+  footer{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-dim);}
 
-  /* ---------- focus / D-pad navigation ---------- */
-  .focusable{outline:none;cursor:pointer;transition:transform .12s ease, box-shadow .12s ease;}
+  /* ===== Focus design — refined per spec section 12.
+     Subtle: thin ring + soft lift + tiny scale, NOT a thick 4px border. ===== */
+  .focusable{outline:none;cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;}
   .focusable:focus{
-    transform:scale(1.035);
-    box-shadow:0 0 0 4px var(--coral), var(--shadow);
+    box-shadow:0 0 0 2px var(--coral), 0 14px 30px rgba(60,42,24,.14);
+    filter:brightness(1.03);
+    transform:scale(1.015);
     z-index:2;
     position:relative;
   }
@@ -121,188 +155,294 @@
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <div class="mark">⌂</div>
-    <div>
+<div id="xp1-viewport">
+<div id="xp1-canvas">
+
+  <header data-group="header">
+    <img class="xp1-logo" src="/assets/logo.png" alt="WhereWePraying">
+    <div class="brand">
       <h1>WhereWePraying</h1>
       <div class="tag">CLOSER TO ALLAH, EVERY DAY</div>
     </div>
-  </div>
-  <div class="datetime">
-    <span id="dateStr">Mon 15 Sep 2025</span><span class="clock" id="clockStr">12:34</span>
-    <span class="loc">📍 London, UK</span>
-  </div>
-  <div class="spacer"></div>
-  <div class="quote-box">"So remember Me, I will remember you." (Qur'an 2:152)</div>
-  <div class="icon-btn focusable" tabindex="0">🔍</div>
-  <div class="icon-btn focusable" tabindex="0">⚙️</div>
-</header>
-
-<div class="grid">
-
-  <!-- LEFT COLUMN -->
-  <div class="col">
-    <div class="card next-prayer">
-      <div class="label">Next Prayer</div>
-      <div class="name">☀️ Dhuhr</div>
-      <div class="countdown-label">Jama'ah in</div>
-      <div class="countdown" id="countdown">00:17:26</div>
-      <div class="at">at 12:52</div>
-      <button class="notify-btn focusable" tabindex="0">🔔 Notify me before prayer</button>
+    <div class="datetime">
+      <span id="dateStr">—</span><span class="clock" id="clockStr">--:--</span>
+      <span class="loc" id="locStr">📍 Location not set</span>
     </div>
+    <div class="spacer"></div>
+    <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Connected</span></div>
+    <div class="icon-btn focusable" tabindex="-1">🔍</div>
+    <div class="icon-btn focusable" tabindex="-1">⚙️</div>
+  </header>
 
-    <div class="card timetable">
-      <div class="row"><span class="name">🌙 Fajr</span><span>05:28</span></div>
-      <div class="row active"><span class="name">☀️ Dhuhr</span><span>12:52</span></div>
-      <div class="row"><span class="name">🌤️ Asr</span><span>16:23</span></div>
-      <div class="row"><span class="name">🌇 Maghrib</span><span>19:18</span></div>
-      <div class="row"><span class="name">🌙 Isha</span><span>20:43</span></div>
-      <div class="view-full focusable" tabindex="0"><span>📅 View Full Timetable</span><span>→</span></div>
-    </div>
-  </div>
+  <div class="body-grid">
 
-  <!-- CENTER COLUMN -->
-  <div class="col" style="flex:2;">
-    <div class="card reminders" style="flex:1.4;">
-      <div class="reminders-top">
-        <div>
-          <h2>Islamic Reminders</h2>
-          <div class="sub">A curated playlist to keep you connected</div>
-        </div>
-        <div class="browse-btn focusable" tabindex="0">Browse Playlists →</div>
+    <!-- LEFT COLUMN -->
+    <div class="col">
+      <div class="card next-prayer" data-group="nextprayer">
+        <div class="label">NEXT PRAYER</div>
+        <div class="name">☀️ Dhuhr</div>
+        <div class="countdown-label">Jama'ah in</div>
+        <div class="countdown" id="countdown">00:17:26</div>
+        <div class="at">at 12:52</div>
+        <button class="notify-btn focusable" tabindex="-1">🔔 Notify me before prayer</button>
       </div>
-      <div class="video-row">
-        <div class="video focusable" tabindex="0">
-          <div class="play-badge">▶</div>
-          <div class="vinfo">
-            <div class="title">A Peaceful Heart</div>
-            <div class="speaker">Mufti Menk</div>
+
+      <div class="card timetable" data-group="timetable">
+        <div class="row"><span>🌙 Fajr</span><span>05:28</span></div>
+        <div class="row active"><span>☀️ Dhuhr</span><span>12:52</span></div>
+        <div class="row"><span>🌤️ Asr</span><span>16:23</span></div>
+        <div class="row"><span>🌇 Maghrib</span><span>19:18</span></div>
+        <div class="row"><span>🌙 Isha</span><span>20:43</span></div>
+        <div class="view-full focusable" tabindex="-1"><span>📅 View Full Timetable</span><span>→</span></div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="col" style="flex:2;">
+      <div class="card reminders">
+        <div class="reminders-top">
+          <div>
+            <h2>Islamic Reminders</h2>
+            <div class="sub">A curated playlist to keep you connected</div>
+          </div>
+          <div class="browse-btn focusable" data-group="youtube" tabindex="-1">Browse Playlists →</div>
+        </div>
+        <div class="video-row">
+          <div class="video-frame focusable" data-group="youtube" data-widget="youtube" data-state="success" tabindex="-1">
+            <div class="state state-loading"><div class="spinner"></div></div>
+            <div class="state state-success">
+              <div class="play-badge">▶</div>
+              <div class="vinfo"><div class="title">A Peaceful Heart</div><div class="speaker">Mufti Menk</div></div>
+            </div>
+            <div class="state state-error"><div class="big">🎬</div><div>Video unavailable<br>Check your internet connection</div></div>
+            <div class="state state-offline"><div class="big">🎬</div><div>You're offline<br>Reminders will return once reconnected</div></div>
+          </div>
+          <div class="playlist" data-group="playlist">
+            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">A Peaceful Heart</div><div class="s">Mufti Menk · 10:24</div></div></div>
+            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">Patience Changes Everything</div><div class="s">Nouman Ali Khan · 12:36</div></div></div>
+            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">The Power of Dua</div><div class="s">Omar Suleiman · 11:18</div></div></div>
+            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">Stories of the Prophets</div><div class="s">Yasir Qadhi · 20:12</div></div></div>
           </div>
         </div>
-        <div class="playlist">
-          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">A Peaceful Heart</div><div class="s">Mufti Menk · 10:24</div></div></div>
-          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">Patience Changes Everything</div><div class="s">Nouman Ali Khan · 12:36</div></div></div>
-          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">The Power of Dua</div><div class="s">Omar Suleiman · 11:18</div></div></div>
-          <div class="plitem focusable" tabindex="0"><div class="thumb"></div><div class="meta"><div class="t">Be the Best Version of You</div><div class="s">Mufti Menk · 14:05</div></div></div>
+      </div>
+
+      <div class="card">
+        <h2>📍 Nearby Mosques</h2>
+        <div class="mosque-row" data-group="mosques">
+          <div class="mcard focusable" data-widget="mosques" data-state="success" tabindex="-1">
+            <div class="m-body">
+              <div class="name">Newbury Park Masjid</div>
+              <div class="dist">0.8 mi · 6 min</div>
+              <div class="next">Next Dhuhr 12:55</div>
+            </div>
+            <div class="m-error">Times unavailable</div>
+          </div>
+          <div class="mcard focusable" data-widget="mosques" data-state="success" tabindex="-1">
+            <div class="m-body">
+              <div class="name">Redbridge Muslim Community Centre</div>
+              <div class="dist">1.4 mi · 9 min</div>
+              <div class="next">Next Dhuhr 13:00</div>
+            </div>
+            <div class="m-error">Times unavailable</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="card mosques">
-      <h2>Nearby Mosques</h2>
-      <div class="mosque-row">
-        <div class="mcard focusable" tabindex="0"><div class="name">Whitechapel Mosque</div><div class="dist">0.8 mi · 3 min</div><div class="next">Next Dhuhr 12:55</div></div>
-        <div class="mcard focusable" tabindex="0"><div class="name">Brick Lane Masjid</div><div class="dist">1.1 mi · 6 min</div><div class="next">Next Dhuhr 13:00</div></div>
-        <div class="mcard focusable" tabindex="0"><div class="name">London Muslim Centre</div><div class="dist">1.6 mi · 8 min</div><div class="next">Next Dhuhr 13:00</div></div>
-        <div class="mcard focusable" tabindex="0"><div class="name">Stepney Shahjalal</div><div class="dist">2.1 mi · 10 min</div><div class="next">Next Dhuhr 13:05</div></div>
+      <div class="bottom-row" data-group="bottom">
+        <div class="bcard focusable" tabindex="-1"><span class="bicon">🤲</span><span class="btitle">Du'a</span><span class="bdesc">A short du'a for right now</span></div>
+        <div class="bcard focusable" tabindex="-1"><span class="bicon">📜</span><span class="btitle">Hadith of the Day</span><span class="bdesc">One verified narration, daily</span></div>
+        <div class="bcard focusable" tabindex="-1"><span class="bicon">💭</span><span class="btitle">Reminder</span><span class="bdesc">A short reflection</span></div>
+        <div class="bcard focusable" tabindex="-1"><span class="bicon">📆</span><span class="btitle">Islamic Calendar</span><span class="bdesc">Today's Hijri date &amp; events</span></div>
       </div>
     </div>
 
-    <div class="quicknav">
-      <div class="qn-item focusable" tabindex="0"><span class="ic">📍</span>Find a Mosque</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">🧭</span>Qibla Finder</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">📖</span>Qur'an</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">🤲</span>Du'a &amp; Dhikr</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">📔</span>My Journal</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">📆</span>Islamic Calendar</div>
-      <div class="qn-item focusable" tabindex="0"><span class="ic">⋯</span>More</div>
-    </div>
-  </div>
+    <!-- RIGHT COLUMN -->
+    <div class="col">
+      <div class="card weather focusable" data-group="weather" data-widget="weather" data-state="success" tabindex="-1">
+        <div class="w-body">
+          <div class="whead">
+            <div>
+              <h2>📍 London</h2>
+              <div class="temp"><span class="weather-icon sun">☀️</span> 18°C</div>
+              <div class="cond">Partly cloudy</div>
+            </div>
+            <div class="hilo">H: 20°<br>L: 12°</div>
+          </div>
+          <div class="hourly">
+            <div class="h">1pm<div class="t">19°</div></div>
+            <div class="h">4pm<div class="t">20°</div></div>
+            <div class="h">7pm<div class="t">17°</div></div>
+            <div class="h">10pm<div class="t">14°</div></div>
+          </div>
+        </div>
+        <div class="w-error">Weather unavailable</div>
+      </div>
 
-  <!-- RIGHT COLUMN -->
-  <div class="col">
-    <div class="card weather focusable" tabindex="0">
-      <h2>📍 London</h2>
-      <div class="hilo">H: 20°<br>L: 12°</div>
-      <div class="temp">18°C</div>
-      <div class="cond">Partly cloudy</div>
-      <div class="hourly">
-        <div class="h">1pm<div class="t">19°</div></div>
-        <div class="h">4pm<div class="t">20°</div></div>
-        <div class="h">7pm<div class="t">17°</div></div>
-        <div class="h">10pm<div class="t">14°</div></div>
+      <div class="card journal" data-group="journal">
+        <h2>📖 Today's Journal</h2>
+        <div class="journal-quote">"A small step today is still progress in your journey to Allah."</div>
+        <div class="check-item"><div class="dot">✓</div>Read 1 page of Qur'an</div>
+        <div class="check-item"><div class="dot">✓</div>Make 10 du'a for family</div>
+        <div class="check-item pending"><div class="dot"></div>Be kind to someone today</div>
+        <div class="view-full focusable" tabindex="-1" style="margin-top:auto;"><span>Open Journal</span><span>→</span></div>
       </div>
     </div>
 
-    <div class="card journal">
-      <h2>📖 Today's Journal</h2>
-      <div class="journal-quote">"A small step today is still progress in your journey to Allah."</div>
-      <div class="check-item"><div class="dot">✓</div>Read 1 page of Qur'an</div>
-      <div class="check-item"><div class="dot">✓</div>Make 10 du'a for family</div>
-      <div class="check-item pending"><div class="dot"></div>Be kind to someone today</div>
-      <div class="view-full focusable" tabindex="0" style="margin-top:auto;"><span>Open Journal</span><span>→</span></div>
-    </div>
   </div>
+
+  <footer>
+    <span>Better Muslims. Brighter Tomorrows.</span>
+    <span id="footerRight">🌙 Stay Connected · Stay Inspired</span>
+  </footer>
 
 </div>
-
-<footer>
-  <span>Better Muslims. Brighter Tomorrows.</span>
-  <span>🌙 Stay Connected · Stay Inspired</span>
-</footer>
+</div>
 
 <script>
-  /* ---- demo countdown (replace with real prayer-times.js data on integration) ---- */
+/* =========================================================
+   1. MASTER CANVAS SCALING
+   ========================================================= */
+(function(){
+  var canvas = document.getElementById('xp1-canvas');
+  function scaleCanvas(){
+    var scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    canvas.style.transform = 'scale(' + scale + ')';
+  }
+  window.addEventListener('resize', scaleCanvas);
+  window.addEventListener('orientationchange', scaleCanvas);
+  scaleCanvas();
+})();
+
+/* =========================================================
+   2. CLOCK / DATE (live; location is a Phase 2 hook — shows a
+      placeholder until XP1.setLocation() is called by that phase)
+   ========================================================= */
+(function(){
+  var dateEl = document.getElementById('dateStr');
+  var clockEl = document.getElementById('clockStr');
   function tick(){
     var now = new Date();
-    document.getElementById('clockStr').textContent =
-      now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    dateEl.textContent = now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    clockEl.textContent = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   }
-  setInterval(tick,1000); tick();
+  tick();
+  setInterval(tick, 1000);
+})();
 
-  /* ---- D-pad / remote spatial navigation ---- */
-  (function(){
-    function focusables(){ return Array.from(document.querySelectorAll('.focusable')); }
-    function rect(el){ return el.getBoundingClientRect(); }
-
-    function move(dir){
-      var current = document.activeElement;
-      var all = focusables();
-      if(!current || !current.classList || !current.classList.contains('focusable')){
-        all[0] && all[0].focus();
-        return;
-      }
-      var c = rect(current);
-      var cx = c.left + c.width/2, cy = c.top + c.height/2;
-      var best = null, bestScore = Infinity;
-
-      all.forEach(function(el){
-        if(el === current) return;
-        var r = rect(el);
-        var ex = r.left + r.width/2, ey = r.top + r.height/2;
-        var dx = ex - cx, dy = ey - cy;
-        var primary, secondary, ok;
-        if(dir === 'right'){ ok = dx > 10; primary = dx; secondary = Math.abs(dy); }
-        if(dir === 'left'){  ok = dx < -10; primary = -dx; secondary = Math.abs(dy); }
-        if(dir === 'down'){  ok = dy > 10; primary = dy; secondary = Math.abs(dx); }
-        if(dir === 'up'){    ok = dy < -10; primary = -dy; secondary = Math.abs(dx); }
-        if(!ok) return;
-        var score = primary + secondary * 1.5;
-        if(score < bestScore){ bestScore = score; best = el; }
-      });
-      if(best) best.focus();
+/* =========================================================
+   3. CONNECTION STATUS — subtle indicator, per spec section 5.
+   ========================================================= */
+(function(){
+  var pill = document.getElementById('statusPill');
+  var text = document.getElementById('statusText');
+  var lastSync = new Date();
+  function render(){
+    if(navigator.onLine){
+      pill.classList.remove('offline');
+      text.textContent = 'Connected';
+      lastSync = new Date();
+    } else {
+      pill.classList.add('offline');
+      text.textContent = 'Offline · Last synced ' + lastSync.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     }
+  }
+  window.addEventListener('online', render);
+  window.addEventListener('offline', render);
+  render();
+})();
 
-    document.addEventListener('keydown', function(e){
-      switch(e.key){
-        case 'ArrowRight': move('right'); e.preventDefault(); break;
-        case 'ArrowLeft':  move('left');  e.preventDefault(); break;
-        case 'ArrowDown':  move('down');  e.preventDefault(); break;
-        case 'ArrowUp':    move('up');    e.preventDefault(); break;
-        case 'Enter':
-          if(document.activeElement && document.activeElement.click){
-            document.activeElement.click();
-          }
-          break;
-      }
+/* =========================================================
+   4. WIDGET STATE MACHINE — loading / success / error / offline.
+      Phase 1 ships the states + a manual QA hook (window.XP1.setState)
+      so later phases can wire real fetches without touching markup/CSS.
+   ========================================================= */
+window.XP1 = window.XP1 || {};
+XP1.setState = function(widgetName, state){
+  document.querySelectorAll('[data-widget="' + widgetName + '"]').forEach(function(el){
+    el.dataset.state = state;
+  });
+};
+XP1.setLocation = function(label){
+  document.getElementById('locStr').textContent = '📍 ' + label;
+};
+
+/* =========================================================
+   5. D-PAD / REMOTE NAVIGATION — deliberate group-to-group
+      movement (spec section 11/12), not raw geometric nearest-
+      neighbour, so focus never jumps unpredictably.
+   ========================================================= */
+(function(){
+  var GROUPS = {
+    header:     { axis:'horizontal', adj:{ down:'weather' } },
+    nextprayer: { axis:'vertical',   adj:{ down:'timetable', right:'youtube' } },
+    timetable:  { axis:'vertical',   adj:{ up:'nextprayer', right:'youtube', down:'bottom' } },
+    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', right:'playlist', down:'mosques', up:'header' } },
+    playlist:   { axis:'vertical',   adj:{ left:'youtube', down:'mosques' } },
+    mosques:    { axis:'horizontal', adj:{ up:'youtube', left:'timetable', right:'weather', down:'bottom' } },
+    weather:    { axis:'vertical',   adj:{ left:'mosques', down:'journal', up:'header' } },
+    journal:    { axis:'vertical',   adj:{ up:'weather', down:'bottom', left:'mosques' } },
+    bottom:     { axis:'horizontal', adj:{ up:'timetable' } }
+  };
+
+  function groupItems(name){
+    return Array.prototype.slice.call(document.querySelectorAll('[data-group="' + name + '"] .focusable, [data-group="' + name + '"].focusable'));
+  }
+
+  // Index every focusable within its nearest [data-group] ancestor.
+  document.querySelectorAll('[data-group]').forEach(function(container){
+    var name = container.dataset.group;
+    var items = container.classList.contains('focusable') ? [container] : groupItems(name);
+    items.forEach(function(el, i){
+      el.dataset.groupName = name;
+      el.dataset.groupIndex = i;
+      el.addEventListener('click', function(){ el.focus(); });
     });
+  });
 
-    window.addEventListener('load', function(){
+  function move(dir){
+    var el = document.activeElement;
+    if(!el || !el.dataset || !el.dataset.groupName){
       var first = document.querySelector('.focusable');
       if(first) first.focus();
-    });
-  })();
+      return;
+    }
+    var gname = el.dataset.groupName;
+    var g = GROUPS[gname];
+    if(!g) return;
+    var items = groupItems(gname);
+    var idx = parseInt(el.dataset.groupIndex, 10);
+    var axisMatch = (g.axis === 'horizontal' && (dir === 'left' || dir === 'right')) ||
+                     (g.axis === 'vertical'   && (dir === 'up'   || dir === 'down'));
+    if(axisMatch){
+      var delta = (dir === 'right' || dir === 'down') ? 1 : -1;
+      var newIdx = idx + delta;
+      if(newIdx >= 0 && newIdx < items.length){ items[newIdx].focus(); return; }
+    }
+    var target = g.adj[dir];
+    if(target){
+      var targetItems = groupItems(target);
+      if(targetItems.length){ targetItems[0].focus(); return; }
+    }
+    // No mapped move — stay put. Predictable beats clever.
+  }
+
+  document.addEventListener('keydown', function(e){
+    switch(e.key){
+      case 'ArrowRight': move('right'); e.preventDefault(); break;
+      case 'ArrowLeft':  move('left');  e.preventDefault(); break;
+      case 'ArrowDown':  move('down');  e.preventDefault(); break;
+      case 'ArrowUp':    move('up');    e.preventDefault(); break;
+      case 'Enter':
+        if(document.activeElement && document.activeElement.click) document.activeElement.click();
+        break;
+    }
+  });
+
+  window.addEventListener('load', function(){
+    var first = document.querySelector('.focusable');
+    if(first) first.focus();
+  });
+})();
 </script>
 </body>
 </html>
