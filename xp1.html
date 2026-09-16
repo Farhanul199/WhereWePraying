@@ -118,12 +118,18 @@
   /* ---- Nearby Mosques ---- */
   .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:12px;}
   .mosque-row[data-state="loading"]{opacity:.5;}
-  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:10px;display:flex;flex-direction:column;gap:4px;aspect-ratio:1/0.85;}
-  .mcard .name{font-size:11px;font-weight:800;line-height:1.25;}
+  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:9px;display:flex;flex-direction:column;gap:3px;aspect-ratio:1/0.95;}
+  .mcard .name{font-size:10px;font-weight:800;line-height:1.2;}
   .mcard .dist{font-size:9px;color:var(--text-dim);}
-  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:9px;font-weight:700;padding:4px 6px;border-radius:7px;text-align:center;}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:9px;font-weight:700;padding:3px 6px;border-radius:6px;text-align:center;}
   .mcard .next.unconfirmed{background:var(--surface);color:var(--text-dim);font-weight:600;}
   .mcard .mymosque-badge{font-size:8px;font-weight:800;color:var(--coral-dark);letter-spacing:.3px;}
+  .mcard .leaveby{font-size:8px;font-weight:700;text-align:center;padding:3px 6px;border-radius:6px;}
+  .mcard .leaveby.calm{background:var(--green-soft);color:var(--green);}
+  .mcard .leaveby.soon{background:var(--amber-soft);color:var(--amber);}
+  .mcard .leaveby.urgent{background:var(--red-soft);color:var(--red);animation:xp1-urgent-pulse 1.6s ease-in-out infinite;}
+  .mcard .leaveby.cant{background:var(--surface);color:var(--text-faint);font-weight:600;}
+  @keyframes xp1-urgent-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 
   /* ---- Bottom widget row ---- */
   .bottom-strip{display:flex;padding:0;}
@@ -914,12 +920,20 @@ window.XP1Prayer = (function(){
 })();
 
 /* =========================================================
-   9. PHASE 5 — MOSQUES (real WWP nearby-mosques API)
+   9. PHASE 5/6 — MOSQUES + LEAVE NOW
       GET /api/mosques/nearby?lat&lon — same endpoint find-a-mosque.js
       uses. Response already includes each mosque's real committee-
-      submitted Jama'ah times and a precomputed "next" prayer, so no
-      separate calculation happens here. Distance only for now (no
-      travel time / leave-by yet — that's Phase 6).
+      submitted Jama'ah times, distance, and a precomputed "next"
+      prayer (with minutesUntil), so no separate calculation happens
+      for those. Travel time / leave-by (Phase 6) mirrors the exact
+      travelEstimate() formula from functions/api/mosques/plan.js —
+      walk under 0.6mi @ 3mph, otherwise drive @ 15mph, both x1.25 for
+      real-road indirectness, minus a 5-min arrival buffer — computed
+      client-side against nearby.js's existing distance/minutesUntil
+      rather than calling plan.js as a second request. Deliberately
+      NOT switching to plan.js's primary/backup model: it would
+      replace the 4 nearest mosques with only the feasible ones,
+      changing what Phase 5 already built rather than adding to it.
       Selecting a card sets it as "my mosque" (via XP1Prayer.useMosque),
       which is what switches the Next Prayer card from computed Adhan
       times to this mosque's real Jama'ah times.
@@ -927,6 +941,21 @@ window.XP1Prayer = (function(){
 window.XP1Mosques = (function(){
   var CACHE_KEY = 'xp1_mosques';
   var SHOW_COUNT = 4; // matches the 4-up square card grid
+
+  // Mirrors plan.js exactly — see that file for the reasoning behind
+  // these specific numbers.
+  var WALK_MAX_MILES = 0.6;
+  var WALK_SPEED_MPH = 3;
+  var DRIVE_SPEED_MPH = 15;
+  var ROUTE_FACTOR = 1.25;
+  var SAFETY_BUFFER_MIN = 5;
+
+  function travelEstimate(miles){
+    var mode = miles <= WALK_MAX_MILES ? 'walk' : 'drive';
+    var speed = mode === 'walk' ? WALK_SPEED_MPH : DRIVE_SPEED_MPH;
+    var minutes = Math.max(1, Math.ceil((miles * ROUTE_FACTOR) / speed * 60));
+    return { mode: mode, minutes: minutes };
+  }
 
   function xp1Get(key, fallback){
     try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
@@ -939,6 +968,26 @@ window.XP1Mosques = (function(){
     return fetch(url, { signal: controller.signal }).finally(function(){ clearTimeout(t); });
   }
 
+  function leaveByHtml(m){
+    if(!m.next) return '';
+    var travel = travelEstimate(m.distanceMiles);
+    var modeIcon = travel.mode === 'walk' ? '🚶' : '🚗';
+    var minutesUntilLeave = m.next.minutesUntil - travel.minutes - SAFETY_BUFFER_MIN;
+
+    if(minutesUntilLeave < 0){
+      return '<div class="leaveby cant">Can\u2019t make it</div>';
+    }
+    var urgencyClass = minutesUntilLeave <= 10 ? 'urgent' : (minutesUntilLeave <= 30 ? 'soon' : 'calm');
+    var label;
+    if(minutesUntilLeave <= 30){
+      label = 'Leave in ' + minutesUntilLeave + 'm';
+    } else {
+      var leaveDate = new Date(Date.now() + minutesUntilLeave * 60000);
+      label = 'Leave by ' + leaveDate.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    }
+    return '<div class="leaveby ' + urgencyClass + '">' + modeIcon + ' ' + label + '</div>';
+  }
+
   function buildCard(m, isMine){
     var el = document.createElement('div');
     el.className = 'mcard focusable';
@@ -946,7 +995,7 @@ window.XP1Mosques = (function(){
     var nextHtml;
     if(m.next){
       var label = { fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }[m.next.prayer] || m.next.prayer;
-      nextHtml = '<div class="next">Next ' + label + ' ' + m.next.time + '</div>';
+      nextHtml = '<div class="next">' + label + ' ' + m.next.time + '</div>';
     } else {
       nextHtml = '<div class="next unconfirmed">Jama\u2019ah not confirmed</div>';
     }
@@ -956,7 +1005,8 @@ window.XP1Mosques = (function(){
         '<div class="name">' + m.name + '</div>' +
         '<div class="dist">' + m.distanceMiles + ' mi</div>' +
       '</div>' +
-      nextHtml;
+      nextHtml +
+      leaveByHtml(m);
     el.addEventListener('click', function(){
       if(window.XP1Prayer) XP1Prayer.useMosque(m.slug, m.name);
       render(lastList); // repaint so the ★ badge moves to the newly-picked card
