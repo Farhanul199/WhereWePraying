@@ -1081,6 +1081,10 @@ window.XP1Mosques = (function(){
    ========================================================= */
 window.XP1YouTube = (function(){
   var PLAYLIST_KEY = 'xp1_youtube_playlist';
+  // Real playlist provided 2026-09 — used only the first time this device
+  // has no saved choice yet, so a future admin panel (Phase 9) picking a
+  // different one later always wins over this default.
+  var DEFAULT_PLAYLIST_URL = 'https://www.youtube.com/watch?v=DCYGJ-6GTdc&list=PLQ02IYL5pmhGLpO-oUMpZbuI_5dT9m4fi';
   var ENABLED_KEY = 'xp1_youtube_enabled';
 
   function xp1Get(key, fallback){
@@ -1159,6 +1163,7 @@ window.XP1YouTube = (function(){
 
   window.addEventListener('load', function(){
     frame().addEventListener('click', toggle);
+    if(!xp1Get(PLAYLIST_KEY, null)) setPlaylist(DEFAULT_PLAYLIST_URL);
     render();
   });
   window.addEventListener('online', render);
