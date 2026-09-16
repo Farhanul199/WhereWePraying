@@ -385,6 +385,19 @@ export async function onRequestGet(context) {
   if (!Number.isFinite(limit) || limit < 1) limit = DEFAULT_LIMIT;
   if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
+  // mawaqit-runner (dashboard Worker) owns timetable fetching with adaptive
+  // pacing. While it's alive, batch calls from other workers or admin
+  // buttons stand down, so Mawaqit only ever sees one paced client.
+  // A single-mosque fetch (&slug=) still works for manual checks.
+  if (mode === 'status') return jsonRes(await runnerStatus(env));
+  if (mode === 'times' && !slug) {
+    const st = await runnerStatus(env);
+    if (st.active) {
+      return jsonRes({ mode: 'times', ok: true, deferred: true, attempted: 0, succeeded: 0, failed: 0,
+        note: 'Handled by mawaqit-runner (' + (st.state.mode || 'running') + ').' });
+    }
+  }
+
   const startedAt = new Date().toISOString();
   let body;
   try {
@@ -412,4 +425,32 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(body, null, 2), {
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+function jsonRes(o) {
+  return new Response(JSON.stringify(o, null, 2), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function runnerStatus(env) {
+  let state = null, changes7d = null;
+  try {
+    state = await env.DB.prepare('SELECT * FROM scraper_throttle WHERE source = ?').bind(SOURCE).first();
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM mawaqit_changes WHERE changed_at > ?').bind(since).first();
+    changes7d = row ? row.n : 0;
+  } catch (e) { /* tables not created yet = runner not deployed */ }
+  let quality = null;
+  try {
+    const q = await env.DB.prepare(`SELECT
+        SUM(CASE WHEN times_status = 'ok' AND quality = 'good' THEN 1 ELSE 0 END) AS good,
+        SUM(CASE WHEN times_status = 'ok' AND quality = 'warn' THEN 1 ELSE 0 END) AS warn,
+        SUM(CASE WHEN times_status = 'ok' AND quality = 'bad' THEN 1 ELSE 0 END) AS bad,
+        SUM(CASE WHEN times_status = 'ok' AND iqama_quality IN ('bad', 'placeholder') THEN 1 ELSE 0 END) AS iqama_bad,
+        SUM(CASE WHEN times_status = 'duplicate' THEN 1 ELSE 0 END) AS duplicates
+      FROM source_discoveries WHERE source = ?`).bind(SOURCE).first();
+    quality = q || null;
+  } catch (e) { /* quality columns not added yet */ }
+  const active = !!(state && state.heartbeat_at && state.mode !== 'paused' &&
+    Date.now() - Date.parse(state.heartbeat_at) < 3 * 60000);
+  return { ok: true, active, changes7d, quality, state };
 }
