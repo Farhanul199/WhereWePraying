@@ -119,11 +119,10 @@
   .weather .hilo{font-size:11px;color:var(--text-dim);text-align:right;}
   .weather .temp{font-size:38px;font-weight:800;margin:2px 0;}
   .weather .cond{font-size:12px;color:var(--text-dim);}
-  .weather-icon{font-size:30px;display:inline-block;}
-  .weather-icon.sun{animation:xp1-sun-glow 4s ease-in-out infinite;}
-  .weather-icon.cloud{animation:xp1-cloud-drift 6s ease-in-out infinite;}
-  @keyframes xp1-sun-glow{0%,100%{filter:drop-shadow(0 0 0 rgba(244,113,78,0));}50%{filter:drop-shadow(0 0 10px rgba(244,113,78,.45));}}
-  @keyframes xp1-cloud-drift{0%,100%{transform:translateX(0);}50%{transform:translateX(4px);}}
+  /* Real Meteocons SVGs — animation lives inside the SVG file itself
+     (SMIL/CSS), so no extra keyframes needed here, just sizing. */
+  .weather-icon{width:52px;height:52px;display:inline-block;vertical-align:middle;object-fit:contain;}
+  .weather[data-state="loading"] .w-body{opacity:.4;}
   .hourly{display:flex;justify-content:space-between;margin-top:14px;}
   .hourly .h{text-align:center;font-size:11px;color:var(--text-dim);}
   .hourly .h .t{font-weight:700;color:var(--text);margin-top:3px;}
@@ -131,6 +130,8 @@
   .weather[data-state="error"] .w-body,.weather[data-state="offline"] .w-body{display:none;}
   .weather[data-state="error"] .w-error,.weather[data-state="offline"] .w-error{display:block;}
   .weather[data-state="offline"] .w-error::after{content:" (showing last known)";}
+  .umbrella-banner{display:none;margin-top:12px;background:var(--coral-soft);color:var(--coral-dark);font-size:12px;font-weight:700;padding:9px 12px;border-radius:var(--r-sm);text-align:center;}
+  .umbrella-banner.show{display:block;}
 
   /* ---- Journal ---- */
   .journal{flex:1;display:flex;flex-direction:column;min-height:0;}
@@ -298,22 +299,18 @@
 
     <!-- RIGHT COLUMN -->
     <div class="col">
-      <div class="card weather focusable" data-group="weather" data-widget="weather" data-state="success" tabindex="-1">
+      <div class="card weather focusable" data-group="weather" data-widget="weather" data-state="loading" tabindex="-1">
         <div class="w-body">
           <div class="whead">
             <div>
-              <h2>📍 London</h2>
-              <div class="temp"><span class="weather-icon sun">☀️</span> 18°C</div>
-              <div class="cond">Partly cloudy</div>
+              <h2 id="weatherPlace">📍 —</h2>
+              <div class="temp"><img class="weather-icon" id="weatherIcon" src="" alt=""> <span id="weatherTemp">--°C</span></div>
+              <div class="cond" id="weatherCond">—</div>
             </div>
-            <div class="hilo">H: 20°<br>L: 12°</div>
+            <div class="hilo" id="weatherHiLo">H: --°<br>L: --°</div>
           </div>
-          <div class="hourly">
-            <div class="h">1pm<div class="t">19°</div></div>
-            <div class="h">4pm<div class="t">20°</div></div>
-            <div class="h">7pm<div class="t">17°</div></div>
-            <div class="h">10pm<div class="t">14°</div></div>
-          </div>
+          <div class="hourly" id="weatherHourly"></div>
+          <div class="umbrella-banner" id="umbrellaBanner"></div>
         </div>
         <div class="w-error">Weather unavailable</div>
       </div>
@@ -487,6 +484,179 @@ XP1.setLocation = function(label){
 })();
 
 /* =========================================================
+   7. PHASE 3 — WEATHER (Open-Meteo)
+      Saved coordinates -> Open-Meteo -> cache -> widget.
+      Fetch fails -> show last cached weather.
+      No cache at all -> "Weather unavailable" (never blank).
+   ========================================================= */
+window.XP1Weather = (function(){
+  var CACHE_KEY = 'xp1_weather';
+  var REFRESH_MS = 30 * 60 * 1000; // 30 min — plenty fresh, avoids hammering the API on an always-on TV
+  var refreshTimer = null;
+
+  // 'icon' is the Meteocons base filename. Where it contains "day" it has
+  // a matching "-night" sibling (self-hosted at assets/xp1/icons/weather/,
+  // 37 files pulled from the official @meteocons/svg package — animation
+  // is baked into each SVG, nothing extra needed here). A handful of
+  // codes intentionally share an icon (e.g. slight vs moderate rain both
+  // use partly-cloudy/overcast-rain) rather than shipping one file per
+  // WMO code — keeps the icon set small without losing meaning.
+  var ICON_PATH = '/assets/xp1/icons/weather/';
+  var WMO = {
+    0:  { text:'Clear sky',            icon:'clear-day' },
+    1:  { text:'Mostly clear',         icon:'clear-day' },
+    2:  { text:'Partly cloudy',        icon:'partly-cloudy-day' },
+    3:  { text:'Overcast',             icon:'overcast-day' },
+    45: { text:'Foggy',                icon:'fog-day' },
+    48: { text:'Foggy',                icon:'fog-day' },
+    51: { text:'Light drizzle',        icon:'partly-cloudy-day-drizzle' },
+    53: { text:'Drizzle',              icon:'overcast-day-drizzle' },
+    55: { text:'Heavy drizzle',        icon:'extreme-day-drizzle' },
+    56: { text:'Freezing drizzle',     icon:'overcast-day-sleet' },
+    57: { text:'Freezing drizzle',     icon:'extreme-day-sleet' },
+    61: { text:'Light rain',           icon:'partly-cloudy-day-rain' },
+    63: { text:'Rain',                 icon:'overcast-day-rain' },
+    65: { text:'Heavy rain',           icon:'extreme-day-rain' },
+    66: { text:'Freezing rain',        icon:'overcast-day-sleet' },
+    67: { text:'Freezing rain',        icon:'extreme-day-sleet' },
+    71: { text:'Light snow',           icon:'partly-cloudy-day-snow' },
+    73: { text:'Snow',                 icon:'overcast-day-snow' },
+    75: { text:'Heavy snow',           icon:'extreme-day-snow' },
+    77: { text:'Snow grains',          icon:'snow' },
+    80: { text:'Rain showers',         icon:'partly-cloudy-day-rain' },
+    81: { text:'Rain showers',         icon:'overcast-day-rain' },
+    82: { text:'Heavy showers',        icon:'extreme-day-rain' },
+    85: { text:'Snow showers',         icon:'partly-cloudy-day-snow' },
+    86: { text:'Snow showers',         icon:'extreme-day-snow' },
+    95: { text:'Thunderstorm',         icon:'thunderstorms-day' },
+    96: { text:'Thunderstorm (hail)',  icon:'thunderstorms-day-hail' },
+    99: { text:'Severe thunderstorm',  icon:'thunderstorms-extreme-day-hail' }
+  };
+  function iconFileFor(code, isDay){
+    var base = (WMO[code] || WMO[3]).icon;
+    if(isDay === 0 && base.indexOf('day') > -1) return base.replace('day', 'night');
+    return base;
+  }
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+
+  function condFor(code){ return WMO[code] || { text:'—', icon:'overcast-day' }; }
+
+  function fetchWithTimeout(url, ms){
+    var controller = new AbortController();
+    var t = setTimeout(function(){ controller.abort(); }, ms);
+    return fetch(url, { signal: controller.signal }).finally(function(){ clearTimeout(t); });
+  }
+
+  async function fetchWeather(loc){
+    var url = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=' + loc.lat + '&longitude=' + loc.lon
+      + '&current=temperature_2m,weather_code,is_day'
+      + '&hourly=temperature_2m,weather_code,precipitation_probability'
+      + '&daily=temperature_2m_max,temperature_2m_min'
+      + '&timezone=auto&forecast_days=2&temperature_unit=celsius';
+    var res = await fetchWithTimeout(url, 6000);
+    if(!res.ok) throw new Error('weather http ' + res.status);
+    var data = await res.json();
+    if(!data || !data.current) throw new Error('weather: no current block');
+
+    var nowIso = data.current.time; // "YYYY-MM-DDTHH:MM"
+    var times = data.hourly.time;
+    var startIdx = times.indexOf(nowIso);
+    if(startIdx < 0) startIdx = 0;
+    var hourly = [];
+    for(var step = 1; step <= 4 && hourly.length < 4; step++){
+      var idx = startIdx + step * 3; // every 3h, matches the original 1pm/4pm/7pm/10pm spacing
+      if(idx >= times.length) break;
+      var hourLabel = new Date(times[idx]).toLocaleTimeString('en-GB', { hour:'numeric', hour12:true }).replace(' ', '').toLowerCase();
+      hourly.push({ label: hourLabel, temp: Math.round(data.hourly.temperature_2m[idx]) });
+    }
+
+    // Umbrella nudge: scan the next 6 hours (not just the 4 sampled display
+    // slots) for the first hour where rain probability crosses 50%.
+    var umbrella = null;
+    var UMBRELLA_THRESHOLD = 50;
+    for(var u = startIdx; u < Math.min(startIdx + 6, times.length); u++){
+      var pop = data.hourly.precipitation_probability ? data.hourly.precipitation_probability[u] : null;
+      if(typeof pop === 'number' && pop >= UMBRELLA_THRESHOLD){
+        umbrella = {
+          pop: pop,
+          when: u === startIdx ? 'now' : new Date(times[u]).toLocaleTimeString('en-GB', { hour:'numeric', hour12:true }).replace(' ', '').toLowerCase()
+        };
+        break;
+      }
+    }
+
+    return {
+      place: loc.label || 'Your location',
+      temp: Math.round(data.current.temperature_2m),
+      cond: condFor(data.current.weather_code),
+      iconFile: iconFileFor(data.current.weather_code, data.current.is_day),
+      hi: data.daily ? Math.round(data.daily.temperature_2m_max[0]) : null,
+      lo: data.daily ? Math.round(data.daily.temperature_2m_min[0]) : null,
+      hourly: hourly,
+      umbrella: umbrella,
+      fetchedAt: Date.now()
+    };
+  }
+
+  function render(w){
+    document.getElementById('weatherPlace').textContent = '📍 ' + w.place;
+    document.getElementById('weatherTemp').textContent = w.temp + '°C';
+    document.getElementById('weatherCond').textContent = w.cond.text;
+    var iconEl = document.getElementById('weatherIcon');
+    iconEl.src = ICON_PATH + (w.iconFile || w.cond.icon) + '.svg';
+    iconEl.alt = w.cond.text;
+    document.getElementById('weatherHiLo').innerHTML = 'H: ' + (w.hi != null ? w.hi + '°' : '--°') + '<br>L: ' + (w.lo != null ? w.lo + '°' : '--°');
+    var hourlyEl = document.getElementById('weatherHourly');
+    hourlyEl.innerHTML = '';
+    w.hourly.forEach(function(h){
+      var div = document.createElement('div');
+      div.className = 'h';
+      div.innerHTML = h.label + '<div class="t">' + h.temp + '°</div>';
+      hourlyEl.appendChild(div);
+    });
+    var banner = document.getElementById('umbrellaBanner');
+    if(w.umbrella){
+      var whenText = w.umbrella.when === 'now' ? 'now' : ('around ' + w.umbrella.when);
+      banner.textContent = '☂️ You might need an umbrella — rain likely ' + whenText;
+      banner.classList.add('show');
+    } else {
+      banner.classList.remove('show');
+    }
+    if(window.XP1) XP1.setState('weather', 'success');
+  }
+
+  async function refresh(loc){
+    if(!loc || typeof loc.lat !== 'number') return;
+    lastLoc = loc;
+    if(window.XP1) XP1.setState('weather', 'loading');
+    try{
+      var fresh = await fetchWeather(loc);
+      xp1Set(CACHE_KEY, fresh);
+      render(fresh);
+    }catch(e){
+      var cached = xp1Get(CACHE_KEY, null);
+      if(cached){ render(cached); }
+      else if(window.XP1){ XP1.setState('weather', 'error'); }
+    }
+    if(refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function(){ refresh(loc); }, REFRESH_MS);
+  }
+
+  var lastLoc = null;
+  window.addEventListener('online', function(){
+    if(lastLoc) refresh(lastLoc);
+  });
+
+  return { refresh: refresh };
+})();
+
+/* =========================================================
    6. PHASE 2 — FIRST-RUN LOCATION + REMOTE-FRIENDLY POSTCODE ENTRY
       Geocoding logic (regex, endpoints, coord rounding) is copied
       verbatim from assets/js/features/find-a-mosque.js so XP1 stays
@@ -542,6 +712,7 @@ XP1.setLocation = function(label){
   function applyLocation(loc){
     xp1Set(LOC_KEY, loc);
     XP1.setLocation(loc.label);
+    if(window.XP1Weather) XP1Weather.refresh(loc);
     closeOverlay();
   }
 
@@ -682,10 +853,12 @@ XP1.setLocation = function(label){
   var saved = xp1Get(LOC_KEY, null);
   if(saved && typeof saved.lat === 'number'){
     XP1.setLocation(saved.label || 'Saved location');
+    if(window.XP1Weather) XP1Weather.refresh(saved);
   } else {
     openOverlay();
   }
 })();
+
 </script>
 </body>
 </html>
