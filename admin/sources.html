@@ -179,6 +179,7 @@
     <div class="bar"><i id="bar"></i></div>
     <p class="hint" id="coverageNote" style="font-weight:600;color:var(--text);"></p>
     <p class="hint" id="workerHint"></p>
+    <div class="status" id="runnerStatus"></div>
 
     <div class="actions">
       <button class="ghost" id="recheckBtn">Recheck now</button>
@@ -389,6 +390,7 @@
     $('progressLine').style.display = noTimes ? 'none' : '';
     $('bar').parentElement.style.display = noTimes ? 'none' : '';
     $('recheckBtn').style.display = noTimes ? 'none' : '';
+    showRunner();
     $('failedWrap').classList.toggle('hidden', noTimes || !s.failed);
     $('failedTable').classList.add('hidden');
     $('failedStatus').textContent = '';
@@ -641,6 +643,27 @@
       : 'Nothing pending right now — the background worker is already caught up.');
     refresh();
   });
+
+  /* ----------------------------------------------------------- runner */
+  // Read-only status of the mawaqit-runner Worker.
+  async function showRunner(){
+    var el = $('runnerStatus');
+    if (SOURCE !== 'mawaqit') { el.textContent = ''; el.className = 'status'; return; }
+    var d = await api('/api/admin/scrape-mawaqit?mode=status');
+    var st = d && d.state;
+    if (!d || d.error || !st) { el.textContent = 'Smart runner: not running yet.'; el.className = 'status err'; return; }
+    var parts = ['Smart runner: ' + (d.active ? (st.mode || 'running') : 'offline')];
+    if (st.rate) parts.push('speed ' + Math.round(st.rate) + '/min');
+    parts.push('today ' + (st.day_fetches || 0) + ' requests');
+    if (d.changes7d != null) parts.push(d.changes7d + ' timetable changes this week');
+    var q = d.quality;
+    if (q && q.good != null) parts.push('quality ' + (q.good || 0) + ' good / ' + (q.warn || 0) + ' warn / ' + (q.bad || 0) + ' bad');
+    if (q && q.iqama_bad) parts.push(q.iqama_bad + " with unreliable jama'ah");
+    if (q && q.duplicates) parts.push(q.duplicates + ' duplicates skipped');
+    if (st.cooldown_until && Date.parse(st.cooldown_until) > Date.now()) parts.push('paused until ' + new Date(st.cooldown_until).toLocaleTimeString());
+    el.textContent = parts.join(' \u00b7 ') + (st.last_note ? ' \u2014 ' + st.last_note : '');
+    el.className = 'status ' + (d.active ? 'ok' : 'err');
+  }
 
   /* ----------------------------------------------------------- failed */
   // Retrying failed rows re-runs mode=times with retry=1, which every
