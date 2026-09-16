@@ -151,12 +151,52 @@
     z-index:2;
     position:relative;
   }
+
+  /* ===== Phase 2 — first-run location overlay ===== */
+  .xp1-overlay{display:none;position:absolute;inset:0;z-index:50;background:rgba(36,28,21,.55);align-items:center;justify-content:center;}
+  .xp1-overlay.open{display:flex;}
+  .overlay-card{width:900px;background:var(--surface);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(0,0,0,.35);padding:44px;text-align:center;}
+  .overlay-card h2{font-size:26px;font-weight:800;margin-bottom:10px;}
+  .overlay-card p{font-size:14px;color:var(--text-dim);max-width:560px;margin:0 auto 24px;line-height:1.5;}
+  .overlay-actions{display:flex;gap:14px;justify-content:center;}
+  .overlay-btn{padding:14px 26px;border-radius:var(--r-sm);font-weight:700;font-size:14px;background:var(--coral-soft);color:var(--coral-dark);}
+  .overlay-btn.secondary{background:var(--surface-alt);color:var(--text-dim);}
+  .postcode-display{font-size:24px;font-weight:800;letter-spacing:3px;background:var(--surface-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px;min-height:24px;color:var(--text);}
+  .postcode-display .placeholder{color:var(--text-faint);font-weight:600;letter-spacing:normal;}
+  .keypad{display:none;}
+  .keypad.open{display:block;}
+  .keypad-row{display:flex;justify-content:center;gap:8px;margin-bottom:8px;}
+  .key{width:52px;height:52px;border-radius:var(--r-sm);background:var(--surface-alt);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;}
+  .key.wide{width:150px;font-size:13px;}
+  .key.accent{background:var(--coral-soft);color:var(--coral-dark);}
+  .postcode-error{color:var(--red);font-size:13px;font-weight:700;margin-top:12px;min-height:16px;}
+  .postcode-loading{color:var(--text-dim);font-size:13px;font-weight:700;margin-top:12px;min-height:16px;}
 </style>
 </head>
 <body>
 
 <div id="xp1-viewport">
 <div id="xp1-canvas">
+
+  <div class="xp1-overlay" id="firstRunOverlay">
+    <div class="overlay-card">
+      <div id="welcomeStep">
+        <h2>Welcome to WhereWePraying TV</h2>
+        <p>Set your location to personalise prayer times, nearby mosques and weather.</p>
+        <div class="overlay-actions">
+          <div class="overlay-btn focusable" id="btnEnterPostcode" tabindex="-1">Enter postcode</div>
+          <div class="overlay-btn secondary focusable" id="btnUseLondon" tabindex="-1">Use London instead</div>
+        </div>
+      </div>
+      <div id="postcodeStep" style="display:none;">
+        <h2>Enter your postcode</h2>
+        <div class="postcode-display" id="postcodeDisplay"><span class="placeholder">e.g. IG2 7HS or E14</span></div>
+        <div class="keypad open" id="keypad"></div>
+        <div class="postcode-error" id="postcodeError"></div>
+        <div class="postcode-loading" id="postcodeLoading" style="display:none;">Looking up your postcode…</div>
+      </div>
+    </div>
+  </div>
 
   <header data-group="header">
     <img class="xp1-logo" src="/assets/logo.png" alt="WhereWePraying">
@@ -427,6 +467,7 @@ XP1.setLocation = function(label){
   }
 
   document.addEventListener('keydown', function(e){
+    if(window.XP1 && XP1.modalOpen) return; // overlay/keypad has its own handler
     switch(e.key){
       case 'ArrowRight': move('right'); e.preventDefault(); break;
       case 'ArrowLeft':  move('left');  e.preventDefault(); break;
@@ -439,9 +480,211 @@ XP1.setLocation = function(label){
   });
 
   window.addEventListener('load', function(){
+    if(window.XP1 && XP1.modalOpen) return;
     var first = document.querySelector('.focusable');
     if(first) first.focus();
   });
+})();
+
+/* =========================================================
+   6. PHASE 2 — FIRST-RUN LOCATION + REMOTE-FRIENDLY POSTCODE ENTRY
+      Geocoding logic (regex, endpoints, coord rounding) is copied
+      verbatim from assets/js/features/find-a-mosque.js so XP1 stays
+      consistent with the main site's postcode data source rather
+      than standing up a second one.
+   ========================================================= */
+(function(){
+  var LOC_KEY = 'xp1_location';
+  var POSTCODES_IO_BASE = 'https://api.postcodes.io';
+  var FULL_POSTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\d[A-Za-z]{2}$/;
+  var OUTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?$/;
+  var LONDON_FALLBACK = { lat:51.507, lon:-0.128, label:'London, UK', source:'fallback' };
+
+  function roundCoord(n){ return Math.round(n * 1000) / 1000; }
+
+  function xp1Get(key, fallback){
+    try{
+      var raw = localStorage.getItem(key);
+      if(raw === null || raw === undefined) return fallback;
+      try{ return JSON.parse(raw); }catch(e){ return fallback; }
+    }catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+  }
+
+  function fetchWithTimeout(url, opts, ms){
+    var controller = new AbortController();
+    var t = setTimeout(function(){ controller.abort(); }, ms);
+    return fetch(url, Object.assign({}, opts, { signal: controller.signal }))
+      .finally(function(){ clearTimeout(t); });
+  }
+
+  async function geocodePostcode(compact){
+    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/postcodes/' + encodeURIComponent(compact), null, 6000);
+    if(!res.ok) return null;
+    var data = await res.json();
+    var r = data && data.result;
+    if(!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    return { lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
+      label: [r.admin_ward, r.admin_district].filter(Boolean).join(', ') || r.postcode, source:'manual' };
+  }
+  async function geocodeOutcode(compact){
+    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/outcodes/' + encodeURIComponent(compact), null, 6000);
+    if(!res.ok) return null;
+    var data = await res.json();
+    var r = data && data.result;
+    if(!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    return { lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
+      label: (r.admin_district && r.admin_district[0]) ? r.admin_district[0] : (r.outcode || compact), source:'manual' };
+  }
+
+  function applyLocation(loc){
+    xp1Set(LOC_KEY, loc);
+    XP1.setLocation(loc.label);
+    closeOverlay();
+  }
+
+  // ---- overlay open/close ----
+  var overlay = document.getElementById('firstRunOverlay');
+  var welcomeStep = document.getElementById('welcomeStep');
+  var postcodeStep = document.getElementById('postcodeStep');
+
+  function openOverlay(){
+    overlay.classList.add('open');
+    XP1.modalOpen = true;
+    document.getElementById('btnEnterPostcode').focus();
+  }
+  function closeOverlay(){
+    overlay.classList.remove('open');
+    XP1.modalOpen = false;
+    var first = document.querySelector('.focusable');
+    if(first) first.focus();
+  }
+
+  // ---- on-screen keypad (2D grid, dedicated nav while overlay is open) ----
+  var typed = '';
+  var display = document.getElementById('postcodeDisplay');
+  var errorEl = document.getElementById('postcodeError');
+  var loadingEl = document.getElementById('postcodeLoading');
+  var KEY_ROWS = [
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['A','B','C','D','E','F','G','H','I','J','K','L','M'],
+    ['N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
+    ['SPACE','BACK','CLEAR','DONE']
+  ];
+  var keypadEl = document.getElementById('keypad');
+  KEY_ROWS.forEach(function(row, rIdx){
+    var rowEl = document.createElement('div');
+    rowEl.className = 'keypad-row';
+    row.forEach(function(k, cIdx){
+      var btn = document.createElement('div');
+      btn.className = 'key focusable' + (['SPACE','BACK','CLEAR','DONE'].indexOf(k) > -1 ? ' wide accent' : '');
+      btn.textContent = k === 'SPACE' ? 'Space' : k === 'BACK' ? '⌫' : k === 'CLEAR' ? 'Clear' : k === 'DONE' ? 'Done ✓' : k;
+      btn.tabIndex = -1;
+      btn.dataset.row = rIdx; btn.dataset.col = cIdx;
+      btn.addEventListener('click', function(){ pressKey(k); });
+      rowEl.appendChild(btn);
+    });
+    keypadEl.appendChild(rowEl);
+  });
+
+  function renderDisplay(){
+    display.innerHTML = typed ? typed : '<span class="placeholder">e.g. IG2 7HS or E14</span>';
+  }
+  function pressKey(k){
+    errorEl.textContent = '';
+    if(k === 'SPACE'){ if(typed.length && typed.slice(-1) !== ' ') typed += ' '; }
+    else if(k === 'BACK'){ typed = typed.slice(0, -1); }
+    else if(k === 'CLEAR'){ typed = ''; }
+    else if(k === 'DONE'){ submitPostcode(); return; }
+    else if(typed.replace(/\s/g,'').length < 8){ typed += k; }
+    renderDisplay();
+  }
+
+  async function submitPostcode(){
+    var compact = typed.replace(/\s+/g, '').toUpperCase();
+    if(!compact){ errorEl.textContent = 'Enter a postcode first.'; return; }
+    errorEl.textContent = '';
+    loadingEl.style.display = 'block';
+    try{
+      var result = null;
+      if(FULL_POSTCODE_RE.test(compact)) result = await geocodePostcode(compact);
+      else if(OUTCODE_RE.test(compact)) result = await geocodeOutcode(compact);
+      loadingEl.style.display = 'none';
+      if(result){ applyLocation(result); }
+      else{ errorEl.textContent = 'Postcode not found — check it and try again.'; }
+    }catch(e){
+      loadingEl.style.display = 'none';
+      errorEl.textContent = 'Network error — check your connection and try again.';
+    }
+  }
+
+  // Dedicated 2D nav for the keypad grid, active only while the postcode
+  // step is showing. Deliberately separate from the dashboard's group nav.
+  function keypadMove(dir){
+    var active = document.activeElement;
+    if(!active || active.dataset.row === undefined){
+      var firstKey = keypadEl.querySelector('.key');
+      if(firstKey) firstKey.focus();
+      return;
+    }
+    var r = parseInt(active.dataset.row, 10), c = parseInt(active.dataset.col, 10);
+    var rows = KEY_ROWS;
+    if(dir === 'left') c -= 1;
+    if(dir === 'right') c += 1;
+    if(dir === 'up') r -= 1;
+    if(dir === 'down') r += 1;
+    r = Math.max(0, Math.min(rows.length - 1, r));
+    var rowLen = rows[r].length;
+    c = Math.max(0, Math.min(rowLen - 1, c));
+    var target = keypadEl.querySelector('.key[data-row="' + r + '"][data-col="' + c + '"]');
+    if(target) target.focus();
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(!(window.XP1 && XP1.modalOpen)) return;
+    var onWelcome = welcomeStep.style.display !== 'none';
+    if(onWelcome){
+      if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+        var a = document.getElementById('btnEnterPostcode'), b = document.getElementById('btnUseLondon');
+        (document.activeElement === a ? b : a).focus();
+        e.preventDefault();
+      } else if(e.key === 'Enter'){
+        if(document.activeElement && document.activeElement.click) document.activeElement.click();
+      }
+      return;
+    }
+    // postcode/keypad step
+    switch(e.key){
+      case 'ArrowLeft': keypadMove('left'); e.preventDefault(); break;
+      case 'ArrowRight': keypadMove('right'); e.preventDefault(); break;
+      case 'ArrowUp': keypadMove('up'); e.preventDefault(); break;
+      case 'ArrowDown': keypadMove('down'); e.preventDefault(); break;
+      case 'Enter':
+        if(document.activeElement && document.activeElement.click) document.activeElement.click();
+        break;
+    }
+  });
+
+  document.getElementById('btnEnterPostcode').addEventListener('click', function(){
+    welcomeStep.style.display = 'none';
+    postcodeStep.style.display = 'block';
+    renderDisplay();
+    var firstKey = keypadEl.querySelector('.key');
+    if(firstKey) firstKey.focus();
+  });
+  document.getElementById('btnUseLondon').addEventListener('click', function(){
+    applyLocation(LONDON_FALLBACK);
+  });
+
+  // ---- init: skip straight to dashboard if a location is already saved ----
+  var saved = xp1Get(LOC_KEY, null);
+  if(saved && typeof saved.lat === 'number'){
+    XP1.setLocation(saved.label || 'Saved location');
+  } else {
+    openOverlay();
+  }
 })();
 </script>
 </body>
