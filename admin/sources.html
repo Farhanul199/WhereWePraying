@@ -150,6 +150,15 @@
       <p class="hint">Masjidal has no "list all mosques" API — IDs only show up as widget embeds on a mosque's own site. Paste in mosque website URLs and this fetches each page and scans it for one. No mosque name/address comes back from Masjidal itself, so these rows stay unnamed until matched to a mosque record separately.</p>
     </div>
 
+    <div id="jsonlWrap" class="hidden">
+      <label for="jsonlInput">DITIB mosque list (JSONL file)</label>
+      <input type="file" id="jsonlInput" accept=".jsonl,.ndjson,.txt,text/plain">
+      <div class="actions">
+        <button id="jsonlBtn">1. Import JSONL</button>
+      </div>
+      <p class="hint">One JSON object per line — name, street, postcode, city, phone, website, email. Address only, no coordinates and no prayer times — re-upload a newer export any time to refresh.</p>
+    </div>
+
     <div id="manualAllWrap" class="hidden">
       <div class="actions" style="margin-top:10px;">
         <button class="ghost" id="findManualAllBtn">Find every supported country</button>
@@ -256,6 +265,14 @@
       coverage: 'current',
       coverageNote: 'Single submitted schedule (salah + separate iqamah times), not a full calendar. No name/address/coordinates come from Masjidal - discovered rows are location-blank until matched to a mosque record.',
       timesLimit: 10
+    },
+    ditib: {
+      label: 'DITIB (Germany)',
+      endpoint: 'scrape-ditib',
+      discovery: 'importJsonl',      // JSONL upload, no API discovery at all
+      coverage: 'none',
+      coverageNote: 'Location only - DITIB has no central prayer-time API, so times are never fetched for this source. No coordinates in the source data either, so these mosques need geocoding separately before they can appear on a map. Shows "No live prayer time available" on the live site, same as MuslimsInBritain.',
+      timesLimit: 0
     }
   };
 
@@ -339,6 +356,7 @@
     var showManualAll = c.discovery === 'countryManual';
     var byImport = c.discovery === 'import';
     var byUrlList = c.discovery === 'urlList';
+    var byJsonl = c.discovery === 'importJsonl';
     $('countryRow').style.display     = byCountry ? '' : 'none';
     $('continentWrap').style.display  = showContinents ? '' : 'none';
     if (showContinents) renderContinents(s.countries || []);
@@ -347,10 +365,11 @@
       $('manualAllHint').textContent = 'Runs "Find mosques" for all ' + (c.manualCodes || []).length +
         ' supported countries, one after another (about 7 seconds each). Keep the tab open.';
     }
-    $('discoverBtn').style.display    = (byImport || byUrlList) ? 'none' : '';
+    $('discoverBtn').style.display    = (byImport || byUrlList || byJsonl) ? 'none' : '';
     $('importWrap').classList.toggle('hidden', !byImport);
     $('urlListWrap').classList.toggle('hidden', !byUrlList);
-    if (!byImport && !byUrlList) {
+    $('jsonlWrap').classList.toggle('hidden', !byJsonl);
+    if (!byImport && !byUrlList && !byJsonl) {
       $('discoverBtn').textContent      = (byCountry && showContinents) ? '1. Find mosques' : (byCountry ? '1. Find mosques for this country' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')');
       $('discoverHint').textContent     = showContinents
         ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
@@ -559,6 +578,31 @@
     if (!res.ok || data.error) { say($('runStatus'), data.error || 'Scan failed.', true); return; }
     say($('runStatus'), 'Checked ' + fmt(data.urlsChecked || 0) + ' URLs · found ' + fmt(data.rowsSaved || 0) +
       ' mosque(s)' + (data.skipped ? ' · ' + data.skipped + ' had no widget' : '') + '. Timetables will fill in automatically in the background.');
+    refresh();
+  });
+
+  /* ---------------------------------------------------------- jsonl import */
+  $('jsonlBtn').addEventListener('click', async function(){
+    var file = $('jsonlInput').files[0];
+    if (!file) { say($('runStatus'), 'Choose a JSONL file first.', true); return; }
+    $('jsonlBtn').disabled = true;
+    say($('runStatus'), 'Uploading and importing ' + file.name + '…');
+    var text = await file.text();
+    var res, data;
+    try {
+      res = await fetch('/api/admin/' + cfg().endpoint + '?mode=import', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'text/plain' }, headers()),
+        body: text
+      });
+      data = await res.json();
+    } catch (e) {
+      $('jsonlBtn').disabled = false;
+      say($('runStatus'), 'Network problem.', true); return;
+    }
+    $('jsonlBtn').disabled = false;
+    if (!res.ok || data.error) { say($('runStatus'), data.error || 'Import failed.', true); return; }
+    say($('runStatus'), 'Imported ' + fmt(data.imported || 0) + ' mosques' + (data.skipped ? ' · ' + data.skipped + ' rows skipped' : '') + '.');
     refresh();
   });
 
