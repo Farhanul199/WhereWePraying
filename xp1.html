@@ -86,8 +86,8 @@
   }
   .next-prayer > *{position:relative;z-index:1;}
   .next-prayer .label{font-size:0.875rem;color:rgba(255,255,255,.9);font-weight:600;letter-spacing:0.03rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);margin-top:0.5rem;}
-  .next-prayer .name{font-size:2.25rem;font-weight:700;margin:0.5rem 0 0.25rem;color:#fff;text-shadow:0 0.125rem 0.625rem rgba(0,0,0,.4);}
-  .next-prayer .countdown-label{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-top:0.75rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
+  .next-prayer .name{font-size:2.25rem;font-weight:700;margin:1.25rem 0 0.25rem;color:#fff;text-shadow:0 0.125rem 0.625rem rgba(0,0,0,.4);}
+  .next-prayer .countdown-label{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-top:auto;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
   .next-prayer .countdown{font-size:2.75rem;font-weight:800;color:var(--coral);text-shadow:0 0.125rem 0.75rem rgba(0,0,0,.5);}
   .next-prayer .at{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-bottom:0.5rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
   .notify-btn{width:100%;margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:0.9375rem;font-weight:700;font-size:0.9375rem;}
@@ -100,7 +100,7 @@
   .view-full{margin-top:0.375rem;display:flex;justify-content:space-between;align-items:center;padding:0.6875rem 0.75rem;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:0.8125rem;}
 
   /* ---- YouTube / Islamic Reminders ---- */
-  .reminders{display:flex;flex-direction:column;flex:1.3;min-height:0;}
+  .reminders{display:flex;flex-direction:column;flex:5;min-height:0;}
   .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;}
   .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:62.4375rem;padding:0.5625rem 1rem;font-weight:700;font-size:0.75rem;}
   .video-row{display:flex;gap:1rem;flex:1;min-height:0;}
@@ -127,7 +127,7 @@
   /* ---- Nearby Mosques ---- */
   .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:0.625rem;margin-top:0.75rem;}
   .mosque-row[data-state="loading"]{opacity:.5;}
-  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:0.5625rem;display:flex;flex-direction:column;gap:0.1875rem;aspect-ratio:1/0.95;}
+  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:0.5625rem;display:flex;flex-direction:column;gap:0.1875rem;aspect-ratio:1/0.68;}
   .mcard .name{font-size:0.625rem;font-weight:800;line-height:1.2;}
   .mcard .dist{font-size:0.5625rem;color:var(--text-dim);}
   .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:0.5625rem;font-weight:700;padding:0.1875rem 0.375rem;border-radius:0.375rem;text-align:center;}
@@ -141,7 +141,8 @@
   @keyframes xp1-urgent-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 
   /* ---- Bottom widget row ---- */
-  .bottom-strip{display:flex;padding:0;}
+  .mosques-card{flex:0 0 auto;}
+  .bottom-strip{display:flex;padding:0;flex:0 0 auto;}
   .bseg{flex:1;padding:1rem 1.125rem;display:flex;flex-direction:column;gap:0.3125rem;border-right:0.0625rem solid var(--border);}
   .bseg:last-child{border-right:none;}
   .bseg .btitle{font-size:0.8125rem;font-weight:800;}
@@ -298,7 +299,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card mosques-card">
         <h2>📍 Nearby Mosques</h2>
         <div class="mosque-row" data-group="mosques" data-widget="mosques" data-state="loading" id="mosqueRow">
           <div class="mcard"><div class="m-body"><div class="name">Loading nearby mosques…</div></div></div>
