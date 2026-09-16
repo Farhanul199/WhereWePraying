@@ -55,16 +55,33 @@
   .col{display:flex;flex-direction:column;gap:16px;min-height:0;}
 
   /* ---- Next Prayer ---- */
-  .next-prayer{text-align:center;padding:24px 18px;background:linear-gradient(180deg,var(--surface-alt),var(--surface));}
-  .next-prayer .label{font-size:12px;color:var(--text-dim);font-weight:700;letter-spacing:.4px;}
-  .next-prayer .name{font-size:30px;font-weight:800;margin:6px 0 2px;}
-  .next-prayer .countdown-label{font-size:12px;color:var(--text-dim);margin-top:8px;}
-  .next-prayer .countdown{font-size:36px;font-weight:800;color:var(--coral-dark);}
-  .next-prayer .at{font-size:12px;color:var(--text-dim);margin-bottom:12px;}
+  .next-prayer{
+    text-align:center;padding:24px 18px;position:relative;overflow:hidden;
+    background-size:cover;background-position:center;
+    background-color:var(--surface-alt); /* shows briefly before the image paints */
+    transition:background-image .4s ease;
+  }
+  .next-prayer[data-prayer="fajr"]{background-image:url('/assets/xp1/artwork/next-prayer/fajr.webp');}
+  .next-prayer[data-prayer="dhuhr"]{background-image:url('/assets/xp1/artwork/next-prayer/dhuhr.webp');}
+  .next-prayer[data-prayer="asr"]{background-image:url('/assets/xp1/artwork/next-prayer/asr.webp');}
+  .next-prayer[data-prayer="maghrib"]{background-image:url('/assets/xp1/artwork/next-prayer/maghrib.webp');}
+  .next-prayer[data-prayer="isha"]{background-image:url('/assets/xp1/artwork/next-prayer/isha.webp');}
+  .next-prayer::before{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg, rgba(20,16,12,.12) 0%, rgba(20,16,12,.32) 55%, rgba(20,16,12,.6) 100%);
+    z-index:0;
+  }
+  .next-prayer > *{position:relative;z-index:1;}
+  .next-prayer .label{font-size:12px;color:rgba(255,255,255,.85);font-weight:700;letter-spacing:.4px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .next-prayer .name{font-size:30px;font-weight:800;margin:6px 0 2px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .next-prayer .countdown-label{font-size:12px;color:rgba(255,255,255,.85);margin-top:8px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .next-prayer .countdown{font-size:36px;font-weight:800;color:var(--coral);text-shadow:0 2px 10px rgba(0,0,0,.45);}
+  .next-prayer .at{font-size:12px;color:rgba(255,255,255,.85);margin-bottom:12px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
   .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:12px;font-weight:700;font-size:13px;}
 
   /* ---- Timetable ---- */
   .timetable{flex:1;display:flex;flex-direction:column;gap:2px;}
+  .next-prayer[data-state="loading"] .name,.next-prayer[data-state="loading"] .countdown{opacity:.55;}
   .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r-sm);font-weight:700;font-size:14px;color:var(--text-dim);}
   .row.active{background:var(--coral-soft);color:var(--coral-dark);}
   .view-full{margin-top:6px;display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:13px;}
@@ -219,21 +236,21 @@
 
     <!-- LEFT COLUMN -->
     <div class="col">
-      <div class="card next-prayer" data-group="nextprayer">
+      <div class="card next-prayer" data-group="nextprayer" data-widget="prayer" data-state="loading" id="nextPrayerCard">
         <div class="label">NEXT PRAYER</div>
-        <div class="name">☀️ Dhuhr</div>
-        <div class="countdown-label">Jama'ah in</div>
-        <div class="countdown" id="countdown">00:17:26</div>
-        <div class="at">at 12:52</div>
+        <div class="name" id="nextPrayerName">—</div>
+        <div class="countdown-label" id="countdownLabel">Begins in</div>
+        <div class="countdown" id="countdown">--:--:--</div>
+        <div class="at" id="nextPrayerAt">—</div>
         <button class="notify-btn focusable" tabindex="-1">🔔 Notify me before prayer</button>
       </div>
 
       <div class="card timetable" data-group="timetable">
-        <div class="row"><span>🌙 Fajr</span><span>05:28</span></div>
-        <div class="row active"><span>☀️ Dhuhr</span><span>12:52</span></div>
-        <div class="row"><span>🌤️ Asr</span><span>16:23</span></div>
-        <div class="row"><span>🌇 Maghrib</span><span>19:18</span></div>
-        <div class="row"><span>🌙 Isha</span><span>20:43</span></div>
+        <div class="row" id="rowFajr"><span>🌙 Fajr</span><span id="timeFajr">--:--</span></div>
+        <div class="row" id="rowDhuhr"><span>☀️ Dhuhr</span><span id="timeDhuhr">--:--</span></div>
+        <div class="row" id="rowAsr"><span>🌤️ Asr</span><span id="timeAsr">--:--</span></div>
+        <div class="row" id="rowMaghrib"><span>🌇 Maghrib</span><span id="timeMaghrib">--:--</span></div>
+        <div class="row" id="rowIsha"><span>🌙 Isha</span><span id="timeIsha">--:--</span></div>
         <div class="view-full focusable" tabindex="-1"><span>📅 View Full Timetable</span><span>→</span></div>
       </div>
     </div>
@@ -657,6 +674,154 @@ window.XP1Weather = (function(){
 })();
 
 /* =========================================================
+   8. PHASE 4 — PRAYER (Al Adhan)
+      Reuses the exact endpoint/date-format/default method already
+      used by assets/js/features/prayer-times.js (method=3, Muslim
+      World League) rather than standing up a second calculation
+      path. Deliberately NOT loading that file directly — it's wired
+      to the main site's DOM/geolocation UI, which don't exist here.
+
+      Important distinction kept honest on purpose: this shows
+      computed Adhan (start) times from Al Adhan, not real Jama'ah
+      times — XP1 has no mosque selected yet to source those from,
+      and this project's whole position (see jamaah-data-accuracy-
+      plan) is that only a mosque's own committee knows its real
+      Jama'ah policy. So the label says "Begins in", not "Jama'ah
+      in", until a later phase lets XP1 follow a specific mosque.
+   ========================================================= */
+window.XP1Prayer = (function(){
+  var CACHE_KEY = 'xp1_prayer';
+  var API_BASE = 'https://api.aladhan.com/v1';
+  var METHOD = 3; // Muslim World League — same default as prayer-times.js
+  var PRAYERS = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+  var ICONS = { Fajr:'🌙', Dhuhr:'☀️', Asr:'🌤️', Maghrib:'🌇', Isha:'🌙' };
+  var tickTimer = null;
+  var lastLoc = null;
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+
+  function fetchWithTimeout(url, ms){
+    var controller = new AbortController();
+    var t = setTimeout(function(){ controller.abort(); }, ms);
+    return fetch(url, { signal: controller.signal, cache:'no-store' }).finally(function(){ clearTimeout(t); });
+  }
+  function dateStr(d){
+    return String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+  }
+
+  async function fetchDay(d, loc){
+    var url = API_BASE + '/timings/' + dateStr(d) + '?latitude=' + loc.lat + '&longitude=' + loc.lon + '&method=' + METHOD;
+    var res = await fetchWithTimeout(url, 6000);
+    if(!res.ok) throw new Error('prayer http ' + res.status);
+    var data = await res.json();
+    if(!data.data || !data.data.timings) throw new Error('prayer: unexpected response');
+    var t = data.data.timings;
+    var timings = {};
+    PRAYERS.forEach(function(p){ timings[p] = (t[p] || '').split(' ')[0]; });
+    return timings;
+  }
+
+  function timeToday(hhmm, base){
+    var parts = hhmm.split(':');
+    var d = new Date(base);
+    d.setHours(parseInt(parts[0],10), parseInt(parts[1],10), 0, 0);
+    return d;
+  }
+
+  // Walk today's five prayers against "now": the next one whose time is
+  // still ahead is "next"; the one just before it is "active" (currently
+  // in that prayer's window). If we're past today's Isha, next prayer is
+  // tomorrow's Fajr, fetched separately so the countdown stays accurate
+  // across midnight rather than reusing today's Fajr time as a guess.
+  async function computeNext(todayTimings, loc){
+    var now = new Date();
+    var todayDates = PRAYERS.map(function(p){ return { name:p, time: timeToday(todayTimings[p], now) }; });
+    for(var i = 0; i < todayDates.length; i++){
+      if(todayDates[i].time > now){
+        return { next: todayDates[i], active: i > 0 ? todayDates[i-1].name : null };
+      }
+    }
+    // Past Isha — next prayer is tomorrow's Fajr.
+    var tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+    var cacheKey = CACHE_KEY + '_tomorrow_fajr_' + dateStr(tomorrow);
+    var fajrTime = xp1Get(cacheKey, null);
+    if(!fajrTime){
+      var tomorrowTimings = await fetchDay(tomorrow, loc);
+      fajrTime = tomorrowTimings.Fajr;
+      xp1Set(cacheKey, fajrTime);
+    }
+    var fajrDate = timeToday(fajrTime, tomorrow);
+    return { next: { name:'Fajr', time: fajrDate }, active: 'Isha' };
+  }
+
+  function render(todayTimings, next, active){
+    PRAYERS.forEach(function(p){
+      var el = document.getElementById('time' + p);
+      if(el) el.textContent = todayTimings[p] || '--:--';
+      var row = document.getElementById('row' + p);
+      if(row) row.classList.toggle('active', p === active);
+    });
+    var card = document.getElementById('nextPrayerCard');
+    card.dataset.prayer = next.name.toLowerCase();
+    document.getElementById('nextPrayerName').textContent = ICONS[next.name] + ' ' + next.name;
+    document.getElementById('nextPrayerAt').textContent = 'at ' + next.time.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    tick(next.time);
+    if(tickTimer) clearInterval(tickTimer);
+    tickTimer = setInterval(function(){ tick(next.time); }, 1000);
+    if(window.XP1) XP1.setState('prayer', 'success');
+  }
+
+  function tick(targetDate){
+    var diff = targetDate.getTime() - Date.now();
+    var el = document.getElementById('countdown');
+    if(diff <= 0){
+      el.textContent = '00:00:00';
+      // The window has arrived — recompute against fresh data rather
+      // than letting the countdown run negative.
+      if(lastLoc) refresh(lastLoc);
+      return;
+    }
+    var totalSec = Math.floor(diff / 1000);
+    var hh = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+    var mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+    var ss = String(totalSec % 60).padStart(2,'0');
+    el.textContent = hh + ':' + mm + ':' + ss;
+  }
+
+  async function refresh(loc){
+    if(!loc || typeof loc.lat !== 'number') return;
+    lastLoc = loc;
+    if(window.XP1) XP1.setState('prayer', 'loading');
+    var todayKey = CACHE_KEY + '_' + dateStr(new Date());
+    try{
+      var timings = xp1Get(todayKey, null);
+      if(!timings){
+        timings = await fetchDay(new Date(), loc);
+        xp1Set(todayKey, timings);
+      }
+      var result = await computeNext(timings, loc);
+      render(timings, result.next, result.active);
+    }catch(e){
+      var cached = xp1Get(todayKey, null);
+      if(cached){
+        try{
+          var result2 = await computeNext(cached, loc);
+          render(cached, result2.next, result2.active);
+        }catch(e2){ if(window.XP1) XP1.setState('prayer', 'error'); }
+      } else if(window.XP1){ XP1.setState('prayer', 'error'); }
+    }
+  }
+
+  window.addEventListener('online', function(){ if(lastLoc) refresh(lastLoc); });
+
+  return { refresh: refresh };
+})();
+
+/* =========================================================
    6. PHASE 2 — FIRST-RUN LOCATION + REMOTE-FRIENDLY POSTCODE ENTRY
       Geocoding logic (regex, endpoints, coord rounding) is copied
       verbatim from assets/js/features/find-a-mosque.js so XP1 stays
@@ -713,6 +878,7 @@ window.XP1Weather = (function(){
     xp1Set(LOC_KEY, loc);
     XP1.setLocation(loc.label);
     if(window.XP1Weather) XP1Weather.refresh(loc);
+    if(window.XP1Prayer) XP1Prayer.refresh(loc);
     closeOverlay();
   }
 
@@ -854,6 +1020,7 @@ window.XP1Weather = (function(){
   if(saved && typeof saved.lat === 'number'){
     XP1.setLocation(saved.label || 'Saved location');
     if(window.XP1Weather) XP1Weather.refresh(saved);
+    if(window.XP1Prayer) XP1Prayer.refresh(saved);
   } else {
     openOverlay();
   }
