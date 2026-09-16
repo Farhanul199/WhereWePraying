@@ -56,10 +56,12 @@
 
   /* ---- Next Prayer ---- */
   .next-prayer{
+    flex:1; /* dominates the left column now — taller box shows far more of the artwork */
     text-align:center;padding:24px 18px;position:relative;overflow:hidden;
     background-size:cover;background-position:center;
     background-color:var(--surface-alt); /* shows briefly before the image paints */
     transition:background-image .4s ease;
+    display:flex;flex-direction:column;justify-content:flex-end;
   }
   .next-prayer[data-prayer="fajr"]{background-image:url('/assets/xp1/artwork/next-prayer/fajr.webp');}
   .next-prayer[data-prayer="dhuhr"]{background-image:url('/assets/xp1/artwork/next-prayer/dhuhr.webp');}
@@ -80,11 +82,11 @@
   .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:12px;font-weight:700;font-size:13px;}
 
   /* ---- Timetable ---- */
-  .timetable{flex:1;display:flex;flex-direction:column;gap:2px;}
+  .timetable{flex:0 0 auto;display:flex;flex-direction:column;gap:1px;padding:12px 14px;}
   .next-prayer[data-state="loading"] .name,.next-prayer[data-state="loading"] .countdown{opacity:.55;}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r-sm);font-weight:700;font-size:14px;color:var(--text-dim);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:var(--r-sm);font-weight:700;font-size:12px;color:var(--text-dim);}
   .row.active{background:var(--coral-soft);color:var(--coral-dark);}
-  .view-full{margin-top:6px;display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:13px;}
+  .view-full{margin-top:4px;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:11px;}
 
   /* ---- YouTube / Islamic Reminders ---- */
   .reminders{display:flex;flex-direction:column;flex:1.3;min-height:0;}
@@ -114,34 +116,36 @@
   .plitem .meta .s{font-size:10px;color:var(--text-dim);}
 
   /* ---- Nearby Mosques ---- */
-  .mosque-row{display:flex;gap:12px;margin-top:12px;}
+  .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:12px;}
   .mosque-row[data-state="loading"]{opacity:.5;}
-  .mcard{flex:1;background:var(--surface-alt);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:5px;min-height:76px;}
-  .mcard .name{font-size:12px;font-weight:800;}
-  .mcard .dist{font-size:10px;color:var(--text-dim);}
-  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:10px;font-weight:700;padding:5px 7px;border-radius:8px;text-align:center;}
+  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:10px;display:flex;flex-direction:column;gap:4px;aspect-ratio:1/0.85;}
+  .mcard .name{font-size:11px;font-weight:800;line-height:1.25;}
+  .mcard .dist{font-size:9px;color:var(--text-dim);}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:9px;font-weight:700;padding:4px 6px;border-radius:7px;text-align:center;}
   .mcard .next.unconfirmed{background:var(--surface);color:var(--text-dim);font-weight:600;}
-  .mcard .mymosque-badge{font-size:9px;font-weight:800;color:var(--coral-dark);letter-spacing:.3px;}
+  .mcard .mymosque-badge{font-size:8px;font-weight:800;color:var(--coral-dark);letter-spacing:.3px;}
 
   /* ---- Bottom widget row ---- */
-  .bottom-row{display:flex;gap:14px;}
-  .bcard{flex:1;background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px;}
-  .bcard .bicon{font-size:18px;}
-  .bcard .btitle{font-size:12px;font-weight:800;}
-  .bcard .bdesc{font-size:11px;color:var(--text-dim);line-height:1.4;}
+  .bottom-strip{display:flex;padding:0;}
+  .bseg{flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--border);}
+  .bseg:last-child{border-right:none;}
+  .bseg .btitle{font-size:13px;font-weight:800;}
+  .bseg .bdesc{font-size:11px;color:var(--text-dim);line-height:1.4;}
 
   /* ---- Weather ---- */
+  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;}
   .weather .whead{display:flex;justify-content:space-between;align-items:flex-start;}
-  .weather .hilo{font-size:11px;color:var(--text-dim);text-align:right;}
-  .weather .temp{font-size:38px;font-weight:800;margin:2px 0;}
-  .weather .cond{font-size:12px;color:var(--text-dim);}
+  .weather h2{font-size:20px;}
+  .weather .hilo{font-size:14px;color:var(--text-dim);text-align:right;}
+  .weather .temp{font-size:64px;font-weight:800;margin:8px 0;}
+  .weather .cond{font-size:16px;color:var(--text-dim);}
   /* Real Meteocons SVGs — animation lives inside the SVG file itself
      (SMIL/CSS), so no extra keyframes needed here, just sizing. */
-  .weather-icon{width:52px;height:52px;display:inline-block;vertical-align:middle;object-fit:contain;}
+  .weather-icon{width:84px;height:84px;display:inline-block;vertical-align:middle;object-fit:contain;}
   .weather[data-state="loading"] .w-body{opacity:.4;}
-  .hourly{display:flex;justify-content:space-between;margin-top:14px;}
-  .hourly .h{text-align:center;font-size:11px;color:var(--text-dim);}
-  .hourly .h .t{font-weight:700;color:var(--text);margin-top:3px;}
+  .hourly{display:flex;justify-content:space-between;margin-top:24px;}
+  .hourly .h{text-align:center;font-size:13px;color:var(--text-dim);}
+  .hourly .h .t{font-weight:700;color:var(--text);font-size:15px;margin-top:4px;}
   .weather .w-error{display:none;font-size:12px;color:var(--text-dim);text-align:center;padding:10px 0;}
   .weather[data-state="error"] .w-body,.weather[data-state="offline"] .w-body{display:none;}
   .weather[data-state="error"] .w-error,.weather[data-state="offline"] .w-error{display:block;}
@@ -150,9 +154,10 @@
   .umbrella-banner.show{display:block;}
 
   /* ---- Journal ---- */
-  .journal{flex:1;display:flex;flex-direction:column;min-height:0;}
-  .journal-quote{font-style:italic;font-size:13px;color:var(--text-dim);margin:8px 0 12px;line-height:1.4;}
-  .check-item{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:12px;font-weight:600;}
+  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:16px 20px;}
+  .journal h2{font-size:14px;}
+  .journal-quote{font-style:italic;font-size:11px;color:var(--text-dim);margin:6px 0 8px;line-height:1.35;}
+  .check-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px;font-weight:600;}
   .check-item .dot{width:18px;height:18px;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
   .check-item.pending .dot{background:transparent;border:2px solid var(--border);}
 
@@ -290,11 +295,11 @@
         </div>
       </div>
 
-      <div class="bottom-row" data-group="bottom">
-        <div class="bcard focusable" tabindex="-1"><span class="bicon">🤲</span><span class="btitle">Du'a</span><span class="bdesc">A short du'a for right now</span></div>
-        <div class="bcard focusable" tabindex="-1"><span class="bicon">📜</span><span class="btitle">Hadith of the Day</span><span class="bdesc">One verified narration, daily</span></div>
-        <div class="bcard focusable" tabindex="-1"><span class="bicon">💭</span><span class="btitle">Reminder</span><span class="bdesc">A short reflection</span></div>
-        <div class="bcard focusable" tabindex="-1"><span class="bicon">📆</span><span class="btitle">Islamic Calendar</span><span class="bdesc">Today's Hijri date &amp; events</span></div>
+      <div class="card bottom-strip" data-group="bottom">
+        <div class="bseg focusable" tabindex="-1"><span class="btitle">Du'a</span><span class="bdesc">A short du'a for right now</span></div>
+        <div class="bseg focusable" tabindex="-1"><span class="btitle">Hadith of the Day</span><span class="bdesc">One verified narration, daily</span></div>
+        <div class="bseg focusable" tabindex="-1"><span class="btitle">Reminder</span><span class="bdesc">A short reflection</span></div>
+        <div class="bseg focusable" tabindex="-1"><span class="btitle">Islamic Calendar</span><span class="bdesc">Today's Hijri date &amp; events</span></div>
       </div>
     </div>
 
@@ -921,7 +926,7 @@ window.XP1Prayer = (function(){
    ========================================================= */
 window.XP1Mosques = (function(){
   var CACHE_KEY = 'xp1_mosques';
-  var SHOW_COUNT = 2; // matches the two card slots already in the layout
+  var SHOW_COUNT = 4; // matches the 4-up square card grid
 
   function xp1Get(key, fallback){
     try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
