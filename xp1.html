@@ -16,48 +16,59 @@
     --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
     --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2; --beam:#F9BE9E;
     --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896;
-    --border:#EFE1CC; --shadow:0 10px 28px rgba(60,42,24,.07);
+    --border:#EFE1CC; --shadow:0 0.625rem 1.75rem rgba(60,42,24,.07);
     --green:#4C9A6A; --green-soft:#DCEFE2;
     --amber:#D79A3C; --amber-soft:#F6E7CB;
     --red:#D8654A; --red-soft:#F7DCD2;
-    --r-lg:26px; --r-md:18px; --r-sm:12px;
+    --r-lg:1.625rem; --r-md:1.125rem; --r-sm:0.75rem;
   }
   *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',sans-serif;}
+  html{
+    /* The single scaling knob for the whole page. At exactly 1920x1080
+       this resolves to 1rem (this stylesheet's original reference
+       size), so nothing looks different on a normal 1080p TV. On
+       anything else — a laptop window, a 4K or 70" TV — every rem
+       value below scales with it. min() of the width- and height-based
+       versions means it scales down on a cramped dimension instead of
+       overflowing, so nothing ever gets cropped or top/bottom-cut, and
+       because the canvas itself is a plain 100vw x 100vh box (no fixed
+       size, no transform), it always fills the screen edge-to-edge —
+       no gaps either. Replaces the old JS transform:scale() approach.
+    */
+    font-size: min(0.8333vw, 1.4815vh);
+  }
   html,body{width:100%;height:100%;background:#000;overflow:hidden;}
 
-  /* ===== Master canvas: fixed 1920x1080 logical design, scaled to fit
-     any 16:9-ish viewport (720p / 1080p / 4K / browser window) without
-     cropping or distorting proportions. See scaleCanvas() below. ===== */
-  #xp1-viewport{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;}
-  #xp1-canvas{width:1920px;height:1080px;flex:none;position:relative;transform-origin:center center;background:var(--bg);color:var(--text);padding:40px;display:flex;flex-direction:column;gap:20px;}
+  #xp1-viewport{width:100vw;height:100vh;background:var(--bg);overflow:hidden;}
+  #xp1-canvas{width:100%;height:100%;background:var(--bg);color:var(--text);padding:2.5rem;display:flex;flex-direction:column;gap:1.25rem;}
 
   /* ===== Header ===== */
-  header{display:flex;align-items:center;gap:20px;}
-  .xp1-logo{height:52px;width:auto;}
-  .brand h1{font-size:28px;font-weight:800;letter-spacing:-.4px;}
-  .brand .tag{font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;}
-  .datetime{margin-left:20px;font-size:15px;color:var(--text);}
-  .datetime .clock{font-size:28px;font-weight:800;margin-left:12px;}
-  .datetime .loc{display:block;font-size:13px;color:var(--text-dim);margin-top:2px;}
+  header{display:flex;align-items:center;gap:1.25rem;}
+  .xp1-logo{height:3.25rem;width:auto;}
+  .brand h1{font-size:1.75rem;font-weight:800;letter-spacing:-0.03rem;}
+  .brand .tag{font-size:0.6875rem;color:var(--text-dim);font-weight:700;letter-spacing:0.03rem;}
+  .datetime{margin-left:1.25rem;font-size:0.9375rem;color:var(--text);}
+  .datetime .clock{font-size:1.75rem;font-weight:800;margin-left:0.75rem;}
+  .datetime .loc{display:block;font-size:0.8125rem;color:var(--text-dim);margin-top:0.125rem;}
   .spacer{flex:1;}
-  .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);font-weight:600;margin-right:14px;}
-  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .status-pill{display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;color:var(--text-dim);font-weight:600;margin-right:0.875rem;}
+  .status-dot{width:0.4375rem;height:0.4375rem;border-radius:50%;background:var(--green);}
   .status-pill.offline .status-dot{background:var(--red);}
-  .icon-btn{width:44px;height:44px;border-radius:var(--r-sm);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:var(--shadow);}
+  .icon-btn{width:2.75rem;height:2.75rem;border-radius:var(--r-sm);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:1.0625rem;box-shadow:var(--shadow);}
 
   /* ===== Shared card ===== */
-  .card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px;}
-  .card h2{font-size:16px;font-weight:800;}
-  .card .sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:1.25rem;}
+  .card h2{font-size:1rem;font-weight:800;}
+  .card .sub{font-size:0.6875rem;color:var(--text-dim);margin-top:0.125rem;}
 
   /* ===== Body grid: left / center / right, matches spec section 4 ===== */
-  .body-grid{flex:1;display:grid;grid-template-columns:320px 1fr 320px;gap:20px;min-height:0;}
-  .col{display:flex;flex-direction:column;gap:16px;min-height:0;}
+  .body-grid{flex:1;display:grid;grid-template-columns:20rem 1fr 20rem;gap:1.25rem;min-height:0;}
+  .col{display:flex;flex-direction:column;gap:1rem;min-height:0;}
 
   /* ---- Next Prayer ---- */
   .next-prayer{
     flex:1; /* dominates the left column now — taller box shows far more of the artwork */
-    text-align:center;padding:32px 24px;position:relative;overflow:hidden;
+    text-align:center;padding:2.75rem 1.5rem 2rem;position:relative;overflow:hidden;
     background-size:cover;background-position:center;
     background-color:var(--surface-alt); /* shows briefly before the image paints */
     transition:background-image .4s ease;
@@ -74,55 +85,55 @@
     z-index:0;
   }
   .next-prayer > *{position:relative;z-index:1;}
-  .next-prayer .label{font-size:16px;color:rgba(255,255,255,.9);font-weight:700;letter-spacing:.6px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .next-prayer .name{font-size:46px;font-weight:800;margin:10px 0 4px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.4);}
-  .next-prayer .countdown-label{font-size:15px;color:rgba(255,255,255,.9);margin-top:14px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .next-prayer .countdown{font-size:58px;font-weight:800;color:var(--coral);text-shadow:0 2px 12px rgba(0,0,0,.5);}
-  .next-prayer .at{font-size:15px;color:rgba(255,255,255,.9);margin-bottom:18px;text-shadow:0 1px 4px rgba(0,0,0,.35);}
-  .notify-btn{width:100%;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:15px;font-weight:700;font-size:15px;}
+  .next-prayer .label{font-size:0.875rem;color:rgba(255,255,255,.9);font-weight:600;letter-spacing:0.03rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);margin-top:0.5rem;}
+  .next-prayer .name{font-size:2.25rem;font-weight:700;margin:0.5rem 0 0.25rem;color:#fff;text-shadow:0 0.125rem 0.625rem rgba(0,0,0,.4);}
+  .next-prayer .countdown-label{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-top:0.75rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
+  .next-prayer .countdown{font-size:2.75rem;font-weight:800;color:var(--coral);text-shadow:0 0.125rem 0.75rem rgba(0,0,0,.5);}
+  .next-prayer .at{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-bottom:0.5rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
+  .notify-btn{width:100%;margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:0.9375rem;font-weight:700;font-size:0.9375rem;}
 
   /* ---- Timetable ---- */
-  .timetable{flex:0 0 auto;display:flex;flex-direction:column;gap:2px;padding:16px 18px;}
+  .timetable{flex:0 0 auto;display:flex;flex-direction:column;gap:0.125rem;padding:1rem 1.125rem;}
   .next-prayer[data-state="loading"] .name,.next-prayer[data-state="loading"] .countdown{opacity:.55;}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:var(--r-sm);font-weight:700;font-size:15px;color:var(--text-dim);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:0.5625rem 0.75rem;border-radius:var(--r-sm);font-weight:700;font-size:0.9375rem;color:var(--text-dim);}
   .row.active{background:var(--coral-soft);color:var(--coral-dark);}
-  .view-full{margin-top:6px;display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:13px;}
+  .view-full{margin-top:0.375rem;display:flex;justify-content:space-between;align-items:center;padding:0.6875rem 0.75rem;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:0.8125rem;}
 
   /* ---- YouTube / Islamic Reminders ---- */
   .reminders{display:flex;flex-direction:column;flex:1.3;min-height:0;}
-  .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-  .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:999px;padding:9px 16px;font-weight:700;font-size:12px;}
-  .video-row{display:flex;gap:16px;flex:1;min-height:0;}
+  .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;}
+  .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:62.4375rem;padding:0.5625rem 1rem;font-weight:700;font-size:0.75rem;}
+  .video-row{display:flex;gap:1rem;flex:1;min-height:0;}
   .video-frame{flex:1;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
   .video-frame #ytPlayer{position:absolute;inset:0;z-index:2;}
-  .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:18px;color:#fff;}
+  .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:1.125rem;color:#fff;}
   .video-frame[data-state="success"] .state-success{display:flex;}
   .video-frame[data-state="loading"] .state-loading{display:flex;align-items:center;justify-content:center;}
-  .video-frame[data-state="error"] .state-error{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;}
-  .video-frame[data-state="offline"] .state-offline{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;}
+  .video-frame[data-state="error"] .state-error{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;text-align:center;}
+  .video-frame[data-state="offline"] .state-offline{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;text-align:center;}
   .video-frame .state-success::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
   .video-frame .vinfo{position:relative;z-index:1;}
-  .video-frame .vinfo .title{font-size:18px;font-weight:800;}
-  .video-frame .vinfo .speaker{font-size:11px;opacity:.85;margin-top:3px;}
-  .play-badge{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:16px;z-index:1;color:#fff;}
-  .state-loading .spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:xp1-spin 1s linear infinite;}
+  .video-frame .vinfo .title{font-size:1.125rem;font-weight:800;}
+  .video-frame .vinfo .speaker{font-size:0.6875rem;opacity:.85;margin-top:0.1875rem;}
+  .play-badge{position:absolute;top:0.875rem;right:0.875rem;width:2.5rem;height:2.5rem;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1rem;z-index:1;color:#fff;}
+  .state-loading .spinner{width:1.75rem;height:1.75rem;border-radius:50%;border:0.1875rem solid rgba(255,255,255,.2);border-top-color:#fff;animation:xp1-spin 1s linear infinite;}
   @keyframes xp1-spin{to{transform:rotate(360deg);}}
-  .state-error, .state-offline{color:rgba(255,255,255,.85);font-size:13px;}
-  .state-error .big, .state-offline .big{font-size:26px;}
+  .state-error, .state-offline{color:rgba(255,255,255,.85);font-size:0.8125rem;}
+  .state-error .big, .state-offline .big{font-size:1.625rem;}
 
   /* .playlist / .plitem removed — Phase 7 dropped the fabricated per-video
      sidebar in favour of the real embedded player's own YouTube playlist UI */
 
   /* ---- Nearby Mosques ---- */
-  .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:12px;}
+  .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:0.625rem;margin-top:0.75rem;}
   .mosque-row[data-state="loading"]{opacity:.5;}
-  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:9px;display:flex;flex-direction:column;gap:3px;aspect-ratio:1/0.95;}
-  .mcard .name{font-size:10px;font-weight:800;line-height:1.2;}
-  .mcard .dist{font-size:9px;color:var(--text-dim);}
-  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:9px;font-weight:700;padding:3px 6px;border-radius:6px;text-align:center;}
+  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:0.5625rem;display:flex;flex-direction:column;gap:0.1875rem;aspect-ratio:1/0.95;}
+  .mcard .name{font-size:0.625rem;font-weight:800;line-height:1.2;}
+  .mcard .dist{font-size:0.5625rem;color:var(--text-dim);}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:0.5625rem;font-weight:700;padding:0.1875rem 0.375rem;border-radius:0.375rem;text-align:center;}
   .mcard .next.unconfirmed{background:var(--surface);color:var(--text-dim);font-weight:600;}
-  .mcard .mymosque-badge{font-size:8px;font-weight:800;color:var(--coral-dark);letter-spacing:.3px;}
-  .mcard .leaveby{font-size:8px;font-weight:700;text-align:center;padding:3px 6px;border-radius:6px;}
+  .mcard .mymosque-badge{font-size:0.5rem;font-weight:800;color:var(--coral-dark);letter-spacing:0.02rem;}
+  .mcard .leaveby{font-size:0.5rem;font-weight:700;text-align:center;padding:0.1875rem 0.375rem;border-radius:0.375rem;}
   .mcard .leaveby.calm{background:var(--green-soft);color:var(--green);}
   .mcard .leaveby.soon{background:var(--amber-soft);color:var(--amber);}
   .mcard .leaveby.urgent{background:var(--red-soft);color:var(--red);animation:xp1-urgent-pulse 1.6s ease-in-out infinite;}
@@ -131,47 +142,47 @@
 
   /* ---- Bottom widget row ---- */
   .bottom-strip{display:flex;padding:0;}
-  .bseg{flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--border);}
+  .bseg{flex:1;padding:1rem 1.125rem;display:flex;flex-direction:column;gap:0.3125rem;border-right:0.0625rem solid var(--border);}
   .bseg:last-child{border-right:none;}
-  .bseg .btitle{font-size:13px;font-weight:800;}
-  .bseg .bdesc{font-size:11px;color:var(--text-dim);line-height:1.4;}
+  .bseg .btitle{font-size:0.8125rem;font-weight:800;}
+  .bseg .bdesc{font-size:0.6875rem;color:var(--text-dim);line-height:1.4;}
 
   /* ---- Weather ---- */
-  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;padding:28px;}
+  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;padding:1.75rem;}
   .weather .whead{display:flex;justify-content:space-between;align-items:flex-start;}
-  .weather h2{font-size:20px;}
-  .weather .hilo{font-size:14px;color:var(--text-dim);text-align:right;}
-  .weather .temp{font-size:64px;font-weight:800;margin:8px 0;}
-  .weather .cond{font-size:16px;color:var(--text-dim);}
+  .weather h2{font-size:1.25rem;}
+  .weather .hilo{font-size:0.875rem;color:var(--text-dim);text-align:right;}
+  .weather .temp{font-size:4rem;font-weight:800;margin:0.5rem 0;}
+  .weather .cond{font-size:1rem;color:var(--text-dim);}
   /* Real Meteocons SVGs — animation lives inside the SVG file itself
      (SMIL/CSS), so no extra keyframes needed here, just sizing. */
-  .weather-icon{width:84px;height:84px;display:inline-block;vertical-align:middle;object-fit:contain;}
+  .weather-icon{width:5.25rem;height:5.25rem;display:inline-block;vertical-align:middle;object-fit:contain;}
   .weather[data-state="loading"] .w-body{opacity:.4;}
-  .hourly{display:flex;justify-content:space-between;margin-top:24px;}
-  .hourly .h{text-align:center;font-size:13px;color:var(--text-dim);}
-  .hourly .h .t{font-weight:700;color:var(--text);font-size:15px;margin-top:4px;}
-  .weather .w-error{display:none;font-size:12px;color:var(--text-dim);text-align:center;padding:10px 0;}
+  .hourly{display:flex;justify-content:space-between;margin-top:1.5rem;}
+  .hourly .h{text-align:center;font-size:0.8125rem;color:var(--text-dim);}
+  .hourly .h .t{font-weight:700;color:var(--text);font-size:0.9375rem;margin-top:0.25rem;}
+  .weather .w-error{display:none;font-size:0.75rem;color:var(--text-dim);text-align:center;padding:0.625rem 0;}
   .weather[data-state="error"] .w-body,.weather[data-state="offline"] .w-body{display:none;}
   .weather[data-state="error"] .w-error,.weather[data-state="offline"] .w-error{display:block;}
   .weather[data-state="offline"] .w-error::after{content:" (showing last known)";}
-  .umbrella-banner{display:none;margin-top:12px;background:var(--coral-soft);color:var(--coral-dark);font-size:12px;font-weight:700;padding:9px 12px;border-radius:var(--r-sm);text-align:center;}
+  .umbrella-banner{display:none;margin-top:0.75rem;background:var(--coral-soft);color:var(--coral-dark);font-size:0.75rem;font-weight:700;padding:0.5625rem 0.75rem;border-radius:var(--r-sm);text-align:center;}
   .umbrella-banner.show{display:block;}
 
   /* ---- Journal ---- */
-  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:16px 20px;}
-  .journal h2{font-size:14px;}
-  .journal-quote{font-style:italic;font-size:11px;color:var(--text-dim);margin:6px 0 8px;line-height:1.35;}
-  .check-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px;font-weight:600;}
-  .check-item .dot{width:18px;height:18px;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
-  .check-item.pending .dot{background:transparent;border:2px solid var(--border);}
+  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:1rem 1.25rem;}
+  .journal h2{font-size:0.875rem;}
+  .journal-quote{font-style:italic;font-size:0.6875rem;color:var(--text-dim);margin:0.375rem 0 0.5rem;line-height:1.35;}
+  .check-item{display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;font-size:0.6875rem;font-weight:600;}
+  .check-item .dot{width:1.125rem;height:1.125rem;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:0.625rem;flex-shrink:0;}
+  .check-item.pending .dot{background:transparent;border:0.125rem solid var(--border);}
 
-  footer{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-dim);}
+  footer{display:flex;justify-content:space-between;align-items:center;font-size:0.6875rem;color:var(--text-dim);}
 
   /* ===== Focus design — refined per spec section 12.
-     Subtle: thin ring + soft lift + tiny scale, NOT a thick 4px border. ===== */
+     Subtle: thin ring + soft lift + tiny scale, NOT a thick 0.25rem border. ===== */
   .focusable{outline:none;cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;}
   .focusable:focus{
-    box-shadow:0 0 0 2px var(--coral), 0 14px 30px rgba(60,42,24,.14);
+    box-shadow:0 0 0 0.125rem var(--coral), 0 0.875rem 1.875rem rgba(60,42,24,.14);
     filter:brightness(1.03);
     transform:scale(1.015);
     z-index:2;
@@ -181,22 +192,22 @@
   /* ===== Phase 2 — first-run location overlay ===== */
   .xp1-overlay{display:none;position:absolute;inset:0;z-index:50;background:rgba(36,28,21,.55);align-items:center;justify-content:center;}
   .xp1-overlay.open{display:flex;}
-  .overlay-card{width:900px;background:var(--surface);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(0,0,0,.35);padding:44px;text-align:center;}
-  .overlay-card h2{font-size:26px;font-weight:800;margin-bottom:10px;}
-  .overlay-card p{font-size:14px;color:var(--text-dim);max-width:560px;margin:0 auto 24px;line-height:1.5;}
-  .overlay-actions{display:flex;gap:14px;justify-content:center;}
-  .overlay-btn{padding:14px 26px;border-radius:var(--r-sm);font-weight:700;font-size:14px;background:var(--coral-soft);color:var(--coral-dark);}
+  .overlay-card{width:56.25rem;background:var(--surface);border-radius:var(--r-lg);box-shadow:0 1.5rem 3.75rem rgba(0,0,0,.35);padding:2.75rem;text-align:center;}
+  .overlay-card h2{font-size:1.625rem;font-weight:800;margin-bottom:0.625rem;}
+  .overlay-card p{font-size:0.875rem;color:var(--text-dim);max-width:35rem;margin:0 auto 1.5rem;line-height:1.5;}
+  .overlay-actions{display:flex;gap:0.875rem;justify-content:center;}
+  .overlay-btn{padding:0.875rem 1.625rem;border-radius:var(--r-sm);font-weight:700;font-size:0.875rem;background:var(--coral-soft);color:var(--coral-dark);}
   .overlay-btn.secondary{background:var(--surface-alt);color:var(--text-dim);}
-  .postcode-display{font-size:24px;font-weight:800;letter-spacing:3px;background:var(--surface-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px;min-height:24px;color:var(--text);}
+  .postcode-display{font-size:1.5rem;font-weight:800;letter-spacing:0.1875rem;background:var(--surface-alt);border-radius:var(--r-sm);padding:0.875rem;margin-bottom:1.125rem;min-height:1.5rem;color:var(--text);}
   .postcode-display .placeholder{color:var(--text-faint);font-weight:600;letter-spacing:normal;}
   .keypad{display:none;}
   .keypad.open{display:block;}
-  .keypad-row{display:flex;justify-content:center;gap:8px;margin-bottom:8px;}
-  .key{width:52px;height:52px;border-radius:var(--r-sm);background:var(--surface-alt);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;}
-  .key.wide{width:150px;font-size:13px;}
+  .keypad-row{display:flex;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;}
+  .key{width:3.25rem;height:3.25rem;border-radius:var(--r-sm);background:var(--surface-alt);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;}
+  .key.wide{width:9.375rem;font-size:0.8125rem;}
   .key.accent{background:var(--coral-soft);color:var(--coral-dark);}
-  .postcode-error{color:var(--red);font-size:13px;font-weight:700;margin-top:12px;min-height:16px;}
-  .postcode-loading{color:var(--text-dim);font-size:13px;font-weight:700;margin-top:12px;min-height:16px;}
+  .postcode-error{color:var(--red);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
+  .postcode-loading{color:var(--text-dim);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
 </style>
 </head>
 <body>
@@ -343,22 +354,12 @@
 <script>
 /* =========================================================
    1. MASTER CANVAS SCALING
+      Now pure CSS (see the html{font-size:...} rule in <style>) —
+      no JS needed. The canvas is 100vw x 100vh always (never gaps,
+      never crops), and every size in this stylesheet is in rem, so
+      it scales smoothly from a laptop window to a 70" TV via the
+      root font-size alone.
    ========================================================= */
-(function(){
-  var canvas = document.getElementById('xp1-canvas');
-  function scaleCanvas(){
-    // Math.max (not .min): always fills the viewport edge-to-edge, cropping
-    // any overflow rather than letterboxing. On a real 16:9 TV this and
-    // Math.min produce the exact same result (vw/1920 === vh/1080), so
-    // this only changes behaviour when testing in a non-16:9 browser
-    // window — which is exactly where the gaps were coming from.
-    var scale = Math.max(window.innerWidth / 1920, window.innerHeight / 1080);
-    canvas.style.transform = 'scale(' + scale + ')';
-  }
-  window.addEventListener('resize', scaleCanvas);
-  window.addEventListener('orientationchange', scaleCanvas);
-  scaleCanvas();
-})();
 
 /* =========================================================
    2. CLOCK / DATE (live; location is a Phase 2 hook — shows a
