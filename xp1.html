@@ -94,6 +94,7 @@
   .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:999px;padding:9px 16px;font-weight:700;font-size:12px;}
   .video-row{display:flex;gap:16px;flex:1;min-height:0;}
   .video-frame{flex:1;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  .video-frame #ytPlayer{position:absolute;inset:0;z-index:2;}
   .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:18px;color:#fff;}
   .video-frame[data-state="success"] .state-success{display:flex;}
   .video-frame[data-state="loading"] .state-loading{display:flex;align-items:center;justify-content:center;}
@@ -109,11 +110,8 @@
   .state-error, .state-offline{color:rgba(255,255,255,.85);font-size:13px;}
   .state-error .big, .state-offline .big{font-size:26px;}
 
-  .playlist{width:280px;display:flex;flex-direction:column;gap:6px;overflow:hidden;}
-  .plitem{display:flex;gap:9px;align-items:center;padding:7px;border-radius:var(--r-sm);}
-  .plitem .thumb{width:50px;height:36px;border-radius:7px;background:var(--border);flex-shrink:0;}
-  .plitem .meta .t{font-size:12px;font-weight:700;}
-  .plitem .meta .s{font-size:10px;color:var(--text-dim);}
+  /* .playlist / .plitem removed — Phase 7 dropped the fabricated per-video
+     sidebar in favour of the real embedded player's own YouTube playlist UI */
 
   /* ---- Nearby Mosques ---- */
   .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:12px;}
@@ -267,7 +265,7 @@
 
     <!-- CENTER COLUMN -->
     <div class="col" style="flex:2;">
-      <div class="card reminders">
+      <div class="card reminders" id="remindersCard">
         <div class="reminders-top">
           <div>
             <h2>Islamic Reminders</h2>
@@ -276,20 +274,15 @@
           <div class="browse-btn focusable" data-group="youtube" tabindex="-1">Browse Playlists →</div>
         </div>
         <div class="video-row">
-          <div class="video-frame focusable" data-group="youtube" data-widget="youtube" data-state="success" tabindex="-1">
+          <div class="video-frame focusable" data-group="youtube" data-widget="youtube" data-state="error" id="videoFrame" tabindex="-1">
+            <iframe id="ytPlayer" style="display:none;width:100%;height:100%;border:0;" title="Islamic Reminders playlist" allow="autoplay; encrypted-media" allowfullscreen></iframe>
             <div class="state state-loading"><div class="spinner"></div></div>
             <div class="state state-success">
               <div class="play-badge">▶</div>
-              <div class="vinfo"><div class="title">A Peaceful Heart</div><div class="speaker">Mufti Menk</div></div>
+              <div class="vinfo"><div class="title">Press OK to play</div></div>
             </div>
-            <div class="state state-error"><div class="big">🎬</div><div>Video unavailable<br>Check your internet connection</div></div>
+            <div class="state state-error"><div class="big">🎬</div><div id="ytErrorMsg">No playlist set up yet</div></div>
             <div class="state state-offline"><div class="big">🎬</div><div>You're offline<br>Reminders will return once reconnected</div></div>
-          </div>
-          <div class="playlist" data-group="playlist">
-            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">A Peaceful Heart</div><div class="s">Mufti Menk · 10:24</div></div></div>
-            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">Patience Changes Everything</div><div class="s">Nouman Ali Khan · 12:36</div></div></div>
-            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">The Power of Dua</div><div class="s">Omar Suleiman · 11:18</div></div></div>
-            <div class="plitem focusable" tabindex="-1"><div class="thumb"></div><div class="meta"><div class="t">Stories of the Prophets</div><div class="s">Yasir Qadhi · 20:12</div></div></div>
           </div>
         </div>
       </div>
@@ -425,8 +418,7 @@ XP1.setLocation = function(label){
     header:     { axis:'horizontal', adj:{ down:'weather' } },
     nextprayer: { axis:'vertical',   adj:{ down:'timetable', right:'youtube' } },
     timetable:  { axis:'vertical',   adj:{ up:'nextprayer', right:'youtube', down:'bottom' } },
-    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', right:'playlist', down:'mosques', up:'header' } },
-    playlist:   { axis:'vertical',   adj:{ left:'youtube', down:'mosques' } },
+    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', down:'mosques', up:'header' } },
     mosques:    { axis:'horizontal', adj:{ up:'youtube', left:'timetable', right:'weather', down:'bottom' } },
     weather:    { axis:'vertical',   adj:{ left:'mosques', down:'journal', up:'header' } },
     journal:    { axis:'vertical',   adj:{ up:'weather', down:'bottom', left:'mosques' } },
@@ -1062,6 +1054,111 @@ window.XP1Mosques = (function(){
   });
 
   return { refresh: refresh };
+})();
+
+/* =========================================================
+   10. PHASE 7 — YOUTUBE
+      Spec (section 27) is explicit: v1 is a pasted playlist URL, no
+      live YouTube search/Data API. Uses youtube-nocookie.com (privacy-
+      enhanced mode, no tracking cookies until playback starts) via a
+      plain iframe embed — no YouTube API key needed for this.
+      Click-to-play, not autoplay-on-load: an always-on ambient
+      dashboard should never start playing audio/video on its own.
+      The per-video "playlist" sidebar from the original mockup is
+      gone — those were placeholder titles/speakers I'd invented, and
+      once this widget plays a REAL playlist there's no way to know
+      real video titles without the Data API this phase deliberately
+      skips. The embedded YouTube player has its own playlist UI once
+      it's actually playing, so nothing is lost.
+      No playlist is configured yet — call XP1YouTube.setPlaylist(url)
+      with your real playlist URL to activate it.
+   ========================================================= */
+window.XP1YouTube = (function(){
+  var PLAYLIST_KEY = 'xp1_youtube_playlist';
+  var ENABLED_KEY = 'xp1_youtube_enabled';
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+
+  function parsePlaylistId(url){
+    var m = String(url || '').match(/[?&]list=([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+
+  function isEnabled(){ return xp1Get(ENABLED_KEY, true) !== false; }
+
+  function frame(){ return document.getElementById('videoFrame'); }
+  function player(){ return document.getElementById('ytPlayer'); }
+
+  function render(){
+    var card = document.getElementById('remindersCard');
+    if(!isEnabled()){
+      // Widget fully removed, not just hidden-but-taking-space — the
+      // center column's flex layout naturally redistributes the space
+      // to Nearby Mosques and the bottom strip once this is gone.
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = '';
+    if(!navigator.onLine){
+      stop();
+      frame().dataset.state = 'offline';
+      return;
+    }
+    var pl = xp1Get(PLAYLIST_KEY, null);
+    if(!pl || !pl.id){
+      frame().dataset.state = 'error';
+      document.getElementById('ytErrorMsg').textContent = 'No playlist set up yet';
+      return;
+    }
+    if(frame().dataset.playing !== 'true'){
+      frame().dataset.state = 'success';
+    }
+  }
+
+  function play(){
+    var pl = xp1Get(PLAYLIST_KEY, null);
+    if(!pl || !pl.id || !navigator.onLine) return;
+    var f = frame(), p = player();
+    p.src = 'https://www.youtube-nocookie.com/embed/videoseries?list=' + encodeURIComponent(pl.id) + '&autoplay=1&rel=0';
+    p.style.display = 'block';
+    f.dataset.playing = 'true';
+  }
+
+  function stop(){
+    var p = player();
+    p.src = '';
+    p.style.display = 'none';
+    frame().dataset.playing = 'false';
+  }
+
+  function toggle(){
+    if(frame().dataset.playing === 'true') stop();
+    else play();
+  }
+
+  // Public API — setPlaylist(url) is the one thing this phase is
+  // waiting on a real URL for. Everything else already works.
+  function setPlaylist(url){
+    var id = parsePlaylistId(url);
+    if(!id) return false;
+    xp1Set(PLAYLIST_KEY, { id: id, url: url });
+    render();
+    return true;
+  }
+  function setEnabled(on){ xp1Set(ENABLED_KEY, !!on); render(); }
+
+  window.addEventListener('load', function(){
+    frame().addEventListener('click', toggle);
+    render();
+  });
+  window.addEventListener('online', render);
+  window.addEventListener('offline', render);
+
+  return { setPlaylist: setPlaylist, setEnabled: setEnabled, isEnabled: isEnabled };
 })();
 
 /* =========================================================
