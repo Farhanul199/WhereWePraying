@@ -393,7 +393,17 @@ export async function onRequestGet(context) {
   if (mode === 'times' && !slug) {
     const st = await runnerStatus(env);
     if (st.active) {
-      return jsonRes({ mode: 'times', ok: true, deferred: true, attempted: 0, succeeded: 0, failed: 0,
+      // Same shape as a normal batch response, so any caller keeps working.
+      const t = await env.DB.prepare(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN times_status='ok' THEN 1 ELSE 0 END) AS ok,
+                SUM(CASE WHEN times_status='pending' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN times_status='failed' THEN 1 ELSE 0 END) AS failed
+           FROM source_discoveries WHERE source = ?`
+      ).bind(SOURCE).first();
+      return jsonRes({ mode: 'times', ok: true, deferred: true, attempted: 0, succeeded: 0, failed: 0, failures: [],
+        progress: { total: t?.total || 0, withTimes: t?.ok || 0, stillToDo: t?.pending || 0, failedSoFar: t?.failed || 0 },
+        moreToDo: false,
         note: 'Handled by mawaqit-runner (' + (st.state.mode || 'running') + ').' });
     }
   }
