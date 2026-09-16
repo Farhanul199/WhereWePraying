@@ -379,7 +379,8 @@ async function migrate(env) {
     'ALTER TABLE source_discoveries ADD COLUMN iqama_quality TEXT',
     'ALTER TABLE source_discoveries ADD COLUMN quality_notes TEXT',
   ]) { try { await env.DB.prepare(sql).run(); } catch (e) { /* already there */ } }
-  await env.DB.batch([
+  // One at a time: a single failure can never block the runner.
+  for (const q of [
     'CREATE INDEX IF NOT EXISTS idx_sd_source_status_updated ON source_discoveries (source, times_status, times_updated_at)',
     'CREATE INDEX IF NOT EXISTS idx_sd_source_status_country ON source_discoveries (source, times_status, country)',
     'CREATE INDEX IF NOT EXISTS idx_sd_source_uuid ON source_discoveries (source, uuid)',
@@ -390,7 +391,7 @@ async function migrate(env) {
     'CREATE INDEX IF NOT EXISTS idx_mrm_last_checked ON mawaqit_runner_meta (last_checked_at)',
     'CREATE INDEX IF NOT EXISTS idx_mrm_tt_hash ON mawaqit_runner_meta (tt_hash)',
     'CREATE INDEX IF NOT EXISTS idx_mch_changed ON mawaqit_changes (changed_at)',
-  ].map((q) => env.DB.prepare(q)));
+  ]) { try { await env.DB.prepare(q).run(); } catch (e) { console.error('index', e); } }
 }
 
 /* ---------------------------------------------------- housekeeping */
