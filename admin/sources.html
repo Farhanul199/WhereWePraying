@@ -117,6 +117,22 @@
       <table id="failedTable" class="hidden"><tbody></tbody></table>
     </div>
 
+
+    <h2>Go live</h2>
+    <div id="promoteWrap">
+      <div class="stats" id="promoteStats"></div>
+      <p class="hint" id="promoteNote"></p>
+      <div class="actions">
+        <button class="ghost" id="promotePreviewBtn">Preview next 50</button>
+        <button id="promoteBtn">Promote all ready</button>
+        <button class="ghost" id="geocodeBtn">Find coordinates from addresses</button>
+        <button class="ghost" id="undoPromoteBtn">Undo last batch</button>
+      </div>
+      <div class="status" id="promoteStatus"></div>
+      <table id="promoteTable" class="hidden"><tbody></tbody></table>
+      <p class="hint">Pressing Promote is your sign-off. Each mosque is either added as a new live listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. New listings show on the map after the next cache rebuild (02:00 / 14:00 UTC). Undo removes only the mosques the last batch created.</p>
+    </div>
+
     <h2>By country</h2>
     <table id="countryTable"><tbody></tbody></table>
 
@@ -209,7 +225,7 @@
     <div class="status" id="dlStatus"></div>
     <table id="previewTable" class="hidden"><tbody></tbody></table>
 
-    <div class="note">Nothing on this page touches the mosque list, prayer times or the live site. Promoting a source into the live directory is a separate, deliberate step.</div>
+    <div class="note">Everything on this page stays in the holding pen except the "Go live" box — that is the only part that writes to the live mosque list.</div>
   </div>
 </div>
 
@@ -391,6 +407,7 @@
     $('bar').parentElement.style.display = noTimes ? 'none' : '';
     $('recheckBtn').style.display = noTimes ? 'none' : '';
     showRunner();
+    loadPromote();
     $('failedWrap').classList.toggle('hidden', noTimes || !s.failed);
     $('failedTable').classList.add('hidden');
     $('failedStatus').textContent = '';
@@ -605,6 +622,114 @@
     $('jsonlBtn').disabled = false;
     if (!res.ok || data.error) { say($('runStatus'), data.error || 'Import failed.', true); return; }
     say($('runStatus'), 'Imported ' + fmt(data.imported || 0) + ' mosques' + (data.skipped ? ' · ' + data.skipped + ' rows skipped' : '') + '.');
+    refresh();
+  });
+
+
+  /* ---------------------------------------------------------- go live */
+  var promoteBusy = false;
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  async function postPromote(body){
+    var res, data;
+    try {
+      res = await fetch('/api/admin/promote', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify(body)
+      });
+      data = await res.json();
+    } catch (e) { return { error: 'Network problem. Try again.' }; }
+    if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
+    return data;
+  }
+
+  async function loadPromote(){
+    var d = await api('/api/admin/promote?action=status&source=' + SOURCE);
+    if (d.error) { $('promoteStats').innerHTML = ''; say($('promoteStatus'), d.error, true); return; }
+    $('promoteStats').innerHTML =
+      stat(d.ready, 'Ready to go live') +
+      stat(d.live, 'Live') +
+      stat(d.duplicates, 'Linked to existing mosque') +
+      stat(d.needs_geocode, 'Need coordinates') +
+      (d.geocode_failed ? stat(d.geocode_failed, 'Address not found') : '') +
+      (d.unnamed ? stat(d.unnamed, 'No name (can\'t list)') : '');
+    var blocked = !!d.blocked;
+    $('promoteBtn').disabled = promoteBusy || blocked || !d.ready;
+    $('promotePreviewBtn').disabled = promoteBusy || blocked || !d.ready;
+    $('geocodeBtn').style.display = d.needs_geocode ? '' : 'none';
+    $('geocodeBtn').disabled = promoteBusy;
+    $('undoPromoteBtn').style.display = d.last_batch ? '' : 'none';
+    $('undoPromoteBtn').disabled = promoteBusy;
+    $('promoteNote').textContent = blocked ? d.blocked
+      : (d.needs_geocode ? 'Mosques without coordinates can\'t go on the map, so they wait here until coordinates are found.' : '');
+  }
+
+  $('promotePreviewBtn').addEventListener('click', async function(){
+    say($('promoteStatus'), 'Checking the next 50…');
+    var d = await api('/api/admin/promote?action=preview&limit=50&source=' + SOURCE);
+    if (d.error) { say($('promoteStatus'), d.error, true); return; }
+    var rows = d.rows || [];
+    var t = $('promoteTable');
+    t.classList.remove('hidden');
+    t.querySelector('tbody').innerHTML =
+      '<tr><th>Name</th><th>City</th><th>Will</th><th>Live slug</th></tr>' +
+      (rows.length ? rows.map(function(r){
+        var will = r.action === 'new' ? 'Add new' : (r.action === 'duplicate' ? 'Link — ' + esc(r.reason) : 'Skip — ' + esc(r.reason));
+        return '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.city || '') + '</td><td>' + will +
+               (r.approx ? ' <span class="hint">(approx. location)</span>' : '') + '</td><td>' + esc(r.slug || '—') + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="hint">Nothing ready.</td></tr>');
+    var n = rows.filter(function(r){ return r.action === 'new'; }).length;
+    say($('promoteStatus'), 'Next ' + rows.length + ': ' + n + ' new · ' + (rows.length - n) + ' linked/skipped.');
+  });
+
+  $('promoteBtn').addEventListener('click', async function(){
+    if (promoteBusy) return;
+    if (!confirm('Put every ready ' + cfg().label + ' mosque on the live site?')) return;
+    promoteBusy = true; loadPromote();
+    var created = 0, linked = 0, skipped = 0;
+    for (var round = 0; round < 60; round++) {
+      say($('promoteStatus'), 'Promoting… ' + created + ' added · ' + linked + ' linked so far.');
+      var d = await postPromote({ action: 'promote', source: SOURCE, limit: 150 });
+      if (d.error || d.ok === false) { say($('promoteStatus'), (d.error || (d.errors || []).join(' | ') || 'Failed.'), true); break; }
+      if (!d.processed) break;
+      created += d.created || 0; linked += d.linked || 0; skipped += d.excluded || 0;
+      await wait(7000); // admin API allows 10 requests/min
+    }
+    promoteBusy = false;
+    $('promoteTable').classList.add('hidden');
+    say($('promoteStatus'), 'Done — ' + created + ' new live mosques · ' + linked + ' linked to existing' + (skipped ? ' · ' + skipped + ' skipped' : '') + '. Map updates after the next cache rebuild.');
+    refresh();
+  });
+
+  $('geocodeBtn').addEventListener('click', async function(){
+    if (promoteBusy) return;
+    promoteBusy = true; loadPromote();
+    var exact = 0, approx = 0, missed = 0, blockedRuns = 0;
+    for (var round = 0; round < 80; round++) {
+      say($('promoteStatus'), 'Finding coordinates… ' + (exact + approx) + ' found · ' + missed + ' not found. Keep this tab open.');
+      var d = await postPromote({ action: 'geocode', source: SOURCE, limit: 20 });
+      if (d.error) { say($('promoteStatus'), d.error, true); break; }
+      exact += d.exact || 0; approx += d.approx || 0; missed += d.notFound || 0;
+      if (!d.attempted && !d.stoppedEarly) break;
+      if (d.stoppedEarly && !d.attempted) { if (++blockedRuns >= 3) { say($('promoteStatus'), 'Address lookup service is refusing requests right now — try again later.', true); promoteBusy = false; refresh(); return; } }
+      else blockedRuns = 0;
+      await wait(d.stoppedEarly ? 30000 : 7000);
+    }
+    promoteBusy = false;
+    say($('promoteStatus'), 'Coordinates done — ' + exact + ' exact · ' + approx + ' postcode-level · ' + missed + ' not found.');
+    refresh();
+  });
+
+  $('undoPromoteBtn').addEventListener('click', async function(){
+    if (promoteBusy) return;
+    if (!confirm('Undo the last ' + cfg().label + ' batch? Mosques it added are removed from the live list.')) return;
+    promoteBusy = true;
+    var d = await postPromote({ action: 'undo', source: SOURCE });
+    promoteBusy = false;
+    if (d.error) { say($('promoteStatus'), d.error, true); return; }
+    say($('promoteStatus'), d.rows ? 'Undone — ' + d.removed + ' mosques removed, ' + d.rows + ' rows back in the holding pen.' : (d.message || 'Nothing to undo.'));
     refresh();
   });
 
