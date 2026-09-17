@@ -104,8 +104,8 @@
   .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;}
   .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:62.4375rem;padding:0.5625rem 1rem;font-weight:700;font-size:0.75rem;}
   .video-row{display:flex;align-items:center;justify-content:center;gap:1rem;flex:1;min-height:0;}
-  .video-frame{aspect-ratio:16/9;width:100%;max-height:100%;margin:auto;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
-  .video-frame #ytPlayer{position:absolute;inset:0;z-index:2;}
+  .video-frame{aspect-ratio:16/9;flex:1;max-height:100%;margin:auto;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  .video-frame #ytPlayer{position:absolute;inset:0;z-index:2;width:100%;height:100%;border:0;}
   .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:1.125rem;color:#fff;}
   .video-frame[data-state="success"] .state-success{display:flex;}
   .video-frame[data-state="loading"] .state-loading{display:flex;align-items:center;justify-content:center;}
@@ -121,8 +121,16 @@
   .state-error, .state-offline{color:rgba(255,255,255,.85);font-size:0.8125rem;}
   .state-error .big, .state-offline .big{font-size:1.625rem;}
 
-  /* .playlist / .plitem removed — Phase 7 dropped the fabricated per-video
-     sidebar in favour of the real embedded player's own YouTube playlist UI */
+  /* ---- "Up next" sidebar — real titles via YouTube's public oEmbed
+     endpoint (no API key), not the fabricated list Phase 7 removed ---- */
+  .playlist{width:17.5rem;flex:0 0 auto;height:100%;display:flex;flex-direction:column;gap:0.375rem;overflow:hidden;}
+  .plitem{display:flex;gap:0.5625rem;align-items:center;padding:0.4375rem;border-radius:var(--r-sm);}
+  .plitem.now-playing{background:var(--coral-soft);}
+  .plitem.now-playing::after{content:"▶";font-size:0.75rem;color:var(--coral-dark);flex-shrink:0;margin-left:auto;}
+  .plitem .thumb{width:3.125rem;height:2.25rem;border-radius:0.4375rem;background:var(--border);flex-shrink:0;object-fit:cover;}
+  .plitem .meta{overflow:hidden;}
+  .plitem .meta .t{font-size:0.75rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .plitem .meta .s{font-size:0.625rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   /* ---- Nearby Mosques ---- */
   .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:0.625rem;margin-top:0.75rem;}
@@ -149,19 +157,19 @@
   .bseg .bdesc{font-size:0.6875rem;color:var(--text-dim);line-height:1.4;}
 
   /* ---- Weather ---- */
-  .weather{flex:2;display:flex;flex-direction:column;justify-content:center;padding:1.75rem;}
+  .weather{flex:1;display:flex;flex-direction:column;justify-content:center;padding:1.25rem;}
   .weather .whead{display:flex;justify-content:space-between;align-items:flex-start;}
-  .weather h2{font-size:1.25rem;}
-  .weather .hilo{font-size:0.875rem;color:var(--text-dim);text-align:right;}
-  .weather .temp{font-size:4rem;font-weight:800;margin:0.5rem 0;}
-  .weather .cond{font-size:1rem;color:var(--text-dim);}
+  .weather h2{font-size:1rem;}
+  .weather .hilo{font-size:0.75rem;color:var(--text-dim);text-align:right;}
+  .weather .temp{font-size:2.5rem;font-weight:800;margin:0.375rem 0;}
+  .weather .cond{font-size:0.8125rem;color:var(--text-dim);}
   /* Real Meteocons SVGs — animation lives inside the SVG file itself
      (SMIL/CSS), so no extra keyframes needed here, just sizing. */
-  .weather-icon{width:5.25rem;height:5.25rem;display:inline-block;vertical-align:middle;object-fit:contain;}
+  .weather-icon{width:3.25rem;height:3.25rem;display:inline-block;vertical-align:middle;object-fit:contain;}
   .weather[data-state="loading"] .w-body{opacity:.4;}
-  .hourly{display:flex;justify-content:space-between;margin-top:1.5rem;}
-  .hourly .h{text-align:center;font-size:0.8125rem;color:var(--text-dim);}
-  .hourly .h .t{font-weight:700;color:var(--text);font-size:0.9375rem;margin-top:0.25rem;}
+  .hourly{display:flex;justify-content:space-between;margin-top:0.875rem;}
+  .hourly .h{text-align:center;font-size:0.6875rem;color:var(--text-dim);}
+  .hourly .h .t{font-weight:700;color:var(--text);font-size:0.8125rem;margin-top:0.1875rem;}
   .weather .w-error{display:none;font-size:0.75rem;color:var(--text-dim);text-align:center;padding:0.625rem 0;}
   .weather[data-state="error"] .w-body,.weather[data-state="offline"] .w-body{display:none;}
   .weather[data-state="error"] .w-error,.weather[data-state="offline"] .w-error{display:block;}
@@ -170,11 +178,11 @@
   .umbrella-banner.show{display:block;}
 
   /* ---- Journal ---- */
-  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:1rem 1.25rem;}
-  .journal h2{font-size:0.875rem;}
-  .journal-quote{font-style:italic;font-size:0.6875rem;color:var(--text-dim);margin:0.375rem 0 0.5rem;line-height:1.35;}
-  .check-item{display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;font-size:0.6875rem;font-weight:600;}
-  .check-item .dot{width:1.125rem;height:1.125rem;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:0.625rem;flex-shrink:0;}
+  .journal{flex:2;display:flex;flex-direction:column;min-height:0;padding:1.5rem 1.75rem;justify-content:center;}
+  .journal h2{font-size:1.0625rem;}
+  .journal-quote{font-style:italic;font-size:0.875rem;color:var(--text-dim);margin:0.5rem 0 0.75rem;line-height:1.4;}
+  .check-item{display:flex;align-items:center;gap:0.625rem;padding:0.4375rem 0;font-size:0.875rem;font-weight:600;}
+  .check-item .dot{width:1.375rem;height:1.375rem;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;}
   .check-item.pending .dot{background:transparent;border:0.125rem solid var(--border);}
 
   footer{display:flex;justify-content:space-between;align-items:center;font-size:0.6875rem;color:var(--text-dim);}
@@ -287,7 +295,7 @@
         </div>
         <div class="video-row">
           <div class="video-frame focusable" data-group="youtube" data-widget="youtube" data-state="error" id="videoFrame" tabindex="-1">
-            <iframe id="ytPlayer" style="display:none;width:100%;height:100%;border:0;" title="Islamic Reminders playlist" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            <div id="ytPlayer"></div>
             <div class="state state-loading"><div class="spinner"></div></div>
             <div class="state state-success">
               <div class="play-badge">▶</div>
@@ -296,6 +304,7 @@
             <div class="state state-error"><div class="big">🎬</div><div id="ytErrorMsg">No playlist set up yet</div></div>
             <div class="state state-offline"><div class="big">🎬</div><div>You're offline<br>Reminders will return once reconnected</div></div>
           </div>
+          <div class="playlist" data-group="playlist" id="ytSidebar"></div>
         </div>
       </div>
 
@@ -425,7 +434,8 @@ XP1.setLocation = function(label){
     header:     { axis:'horizontal', adj:{ down:'weather' } },
     nextprayer: { axis:'vertical',   adj:{ down:'timetable', right:'youtube' } },
     timetable:  { axis:'vertical',   adj:{ up:'nextprayer', right:'youtube', down:'bottom' } },
-    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', down:'mosques', up:'header' } },
+    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', right:'playlist', down:'mosques', up:'header' } },
+    playlist:   { axis:'vertical',   adj:{ left:'youtube', down:'mosques' } },
     mosques:    { axis:'horizontal', adj:{ up:'youtube', left:'timetable', right:'weather', down:'bottom' } },
     weather:    { axis:'vertical',   adj:{ left:'mosques', down:'journal', up:'header' } },
     journal:    { axis:'vertical',   adj:{ up:'weather', down:'bottom', left:'mosques' } },
@@ -1067,16 +1077,18 @@ window.XP1Mosques = (function(){
    10. PHASE 7 — YOUTUBE
       Spec (section 27) is explicit: v1 is a pasted playlist URL, no
       live YouTube search/Data API. Uses youtube-nocookie.com (privacy-
-      enhanced mode, no tracking cookies until playback starts) via a
-      plain iframe embed — no YouTube API key needed for this.
+      enhanced mode, no tracking cookies until playback starts) via the
+      real YouTube IFrame Player API — needed (not just a raw iframe
+      src) so the page can read the loaded playlist's video IDs and
+      track which one is currently playing.
       Click-to-play, not autoplay-on-load: an always-on ambient
       dashboard should never start playing audio/video on its own.
-      The per-video "playlist" sidebar from the original mockup is
-      gone — those were placeholder titles/speakers I'd invented, and
-      once this widget plays a REAL playlist there's no way to know
-      real video titles without the Data API this phase deliberately
-      skips. The embedded YouTube player has its own playlist UI once
-      it's actually playing, so nothing is lost.
+      "Up next" sidebar: real titles/thumbnails via YouTube's public
+      oEmbed endpoint (no API key, no Data API quota) — one lookup per
+      video ID, cached in localStorage. This replaces the fabricated
+      per-video sidebar removed earlier in Phase 7; oEmbed doesn't
+      return duration, so that field is simply left out rather than
+      guessed.
       No playlist is configured yet — call XP1YouTube.setPlaylist(url)
       with your real playlist URL to activate it.
    ========================================================= */
@@ -1087,6 +1099,12 @@ window.XP1YouTube = (function(){
   // different one later always wins over this default.
   var DEFAULT_PLAYLIST_URL = 'https://www.youtube.com/watch?v=DCYGJ-6GTdc&list=PLQ02IYL5pmhGLpO-oUMpZbuI_5dT9m4fi';
   var ENABLED_KEY = 'xp1_youtube_enabled';
+  var OEMBED_PREFIX = 'xp1_yt_oembed_';
+  var SIDEBAR_COUNT = 8; // matches roughly a screen's worth in the sidebar
+
+  var ytPlayer = null;       // YT.Player instance, once created
+  var apiScriptAdded = false;
+  var pendingMuted = null;   // set if play() is called before the API script has loaded
 
   function xp1Get(key, fallback){
     try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
@@ -1102,7 +1120,7 @@ window.XP1YouTube = (function(){
   function isEnabled(){ return xp1Get(ENABLED_KEY, true) !== false; }
 
   function frame(){ return document.getElementById('videoFrame'); }
-  function player(){ return document.getElementById('ytPlayer'); }
+  function sidebarEl(){ return document.getElementById('ytSidebar'); }
 
   function render(){
     var card = document.getElementById('remindersCard');
@@ -1115,7 +1133,6 @@ window.XP1YouTube = (function(){
     }
     card.style.display = '';
     if(!navigator.onLine){
-      stop();
       frame().dataset.state = 'offline';
       return;
     }
@@ -1126,24 +1143,111 @@ window.XP1YouTube = (function(){
       return;
     }
     if(frame().dataset.playing !== 'true'){
+      frame().dataset.state = 'loading';
       play(true); // auto-start, muted — no click needed, see play() for why
     }
+  }
+
+  // ---- oEmbed lookups (public endpoint, no API key) ----
+  function fetchOembed(videoId, cb){
+    var cached = xp1Get(OEMBED_PREFIX + videoId, null);
+    if(cached){ cb(cached); return; }
+    var url = 'https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId) + '&format=json';
+    fetch(url).then(function(res){ return res.ok ? res.json() : null; })
+      .then(function(data){
+        if(data){ xp1Set(OEMBED_PREFIX + videoId, data); }
+        cb(data);
+      })
+      .catch(function(){ cb(null); });
+  }
+
+  function buildSidebar(){
+    if(!ytPlayer || typeof ytPlayer.getPlaylist !== 'function') return;
+    var ids = ytPlayer.getPlaylist() || [];
+    if(!ids.length) return;
+    var curIndex = ytPlayer.getPlaylistIndex();
+    var el = sidebarEl();
+    el.innerHTML = '';
+    ids.slice(0, SIDEBAR_COUNT).forEach(function(videoId, idx){
+      var item = document.createElement('div');
+      item.className = 'plitem focusable' + (idx === curIndex ? ' now-playing' : '');
+      item.tabIndex = -1;
+      item.dataset.idx = idx;
+      item.innerHTML = '<img class="thumb" src="" alt="">' +
+        '<div class="meta"><div class="t">Loading…</div><div class="s"></div></div>';
+      item.addEventListener('click', function(){ if(ytPlayer) ytPlayer.playVideoAt(idx); });
+      el.appendChild(item);
+      fetchOembed(videoId, function(meta){
+        if(!meta) return;
+        var img = item.querySelector('.thumb');
+        img.src = meta.thumbnail_url || '';
+        img.alt = meta.title || '';
+        item.querySelector('.t').textContent = meta.title || 'Untitled';
+        item.querySelector('.s').textContent = meta.author_name || '';
+      });
+    });
+    if(window.XP1) XP1.reindexGroup('playlist');
+  }
+
+  function highlightCurrent(){
+    if(!ytPlayer) return;
+    var curIndex = ytPlayer.getPlaylistIndex();
+    Array.prototype.forEach.call(sidebarEl().querySelectorAll('.plitem'), function(item){
+      item.classList.toggle('now-playing', parseInt(item.dataset.idx, 10) === curIndex);
+    });
+  }
+
+  // ---- IFrame Player API lifecycle ----
+  function loadApiScriptOnce(){
+    if(apiScriptAdded) return;
+    apiScriptAdded = true;
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
+
+  window.onYouTubeIframeAPIReady = function(){
+    if(pendingMuted !== null){ createPlayer(pendingMuted); pendingMuted = null; }
+  };
+
+  function createPlayer(muted){
+    var pl = xp1Get(PLAYLIST_KEY, null);
+    if(!pl || !pl.id) return;
+    ytPlayer = new YT.Player('ytPlayer', {
+      host: 'https://www.youtube-nocookie.com',
+      playerVars: { listType: 'playlist', list: pl.id, autoplay: 1, mute: muted ? 1 : 0, rel: 0, playsinline: 1 },
+      events: {
+        onReady: function(){
+          frame().dataset.playing = 'true';
+          frame().dataset.state = 'success';
+          buildSidebar();
+        },
+        onStateChange: function(e){
+          if(e.data === YT.PlayerState.PLAYING) highlightCurrent();
+        },
+        onError: function(){
+          frame().dataset.state = 'error';
+          document.getElementById('ytErrorMsg').textContent = 'Video unavailable';
+        }
+      }
+    });
   }
 
   function play(muted){
     var pl = xp1Get(PLAYLIST_KEY, null);
     if(!pl || !pl.id || !navigator.onLine) return;
-    var f = frame(), p = player();
-    var muteParam = muted ? '&mute=1' : '';
-    p.src = 'https://www.youtube-nocookie.com/embed/videoseries?list=' + encodeURIComponent(pl.id) + '&autoplay=1&rel=0' + muteParam;
-    p.style.display = 'block';
-    f.dataset.playing = 'true';
+    if(ytPlayer && typeof ytPlayer.playVideo === 'function'){
+      ytPlayer.playVideo();
+      frame().dataset.playing = 'true';
+      frame().dataset.state = 'success';
+      return;
+    }
+    if(window.YT && window.YT.Player){ createPlayer(muted); }
+    else { pendingMuted = muted; loadApiScriptOnce(); }
   }
 
   function stop(){
-    var p = player();
-    p.src = '';
-    p.style.display = 'none';
+    if(ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     frame().dataset.playing = 'false';
   }
 
@@ -1154,13 +1258,22 @@ window.XP1YouTube = (function(){
     else play(false);
   }
 
+  function switchPlaylist(id){
+    if(ytPlayer && typeof ytPlayer.loadPlaylist === 'function'){
+      ytPlayer.loadPlaylist({ list: id });
+    } else {
+      render();
+    }
+  }
+
   // Public API — setPlaylist(url) is the one thing this phase is
   // waiting on a real URL for. Everything else already works.
   function setPlaylist(url){
     var id = parsePlaylistId(url);
     if(!id) return false;
+    var wasPlaying = frame() && frame().dataset.playing === 'true';
     xp1Set(PLAYLIST_KEY, { id: id, url: url });
-    render();
+    if(wasPlaying) switchPlaylist(id); else render();
     return true;
   }
   function setEnabled(on){ xp1Set(ENABLED_KEY, !!on); render(); }
