@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive">
-<title>WhereWePraying — XP1</title>
+<title>WhenWePraying — XP1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -68,6 +68,12 @@
   /* ===== Header ===== */
   header{display:flex;align-items:center;gap:1.25rem;}
   .xp1-logo{height:3.25rem;width:auto;}
+  .logo-stack{position:relative;height:3.25rem;width:3.25rem;flex:0 0 auto;}
+  .logo-stack img{position:absolute;top:0;left:0;height:3.25rem;width:3.25rem;transition:opacity 4s ease-in-out;}
+  .logo-stack .logo-night{opacity:0;}
+  #xp1-canvas.night .logo-stack .logo-day{opacity:0;}
+  #xp1-canvas.night .logo-stack .logo-night{opacity:1;}
+  #xp1-canvas.lite .logo-stack img{transition:none;}
   .brand h1{font-size:1.75rem;font-weight:800;letter-spacing:-0.03rem;}
   .brand .tag{font-size:0.6875rem;color:var(--text-dim);font-weight:700;letter-spacing:0.03rem;}
   .datetime{margin-left:1.25rem;font-size:0.9375rem;color:var(--text);}
@@ -129,6 +135,17 @@
   .video-row{display:flex;align-items:center;justify-content:center;gap:1rem;flex:1;min-height:0;}
   /* Exact 16:9 box, sized by fitVideo() to the biggest size that fits — no stretching, so YouTube adds no black bars. */
   .video-frame{flex:0 0 auto;width:100%;height:100%;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  /* Ambient glow: the current video's own artwork, blown up and blurred behind
+     the player, so the black bars pick up its colour instead of sitting flat.
+     Purely decorative — one still image, no per-frame work. */
+  .video-frame .ambient{position:absolute;top:-10%;right:-10%;bottom:-10%;left:-10%;z-index:1;
+    background-position:center;background-size:cover;background-repeat:no-repeat;
+    filter:blur(5rem) saturate(1.4);opacity:0;transition:opacity 1.2s ease;pointer-events:none;}
+  .video-frame .ambient.on{opacity:.22;}
+  /* Weak TVs: keep the glow, drop the expensive blur — a tiny thumbnail
+     stretched across the panel is already soft, and costs the GPU nothing. */
+  #xp1-canvas.lite .video-frame .ambient{filter:none;transition:none;}
+  #xp1-canvas.lite .video-frame .ambient.on{opacity:.16;}
   .playlist:empty{display:none;}
   /* Sized by fitVideo() to cover the panel, so no black bars */
   .video-frame #ytPlayer{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:100%;height:100%;border:0;}
@@ -2579,7 +2596,7 @@ var qrcode = function() {
   <div class="xp1-overlay" id="firstRunOverlay">
     <div class="overlay-card">
       <div id="welcomeStep">
-        <h2>Welcome to WhereWePraying TV</h2>
+        <h2>Welcome to WhenWePraying TV</h2>
         <p>Set your location to personalise prayer times, nearby mosques and weather.</p>
         <div class="overlay-actions">
           <div class="overlay-btn focusable" id="btnEnterPostcode" tabindex="-1">Enter postcode</div>
@@ -2631,9 +2648,12 @@ var qrcode = function() {
   </div>
 
   <header data-group="header">
-    <img class="xp1-logo" src="/assets/logo.png" alt="WhereWePraying">
+    <div class="logo-stack">
+      <img class="logo-day" src="/assets/xp1/logo-day.webp" alt="WhenWePraying">
+      <img class="logo-night" src="/assets/xp1/logo-night.webp" alt="">
+    </div>
     <div class="brand">
-      <h1>WhereWePraying</h1>
+      <h1>WhenWePraying</h1>
       <div class="tag">CLOSER TO ALLAH, EVERY DAY</div>
     </div>
     <div class="datetime">
@@ -2681,6 +2701,7 @@ var qrcode = function() {
         </div>
         <div class="video-row">
           <div class="video-frame focusable" data-group="youtube" data-widget="youtube" data-state="error" id="videoFrame" tabindex="-1">
+            <div class="ambient" id="ytAmbient"></div>
             <div id="ytPlayer"></div>
             <div class="state state-loading"><div class="spinner"></div></div>
             <div class="state state-success">
@@ -3697,6 +3718,24 @@ window.XP1YouTube = (function(){
     if(window.ResizeObserver){ new ResizeObserver(fitVideo).observe(frame().parentElement); }
   });
 
+  // Point the glow at whatever is playing now. YouTube's thumbnails are on a
+  // different domain so the frames themselves can't be read — the artwork is
+  // the same colours and costs one small image.
+  function updateAmbient(){
+    var el = document.getElementById('ytAmbient');
+    if(!el) return;
+    var id = null;
+    try{
+      if(ytPlayer && typeof ytPlayer.getVideoData === 'function') id = ytPlayer.getVideoData().video_id;
+    }catch(e){}
+    if(!id){ el.className = 'ambient'; return; }
+    if(el.dataset.vid === id) return;
+    el.dataset.vid = id;
+    var thumb = (window.XP1 && XP1.lite) ? 'default.jpg' : 'mqdefault.jpg'; // 120x90 vs 320x180
+    el.style.backgroundImage = 'url(https://i.ytimg.com/vi/' + id + '/' + thumb + ')';
+    el.className = 'ambient on';
+  }
+
   function highlightCurrent(){
     if(!ytPlayer) return;
     var curIndex = ytPlayer.getPlaylistIndex();
@@ -3753,6 +3792,8 @@ window.XP1YouTube = (function(){
     ytPlayer = null; playerReady = false; creatingId = null;
     var old = document.getElementById('ytPlayer');
     if(old) old.remove();
+    var amb = document.getElementById('ytAmbient');
+    if(amb){ amb.className = 'ambient'; amb.dataset.vid = ''; }
     var div = document.createElement('div');
     div.id = 'ytPlayer';
     frame().insertBefore(div, frame().firstChild);
@@ -3780,7 +3821,7 @@ window.XP1YouTube = (function(){
           buildSidebar();
         },
         onStateChange: function(e){
-          if(e.data === YT.PlayerState.PLAYING) highlightCurrent();
+          if(e.data === YT.PlayerState.PLAYING){ highlightCurrent(); updateAmbient(); }
         },
         onError: function(){
           frame().dataset.state = 'error';
