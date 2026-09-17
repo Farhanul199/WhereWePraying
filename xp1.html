@@ -40,7 +40,16 @@
   html,body{width:100%;height:100%;background:#000;overflow:hidden;}
 
   #xp1-viewport{width:100vw;height:100vh;background:var(--bg);overflow:hidden;}
-  #xp1-canvas{width:100%;height:100%;background:var(--bg);color:var(--text);padding:2.5rem;display:flex;flex-direction:column;gap:1.25rem;}
+  /* ===== Master background: day / night, cross-fades at sunset & Fajr ===== */
+  .xp1-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center bottom;transition:opacity 4s ease-in-out;pointer-events:none;}
+  .xp1-bg-day{background-image:url('/assets/xp1/bg-day.webp');opacity:1;}
+  .xp1-bg-night{background-image:url('/assets/xp1/bg-night.webp');opacity:0;}
+  #xp1-canvas.night .xp1-bg-night{opacity:1;}
+  #xp1-canvas > header, #xp1-canvas > .body-grid, #xp1-canvas > footer{position:relative;z-index:1;}
+  /* Text sitting straight on the sky turns light at night */
+  #xp1-canvas header, #xp1-canvas footer{transition:color 4s ease-in-out;}
+  #xp1-canvas.night header, #xp1-canvas.night footer{--text:#FFFFFF;--text-dim:rgba(255,255,255,.82);color:#fff;}
+  #xp1-canvas{position:relative;width:100%;height:100%;background:var(--bg);color:var(--text);padding:2.5rem;display:flex;flex-direction:column;gap:1.25rem;}
 
   /* ===== Header ===== */
   header{display:flex;align-items:center;gap:1.25rem;}
@@ -247,6 +256,8 @@
 
 <div id="xp1-viewport">
 <div id="xp1-canvas">
+  <div class="xp1-bg xp1-bg-day"></div>
+  <div class="xp1-bg xp1-bg-night"></div>
 
   <div class="xp1-overlay" id="firstRunOverlay">
     <div class="overlay-card">
@@ -2082,6 +2093,37 @@ window.XP1YouTube = (function(){
   // ---- start ----
   applyShowFlags();
   if(xp1Get(PAIRED_KEY, false)) window.addEventListener('load', sync);
+})();
+
+/* =========================================================
+   13. MASTER BACKGROUND — day / night
+      Night from Maghrib (sunset) until Fajr, using today's prayer
+      times the Prayer card already saved. Falls back to 19:00 / 06:00
+      if those aren't available yet. The CSS does the slow cross-fade.
+   ========================================================= */
+(function(){
+  var canvas = document.getElementById('xp1-canvas');
+  function mins(hhmm){
+    var p = String(hhmm || '').split(':');
+    return p.length >= 2 ? parseInt(p[0],10) * 60 + parseInt(p[1],10) : null;
+  }
+  function todayTimes(){
+    var d = new Date();
+    var key = 'xp1_prayer_' + String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+    try{ return JSON.parse(localStorage.getItem(key)) || null; }catch(e){ return null; }
+  }
+  function update(){
+    var t = todayTimes() || {};
+    var sunset = mins(t.Maghrib); if(sunset == null) sunset = 19 * 60;
+    var dawn = mins(t.Fajr); if(dawn == null) dawn = 6 * 60;
+    var now = new Date(), n = now.getHours() * 60 + now.getMinutes();
+    canvas.classList.toggle('night', n >= sunset || n < dawn);
+  }
+  // Preload the night picture so the first fade is smooth, not a pop-in.
+  var pre = new Image(); pre.src = '/assets/xp1/bg-night.webp';
+  update();
+  setInterval(update, 60000);
+  window.addEventListener('load', function(){ setTimeout(update, 3000); }); // re-check once prayer times arrive
 })();
 
 </script>
