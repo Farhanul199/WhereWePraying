@@ -65,6 +65,19 @@ function cleanSettings(s) {
   if (typeof s.playlist_url === 'string' && /[?&]list=[a-zA-Z0-9_-]+/.test(s.playlist_url)) {
     out.playlist_url = s.playlist_url.slice(0, 300);
   }
+  // Playlists the viewer added themselves, in the order they ranked them.
+  if (Array.isArray(s.my_playlists)) {
+    const mine = [];
+    for (const p of s.my_playlists.slice(0, 20)) {
+      if (!p || typeof p.url !== 'string') continue;
+      if (!/[?&]list=[a-zA-Z0-9_-]+/.test(p.url)) continue;
+      mine.push({
+        title: String(p.title || 'My playlist').slice(0, 80),
+        url: p.url.slice(0, 300)
+      });
+    }
+    out.my_playlists = mine;
+  }
   return out;
 }
 
