@@ -221,6 +221,22 @@
   .browse-list{display:flex;flex-direction:column;gap:0.5rem;max-height:20rem;overflow-y:auto;text-align:left;margin-top:0.5rem;}
   .browse-item{padding:0.875rem 1rem;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:0.9375rem;display:flex;justify-content:space-between;align-items:center;}
   .browse-item.current{background:var(--coral-soft);color:var(--coral-dark);}
+  /* ===== Phase 8 — Settings overlay ===== */
+  .settings-card{width:62rem;text-align:left;}
+  .settings-grid{display:flex;gap:2.5rem;align-items:flex-start;margin-top:1rem;}
+  .qr-side{width:20rem;text-align:center;flex:none;}
+  .qr-box{width:16rem;height:16rem;margin:0 auto;background:#fff;border-radius:var(--r-md);border:0.0625rem solid var(--border);display:flex;align-items:center;justify-content:center;padding:0.75rem;}
+  .qr-box svg{width:100%;height:100%;}
+  .qr-msg{font-size:0.875rem;color:var(--text-dim);padding:1rem;line-height:1.5;}
+  .qr-code-text{margin-top:0.875rem;font-size:1rem;color:var(--text-dim);}
+  .qr-code-text b{color:var(--text);font-size:1.375rem;letter-spacing:0.2rem;}
+  .qr-url{font-size:0.8125rem;color:var(--text-dim);margin-top:0.25rem;}
+  .pair-status{display:flex;align-items:center;justify-content:center;gap:0.375rem;font-size:0.8125rem;font-weight:700;color:var(--text-dim);margin-top:0.75rem;}
+  .pair-status .status-dot{background:var(--text-faint);}
+  .pair-status.on .status-dot{background:var(--green);}
+  .local-side{flex:1;display:flex;flex-direction:column;gap:0.625rem;}
+  .setting-loc{font-size:1rem;font-weight:700;margin-bottom:0.25rem;}
+  .local-side .overlay-btn{text-align:left;}
   .browse-empty{font-size:0.875rem;color:var(--text-dim);padding:1rem 0;}
 </style>
 </head>
@@ -237,6 +253,7 @@
         <div class="overlay-actions">
           <div class="overlay-btn focusable" id="btnEnterPostcode" tabindex="-1">Enter postcode</div>
           <div class="overlay-btn secondary focusable" id="btnUseLondon" tabindex="-1">Use London instead</div>
+          <div class="overlay-btn secondary focusable" id="btnSetupPhone" tabindex="-1">📱 Set up with phone</div>
         </div>
       </div>
       <div id="postcodeStep" style="display:none;">
@@ -258,6 +275,28 @@
     </div>
   </div>
 
+  <div class="xp1-overlay" id="settingsOverlay">
+    <div class="overlay-card settings-card">
+      <h2>XP1 Settings</h2>
+      <div class="settings-grid">
+        <div class="qr-side">
+          <div class="qr-box" id="qrBox"><div class="qr-msg">Loading…</div></div>
+          <div class="qr-code-text">Code: <b id="pairCode">------</b></div>
+          <div class="qr-url">wherewepraying.com/xp1-settings</div>
+          <div class="pair-status" id="pairStatus"><span class="status-dot"></span><span id="pairStatusText">Scan with your phone</span></div>
+        </div>
+        <div class="local-side" id="settingsList">
+          <div class="setting-loc">📍 <span id="setLoc">Location not set</span></div>
+          <div class="overlay-btn focusable" id="setBtnLocation" tabindex="-1">Change location</div>
+          <div class="overlay-btn focusable" id="setBtnYoutube" tabindex="-1">Islamic Reminders: On</div>
+          <div class="overlay-btn focusable" id="setBtnWeather" tabindex="-1">Weather: On</div>
+          <div class="overlay-btn focusable" id="setBtnMosques" tabindex="-1">Nearby mosques: On</div>
+          <div class="overlay-btn secondary focusable" id="setBtnClose" tabindex="-1">Close</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <header data-group="header">
     <img class="xp1-logo" src="/assets/logo.png" alt="WhereWePraying">
     <div class="brand">
@@ -271,7 +310,7 @@
     <div class="spacer"></div>
     <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Connected</span></div>
     <div class="icon-btn focusable" tabindex="-1">🔍</div>
-    <div class="icon-btn focusable" tabindex="-1">⚙️</div>
+    <div class="icon-btn focusable" id="btnSettings" tabindex="-1">⚙️</div>
   </header>
 
   <div class="body-grid">
@@ -434,6 +473,17 @@ XP1.setState = function(widgetName, state){
     el.dataset.state = state;
   });
 };
+// Random id for the X-Device-Id header every /api call needs.
+XP1.deviceId = function(){
+  var id = null;
+  try{ id = JSON.parse(localStorage.getItem('xp1_api_device_id')); }catch(e){}
+  if(!id){
+    var a = new Uint8Array(16); crypto.getRandomValues(a);
+    id = Array.from(a, function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    try{ localStorage.setItem('xp1_api_device_id', JSON.stringify(id)); }catch(e){}
+  }
+  return id;
+};
 XP1.setLocation = function(label){
   document.getElementById('locStr').textContent = '📍 ' + label;
 };
@@ -457,7 +507,8 @@ XP1.setLocation = function(label){
   };
 
   function groupItems(name){
-    return Array.prototype.slice.call(document.querySelectorAll('[data-group="' + name + '"] .focusable, [data-group="' + name + '"].focusable'));
+    return Array.prototype.slice.call(document.querySelectorAll('[data-group="' + name + '"] .focusable, [data-group="' + name + '"].focusable'))
+      .filter(function(el){ return el.offsetParent !== null; }); // skip hidden widgets
   }
 
   // Index every focusable within its nearest [data-group] ancestor.
@@ -492,7 +543,7 @@ XP1.setLocation = function(label){
     var g = GROUPS[gname];
     if(!g) return;
     var items = groupItems(gname);
-    var idx = parseInt(el.dataset.groupIndex, 10);
+    var idx = items.indexOf(el);
     var axisMatch = (g.axis === 'horizontal' && (dir === 'left' || dir === 'right')) ||
                      (g.axis === 'vertical'   && (dir === 'up'   || dir === 'down'));
     if(axisMatch){
@@ -1288,16 +1339,22 @@ window.XP1YouTube = (function(){
     var wasPlaying = frame() && frame().dataset.playing === 'true';
     xp1Set(PLAYLIST_KEY, { id: id, url: url });
     if(wasPlaying) switchPlaylist(id); else render();
+    if(XP1.onLocalChange) XP1.onLocalChange();
     return true;
   }
-  function setEnabled(on){ xp1Set(ENABLED_KEY, !!on); render(); }
+  function setEnabled(on){
+    xp1Set(ENABLED_KEY, !!on);
+    if(!on) stop(); // don't keep playing sound behind a hidden widget
+    render();
+    if(XP1.onLocalChange) XP1.onLocalChange();
+  }
 
   window.addEventListener('load', function(){
     frame().addEventListener('click', toggle);
     if(!xp1Get(PLAYLIST_KEY, null)){
       // Prefer whatever the admin panel has configured (Phase 9) —
       // the hardcoded URL is only a fallback for offline/first-ever load.
-      fetch('/api/xp1/playlists').then(function(r){ return r.ok ? r.json() : null; })
+      fetch('/api/xp1/playlists', { headers:{ 'X-Device-Id': XP1.deviceId() } }).then(function(r){ return r.ok ? r.json() : null; })
         .then(function(data){
           var first = data && data.playlists && data.playlists[0];
           setPlaylist(first ? first.youtube_url : DEFAULT_PLAYLIST_URL);
@@ -1330,7 +1387,7 @@ window.XP1YouTube = (function(){
   }
 
   function fetchCatalog(){
-    return fetch('/api/xp1/playlists')
+    return fetch('/api/xp1/playlists', { headers:{ 'X-Device-Id': XP1.deviceId() } })
       .then(function(r){ return r.ok ? r.json() : { playlists: [] }; })
       .then(function(d){ return d.playlists || []; })
       .catch(function(){ return []; });
@@ -1441,14 +1498,35 @@ window.XP1YouTube = (function(){
       label: (r.admin_district && r.admin_district[0]) ? r.admin_district[0] : (r.outcode || compact), source:'manual' };
   }
 
-  function applyLocation(loc){
+  function saveLocation(loc){
     xp1Set(LOC_KEY, loc);
     XP1.setLocation(loc.label);
     if(window.XP1Weather) XP1Weather.refresh(loc);
     if(window.XP1Prayer) XP1Prayer.init(loc);
     if(window.XP1Mosques) XP1Mosques.refresh(loc);
-    closeOverlay();
   }
+  function applyLocation(loc){
+    saveLocation(loc);
+    closeOverlay();
+    if(XP1.onLocalChange) XP1.onLocalChange();
+  }
+  // Phase 8 hooks
+  XP1.setSavedLocation = function(loc){
+    saveLocation(loc);
+    if(overlay.classList.contains('open')) closeOverlay();
+  };
+  XP1.openFirstRun = function(){
+    welcomeStep.style.display = 'block';
+    postcodeStep.style.display = 'none';
+    openOverlay();
+  };
+  XP1.openPostcodeEntry = function(){
+    typed = '';
+    errorEl.textContent = '';
+    overlay.classList.add('open');
+    XP1.modalOpen = true;
+    document.getElementById('btnEnterPostcode').click();
+  };
 
   // ---- overlay open/close ----
   var overlay = document.getElementById('firstRunOverlay');
@@ -1551,9 +1629,11 @@ window.XP1YouTube = (function(){
     if(!(window.XP1 && XP1.modalOpen) || !overlay.classList.contains('open')) return;
     var onWelcome = welcomeStep.style.display !== 'none';
     if(onWelcome){
-      if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
-        var a = document.getElementById('btnEnterPostcode'), b = document.getElementById('btnUseLondon');
-        (document.activeElement === a ? b : a).focus();
+      if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) > -1){
+        var btns = [document.getElementById('btnEnterPostcode'), document.getElementById('btnUseLondon'), document.getElementById('btnSetupPhone')];
+        var i = btns.indexOf(document.activeElement);
+        var step = (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 1;
+        btns[i < 0 ? 0 : (i + step + btns.length) % btns.length].focus();
         e.preventDefault();
       } else if(e.key === 'Enter'){
         if(document.activeElement && document.activeElement.click) document.activeElement.click();
@@ -1561,6 +1641,9 @@ window.XP1YouTube = (function(){
       return;
     }
     // postcode/keypad step
+    if((e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') && xp1Get(LOC_KEY, null)){
+      closeOverlay(); e.preventDefault(); return; // cancel "Change location"
+    }
     switch(e.key){
       case 'ArrowLeft': keypadMove('left'); e.preventDefault(); break;
       case 'ArrowRight': keypadMove('right'); e.preventDefault(); break;
@@ -1579,6 +1662,11 @@ window.XP1YouTube = (function(){
     var firstKey = keypadEl.querySelector('.key');
     if(firstKey) firstKey.focus();
   });
+  document.getElementById('btnSetupPhone').addEventListener('click', function(){
+    overlay.classList.remove('open');
+    XP1.modalOpen = false;
+    if(XP1.openSettings) XP1.openSettings();
+  });
   document.getElementById('btnUseLondon').addEventListener('click', function(){
     applyLocation(LONDON_FALLBACK);
   });
@@ -1593,6 +1681,274 @@ window.XP1YouTube = (function(){
   } else {
     openOverlay();
   }
+})();
+
+/* =========================================================
+   12. PHASE 8 — QR SETTINGS + PHONE SYNC
+      TV shows a QR code (short-lived, single-use pairing code).
+      Phone opens /xp1-settings, changes settings, TV picks them up
+      by polling POST /api/xp1/tv. Nothing is synced until this TV has
+      opened Settings once — so no API cost for TVs that never pair.
+      Offline: QR can't work, but the buttons on the right still do.
+   ========================================================= */
+(function(){
+  var ID_KEY = 'xp1_tv_id', SECRET_KEY = 'xp1_tv_secret', VER_KEY = 'xp1_tv_version';
+  var PAIRED_KEY = 'xp1_tv_paired', DIRTY_KEY = 'xp1_tv_dirty';
+  var SHOW_WEATHER_KEY = 'xp1_show_weather', SHOW_MOSQUES_KEY = 'xp1_show_mosques';
+  var SETTINGS_URL = location.origin + '/xp1-settings';
+  var BACKGROUND_POLL_MS = 2 * 60 * 1000;
+  var OPEN_POLL_MS = 5000;
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+  function hex(){
+    var a = new Uint8Array(16); crypto.getRandomValues(a);
+    return Array.from(a, function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+  function creds(){
+    var id = xp1Get(ID_KEY, null), secret = xp1Get(SECRET_KEY, null);
+    if(!id || !secret){ id = hex(); secret = hex(); xp1Set(ID_KEY, id); xp1Set(SECRET_KEY, secret); }
+    return { id:id, secret:secret };
+  }
+
+  function api(body){
+    return fetch('/api/xp1/tv', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': XP1.deviceId() },
+      body: JSON.stringify(body)
+    }).then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+
+  var regPromise = null;
+  function ensureRegistered(){
+    if(!regPromise){
+      var c = creds();
+      regPromise = api({ action:'register', device_id:c.id, secret:c.secret })
+        .catch(function(err){ regPromise = null; throw err; });
+    }
+    return regPromise;
+  }
+
+  // ---- read / apply settings ----
+  function currentSettings(){
+    var out = {
+      youtube_enabled: window.XP1YouTube ? XP1YouTube.isEnabled() : true,
+      show_weather: xp1Get(SHOW_WEATHER_KEY, true) !== false,
+      show_mosques: xp1Get(SHOW_MOSQUES_KEY, true) !== false
+    };
+    var loc = xp1Get('xp1_location', null);
+    if(loc && typeof loc.lat === 'number') out.location = loc;
+    var pl = xp1Get('xp1_youtube_playlist', null);
+    if(pl && pl.url) out.playlist_url = pl.url;
+    return out;
+  }
+
+  function applyShowFlags(){
+    var w = document.querySelector('.card.weather');
+    var m = document.querySelector('.mosques-card');
+    if(w) w.style.display = xp1Get(SHOW_WEATHER_KEY, true) === false ? 'none' : '';
+    if(m) m.style.display = xp1Get(SHOW_MOSQUES_KEY, true) === false ? 'none' : '';
+  }
+
+  var applyingRemote = false;
+  function applySettings(s){
+    if(!s) return;
+    applyingRemote = true;
+    try{
+      if(s.location && typeof s.location.lat === 'number'){
+        var cur = xp1Get('xp1_location', null);
+        if(!cur || cur.lat !== s.location.lat || cur.lon !== s.location.lon || cur.label !== s.location.label){
+          XP1.setSavedLocation(s.location);
+        }
+      }
+      if(window.XP1YouTube){
+        if(s.playlist_url){
+          var pl = xp1Get('xp1_youtube_playlist', null);
+          if(!pl || pl.url !== s.playlist_url) XP1YouTube.setPlaylist(s.playlist_url);
+        }
+        if(typeof s.youtube_enabled === 'boolean' && XP1YouTube.isEnabled() !== s.youtube_enabled){
+          XP1YouTube.setEnabled(s.youtube_enabled);
+        }
+      }
+      if(typeof s.show_weather === 'boolean') xp1Set(SHOW_WEATHER_KEY, s.show_weather);
+      if(typeof s.show_mosques === 'boolean') xp1Set(SHOW_MOSQUES_KEY, s.show_mosques);
+      applyShowFlags();
+    } finally {
+      applyingRemote = false;
+    }
+    renderLabels();
+  }
+
+  // ---- sync with server ----
+  var syncing = false;
+  function sync(){
+    if(syncing || !navigator.onLine) return Promise.resolve(null);
+    syncing = true;
+    var push = xp1Get(DIRTY_KEY, false) === true;
+    return ensureRegistered().then(function(){
+      var c = creds();
+      var body = { action:'sync', device_id:c.id, secret:c.secret };
+      if(push) body.settings = currentSettings();
+      return api(body);
+    }).then(function(d){
+      var local = xp1Get(VER_KEY, 0);
+      if(push){
+        xp1Set(DIRTY_KEY, false);
+        xp1Set(VER_KEY, d.version);
+      } else if(d.version > local){
+        applySettings(d.settings);
+        xp1Set(VER_KEY, d.version);
+      } else if(d.version === 0){
+        // Brand new on the server — send what this TV already has.
+        xp1Set(DIRTY_KEY, true);
+        syncing = false;
+        return sync();
+      }
+      if(d.phone_connected) xp1Set(PAIRED_KEY, true);
+      setPairStatus(d.phone_connected);
+      return d;
+    }).catch(function(){ return null; })
+      .finally(function(){ syncing = false; });
+  }
+
+  var pushTimer = null;
+  XP1.onLocalChange = function(){
+    if(applyingRemote) return;
+    renderLabels();
+    if(!xp1Get(ID_KEY, null)) return; // never paired — nothing to sync
+    xp1Set(DIRTY_KEY, true);
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(sync, 1500);
+  };
+
+  // Background: only for TVs that have been paired with a phone before.
+  setInterval(function(){
+    if(xp1Get(PAIRED_KEY, false) && !overlayOpen()) sync();
+  }, BACKGROUND_POLL_MS);
+  window.addEventListener('online', function(){ if(xp1Get(PAIRED_KEY, false)) sync(); });
+
+  // ---- overlay UI ----
+  var overlay = document.getElementById('settingsOverlay');
+  var qrBox = document.getElementById('qrBox');
+  var codeEl = document.getElementById('pairCode');
+  var statusBox = document.getElementById('pairStatus');
+  var statusText = document.getElementById('pairStatusText');
+  var listEl = document.getElementById('settingsList');
+  var openPoll = null, codeTimer = null, qrLibPromise = null, openedAt = 0;
+
+  function overlayOpen(){ return overlay.classList.contains('open'); }
+
+  function setPairStatus(connected){
+    statusBox.classList.toggle('on', !!connected);
+    statusText.textContent = connected ? 'Phone connected' : 'Scan with your phone';
+  }
+
+  function renderLabels(){
+    var loc = xp1Get('xp1_location', null);
+    document.getElementById('setLoc').textContent = loc && loc.label ? loc.label : 'Location not set';
+    var yt = window.XP1YouTube ? XP1YouTube.isEnabled() : true;
+    document.getElementById('setBtnYoutube').textContent = 'Islamic Reminders: ' + (yt ? 'On' : 'Off');
+    document.getElementById('setBtnWeather').textContent = 'Weather: ' + (xp1Get(SHOW_WEATHER_KEY, true) === false ? 'Off' : 'On');
+    document.getElementById('setBtnMosques').textContent = 'Nearby mosques: ' + (xp1Get(SHOW_MOSQUES_KEY, true) === false ? 'Off' : 'On');
+  }
+
+  function loadQrLib(){
+    if(window.qrcode) return Promise.resolve();
+    if(qrLibPromise) return qrLibPromise;
+    qrLibPromise = new Promise(function(resolve, reject){
+      var sc = document.createElement('script');
+      sc.src = '/assets/xp1/qrcode.js?v=1';
+      sc.onload = resolve;
+      sc.onerror = function(){ qrLibPromise = null; reject(); };
+      document.head.appendChild(sc);
+    });
+    return qrLibPromise;
+  }
+
+  function showQrMessage(msg){
+    qrBox.innerHTML = '<div class="qr-msg">' + msg + '</div>';
+    codeEl.textContent = '------';
+  }
+
+  function newCode(){
+    clearTimeout(codeTimer);
+    if(!navigator.onLine){ showQrMessage('You’re offline.<br>Phone settings need internet — use the buttons on the right.'); return; }
+    ensureRegistered().then(function(){
+      var c = creds();
+      return api({ action:'code', device_id:c.id, secret:c.secret });
+    }).then(function(d){
+      return loadQrLib().then(function(){
+        var qr = qrcode(0, 'M');
+        qr.addData(SETTINGS_URL + '?code=' + d.code);
+        qr.make();
+        qrBox.innerHTML = qr.createSvgTag({ cellSize:4, margin:0, scalable:true });
+        codeEl.textContent = d.code;
+        // Fresh code a few seconds before this one expires.
+        codeTimer = setTimeout(function(){ if(overlayOpen()) newCode(); }, Math.max(30000, d.expires - Date.now() - 5000));
+      });
+    }).catch(function(){
+      showQrMessage('Couldn’t load the QR code.<br>Close and try again.');
+    });
+  }
+
+  function openSettings(){
+    renderLabels();
+    openedAt = Date.now(); // ignore the same key press that opened this
+    overlay.classList.add('open');
+    XP1.modalOpen = true;
+    document.getElementById('setBtnLocation').focus();
+    setPairStatus(false);
+    showQrMessage('Loading…');
+    newCode();
+    sync();
+    clearInterval(openPoll);
+    openPoll = setInterval(sync, OPEN_POLL_MS);
+  }
+
+  function closeSettings(skipFirstRun){
+    overlay.classList.remove('open');
+    clearInterval(openPoll); clearTimeout(codeTimer);
+    XP1.modalOpen = false;
+    if(!skipFirstRun && !xp1Get('xp1_location', null) && XP1.openFirstRun){ XP1.openFirstRun(); return; }
+    var first = document.querySelector('.focusable');
+    if(first) first.focus();
+  }
+  XP1.openSettings = openSettings;
+
+  document.getElementById('btnSettings').addEventListener('click', openSettings);
+  document.getElementById('setBtnClose').addEventListener('click', function(){ closeSettings(false); });
+  document.getElementById('setBtnLocation').addEventListener('click', function(){
+    closeSettings(true);
+    XP1.openPostcodeEntry();
+  });
+  document.getElementById('setBtnYoutube').addEventListener('click', function(){
+    if(window.XP1YouTube) XP1YouTube.setEnabled(!XP1YouTube.isEnabled()); // triggers onLocalChange
+  });
+  document.getElementById('setBtnWeather').addEventListener('click', function(){
+    xp1Set(SHOW_WEATHER_KEY, xp1Get(SHOW_WEATHER_KEY, true) === false);
+    applyShowFlags(); XP1.onLocalChange();
+  });
+  document.getElementById('setBtnMosques').addEventListener('click', function(){
+    xp1Set(SHOW_MOSQUES_KEY, xp1Get(SHOW_MOSQUES_KEY, true) === false);
+    applyShowFlags(); XP1.onLocalChange();
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(!overlayOpen() || Date.now() - openedAt < 300) return;
+    var all = Array.prototype.slice.call(listEl.querySelectorAll('.focusable'));
+    var idx = all.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown'){ all[idx < 0 ? 0 : Math.min(idx + 1, all.length - 1)].focus(); e.preventDefault(); }
+    else if(e.key === 'ArrowUp'){ all[idx < 0 ? 0 : Math.max(idx - 1, 0)].focus(); e.preventDefault(); }
+    else if(e.key === 'Enter'){ if(document.activeElement && document.activeElement.click) document.activeElement.click(); e.preventDefault(); }
+    else if(e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack'){ closeSettings(false); e.preventDefault(); }
+  });
+
+  // ---- start ----
+  applyShowFlags();
+  if(xp1Get(PAIRED_KEY, false)) window.addEventListener('load', sync);
 })();
 
 </script>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>XP1 TV Settings — WhereWePraying</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
+    --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2;
+    --text:#241C15; --text-dim:#8A7E70; --border:#EFE1CC;
+    --green:#4C9A6A; --red:#D8654A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',system-ui,sans-serif;}
+  body{background:var(--bg);color:var(--text);min-height:100vh;padding:20px 16px 40px;}
+  .wrap{max-width:480px;margin:0 auto;}
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .top img{height:36px;}
+  .top h1{font-size:20px;font-weight:800;}
+  .status{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);font-weight:600;margin-bottom:18px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);}
+  .dot.on{background:var(--green);} .dot.off{background:var(--red);}
+  .card{background:var(--surface);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 6px 18px rgba(60,42,24,.06);}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:10px;}
+  .muted{font-size:13px;color:var(--text-dim);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);font-weight:600;font-size:15px;}
+  .row:first-of-type{border-top:none;}
+  input[type=text],select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface-alt);font-size:16px;margin-top:8px;}
+  .btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:800;background:var(--coral);color:#fff;margin-top:10px;cursor:pointer;}
+  .btn.soft{background:var(--coral-soft);color:var(--coral-dark);}
+  .btn.plain{background:var(--surface-alt);color:var(--text-dim);}
+  .switch{position:relative;width:48px;height:28px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:#DDD3C5;border-radius:28px;transition:.2s;}
+  .slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+  .switch input:checked + .slider{background:var(--coral);}
+  .switch input:checked + .slider:before{transform:translateX(20px);}
+  .msg{font-size:13px;margin-top:8px;min-height:18px;}
+  .msg.err{color:var(--red);} .msg.ok{color:var(--green);}
+  .hidden{display:none;}
+  .loc-now{font-size:15px;font-weight:700;}
+  .two{display:flex;gap:8px;} .two .btn{margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><img src="/assets/logo.png" alt=""><h1>XP1 TV Settings</h1></div>
+  <div class="status"><span class="dot" id="tvDot"></span><span id="tvStatus">Not connected</span></div>
+
+  <!-- Step 1: enter code (only if the QR link had no valid code) -->
+  <div id="codeView" class="card hidden">
+    <h2>Connect to your TV</h2>
+    <p class="muted">On your TV, open ⚙️ Settings and type the 6-letter code shown under the QR code.</p>
+    <input type="text" id="codeInput" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="e.g. K7M2QX">
+    <button class="btn" id="btnConnect">Connect</button>
+    <div class="msg err" id="codeMsg"></div>
+  </div>
+
+  <!-- Step 2: settings -->
+  <div id="settingsView" class="hidden">
+    <div class="card">
+      <h2>📍 Location</h2>
+      <div class="loc-now" id="locNow">Not set</div>
+      <input type="text" id="postcodeInput" autocapitalize="characters" autocomplete="postal-code" placeholder="Postcode, e.g. IG2 7HS or E14">
+      <div class="two">
+        <button class="btn soft" id="btnPostcode">Use this postcode</button>
+        <button class="btn plain" id="btnLondon">Use London</button>
+      </div>
+      <div class="msg" id="locMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎬 Islamic Reminders</h2>
+      <div class="row"><span>Show videos</span><label class="switch"><input type="checkbox" id="swYoutube"><span class="slider"></span></label></div>
+      <select id="playlistSelect"><option value="">Loading playlists…</option></select>
+    </div>
+
+    <div class="card">
+      <h2>📺 Dashboard</h2>
+      <div class="row"><span>Show weather</span><label class="switch"><input type="checkbox" id="swWeather"><span class="slider"></span></label></div>
+      <div class="row"><span>Show nearby mosques</span><label class="switch"><input type="checkbox" id="swMosques"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="msg" id="saveMsg"></div>
+
+    <div class="card">
+      <h2>About</h2>
+      <p class="muted">XP1 by WhereWePraying · Phase 8<br>Your TV updates within a minute or two.<br><a href="/privacy" style="color:var(--coral-dark);">Privacy</a></p>
+      <button class="btn plain" id="btnDisconnect">Disconnect TV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var TOKEN_KEY = 'xp1_phone_token';
+  var API = '/api/xp1/tv';
+  var FULL_POSTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\d[A-Za-z]{2}$/;
+  var OUTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?$/;
+  var LONDON = { lat:51.507, lon:-0.128, label:'London, UK', source:'fallback' };
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { settings:{} };
+
+  function deviceId(){
+    var id = null;
+    try{ id = localStorage.getItem('xp1_phone_id'); }catch(e){}
+    if(!id){
+      var a = new Uint8Array(16); crypto.getRandomValues(a);
+      id = Array.from(a, function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      try{ localStorage.setItem('xp1_phone_id', id); }catch(e){}
+    }
+    return id;
+  }
+  function getToken(){ try{ return sessionStorage.getItem(TOKEN_KEY); }catch(e){ return null; } }
+  function setToken(t){ try{ t ? sessionStorage.setItem(TOKEN_KEY, t) : sessionStorage.removeItem(TOKEN_KEY); }catch(e){} }
+
+  function call(body){
+    return fetch(API, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Device-Id': deviceId() },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(d){ d._status = r.status; return d; });
+    });
+  }
+
+  function showCode(msg){
+    setToken(null);
+    $('settingsView').classList.add('hidden');
+    $('codeView').classList.remove('hidden');
+    $('codeMsg').textContent = msg || '';
+    $('tvDot').className = 'dot'; $('tvStatus').textContent = 'Not connected';
+  }
+
+  function showSettings(d){
+    state.settings = d.settings || {};
+    $('codeView').classList.add('hidden');
+    $('settingsView').classList.remove('hidden');
+    $('tvDot').className = 'dot ' + (d.tv_online ? 'on' : 'off');
+    $('tvStatus').textContent = d.tv_online ? 'TV Connected' : 'TV not seen recently — changes apply when it’s back online';
+    var s = state.settings;
+    $('locNow').textContent = s.location ? s.location.label : 'Not set';
+    $('swYoutube').checked = s.youtube_enabled !== false;
+    $('swWeather').checked = s.show_weather !== false;
+    $('swMosques').checked = s.show_mosques !== false;
+    loadPlaylists(s.playlist_url);
+  }
+
+  function handle(d){
+    if(d && d.ok){ if(d.token) setToken(d.token); showSettings(d); return true; }
+    if(d && d._status === 401){ showCode(d.error); return false; }
+    return false;
+  }
+
+  function save(partial, msgEl){
+    var el = msgEl || $('saveMsg');
+    el.className = 'msg'; el.textContent = 'Saving…';
+    return call({ action:'save', token:getToken(), settings:partial }).then(function(d){
+      if(handle(d)){ el.className = 'msg ok'; el.textContent = 'Saved ✓ Your TV will update shortly.'; }
+      else if(d._status !== 401){ el.className = 'msg err'; el.textContent = d.error || 'Couldn’t save. Check your connection.'; }
+    }).catch(function(){ el.className = 'msg err'; el.textContent = 'Couldn’t save. Check your connection.'; });
+  }
+
+  var playlistsLoaded = false;
+  function loadPlaylists(currentUrl){
+    var sel = $('playlistSelect');
+    if(playlistsLoaded){ sel.value = currentUrl || sel.value; return; }
+    fetch('/api/xp1/playlists', { headers:{ 'X-Device-Id': deviceId() } })
+      .then(function(r){ return r.ok ? r.json() : { playlists:[] }; })
+      .then(function(d){
+        var list = d.playlists || [];
+        sel.innerHTML = '';
+        if(!list.length){ sel.innerHTML = '<option value="">No playlists yet</option>'; return; }
+        list.forEach(function(p){
+          var o = document.createElement('option');
+          o.value = p.youtube_url; o.textContent = p.title;
+          sel.appendChild(o);
+        });
+        if(currentUrl) sel.value = currentUrl;
+        playlistsLoaded = true;
+      })
+      .catch(function(){ sel.innerHTML = '<option value="">Couldn’t load playlists</option>'; });
+  }
+
+  function connect(code){
+    $('codeMsg').textContent = 'Connecting…';
+    return call({ action:'claim', code:code }).then(function(d){
+      if(d.ok){ setToken(d.token); history.replaceState(null, '', location.pathname); showSettings(d); }
+      else showCode(d.error || 'Couldn’t connect.');
+    }).catch(function(){ showCode('Couldn’t connect. Check your internet.'); });
+  }
+
+  async function lookupPostcode(raw){
+    var compact = raw.replace(/\s+/g,'').toUpperCase();
+    var url;
+    if(FULL_POSTCODE_RE.test(compact)) url = 'https://api.postcodes.io/postcodes/' + encodeURIComponent(compact);
+    else if(OUTCODE_RE.test(compact)) url = 'https://api.postcodes.io/outcodes/' + encodeURIComponent(compact);
+    else return null;
+    var r = await fetch(url);
+    if(!r.ok) return null;
+    var res = (await r.json()).result;
+    if(!res || typeof res.latitude !== 'number') return null;
+    var label = Array.isArray(res.admin_district)
+      ? (res.admin_district[0] || res.outcode)
+      : ([res.admin_ward, res.admin_district].filter(Boolean).join(', ') || res.postcode);
+    return { lat: Math.round(res.latitude*1000)/1000, lon: Math.round(res.longitude*1000)/1000, label: label, source:'manual' };
+  }
+
+  // ---- events ----
+  $('btnConnect').addEventListener('click', function(){ connect($('codeInput').value.trim().toUpperCase()); });
+  $('btnPostcode').addEventListener('click', async function(){
+    var msg = $('locMsg');
+    var v = $('postcodeInput').value.trim();
+    if(!v){ msg.className = 'msg err'; msg.textContent = 'Type a postcode first.'; return; }
+    msg.className = 'msg'; msg.textContent = 'Looking it up…';
+    try{
+      var loc = await lookupPostcode(v);
+      if(!loc){ msg.className = 'msg err'; msg.textContent = 'Postcode not found — check it and try again.'; return; }
+      $('postcodeInput').value = '';
+      save({ location: loc }, msg);
+    }catch(e){ msg.className = 'msg err'; msg.textContent = 'Network error — try again.'; }
+  });
+  $('btnLondon').addEventListener('click', function(){ save({ location: LONDON }, $('locMsg')); });
+  $('swYoutube').addEventListener('change', function(){ save({ youtube_enabled: this.checked }); });
+  $('swWeather').addEventListener('change', function(){ save({ show_weather: this.checked }); });
+  $('swMosques').addEventListener('change', function(){ save({ show_mosques: this.checked }); });
+  $('playlistSelect').addEventListener('change', function(){ if(this.value) save({ playlist_url: this.value }); });
+  $('btnDisconnect').addEventListener('click', function(){
+    call({ action:'disconnect', token:getToken() }).finally(function(){ showCode('Disconnected. Scan the QR code on your TV to connect again.'); });
+  });
+
+  // ---- start ----
+  var code = new URLSearchParams(location.search).get('code');
+  if(code){ connect(code.toUpperCase()); }
+  else if(getToken()){
+    call({ action:'get', token:getToken() }).then(function(d){ if(!handle(d)) showCode(d.error); })
+      .catch(function(){ showCode('Couldn’t connect. Check your internet.'); });
+  } else { showCode(''); }
+
+  // Keep TV status fresh while the page is open.
+  setInterval(function(){
+    if(!getToken() || document.hidden) return;
+    call({ action:'get', token:getToken() }).then(function(d){
+      if(d && d.ok){ $('tvDot').className = 'dot ' + (d.tv_online ? 'on' : 'off');
+        $('tvStatus').textContent = d.tv_online ? 'TV Connected' : 'TV not seen recently — changes apply when it’s back online'; }
+      else if(d && d._status === 401) showCode(d.error);
+    }).catch(function(){});
+  }, 60000);
+})();
+</script>
+</body>
+</html>
