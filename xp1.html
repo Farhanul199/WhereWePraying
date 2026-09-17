@@ -4136,6 +4136,12 @@ window.XP1YouTube = (function(){
     if(window.XP1Prayer) XP1Prayer.init(saved);
     if(window.XP1Mosques) XP1Mosques.refresh(saved);
   } else {
+    // No location saved: use London as fallback for weather and prayer,
+    // but still show the postcode entry overlay so users can set their own.
+    XP1.setLocation('London, UK');
+    if(window.XP1Weather) XP1Weather.refresh(LONDON_FALLBACK);
+    if(window.XP1Prayer) XP1Prayer.init(LONDON_FALLBACK);
+    if(window.XP1Mosques) XP1Mosques.refresh(LONDON_FALLBACK);
     openOverlay();
   }
 })();
