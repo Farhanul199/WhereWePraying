@@ -942,6 +942,12 @@ window.XP1Prayer = (function(){
     try{
       var today = new Date();
       var mosque = await fetchMosqueDay(slug, isoDate(today));
+      var j = mosque.jamaah || {};
+      if(!j.fajr && !j.zuhr && !j.asr && !j.maghrib && !j.isha){
+        // This mosque hasn't confirmed times — show normal start times instead of a broken card.
+        if(lastLoc){ await refresh(lastLoc); myMosqueSlug = slug; return; }
+      }
+      mosque.jamaah = j;
       var timings = {};
       PRAYERS.forEach(function(p){
         var key = p === 'Dhuhr' ? 'zuhr' : p.toLowerCase();
@@ -966,7 +972,8 @@ window.XP1Prayer = (function(){
         render(timings, { name:'Fajr', time: timeToday(fajrTime, tomorrow) }, 'Isha', { label: "Jama'ah in" });
         return;
       }
-      // Genuinely nothing confirmed — say so, don't fabricate a time.
+      // Nothing confirmed for tomorrow — fall back to normal start times.
+      if(lastLoc){ await refresh(lastLoc); myMosqueSlug = slug; return; }
       PRAYERS.forEach(function(p){
         var el = document.getElementById('time' + p);
         if(el) el.textContent = timings[p] || '--:--';
@@ -980,7 +987,8 @@ window.XP1Prayer = (function(){
       if(tickTimer) clearInterval(tickTimer);
       if(window.XP1) XP1.setState('prayer', 'success');
     }catch(e){
-      if(window.XP1) XP1.setState('prayer', 'error');
+      if(lastLoc){ await refresh(lastLoc); myMosqueSlug = slug; }
+      else if(window.XP1) XP1.setState('prayer', 'error');
     }
   }
 
@@ -1112,7 +1120,8 @@ window.XP1Mosques = (function(){
     // Main = your chosen mosque if it's nearby, otherwise the nearest.
     var main = list.filter(function(m){ return m.slug === mySlug; })[0] || list[0];
     // Back up = nearest other mosque you can still make it to, else just the next nearest.
-    var others = list.filter(function(m){ return main && m.slug !== main.slug; });
+    var norm = function(n){ return String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    var others = list.filter(function(m){ return main && m.slug !== main.slug && norm(m.name) !== norm(main.name); });
     var backup = others.filter(function(m){
       return m.next && (m.next.minutesUntil - travelEstimate(m.distanceMiles).minutes - SAFETY_BUFFER_MIN) >= 0;
     })[0] || others[0];
@@ -1314,7 +1323,35 @@ window.XP1YouTube = (function(){
     apiScriptAdded = true;
     var tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    tag.onerror = function(){ useSimpleEmbed(); };
     document.head.appendChild(tag);
+  }
+
+  // Backup player: a plain YouTube embed that needs no extra script.
+  // Used when the full player doesn't start within 12s (blocked script,
+  // slow TV browser, etc.) so the panel never spins forever.
+  var simpleMode = false;
+  function useSimpleEmbed(){
+    var pl = xp1Get(PLAYLIST_KEY, null);
+    if(!pl || !pl.id || playerReady) return;
+    clearTimeout(watchdog);
+    resetPlayerSlot();
+    simpleMode = true;
+    var slot = document.getElementById('ytPlayer');
+    var ifr = document.createElement('iframe');
+    ifr.id = 'ytPlayer';
+    ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+    ifr.setAttribute('allowfullscreen', '');
+    ifr.src = 'https://www.youtube-nocookie.com/embed/videoseries?list=' + encodeURIComponent(pl.id) + '&autoplay=1&mute=1&rel=0&playsinline=1';
+    slot.replaceWith(ifr);
+    sidebarEl().innerHTML = '';
+    frame().dataset.playing = 'true';
+    frame().dataset.state = 'success';
+    fitVideo();
+  }
+  function startWatchdog(){
+    clearTimeout(watchdog);
+    watchdog = setTimeout(function(){ if(!playerReady) useSimpleEmbed(); }, 12000);
   }
 
   window.onYouTubeIframeAPIReady = function(){
@@ -1337,23 +1374,13 @@ window.XP1YouTube = (function(){
     if(!pl || !pl.id) return;
     if(ytPlayer) return; // already building — never build two on one slot (that was the "loading forever" bug)
     creatingId = pl.id;
-    clearTimeout(watchdog);
-    // If YouTube hasn't answered in 20s, rebuild once, then show a retry message.
-    watchdog = setTimeout(function(){
-      if(playerReady) return;
-      resetPlayerSlot();
-      if(retries < 1){ retries++; createPlayer(true); }
-      else {
-        frame().dataset.state = 'error';
-        document.getElementById('ytErrorMsg').textContent = 'Couldn\u2019t load videos \u2014 press OK to retry';
-      }
-    }, 20000);
     ytPlayer = new YT.Player('ytPlayer', {
       host: 'https://www.youtube-nocookie.com',
       playerVars: { listType: 'playlist', list: pl.id, autoplay: 1, mute: muted ? 1 : 0, rel: 0, playsinline: 1, origin: location.origin },
       events: {
         onReady: function(){
-          playerReady = true; retries = 0;
+          if(simpleMode) return;
+          playerReady = true;
           clearTimeout(watchdog);
           frame().dataset.playing = 'true';
           frame().dataset.state = 'success';
@@ -1376,6 +1403,13 @@ window.XP1YouTube = (function(){
   function play(muted){
     var pl = xp1Get(PLAYLIST_KEY, null);
     if(!pl || !pl.id || !navigator.onLine) return;
+    if(simpleMode){
+      var ifr = document.getElementById('ytPlayer');
+      var want = 'list=' + encodeURIComponent(pl.id);
+      if(ifr && ifr.tagName === 'IFRAME' && ifr.src.indexOf(want) === -1){ simpleMode = false; playerReady = false; useSimpleEmbed(); }
+      frame().dataset.playing = 'true'; frame().dataset.state = 'success';
+      return;
+    }
     if(ytPlayer && playerReady){
       ytPlayer.playVideo();
       frame().dataset.playing = 'true';
@@ -1383,18 +1417,23 @@ window.XP1YouTube = (function(){
       return;
     }
     if(ytPlayer) return; // still starting up — onReady will finish the job
+    startWatchdog();
     if(window.YT && window.YT.Player){ createPlayer(muted); }
     else { pendingMuted = muted; loadApiScriptOnce(); }
   }
 
   function stop(){
+    if(simpleMode){ // can't pause a plain embed — remove it so sound stops
+      resetPlayerSlot(); simpleMode = false; frame().dataset.playing = 'false'; return;
+    }
     if(ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     frame().dataset.playing = 'false';
   }
 
   function toggle(){
+    if(simpleMode) return; // plain embed has its own controls
     if(frame().dataset.state === 'error' && xp1Get(PLAYLIST_KEY, null)){
-      retries = 0; resetPlayerSlot(); frame().dataset.state = 'loading'; play(false); return;
+      resetPlayerSlot(); frame().dataset.state = 'loading'; play(false); return;
     }
     // A click is a real user gesture, so it's safe to ask for sound here
     // even on browsers that silently muted the automatic on-load start.
@@ -1403,6 +1442,7 @@ window.XP1YouTube = (function(){
   }
 
   function switchPlaylist(id){
+    if(simpleMode){ simpleMode = false; useSimpleEmbed(); return; }
     if(ytPlayer && playerReady){
       ytPlayer.loadPlaylist({ list: id });
       creatingId = id;
