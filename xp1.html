@@ -41,21 +41,25 @@
 
   #xp1-viewport{width:100vw;height:100vh;background:var(--bg);overflow:hidden;}
   /* ===== Master background: day / night, cross-fades at sunset & Fajr ===== */
-  .xp1-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center bottom;transition:opacity 4s ease-in-out;pointer-events:none;}
+  .xp1-bg{position:absolute;top:0;right:0;bottom:0;left:0;z-index:0;background-size:cover;background-position:center bottom;transition:opacity 4s ease-in-out;pointer-events:none;}
   .xp1-bg-day{background-image:url('/assets/xp1/bg-day.webp');opacity:1;}
   .xp1-bg-night{background-image:url('/assets/xp1/bg-night.webp');opacity:0;}
   #xp1-canvas.night .xp1-bg-night{opacity:1;}
   #xp1-canvas > header, #xp1-canvas > .body-grid, #xp1-canvas > footer{position:relative;z-index:1;}
-  /* Leaves in front of the cards, for depth */
-  .xp1-leaf{position:absolute;left:0;bottom:0;width:19%;height:26%;z-index:6;pointer-events:none;
-            background-repeat:no-repeat;background-position:left bottom;background-size:contain;
-            transition:opacity 4s ease-in-out;filter:drop-shadow(0 0.25rem 1rem rgba(36,28,21,.35));}
-  .xp1-leaf-day{background-image:url('/assets/xp1/leaf-day.webp');opacity:1;}
-  .xp1-leaf-night{background-image:url('/assets/xp1/leaf-night.webp');opacity:0;}
-  #xp1-canvas.night .xp1-leaf-day{opacity:0;}
-  #xp1-canvas.night .xp1-leaf-night{opacity:1;}
-  /* Screen brightness (a dimming sheet over everything) */
-  #xp1-dim{position:fixed;inset:0;background:#000;opacity:0;z-index:300;pointer-events:none;transition:opacity .5s ease;}
+/* Screen brightness (a dimming sheet over everything) */
+  #xp1-dim{position:fixed;top:0;right:0;bottom:0;left:0;background:#000;opacity:0;z-index:300;pointer-events:none;transition:opacity .5s ease;}
+  /* Weak/older TVs: keep everything working, but stop repainting for decoration */
+  #xp1-canvas.lite .xp1-bg,
+  #xp1-canvas.lite header,
+  #xp1-canvas.lite footer,
+  #xp1-canvas.lite .focusable,
+  #xp1-canvas.lite #xp1-dim{transition:none;}
+  #xp1-canvas.lite .leaveby.urgent{animation:none;}
+  #xp1-canvas.lite .card{box-shadow:none;border:0.0625rem solid rgba(36,28,21,.10);}
+  @media (prefers-reduced-motion: reduce){
+    .xp1-bg, header, footer, .focusable{transition:none !important;}
+    .leaveby.urgent{animation:none !important;}
+  }
   /* Text sitting straight on the sky turns light at night */
   #xp1-canvas header, #xp1-canvas footer{transition:color 4s ease-in-out;}
   #xp1-canvas.night header, #xp1-canvas.night footer{--text:#FFFFFF;--text-dim:rgba(255,255,255,.82);color:#fff;}
@@ -99,7 +103,7 @@
   .next-prayer[data-prayer="maghrib"]{background-image:url('/assets/xp1/artwork/next-prayer/maghrib.webp');}
   .next-prayer[data-prayer="isha"]{background-image:url('/assets/xp1/artwork/next-prayer/isha.webp');}
   .next-prayer::before{
-    content:"";position:absolute;inset:0;
+    content:"";position:absolute;top:0;right:0;bottom:0;left:0;
     background:linear-gradient(180deg, rgba(20,16,12,.12) 0%, rgba(20,16,12,.32) 55%, rgba(20,16,12,.6) 100%);
     z-index:0;
   }
@@ -128,12 +132,12 @@
   .playlist:empty{display:none;}
   /* Sized by fitVideo() to cover the panel, so no black bars */
   .video-frame #ytPlayer{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:100%;height:100%;border:0;}
-  .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:1.125rem;color:#fff;}
+  .video-frame .state{position:absolute;top:0;right:0;bottom:0;left:0;display:none;align-items:flex-end;padding:1.125rem;color:#fff;}
   .video-frame[data-state="success"] .state-success{display:flex;}
   .video-frame[data-state="loading"] .state-loading{display:flex;align-items:center;justify-content:center;}
   .video-frame[data-state="error"] .state-error{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;text-align:center;}
   .video-frame[data-state="offline"] .state-offline{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;text-align:center;}
-  .video-frame .state-success::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
+  .video-frame .state-success::before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.05));}
   .video-frame .vinfo{position:relative;z-index:1;}
   .video-frame .vinfo .title{font-size:1.125rem;font-weight:800;}
   .video-frame .vinfo .speaker{font-size:0.6875rem;opacity:.85;margin-top:0.1875rem;}
@@ -222,7 +226,7 @@
   }
 
   /* ===== Phase 2 — first-run location overlay ===== */
-  .xp1-overlay{display:none;position:absolute;inset:0;z-index:50;background:rgba(36,28,21,.55);align-items:center;justify-content:center;}
+  .xp1-overlay{display:none;position:absolute;top:0;right:0;bottom:0;left:0;z-index:50;background:rgba(36,28,21,.55);align-items:center;justify-content:center;}
   .xp1-overlay.open{display:flex;}
   .overlay-card{width:56.25rem;background:var(--surface);border-radius:var(--r-lg);box-shadow:0 1.5rem 3.75rem rgba(0,0,0,.35);padding:2.75rem;text-align:center;}
   .overlay-card h2{font-size:1.625rem;font-weight:800;margin-bottom:0.625rem;}
@@ -2570,8 +2574,6 @@ var qrcode = function() {
 <div id="xp1-canvas">
   <div class="xp1-bg xp1-bg-day"></div>
   <div class="xp1-bg xp1-bg-night"></div>
-  <div class="xp1-leaf xp1-leaf-day"></div>
-  <div class="xp1-leaf xp1-leaf-night"></div>
   <div id="xp1-dim"></div>
 
   <div class="xp1-overlay" id="firstRunOverlay">
@@ -2753,6 +2755,27 @@ var qrcode = function() {
       it scales smoothly from a laptop window to a 70" TV via the
       root font-size alone.
    ========================================================= */
+
+/* =========================================================
+   1b. DEVICE POWER CHECK
+      Older/cheaper TVs (Hisense VIDAA, Tizen, webOS, low-core boxes)
+      can't afford full-screen cross-fades, looping animations and a
+      pile of parallel requests at boot. Decide once here; the
+      sections below trim themselves accordingly.
+   ========================================================= */
+(function(){
+  var ua = navigator.userAgent || '';
+  var cores = navigator.hardwareConcurrency || 0;
+  var mem = navigator.deviceMemory || 0;
+  var tvBrowser = /VIDAA|Tizen|Web0S|WebOS|SMART-TV|SmartTV|HbbTV|NetCast|BRAVIA|AFTB|AFTM|AFTS/i.test(ua);
+  var weak = (cores > 0 && cores <= 2) || (mem > 0 && mem <= 2);
+  window.XP1 = window.XP1 || {};
+  XP1.lite = !!(weak || (tvBrowser && cores <= 4));
+  if(XP1.lite){
+    var c = document.getElementById('xp1-canvas');
+    if(c) c.className += ' lite';
+  }
+})();
 
 /* =========================================================
    2. CLOCK / DATE (live; location is a Phase 2 hook — shows a
@@ -3044,12 +3067,29 @@ window.XP1Weather = (function(){
     };
   }
 
+  // Draw an animated SVG once onto a canvas and use that as a still image.
+  function freezeIcon(src, el){
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var cv = document.createElement('canvas');
+        cv.width = 128; cv.height = 128;
+        cv.getContext('2d').drawImage(img, 0, 0, 128, 128);
+        el.src = cv.toDataURL('image/png');
+      }catch(e){ el.src = src; }
+    };
+    img.onerror = function(){ el.src = src; };
+    img.src = src;
+  }
+
   function render(w){
     document.getElementById('weatherPlace').textContent = '📍 ' + w.place;
     document.getElementById('weatherTemp').textContent = w.temp + '°C';
     document.getElementById('weatherCond').textContent = w.cond.text;
     var iconEl = document.getElementById('weatherIcon');
-    iconEl.src = ICON_PATH + (w.iconFile || w.cond.icon) + '.svg';
+    var iconSrc = ICON_PATH + (w.iconFile || w.cond.icon) + '.svg';
+    // Meteocons animate forever. On a weak TV, show one still frame instead.
+    if(window.XP1 && XP1.lite) freezeIcon(iconSrc, iconEl); else iconEl.src = iconSrc;
     iconEl.alt = w.cond.text;
     document.getElementById('weatherHiLo').innerHTML = 'H: ' + (w.hi != null ? w.hi + '°' : '--°') + '<br>L: ' + (w.lo != null ? w.lo + '°' : '--°');
     var hourlyEl = document.getElementById('weatherHourly');
@@ -3591,8 +3631,14 @@ window.XP1YouTube = (function(){
       .catch(function(){ cb(null); });
   }
 
+  function sidebarWanted(){
+    return xp1Get('xp1_show_playlist', false) === true;
+  }
+
   function buildSidebar(){
     if(!ytPlayer || typeof ytPlayer.getPlaylist !== 'function') return;
+    // Hidden by default now: don't fetch 8 titles and 8 thumbnails nobody sees.
+    if(!sidebarWanted()){ sidebarEl().innerHTML = ''; fitVideo(); return; }
     var ids = ytPlayer.getPlaylist() || [];
     if(!ids.length) return;
     var curIndex = ytPlayer.getPlaylistIndex();
@@ -3620,22 +3666,29 @@ window.XP1YouTube = (function(){
     fitVideo();
   }
 
-  // Fill the whole panel (next to the sidebar when it's shown) and scale the
-  // video to cover it, so there are no black bars.
+  // The whole video must always be visible: the panel takes the space it can,
+  // and the video is the biggest 16:9 that FITS inside it — never cropped.
+  // Leftover space stays as a black border.
+  var lastBox = '';
   function fitVideo(){
     var row = frame() && frame().parentElement;
     if(!row || !row.clientWidth) return;
     var side = sidebarEl();
-    var sideOn = side && side.offsetParent !== null && side.children.length;
+    var sideOn = side && side.children.length && xp1Get('xp1_show_playlist', false) === true;
     var sideW = sideOn ? side.offsetWidth + 16 : 0;
     var w = row.clientWidth - sideW, h = row.clientHeight;
     if(w <= 0 || h <= 0) return;
-    frame().style.width = Math.floor(w) + 'px';
-    frame().style.height = Math.floor(h) + 'px';
     var vw, vh;
-    if(w / h > 16 / 9){ vw = w; vh = w * 9 / 16; } else { vh = h; vw = h * 16 / 9; }
+    if(w / h > 16 / 9){ vh = h; vw = h * 16 / 9; }   // panel wider than the video
+    else { vw = w; vh = w * 9 / 16; }                 // panel taller than the video
+    var box = w + 'x' + h;
+    if(box !== lastBox){   // avoid pointless style writes on weak TVs
+      lastBox = box;
+      frame().style.width = Math.floor(w) + 'px';
+      frame().style.height = Math.floor(h) + 'px';
+    }
     var el = document.getElementById('ytPlayer');
-    if(el){ el.style.width = Math.ceil(vw) + 'px'; el.style.height = Math.ceil(vh) + 'px'; }
+    if(el){ el.style.width = Math.floor(vw) + 'px'; el.style.height = Math.floor(vh) + 'px'; }
   }
   XP1.fitVideo = fitVideo;
   window.addEventListener('resize', fitVideo);
@@ -3679,6 +3732,7 @@ window.XP1YouTube = (function(){
     ifr.setAttribute('allowfullscreen', '');
     ifr.src = 'https://www.youtube-nocookie.com/embed/videoseries?list=' + encodeURIComponent(pl.id) + '&autoplay=1&mute=1&rel=0&playsinline=1';
     slot.replaceWith(ifr);
+    lastBox = '';
     sidebarEl().innerHTML = '';
     frame().dataset.playing = 'true';
     frame().dataset.state = 'success';
@@ -3824,7 +3878,10 @@ window.XP1YouTube = (function(){
   window.addEventListener('online', render);
   window.addEventListener('offline', render);
 
-  return { setPlaylist: setPlaylist, setEnabled: setEnabled, isEnabled: isEnabled };
+  // Called when the next-video list is switched on, so it fills in then.
+  function refreshSidebar(){ buildSidebar(); fitVideo(); }
+
+  return { setPlaylist: setPlaylist, setEnabled: setEnabled, isEnabled: isEnabled, refreshSidebar: refreshSidebar };
 })();
 
 /* =========================================================
@@ -4129,19 +4186,22 @@ window.XP1YouTube = (function(){
   });
 
   // ---- init: skip straight to dashboard if a location is already saved ----
+  // Boot in stages rather than firing every request at once — a weak TV
+  // that gets four parallel fetches renders the first card and stalls on
+  // the rest. Prayer times and weather go first, mosques follow.
+  function boot(loc, label){
+    XP1.setLocation(label);
+    if(window.XP1Prayer) XP1Prayer.init(loc);
+    if(window.XP1Weather) XP1Weather.refresh(loc);
+    var delay = (window.XP1 && XP1.lite) ? 2000 : 600;
+    setTimeout(function(){ if(window.XP1Mosques) XP1Mosques.refresh(loc); }, delay);
+  }
+
   var saved = xp1Get(LOC_KEY, null);
   if(saved && typeof saved.lat === 'number'){
-    XP1.setLocation(saved.label || 'Saved location');
-    if(window.XP1Weather) XP1Weather.refresh(saved);
-    if(window.XP1Prayer) XP1Prayer.init(saved);
-    if(window.XP1Mosques) XP1Mosques.refresh(saved);
+    boot(saved, saved.label || 'Saved location');
   } else {
-    // No location saved: use London as fallback for weather and prayer,
-    // but still show the postcode entry overlay so users can set their own.
-    XP1.setLocation('London, UK');
-    if(window.XP1Weather) XP1Weather.refresh(LONDON_FALLBACK);
-    if(window.XP1Prayer) XP1Prayer.init(LONDON_FALLBACK);
-    if(window.XP1Mosques) XP1Mosques.refresh(LONDON_FALLBACK);
+    boot(LONDON_FALLBACK, 'London, UK');
     openOverlay();
   }
 })();
@@ -4224,7 +4284,12 @@ window.XP1YouTube = (function(){
     var pl = document.querySelector('.playlist');
     if(w) w.style.display = xp1Get(SHOW_WEATHER_KEY, true) === false ? 'none' : '';
     if(m) m.style.display = xp1Get(SHOW_MOSQUES_KEY, true) === false ? 'none' : '';
-    if(pl) pl.style.display = xp1Get(SHOW_PLAYLIST_KEY, false) === true ? '' : 'none';
+    if(pl){
+      var onNow = xp1Get(SHOW_PLAYLIST_KEY, false) === true;
+      var was = pl.style.display !== 'none';
+      pl.style.display = onNow ? '' : 'none';
+      if(onNow && !was && window.XP1YouTube && XP1YouTube.refreshSidebar) XP1YouTube.refreshSidebar();
+    }
     applyBrightness();
     if(XP1.fitVideo) XP1.fitVideo();
   }
@@ -4474,8 +4539,11 @@ window.XP1YouTube = (function(){
     var now = new Date(), n = now.getHours() * 60 + now.getMinutes();
     canvas.classList.toggle('night', n >= sunset || n < dawn);
   }
-  // Preload the night picture so the first fade is smooth, not a pop-in.
-  var pre = new Image(); pre.src = '/assets/xp1/bg-night.webp';
+  // Fetch the picture that isn't showing only once the dashboard has settled,
+  // and on weak TVs not at all until it's actually needed.
+  if(!(window.XP1 && XP1.lite)){
+    setTimeout(function(){ var pre = new Image(); pre.src = '/assets/xp1/bg-night.webp'; }, 8000);
+  }
   update();
   setInterval(update, 60000);
   window.addEventListener('load', function(){ setTimeout(update, 3000); }); // re-check once prayer times arrive
