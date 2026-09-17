@@ -20,6 +20,7 @@
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 
 import { isSyncRequest } from '../../_lib/auth.js';
+import { syncSourceTimes } from '../../_lib/source-times.js';
 
 function londonDateIso() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -61,6 +62,16 @@ export async function onRequestGet(context) {
 
   const dateIso = londonDateIso();
   const tomorrowIso = addDaysIso(dateIso, 1);
+
+  // Top up jama'ah times copied from the Sources page (Mawaqit, Masjidal,
+  // Takbeer Time) for promoted mosques, before building the file. Small
+  // batch, and a failure here never stops the cache from being built.
+  let timesTopUp = null;
+  try {
+    timesTopUp = await syncSourceTimes(env.DB, 60);
+  } catch (e) {
+    timesTopUp = { error: String(e).slice(0, 200) };
+  }
 
   let rows;
   try {
@@ -141,5 +152,6 @@ export async function onRequestGet(context) {
     date: dateIso,
     r2Key,
     mosquesCount: mosques.length,
+    timesTopUp,
   }), { headers: { "Content-Type": "application/json" } });
 }

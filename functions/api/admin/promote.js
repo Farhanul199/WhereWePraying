@@ -19,13 +19,16 @@
 //        -> fills missing coordinates from the address (OpenStreetMap
 //           Nominatim, 1 request/second, max 20 per call). Needed for
 //           DITIB before it can promote.
+//   POST { action:'sync_times', limit? }
+//        -> copies collected jama'ah times (Mawaqit, Masjidal, Takbeer Time)
+//           onto promoted mosques. Also runs automatically twice a day.
 //   POST { action:'undo', source }
 //        -> removes the mosques created by this source's LAST batch and
 //           puts those rows back in the holding pen. Only touches rows
 //           this tool created.
 //
 // Rules:
-//   - Mawaqit is blocked (held back until its ingestion fix lands).
+//   - Mawaqit's own internal duplicates (runner-flagged) are skipped.
 //   - Rows without a name or coordinates are never promoted - the live
 //     site (R2 cache, /nearby, /plan) only shows mosques with coordinates.
 //   - Duplicate check against every existing mosque AND rows already
@@ -40,8 +43,9 @@
 //   - Imamia Mission London (IG2 7LX) is always skipped.
 
 import { isAdminRequest } from '../../_lib/auth.js';
+import { syncSourceTimes, countDue } from '../../_lib/source-times.js';
 
-const BLOCKED_SOURCES = { mawaqit: 'Mawaqit is held back until the ingestion fix is done.' };
+const BLOCKED_SOURCES = {};
 const MAX_PROMOTE = 150;
 const MAX_GEOCODE = 20;
 const DUP_METERS = 75;
@@ -210,6 +214,7 @@ async function nextRows(db, source, country, limit) {
   let sql = `SELECT source_ref, name, country, city, address, zipcode, lat, lon, site, raw_json, geocode_status
                FROM source_discoveries
               WHERE ${PENDING_WHERE}
+                AND COALESCE(times_status,'') <> 'duplicate'
                 AND name IS NOT NULL AND TRIM(name) <> ''
                 AND lat IS NOT NULL AND lon IS NOT NULL`;
   if (country) { binds.push(country.toUpperCase()); sql += ' AND country = ?2'; }
@@ -241,6 +246,7 @@ async function status(db, source) {
        SUM(CASE WHEN status='duplicate' THEN 1 ELSE 0 END) AS duplicates,
        SUM(CASE WHEN status='excluded' THEN 1 ELSE 0 END) AS excluded,
        SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
+                 AND COALESCE(times_status,'') <> 'duplicate'
                  AND name IS NOT NULL AND TRIM(name) <> '' AND lat IS NOT NULL AND lon IS NOT NULL THEN 1 ELSE 0 END) AS ready,
        SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
                  AND name IS NOT NULL AND TRIM(name) <> '' AND (lat IS NULL OR lon IS NULL)
@@ -251,7 +257,8 @@ async function status(db, source) {
        MAX(promote_batch) AS last_batch
      FROM source_discoveries WHERE source = ?1`
   ).bind(source).first();
-  return { source, blocked: BLOCKED_SOURCES[source] || null, ...row };
+  const times_due = await countDue(db);
+  return { source, blocked: BLOCKED_SOURCES[source] || null, times_due, ...row };
 }
 
 /* --------------------------------------------------------------- promote */
@@ -477,6 +484,13 @@ export async function onRequestPost(context) {
   let body;
   try { body = await context.request.json(); } catch (e) { return json({ error: 'Invalid JSON body.' }, 400); }
   const source = String(body.source || '').trim();
+  if (body.action === 'sync_times') {
+    try {
+      await ensureSchema(db);
+      const r = await syncSourceTimes(db, parseInt(body.limit, 10) || 40);
+      return json({ ok: true, ...r, stillDue: await countDue(db) });
+    } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
+  }
   if (!source) return json({ error: 'source is required' }, 400);
 
   try {
