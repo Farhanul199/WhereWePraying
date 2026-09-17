@@ -131,6 +131,7 @@
       <div class="actions">
         <button class="ghost" id="promotePreviewBtn">Preview next 50</button>
         <button id="promoteBtn">Promote all ready</button>
+        <button id="doItAllBtn">Put live + send times</button>
         <button class="ghost" id="geocodeBtn">Find coordinates from addresses</button>
         <button class="ghost" id="undoPromoteBtn">Undo last batch</button>
         <button class="ghost" id="syncTimesBtn">Send prayer times to the site</button>
@@ -724,6 +725,7 @@
     $('syncTimesBtn').disabled = promoteBusy;
     var blocked = !!d.blocked;
     $('promoteBtn').disabled = promoteBusy || blocked || !d.ready;
+    $('doItAllBtn').disabled = promoteBusy || blocked || (!d.ready && !d.times_due);
     $('promotePreviewBtn').disabled = promoteBusy || blocked || !d.ready;
     $('geocodeBtn').style.display = d.needs_geocode ? '' : 'none';
     $('geocodeBtn').disabled = promoteBusy;
@@ -750,6 +752,48 @@
       }).join('') : '<tr><td colspan="4" class="hint">Nothing ready.</td></tr>');
     var n = rows.filter(function(r){ return r.action === 'new'; }).length;
     say($('promoteStatus'), 'Next ' + rows.length + ': ' + n + ' new · ' + (rows.length - n) + ' linked/skipped.');
+  });
+
+  async function runPromote(pcc){
+    var created = 0, linked = 0, skipped = 0;
+    for (var round = 0; round < 60; round++) {
+      say($('promoteStatus'), 'Putting mosques live… ' + created + ' added · ' + linked + ' linked so far.');
+      var d = await postPromote({ action: 'promote', source: SOURCE, limit: 150, country: pcc || null });
+      if (d.error || d.ok === false) { say($('promoteStatus'), (d.error || (d.errors || []).join(' | ') || 'Failed.'), true); return null; }
+      if (!d.processed) break;
+      created += d.created || 0; linked += d.linked || 0; skipped += d.excluded || 0;
+      await wait(6500); // admin API allows 10 requests/min
+    }
+    return { created: created, linked: linked, skipped: skipped };
+  }
+
+  async function runTimes(){
+    var withTimes = 0, without = 0;
+    for (var round = 0; round < 80; round++) {
+      say($('promoteStatus'), 'Sending prayer times… ' + withTimes + ' mosques done so far.');
+      var d = await postPromote({ action: 'sync_times', limit: 55 });
+      if (d.error) { say($('promoteStatus'), d.error, true); return null; }
+      withTimes += d.mosquesWithTimes || 0; without += d.mosquesWithoutUsableTimes || 0;
+      if (!d.checked || !d.stillDue) break;
+      await wait(6500);
+    }
+    return { withTimes: withTimes, without: without };
+  }
+
+  $('doItAllBtn').addEventListener('click', async function(){
+    if (promoteBusy) return;
+    var pcc = $('promoteCountry').value;
+    if (!pcc && SOURCE === 'mawaqit' && !confirm('No country picked — this puts EVERY Mawaqit mosque worldwide live, which can push the site past its free limits. Continue anyway?')) return;
+    promoteBusy = true; loadPromote();
+    var p = await runPromote(pcc);
+    var t = p ? await runTimes() : null;
+    promoteBusy = false;
+    $('promoteTable').classList.add('hidden');
+    if (p && t) {
+      say($('promoteStatus'), 'All done — ' + p.created + ' new live mosques · ' + t.withTimes + ' with jama\'ah times' +
+        (t.without ? ' · ' + t.without + ' had no reliable times' : '') + '. Now press "Update the live site now".');
+    }
+    refresh();
   });
 
   $('promoteBtn').addEventListener('click', async function(){
