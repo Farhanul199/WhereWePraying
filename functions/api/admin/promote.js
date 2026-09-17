@@ -25,6 +25,10 @@
 //   POST { action:'sync_times', limit? }
 //        -> copies collected jama'ah times (Mawaqit, Masjidal, Takbeer Time)
 //           onto promoted mosques. Also runs automatically twice a day.
+//   POST { action:'sideline', keepThm?:true }
+//        -> hides every mosque that did NOT come from the Sources page, so
+//           the live site shows source-page data only. Reversible.
+//   POST { action:'restore' }  -> brings those back.
 //   POST { action:'undo', source }
 //        -> removes the mosques created by this source's LAST batch and
 //           puts those rows back in the holding pen. Only touches rows
@@ -76,7 +80,7 @@ const DISCOVERY_COLS = {
   duplicate_of: 'TEXT', duplicate_source: 'TEXT', duplicate_reason: 'TEXT',
   geocode_status: 'TEXT', geocoded_at: 'TEXT',
 };
-const MOSQUE_COLS = { country: 'TEXT', created_by: 'TEXT', locked_fields: 'TEXT', merged_into: 'TEXT', canonical_key: 'TEXT', region: 'TEXT' };
+const MOSQUE_COLS = { sidelined_at: 'TEXT', country: 'TEXT', created_by: 'TEXT', locked_fields: 'TEXT', merged_into: 'TEXT', canonical_key: 'TEXT', region: 'TEXT' };
 
 async function ensureSchema(db) {
   const [d, m] = await db.batch([
@@ -182,7 +186,7 @@ function isExcluded(m) {
 
 async function loadLive(db) {
   const { results } = await db.prepare(
-    `SELECT slug, name, postcode, latitude, longitude, locked_fields, merged_into FROM mosques`
+    `SELECT slug, name, postcode, latitude, longitude, locked_fields, merged_into, sidelined_at FROM mosques`
   ).all();
   return results || [];
 }
@@ -237,7 +241,7 @@ async function nextRows(db, source, country, limit) {
 
 function plan(rows, live) {
   const taken = new Set(live.map((x) => x.slug));
-  const pool = live.filter((x) => !x.merged_into);
+  const pool = live.filter((x) => !x.merged_into && !x.sidelined_at);
   return rows.map((r) => {
     const m = mapRow(r);
     if (isExcluded(m)) return { ref: r.source_ref, m, action: 'exclude', reason: 'excluded mosque' };
@@ -283,6 +287,11 @@ async function overview(db) {
       `SELECT (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL) AS live_mosques,
               (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL
                  AND latitude IS NOT NULL AND longitude IS NOT NULL) AS live_on_map,
+              (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL
+                 AND created_by LIKE 'promote:%') AS live_from_sources,
+              (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL
+                 AND (created_by IS NULL OR created_by NOT LIKE 'promote:%')) AS live_pre_existing,
+              (SELECT COUNT(*) FROM mosques WHERE sidelined_at IS NOT NULL) AS set_aside,
               (SELECT COUNT(DISTINCT mosque) FROM thm_jamaah_times WHERE date = ?1) AS with_times_today`
     ).bind(today),
   ]);
@@ -408,6 +417,34 @@ async function promote(db, source, country, limit) {
     batch, errors,
     sample: decisions.slice(0, 10).map((d) => ({ name: d.m.name, action: d.action, slug: d.slug || null, reason: d.reason || null })),
   };
+}
+
+/* ------------------------------------------------------------ sideline */
+
+// Everything the live site shows that did NOT come from the Sources page
+// gets hidden (active = 0) and stamped, so 'restore' can bring back exactly
+// those and nothing else. Tower Hamlets is kept by default - it's the only
+// committee-backed jama'ah data currently on the site.
+async function sideline(db, keepThm) {
+  const now = new Date().toISOString();
+  const thm = keepThm
+    ? ` AND slug NOT IN (SELECT mosque_slug FROM mosque_sources WHERE source LIKE 'thm%' AND mosque_slug IS NOT NULL)`
+    : '';
+  const r = await db.prepare(
+    `UPDATE mosques SET active = 0, sidelined_at = ?1
+      WHERE active = 1 AND sidelined_at IS NULL
+        AND (created_by IS NULL OR created_by NOT LIKE 'promote:%')${thm}`
+  ).bind(now).run();
+  const hidden = (r.meta && r.meta.changes) || 0;
+  const left = await db.prepare(
+    `SELECT COUNT(*) AS n FROM mosques WHERE active = 1 AND type='mosque' AND merged_into IS NULL`
+  ).first();
+  return { ok: true, hidden, stillLive: (left && left.n) || 0, keptTowerHamlets: !!keepThm };
+}
+
+async function restore(db) {
+  const r = await db.prepare(`UPDATE mosques SET active = 1, sidelined_at = NULL WHERE sidelined_at IS NOT NULL`).run();
+  return { ok: true, restored: (r.meta && r.meta.changes) || 0 };
 }
 
 /* ---------------------------------------------------------------- undo */
@@ -550,6 +587,12 @@ export async function onRequestPost(context) {
       await ensureSchema(db);
       const r = await syncSourceTimes(db, parseInt(body.limit, 10) || 40);
       return json({ ok: true, ...r, stillDue: await countDue(db) });
+    } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
+  }
+  if (body.action === 'sideline' || body.action === 'restore') {
+    try {
+      await ensureSchema(db);
+      return json(body.action === 'sideline' ? await sideline(db, body.keepThm !== false) : await restore(db));
     } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
   }
   if (!source) return json({ error: 'source is required' }, 400);
