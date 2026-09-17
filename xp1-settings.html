@@ -81,8 +81,20 @@
 
     <div class="card">
       <h2>📺 Dashboard</h2>
+      <div class="row"><span>Show next-video list</span><label class="switch"><input type="checkbox" id="swPlaylistBar"><span class="slider"></span></label></div>
       <div class="row"><span>Show weather</span><label class="switch"><input type="checkbox" id="swWeather"><span class="slider"></span></label></div>
       <div class="row"><span>Show nearby mosques</span><label class="switch"><input type="checkbox" id="swMosques"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="card">
+      <h2>🔆 Brightness</h2>
+      <select id="brightnessSelect">
+        <option value="100">100% — normal</option>
+        <option value="85">85%</option>
+        <option value="70">70% — evening</option>
+        <option value="55">55%</option>
+        <option value="40">40% — night</option>
+      </select>
     </div>
 
     <div class="msg" id="saveMsg"></div>
@@ -145,6 +157,8 @@
     var s = state.settings;
     $('locNow').textContent = s.location ? s.location.label : 'Not set';
     $('swYoutube').checked = s.youtube_enabled !== false;
+    $('swPlaylistBar').checked = s.show_playlist === true;
+    $('brightnessSelect').value = String(s.brightness || 100);
     $('swWeather').checked = s.show_weather !== false;
     $('swMosques').checked = s.show_mosques !== false;
     loadPlaylists(s.playlist_url);
@@ -226,6 +240,8 @@
   });
   $('btnLondon').addEventListener('click', function(){ save({ location: LONDON }, $('locMsg')); });
   $('swYoutube').addEventListener('change', function(){ save({ youtube_enabled: this.checked }); });
+  $('swPlaylistBar').addEventListener('change', function(){ save({ show_playlist: this.checked }); });
+  $('brightnessSelect').addEventListener('change', function(){ save({ brightness: parseInt(this.value, 10) }); });
   $('swWeather').addEventListener('change', function(){ save({ show_weather: this.checked }); });
   $('swMosques').addEventListener('change', function(){ save({ show_mosques: this.checked }); });
   $('playlistSelect').addEventListener('change', function(){ if(this.value) save({ playlist_url: this.value }); });
