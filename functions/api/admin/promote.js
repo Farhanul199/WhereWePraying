@@ -235,7 +235,9 @@ async function nextRows(db, source, country, limit) {
                 AND name IS NOT NULL AND TRIM(name) <> ''
                 AND lat IS NOT NULL AND lon IS NOT NULL`;
   if (country) { binds.push(country.toUpperCase()); sql += ' AND country = ?2'; }
-  sql += ` ORDER BY source_ref LIMIT ${limit}`;
+  // Mosques whose timetable we already hold go first - they're the ones
+  // that light up with real jama'ah times the moment they're live.
+  sql += ` ORDER BY (COALESCE(times_status,'') = 'ok') DESC, source_ref LIMIT ${limit}`;
   return (await db.prepare(sql).bind(...binds).all()).results || [];
 }
 

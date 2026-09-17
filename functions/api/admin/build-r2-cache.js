@@ -70,7 +70,7 @@ export async function onRequestGet(context) {
   // batch, and a failure here never stops the cache from being built.
   let timesTopUp = null;
   try {
-    timesTopUp = await syncSourceTimes(env.DB, 60);
+    timesTopUp = await syncSourceTimes(env.DB, 45);
   } catch (e) {
     timesTopUp = { error: String(e).slice(0, 200) };
   }
