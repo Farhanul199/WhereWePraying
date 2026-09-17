@@ -12,7 +12,7 @@
 //
 //   mawaqit     full-year calendar. Skipped if the runner graded the
 //               timetable 'bad' or the jama'ah 'bad'/'placeholder'.
-//               Writes the next 30 days, topped up when < 7 days remain.
+//               Writes the next 14 days, topped up automatically.
 //   masjidal    one current schedule. Written only up to 7 days after it
 //               was last fetched (the background worker keeps refreshing).
 //   takbeertime same as masjidal, and only schedules Takbeer Time marks as
@@ -20,8 +20,11 @@
 //   masjidbox / mymasjid / thm have their own sync jobs - not touched here.
 
 const SOURCES = ['mawaqit', 'masjidal', 'takbeertime'];
-const WINDOW_DAYS = 30;
-const TOP_UP_WHEN_DAYS_LEFT = 7;
+// 14 days at a time, topped up twice a day by the cache builder. Shorter
+// window = more mosques per request (D1 caps statements per invocation),
+// which is what makes a big source like Mawaqit finish quickly.
+const WINDOW_DAYS = 14;
+const TOP_UP_WHEN_DAYS_LEFT = 5;
 const SNAPSHOT_VALID_DAYS = 7;
 
 // Lower = more trusted. The live views ignore any source missing here.
@@ -168,7 +171,7 @@ export async function syncSourceTimes(db, limit) {
     `SELECT source, source_ref, calendar_json, iqama_json, iqama_enabled, jumua, jumua2, jumua_as_duhr,
             quality, iqama_quality, times_updated_at
        FROM source_discoveries WHERE ${DUE_WHERE}
-      ORDER BY times_live_through IS NOT NULL, times_live_through LIMIT ${Math.max(1, Math.min(limit, 80))}`
+      ORDER BY times_live_through IS NOT NULL, times_live_through LIMIT ${Math.max(1, Math.min(limit, 55))}`
   ).bind(addDays(today, TOP_UP_WHEN_DAYS_LEFT)).all();
   const rows = results || [];
   const now = new Date().toISOString();
