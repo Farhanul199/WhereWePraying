@@ -39,6 +39,11 @@
   .slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
   .switch input:checked + .slider{background:var(--coral);}
   .switch input:checked + .slider:before{transform:translateX(20px);}
+  .hint{font-size:0.85rem;color:#8A7E70;margin:0 0 0.625rem;}
+  .mypl{display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0;border-bottom:1px solid rgba(36,28,21,.08);}
+  .mypl .t{flex:1;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mypl button{border:0;background:#F3EADD;border-radius:0.5rem;padding:0.45rem 0.6rem;font-size:0.9rem;}
+  .mypl button.play{background:#FFE2D6;}
   .msg{font-size:13px;margin-top:8px;min-height:18px;}
   .msg.err{color:var(--red);} .msg.ok{color:var(--green);}
   .hidden{display:none;}
@@ -77,6 +82,16 @@
       <h2>🎬 Islamic Reminders</h2>
       <div class="row"><span>Show videos</span><label class="switch"><input type="checkbox" id="swYoutube"><span class="slider"></span></label></div>
       <select id="playlistSelect"><option value="">Loading playlists…</option></select>
+    </div>
+
+    <div class="card">
+      <h2>⭐ Your own playlists</h2>
+      <p class="hint">Paste a YouTube playlist link. They show at the top of Browse Playlists on the TV, in this order.</p>
+      <input type="text" id="myPlName" placeholder="Name (optional), e.g. Friday lectures">
+      <input type="text" id="myPlUrl" placeholder="https://www.youtube.com/playlist?list=…">
+      <button class="btn soft" id="btnAddPlaylist">Add playlist</button>
+      <div id="myPlList"></div>
+      <div class="msg" id="myPlMsg"></div>
     </div>
 
     <div class="card">
@@ -162,6 +177,7 @@
     $('swWeather').checked = s.show_weather !== false;
     $('swMosques').checked = s.show_mosques !== false;
     loadPlaylists(s.playlist_url);
+    renderMyPlaylists();
   }
 
   function handle(d){
@@ -247,6 +263,78 @@
   $('playlistSelect').addEventListener('change', function(){ if(this.value) save({ playlist_url: this.value }); });
   $('btnDisconnect').addEventListener('click', function(){
     call({ action:'disconnect', token:getToken() }).finally(function(){ showCode('Disconnected. Scan the QR code on your TV to connect again.'); });
+  });
+
+  // ---- the viewer's own playlists ----
+  function myPlaylists(){
+    var m = state.settings.my_playlists;
+    return Array.isArray(m) ? m.slice() : [];
+  }
+  function saveMyPlaylists(list, msg){
+    state.settings.my_playlists = list;
+    renderMyPlaylists();
+    return save({ my_playlists: list }, msg || $('myPlMsg'));
+  }
+  function renderMyPlaylists(){
+    var list = myPlaylists();
+    var el = $('myPlList');
+    if(!list.length){ el.innerHTML = '<div class="hint">None added yet.</div>'; return; }
+    var cur = state.settings.playlist_url;
+    el.innerHTML = '';
+    list.forEach(function(p, i){
+      var row = document.createElement('div');
+      row.className = 'mypl';
+      row.innerHTML = '<span class="t">' + (p.url === cur ? '▶ ' : '') + escapeHtml(p.title) + '</span>';
+      function btn(label, title, fn){
+        var b = document.createElement('button');
+        b.textContent = label; b.title = title;
+        b.addEventListener('click', fn);
+        row.appendChild(b);
+        return b;
+      }
+      btn('▲', 'Move up', function(){
+        if(i === 0) return;
+        var l = myPlaylists(); var t = l[i-1]; l[i-1] = l[i]; l[i] = t; saveMyPlaylists(l);
+      });
+      btn('▼', 'Move down', function(){
+        var l = myPlaylists();
+        if(i >= l.length - 1) return;
+        var t = l[i+1]; l[i+1] = l[i]; l[i] = t; saveMyPlaylists(l);
+      });
+      btn('✕', 'Remove', function(){
+        var l = myPlaylists(); l.splice(i, 1); saveMyPlaylists(l);
+      });
+      var play = btn('Play', 'Play this on the TV now', function(){
+        state.settings.playlist_url = p.url;
+        save({ playlist_url: p.url }, $('myPlMsg')).then(renderMyPlaylists);
+      });
+      play.className = 'play';
+      el.appendChild(row);
+    });
+  }
+  function escapeHtml(t){
+    return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+    });
+  }
+  $('btnAddPlaylist').addEventListener('click', function(){
+    var msg = $('myPlMsg');
+    var url = $('myPlUrl').value.trim();
+    var name = $('myPlName').value.trim();
+    if(!/[?&]list=[a-zA-Z0-9_-]+/.test(url)){
+      msg.className = 'msg err';
+      msg.textContent = 'That doesn\u2019t look like a playlist link \u2014 it needs to contain "list=".';
+      return;
+    }
+    var list = myPlaylists();
+    if(list.length >= 20){ msg.className = 'msg err'; msg.textContent = 'That\u2019s the maximum of 20.'; return; }
+    var id = url.match(/[?&]list=([a-zA-Z0-9_-]+)/)[1];
+    if(list.some(function(p){ return p.url.indexOf('list=' + id) !== -1; })){
+      msg.className = 'msg err'; msg.textContent = 'That playlist is already on your list.'; return;
+    }
+    list.push({ title: name || ('My playlist ' + (list.length + 1)), url: url });
+    $('myPlUrl').value = ''; $('myPlName').value = '';
+    saveMyPlaylists(list);
   });
 
   // ---- start ----

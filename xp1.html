@@ -3955,21 +3955,27 @@ window.XP1YouTube = (function(){
     fetchCatalog().then(function(list){
       var current = xp1Get('xp1_youtube_playlist', null);
       var currentUrl = current ? current.url : null;
-      if(!list.length){
-        listEl.innerHTML = '<div class="browse-empty">No playlists added yet — use the admin page to add one.</div>';
-      } else {
-        listEl.innerHTML = '';
-        list.forEach(function(p){
-          var item = document.createElement('div');
-          item.className = 'browse-item focusable' + (p.youtube_url === currentUrl ? ' current' : '');
-          item.tabIndex = -1;
-          item.textContent = p.title;
-          item.addEventListener('click', function(){
-            if(window.XP1YouTube) XP1YouTube.setPlaylist(p.youtube_url);
-            closeBrowse();
-          });
-          listEl.appendChild(item);
+      var mine = xp1Get('xp1_my_playlists', []) || [];
+      listEl.innerHTML = '';
+
+      function addItem(title, url, tag){
+        var item = document.createElement('div');
+        item.className = 'browse-item focusable' + (url === currentUrl ? ' current' : '');
+        item.tabIndex = -1;
+        item.textContent = tag ? (tag + '  ' + title) : title;
+        item.addEventListener('click', function(){
+          if(window.XP1YouTube) XP1YouTube.setPlaylist(url);
+          closeBrowse();
         });
+        listEl.appendChild(item);
+      }
+
+      // The viewer's own playlists first, in the order they ranked them.
+      mine.forEach(function(p){ if(p && p.url) addItem(p.title || 'My playlist', p.url, '★'); });
+      list.forEach(function(p){ addItem(p.title, p.youtube_url, null); });
+
+      if(!listEl.children.length){
+        listEl.innerHTML = '<div class="browse-empty">No playlists yet — add your own from the phone settings page (Settings → scan the QR code).</div>';
       }
       var first = listEl.querySelector('.focusable') || closeBtn;
       first.focus();
@@ -4316,6 +4322,8 @@ window.XP1YouTube = (function(){
     if(loc && typeof loc.lat === 'number') out.location = loc;
     var pl = xp1Get('xp1_youtube_playlist', null);
     if(pl && pl.url) out.playlist_url = pl.url;
+    var mine = xp1Get('xp1_my_playlists', null);
+    if(mine && mine.length) out.my_playlists = mine;
     return out;
   }
 
@@ -4366,6 +4374,7 @@ window.XP1YouTube = (function(){
       if(typeof s.show_mosques === 'boolean') xp1Set(SHOW_MOSQUES_KEY, s.show_mosques);
       if(typeof s.show_playlist === 'boolean') xp1Set(SHOW_PLAYLIST_KEY, s.show_playlist);
       if(typeof s.brightness === 'number') xp1Set(BRIGHTNESS_KEY, s.brightness);
+      if(Array.isArray(s.my_playlists)) xp1Set('xp1_my_playlists', s.my_playlists);
       applyShowFlags();
     } finally {
       applyingRemote = false;
