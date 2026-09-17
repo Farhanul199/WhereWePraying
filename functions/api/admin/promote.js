@@ -9,6 +9,9 @@
 //
 //   GET  ?action=status&source=ditib
 //        -> counts: ready / needs coordinates / live / duplicates / unusable
+//   GET  ?action=overview
+//        -> per-source progress: promoted / linked / still waiting / times
+//           sent / times waiting, plus what the live site currently holds.
 //   GET  ?action=preview&source=ditib&limit=50
 //        -> what "promote" WOULD do to the next rows (no writes)
 //   POST { action:'promote', source, limit?, country? }
@@ -91,6 +94,16 @@ async function ensureSchema(db) {
 }
 
 /* --------------------------------------------------------------- helpers */
+
+function londonTodayIso() {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const g = (t) => p.find((x) => x.type === t).value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+}
+function addDaysIso(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
 
 function fold(s) {
   return String(s || '')
@@ -235,6 +248,53 @@ function plan(rows, live) {
     pool.push({ slug, name: m.name, postcode: m.postcode, latitude: m.lat, longitude: m.lon });
     return { ref: r.source_ref, m, action: 'new', slug };
   });
+}
+
+/* -------------------------------------------------------------- overview */
+
+// One row per source: what's live, what still waits, and whether its times
+// have been sent. Drives the progress table + tab ticks on admin/sources.html.
+async function overview(db) {
+  const today = londonTodayIso();
+  const soon = addDaysIso(today, 7);
+  const [bySource, live] = await db.batch([
+    db.prepare(
+      `SELECT source,
+              COUNT(*) AS total,
+              SUM(CASE WHEN status='imported' THEN 1 ELSE 0 END) AS promoted,
+              SUM(CASE WHEN status='duplicate' THEN 1 ELSE 0 END) AS linked,
+              SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
+                        AND COALESCE(times_status,'') <> 'duplicate'
+                        AND name IS NOT NULL AND TRIM(name) <> ''
+                        AND lat IS NOT NULL AND lon IS NOT NULL THEN 1 ELSE 0 END) AS ready,
+              SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
+                        AND name IS NOT NULL AND TRIM(name) <> ''
+                        AND (lat IS NULL OR lon IS NULL) AND geocode_status IS NULL THEN 1 ELSE 0 END) AS needs_geocode,
+              SUM(CASE WHEN times_live_through IS NOT NULL THEN 1 ELSE 0 END) AS times_sent,
+              SUM(CASE WHEN status IN ('imported','duplicate') AND promoted_slug IS NOT NULL AND times_status='ok'
+                        AND (times_live_through IS NULL OR times_live_through < ?1
+                             OR (times_updated_at IS NOT NULL AND (times_pushed_at IS NULL OR times_pushed_at < times_updated_at)))
+                       THEN 1 ELSE 0 END) AS times_waiting,
+              MAX(promoted_at) AS last_promoted_at,
+              MAX(times_pushed_at) AS last_times_at
+         FROM source_discoveries GROUP BY source ORDER BY source`
+    ).bind(soon),
+    db.prepare(
+      `SELECT (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL) AS live_mosques,
+              (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL
+                 AND latitude IS NOT NULL AND longitude IS NOT NULL) AS live_on_map,
+              (SELECT COUNT(DISTINCT mosque) FROM thm_jamaah_times WHERE date = ?1) AS with_times_today`
+    ).bind(today),
+  ]);
+  return {
+    today,
+    sources: (bySource.results || []).map((r) => ({
+      ...r,
+      promote_done: (r.ready || 0) === 0 && ((r.promoted || 0) + (r.linked || 0)) > 0,
+      times_done: (r.times_waiting || 0) === 0 && (r.times_sent || 0) > 0,
+    })),
+    site: (live.results && live.results[0]) || null,
+  };
 }
 
 /* ---------------------------------------------------------------- status */
@@ -456,11 +516,12 @@ export async function onRequestGet(context) {
   if (!isAdminRequest(context)) return json({ error: 'Unauthorized' }, 401);
   const db = context.env.DB;
   const p = new URL(context.request.url).searchParams;
+  const action = (p.get('action') || 'status').toLowerCase();
   const source = (p.get('source') || '').trim();
-  if (!source) return json({ error: 'source is required' }, 400);
   try {
     await ensureSchema(db);
-    const action = (p.get('action') || 'status').toLowerCase();
+    if (action === 'overview') { await countDue(db); return json(await overview(db)); }
+    if (!source) return json({ error: 'source is required' }, 400);
     if (action === 'preview') {
       const limit = Math.min(parseInt(p.get('limit') || '50', 10) || 50, MAX_PROMOTE);
       const [rows, live] = await Promise.all([nextRows(db, source, p.get('country'), limit), loadLive(db)]);

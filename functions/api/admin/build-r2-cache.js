@@ -19,7 +19,7 @@
 //   curl "https://wherewepraying.com/api/admin/build-r2-cache" \
 //     -H "X-Sync-Key: YOUR_SYNC_SECRET"
 
-import { isSyncRequest } from '../../_lib/auth.js';
+import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
 import { syncSourceTimes } from '../../_lib/source-times.js';
 
 function londonDateIso() {
@@ -50,7 +50,9 @@ const ALL_MOSQUES_QUERY = `
 export async function onRequestGet(context) {
   const { env } = context;
 
-  if (!isSyncRequest(context)) {
+  // Cron Worker uses X-Sync-Key; the admin Sources page ("Update the live
+  // site now", after promoting mosques) uses X-Broadcast-Key.
+  if (!isSyncRequest(context) && !isAdminRequest(context)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -117,8 +119,7 @@ export async function onRequestGet(context) {
   // miss). Tomorrow's data may be incomplete but it's better than nothing.
   const tomorrowKey = `mosques/${tomorrowIso}.json`;
   try {
-    const exists = await env.CACHE_BUCKET.head(tomorrowKey);
-    if (!exists) {
+    {
       // Requery with tomorrow as "today" and day-after as "tomorrow"
       const dayAfterIso = addDaysIso(dateIso, 2);
       const tmrResult = await env.DB.prepare(ALL_MOSQUES_QUERY)
@@ -146,6 +147,15 @@ export async function onRequestGet(context) {
     // Non-critical — tomorrow will get built on its own run anyway.
     console.error("tomorrow pre-warm failed (non-critical)", e);
   }
+
+  // plan.js keeps the file in the edge cache; drop those entries so a
+  // rebuild is visible straight away instead of after the cache expires.
+  try {
+    const cache = caches.default;
+    for (const d of [dateIso, tomorrowIso]) {
+      await cache.delete(new Request(`https://cache-key.internal/r2-mosques/${d}`));
+    }
+  } catch (e) { /* edge cache purge is best-effort */ }
 
   return new Response(JSON.stringify({
     ok: true,
