@@ -122,15 +122,22 @@
     <div id="promoteWrap">
       <div class="stats" id="promoteStats"></div>
       <p class="hint" id="promoteNote"></p>
+      <div class="row" id="promoteCountryRow">
+        <div>
+          <label for="promoteCountry">Country to put live</label>
+          <select id="promoteCountry"></select>
+        </div>
+      </div>
       <div class="actions">
         <button class="ghost" id="promotePreviewBtn">Preview next 50</button>
         <button id="promoteBtn">Promote all ready</button>
         <button class="ghost" id="geocodeBtn">Find coordinates from addresses</button>
         <button class="ghost" id="undoPromoteBtn">Undo last batch</button>
+        <button class="ghost" id="syncTimesBtn">Send prayer times to the site</button>
       </div>
       <div class="status" id="promoteStatus"></div>
       <table id="promoteTable" class="hidden"><tbody></tbody></table>
-      <p class="hint">Pressing Promote is your sign-off. Each mosque is either added as a new live listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. New listings show on the map after the next cache rebuild (02:00 / 14:00 UTC). Undo removes only the mosques the last batch created.</p>
+      <p class="hint">Pressing Promote is your sign-off. Each mosque is either added as a new live listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. New listings show on the map after the next cache rebuild (02:00 / 14:00 UTC). Undo removes only the mosques the last batch created. Prayer times from Mawaqit, Masjidal and Takbeer Time are copied onto live mosques automatically twice a day; "Send prayer times to the site" does it now.</p>
     </div>
 
     <h2>By country</h2>
@@ -421,6 +428,13 @@
           }).join('')
         : '<tr><td colspan="3" class="hint">Nothing collected yet.</td></tr>');
 
+    var keepCc = $('promoteCountry').dataset.src === SOURCE ? $('promoteCountry').value : (SOURCE === 'mawaqit' ? 'GB' : '');
+    $('promoteCountry').dataset.src = SOURCE;
+    $('promoteCountry').innerHTML = '<option value="">All countries</option>' +
+      countries.map(function(c){ return '<option value="' + c.country + '">' + c.country + ' (' + c.total + ')</option>'; }).join('');
+    if (keepCc && countries.some(function(c){ return c.country === keepCc; })) $('promoteCountry').value = keepCc;
+    $('promoteCountryRow').style.display = countries.length > 1 ? '' : 'none';
+
     $('dlCountry').innerHTML = '<option value="">All countries</option>' +
       countries.map(function(c){ return '<option value="' + c.country + '">' + c.country + ' (' + c.total + ')</option>'; }).join('');
 
@@ -654,7 +668,10 @@
       stat(d.duplicates, 'Linked to existing mosque') +
       stat(d.needs_geocode, 'Need coordinates') +
       (d.geocode_failed ? stat(d.geocode_failed, 'Address not found') : '') +
-      (d.unnamed ? stat(d.unnamed, 'No name (can\'t list)') : '');
+      (d.unnamed ? stat(d.unnamed, 'No name (can\'t list)') : '') +
+      (d.times_due ? stat(d.times_due, 'Mosques with times to send (all sources)') : '');
+    $('syncTimesBtn').style.display = d.times_due ? '' : 'none';
+    $('syncTimesBtn').disabled = promoteBusy;
     var blocked = !!d.blocked;
     $('promoteBtn').disabled = promoteBusy || blocked || !d.ready;
     $('promotePreviewBtn').disabled = promoteBusy || blocked || !d.ready;
@@ -668,7 +685,8 @@
 
   $('promotePreviewBtn').addEventListener('click', async function(){
     say($('promoteStatus'), 'Checking the next 50…');
-    var d = await api('/api/admin/promote?action=preview&limit=50&source=' + SOURCE);
+    var pc = $('promoteCountry').value;
+    var d = await api('/api/admin/promote?action=preview&limit=50&source=' + SOURCE + (pc ? '&country=' + pc : ''));
     if (d.error) { say($('promoteStatus'), d.error, true); return; }
     var rows = d.rows || [];
     var t = $('promoteTable');
@@ -686,12 +704,14 @@
 
   $('promoteBtn').addEventListener('click', async function(){
     if (promoteBusy) return;
-    if (!confirm('Put every ready ' + cfg().label + ' mosque on the live site?')) return;
+    var pcc = $('promoteCountry').value;
+    if (!pcc && SOURCE === 'mawaqit' && !confirm('No country picked — this puts EVERY Mawaqit mosque worldwide live, which can push the site past its free limits. Continue anyway?')) return;
+    if (!confirm('Put every ready ' + cfg().label + ' mosque' + (pcc ? ' in ' + pcc : '') + ' on the live site?')) return;
     promoteBusy = true; loadPromote();
     var created = 0, linked = 0, skipped = 0;
     for (var round = 0; round < 60; round++) {
       say($('promoteStatus'), 'Promoting… ' + created + ' added · ' + linked + ' linked so far.');
-      var d = await postPromote({ action: 'promote', source: SOURCE, limit: 150 });
+      var d = await postPromote({ action: 'promote', source: SOURCE, limit: 150, country: pcc || null });
       if (d.error || d.ok === false) { say($('promoteStatus'), (d.error || (d.errors || []).join(' | ') || 'Failed.'), true); break; }
       if (!d.processed) break;
       created += d.created || 0; linked += d.linked || 0; skipped += d.excluded || 0;
@@ -699,7 +719,8 @@
     }
     promoteBusy = false;
     $('promoteTable').classList.add('hidden');
-    say($('promoteStatus'), 'Done — ' + created + ' new live mosques · ' + linked + ' linked to existing' + (skipped ? ' · ' + skipped + ' skipped' : '') + '. Map updates after the next cache rebuild.');
+    say($('promoteStatus'), 'Done — ' + created + ' new live mosques · ' + linked + ' linked to existing' + (skipped ? ' · ' + skipped + ' skipped' : '') + '. Map updates after the next cache rebuild.' +
+      ((cfg().coverage !== 'none' && cfg().coverage !== 'rolling7') ? ' Press "Send prayer times to the site" next.' : ''));
     refresh();
   });
 
@@ -719,6 +740,26 @@
     }
     promoteBusy = false;
     say($('promoteStatus'), 'Coordinates done — ' + exact + ' exact · ' + approx + ' postcode-level · ' + missed + ' not found.');
+    refresh();
+  });
+
+
+  $('syncTimesBtn').addEventListener('click', async function(){
+    if (promoteBusy) return;
+    promoteBusy = true; loadPromote();
+    var withTimes = 0, without = 0;
+    for (var round = 0; round < 80; round++) {
+      say($('promoteStatus'), 'Sending prayer times… ' + withTimes + ' mosques done so far.');
+      var d = await postPromote({ action: 'sync_times', limit: 40 });
+      if (d.error) { say($('promoteStatus'), d.error, true); break; }
+      withTimes += d.mosquesWithTimes || 0; without += d.mosquesWithoutUsableTimes || 0;
+      if (!d.checked || !d.stillDue) break;
+      await wait(7000);
+    }
+    promoteBusy = false;
+    say($('promoteStatus'), 'Times sent — ' + withTimes + ' mosques now have jama\'ah times' +
+      (without ? ' · ' + without + ' had no reliable jama\'ah times (they show "No live prayer time")' : '') +
+      '. Shows on the site after the next cache rebuild.');
     refresh();
   });
 
