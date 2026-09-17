@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>WhereWePraying — XP1 Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
+    --coral:#F4714E; --coral-dark:#D85A38; --coral-soft:#FCE1D2;
+    --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896;
+    --border:#EFE1CC; --shadow:0 10px 28px rgba(60,42,24,.07);
+    --green:#4C9A6A; --red:#D8654A; --red-soft:#F7DCD2;
+    --r-lg:18px; --r-md:12px; --r-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',sans-serif;}
+  body{background:var(--bg);color:var(--text);min-height:100vh;padding:32px 20px;}
+  .wrap{max-width:720px;margin:0 auto;}
+  h1{font-size:22px;font-weight:800;margin-bottom:4px;}
+  .sub{font-size:13px;color:var(--text-dim);margin-bottom:24px;}
+
+  .card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:16px;}
+
+  #gate input{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1px solid var(--border);font-size:14px;margin-bottom:12px;}
+  #gate button, .btn{background:var(--coral);color:#fff;border:none;border-radius:var(--r-sm);padding:11px 18px;font-weight:700;font-size:13px;cursor:pointer;}
+  .btn.danger{background:var(--red-soft);color:var(--red);}
+  .btn.small{padding:7px 10px;font-size:12px;}
+  #gateError{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+
+  #app{display:none;}
+
+  .plist{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+  .prow{display:flex;align-items:center;gap:10px;background:var(--surface-alt);border-radius:var(--r-md);padding:12px 14px;}
+  .prow.inactive{opacity:.5;}
+  .prow .order-btns{display:flex;flex-direction:column;gap:2px;}
+  .prow .order-btns button{background:var(--surface);border:1px solid var(--border);border-radius:6px;width:22px;height:18px;font-size:10px;cursor:pointer;line-height:1;}
+  .prow .info{flex:1;min-width:0;}
+  .prow .info .t{font-weight:700;font-size:14px;}
+  .prow .info .u{font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .toggle{position:relative;width:38px;height:22px;flex-shrink:0;}
+  .toggle input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;margin:0;}
+  .toggle .track{position:absolute;inset:0;background:var(--border);border-radius:999px;transition:.15s;}
+  .toggle .track::after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
+  .toggle input:checked + .track{background:var(--green);}
+  .toggle input:checked + .track::after{transform:translateX(16px);}
+
+  #addForm{display:flex;flex-direction:column;gap:10px;}
+  #addForm input{padding:11px 14px;border-radius:var(--r-sm);border:1px solid var(--border);font-size:13px;}
+  #addForm label{font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:-4px;}
+
+  .empty{font-size:13px;color:var(--text-dim);text-align:center;padding:20px 0;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>XP1 — Islamic Reminders</h1>
+  <div class="sub">Manage which playlists show up in the TV dashboard's "Browse Playlists" picker. The first active one (by order) plays by default.</div>
+
+  <div class="card" id="gate">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px;">Admin key</label>
+    <input type="password" id="gateKey" placeholder="Same key used for the mosque admin tools">
+    <button onclick="unlock()">Unlock</button>
+    <div id="gateError">Wrong key, or the request failed — try again.</div>
+  </div>
+
+  <div id="app">
+    <div class="card">
+      <div class="plist" id="plist"></div>
+      <div class="empty" id="emptyMsg" style="display:none;">No playlists yet — add one below.</div>
+    </div>
+
+    <div class="card">
+      <label style="font-size:13px;font-weight:800;display:block;margin-bottom:12px;">Add a playlist</label>
+      <div id="addForm">
+        <label>Title (shown to viewers)</label>
+        <input type="text" id="newTitle" placeholder="e.g. Ramadan Reminders">
+        <label>YouTube playlist URL</label>
+        <input type="text" id="newUrl" placeholder="https://www.youtube.com/playlist?list=...">
+        <button class="btn" onclick="addPlaylist()">Add playlist</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var adminKey = '';
+
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._h);
+  t._h = setTimeout(function(){ t.style.display = 'none'; }, 2200);
+}
+
+async function api(action, extra){
+  var opts = {
+    method: action ? 'POST' : 'GET',
+    headers: { 'X-Broadcast-Key': adminKey }
+  };
+  if(action){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(Object.assign({ action: action }, extra || {}));
+  }
+  var res = await fetch('/api/xp1/playlists', opts);
+  if(!res.ok) throw new Error('Request failed (' + res.status + ')');
+  return res.json();
+}
+
+async function unlock(){
+  var key = document.getElementById('gateKey').value.trim();
+  if(!key) return;
+  adminKey = key;
+  try{
+    await loadList();
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    try{ sessionStorage.setItem('xp1_admin_key', key); }catch(e){}
+  }catch(e){
+    document.getElementById('gateError').style.display = 'block';
+    adminKey = '';
+  }
+}
+
+async function loadList(){
+  var data = await api(null);
+  var list = data.playlists || [];
+  if(!list.length){
+    document.getElementById('plist').innerHTML = '';
+    document.getElementById('emptyMsg').style.display = 'block';
+    return;
+  }
+  document.getElementById('emptyMsg').style.display = 'none';
+  var html = list.map(function(p, idx){
+    return '<div class="prow' + (p.active ? '' : ' inactive') + '">' +
+      '<div class="order-btns">' +
+        '<button ' + (idx === 0 ? 'disabled' : '') + ' onclick="move(' + p.id + ',-1)">▲</button>' +
+        '<button ' + (idx === list.length - 1 ? 'disabled' : '') + ' onclick="move(' + p.id + ',1)">▼</button>' +
+      '</div>' +
+      '<div class="info"><div class="t">' + escapeHtml(p.title) + '</div><div class="u">' + escapeHtml(p.youtube_url) + '</div></div>' +
+      '<label class="toggle"><input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setActive(' + p.id + ', this.checked)"><span class="track"></span></label>' +
+      '<button class="btn danger small" onclick="removePlaylist(' + p.id + ', \'' + escapeHtml(p.title).replace(/'/g,"\\'") + '\')">Delete</button>' +
+    '</div>';
+  }).join('');
+  document.getElementById('plist').innerHTML = html;
+  window._order = list.map(function(p){ return p.id; });
+}
+
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+async function setActive(id, active){
+  try{ await api('update', { id: id, active: active }); toast(active ? 'Turned on' : 'Turned off'); loadList(); }
+  catch(e){ toast('Failed — try again'); loadList(); }
+}
+
+async function move(id, dir){
+  var order = window._order.slice();
+  var i = order.indexOf(id);
+  var j = i + dir;
+  if(j < 0 || j >= order.length) return;
+  var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  try{ await api('reorder', { order: order }); loadList(); }
+  catch(e){ toast('Reorder failed'); }
+}
+
+async function removePlaylist(id, title){
+  if(!confirm('Delete "' + title + '"? This can\'t be undone.')) return;
+  try{ await api('delete', { id: id }); toast('Deleted'); loadList(); }
+  catch(e){ toast('Delete failed'); }
+}
+
+async function addPlaylist(){
+  var title = document.getElementById('newTitle').value.trim();
+  var url = document.getElementById('newUrl').value.trim();
+  if(!title || !url){ toast('Title and URL are both required'); return; }
+  try{
+    await api('create', { title: title, youtube_url: url });
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newUrl').value = '';
+    toast('Added');
+    loadList();
+  }catch(e){ toast('Could not add — check the URL has ?list=... in it'); }
+}
+
+// Skip the gate on this device if we've already unlocked it this session.
+window.addEventListener('load', function(){
+  try{
+    var saved = sessionStorage.getItem('xp1_admin_key');
+    if(saved){ document.getElementById('gateKey').value = saved; unlock(); }
+  }catch(e){}
+});
+</script>
+</body>
+</html>

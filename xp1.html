@@ -217,6 +217,11 @@
   .key.accent{background:var(--coral-soft);color:var(--coral-dark);}
   .postcode-error{color:var(--red);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
   .postcode-loading{color:var(--text-dim);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
+
+  .browse-list{display:flex;flex-direction:column;gap:0.5rem;max-height:20rem;overflow-y:auto;text-align:left;margin-top:0.5rem;}
+  .browse-item{padding:0.875rem 1rem;border-radius:var(--r-sm);background:var(--surface-alt);font-weight:700;font-size:0.9375rem;display:flex;justify-content:space-between;align-items:center;}
+  .browse-item.current{background:var(--coral-soft);color:var(--coral-dark);}
+  .browse-empty{font-size:0.875rem;color:var(--text-dim);padding:1rem 0;}
 </style>
 </head>
 <body>
@@ -241,6 +246,15 @@
         <div class="postcode-error" id="postcodeError"></div>
         <div class="postcode-loading" id="postcodeLoading" style="display:none;">Looking up your postcode…</div>
       </div>
+    </div>
+  </div>
+
+  <div class="xp1-overlay" id="browseOverlay">
+    <div class="overlay-card">
+      <h2>Browse Playlists</h2>
+      <p>Pick which Islamic Reminders playlist plays.</p>
+      <div class="browse-list" id="browseList" data-group="browse"></div>
+      <div class="overlay-btn secondary focusable" id="btnCloseBrowse" tabindex="-1" style="margin-top:1rem;">Close</div>
     </div>
   </div>
 
@@ -1280,13 +1294,98 @@ window.XP1YouTube = (function(){
 
   window.addEventListener('load', function(){
     frame().addEventListener('click', toggle);
-    if(!xp1Get(PLAYLIST_KEY, null)) setPlaylist(DEFAULT_PLAYLIST_URL);
-    render();
+    if(!xp1Get(PLAYLIST_KEY, null)){
+      // Prefer whatever the admin panel has configured (Phase 9) —
+      // the hardcoded URL is only a fallback for offline/first-ever load.
+      fetch('/api/xp1/playlists').then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){
+          var first = data && data.playlists && data.playlists[0];
+          setPlaylist(first ? first.youtube_url : DEFAULT_PLAYLIST_URL);
+        })
+        .catch(function(){ setPlaylist(DEFAULT_PLAYLIST_URL); });
+    } else {
+      render();
+    }
   });
   window.addEventListener('online', render);
   window.addEventListener('offline', render);
 
   return { setPlaylist: setPlaylist, setEnabled: setEnabled, isEnabled: isEnabled };
+})();
+
+/* =========================================================
+   11. PHASE 9 — BROWSE PLAYLISTS OVERLAY
+      Fetches the same public GET /api/xp1/playlists the default-
+      selection logic above uses, lists active playlists, and lets
+      the viewer switch between whatever the admin panel has curated.
+   ========================================================= */
+(function(){
+  var overlay = document.getElementById('browseOverlay');
+  var listEl = document.getElementById('browseList');
+  var closeBtn = document.getElementById('btnCloseBrowse');
+
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+
+  function fetchCatalog(){
+    return fetch('/api/xp1/playlists')
+      .then(function(r){ return r.ok ? r.json() : { playlists: [] }; })
+      .then(function(d){ return d.playlists || []; })
+      .catch(function(){ return []; });
+  }
+
+  function openBrowse(){
+    overlay.classList.add('open');
+    XP1.modalOpen = true;
+    listEl.innerHTML = '<div class="browse-empty">Loading…</div>';
+    fetchCatalog().then(function(list){
+      var current = xp1Get('xp1_youtube_playlist', null);
+      var currentUrl = current ? current.url : null;
+      if(!list.length){
+        listEl.innerHTML = '<div class="browse-empty">No playlists added yet — use the admin page to add one.</div>';
+      } else {
+        listEl.innerHTML = '';
+        list.forEach(function(p){
+          var item = document.createElement('div');
+          item.className = 'browse-item focusable' + (p.youtube_url === currentUrl ? ' current' : '');
+          item.tabIndex = -1;
+          item.textContent = p.title;
+          item.addEventListener('click', function(){
+            if(window.XP1YouTube) XP1YouTube.setPlaylist(p.youtube_url);
+            closeBrowse();
+          });
+          listEl.appendChild(item);
+        });
+      }
+      var first = listEl.querySelector('.focusable') || closeBtn;
+      first.focus();
+    });
+  }
+
+  function closeBrowse(){
+    overlay.classList.remove('open');
+    XP1.modalOpen = false;
+    var first = document.querySelector('.focusable');
+    if(first) first.focus();
+  }
+
+  closeBtn.addEventListener('click', closeBrowse);
+  var browseBtn = document.querySelector('.browse-btn');
+  if(browseBtn) browseBtn.addEventListener('click', openBrowse);
+
+  // Dedicated nav for this overlay — a plain vertical list plus the
+  // close button, deliberately separate from the dashboard's group nav.
+  document.addEventListener('keydown', function(e){
+    if(!(window.XP1 && XP1.modalOpen) || !overlay.classList.contains('open')) return;
+    var all = Array.prototype.slice.call(listEl.querySelectorAll('.focusable')).concat([closeBtn]);
+    var idx = all.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown'){ all[idx < 0 ? 0 : Math.min(idx + 1, all.length - 1)].focus(); e.preventDefault(); }
+    else if(e.key === 'ArrowUp'){ all[idx < 0 ? 0 : Math.max(idx - 1, 0)].focus(); e.preventDefault(); }
+    else if(e.key === 'Enter'){ if(document.activeElement && document.activeElement.click) document.activeElement.click(); }
+    else if(e.key === 'Escape'){ closeBrowse(); }
+  });
 })();
 
 /* =========================================================
@@ -1449,7 +1548,7 @@ window.XP1YouTube = (function(){
   }
 
   document.addEventListener('keydown', function(e){
-    if(!(window.XP1 && XP1.modalOpen)) return;
+    if(!(window.XP1 && XP1.modalOpen) || !overlay.classList.contains('open')) return;
     var onWelcome = welcomeStep.style.display !== 'none';
     if(onWelcome){
       if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
