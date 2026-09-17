@@ -104,7 +104,9 @@
   .reminders-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;}
   .browse-btn{background:var(--coral-soft);color:var(--coral-dark);border-radius:62.4375rem;padding:0.5625rem 1rem;font-weight:700;font-size:0.75rem;}
   .video-row{display:flex;align-items:center;justify-content:center;gap:1rem;flex:1;min-height:0;}
-  .video-frame{aspect-ratio:16/9;flex:1;max-height:100%;margin:auto;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  /* Exact 16:9 box, sized by fitVideo() to the biggest size that fits — no stretching, so YouTube adds no black bars. */
+  .video-frame{flex:0 0 auto;width:100%;aspect-ratio:16/9;border-radius:var(--r-md);position:relative;overflow:hidden;background:linear-gradient(135deg,#2A2119,#3A2C20);}
+  .playlist:empty{display:none;}
   .video-frame #ytPlayer{position:absolute;inset:0;z-index:2;width:100%;height:100%;border:0;}
   .video-frame .state{position:absolute;inset:0;display:none;align-items:flex-end;padding:1.125rem;color:#fff;}
   .video-frame[data-state="success"] .state-success{display:flex;}
@@ -133,15 +135,17 @@
   .plitem .meta .s{font-size:0.625rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   /* ---- Nearby Mosques ---- */
-  .mosque-row{display:grid;grid-template-columns:repeat(4, 1fr);gap:0.625rem;margin-top:0.75rem;}
+  /* Main + back-up mosque cards, right column under the journal */
+  .mosque-row{flex:1;display:flex;flex-direction:column;gap:1rem;min-height:0;}
   .mosque-row[data-state="loading"]{opacity:.5;}
-  .mcard{background:var(--surface-alt);border-radius:var(--r-md);padding:0.5625rem;display:flex;flex-direction:column;gap:0.1875rem;aspect-ratio:1/0.55;}
-  .mcard .name{font-size:0.625rem;font-weight:800;line-height:1.2;}
-  .mcard .dist{font-size:0.5625rem;color:var(--text-dim);}
-  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:0.5625rem;font-weight:700;padding:0.1875rem 0.375rem;border-radius:0.375rem;text-align:center;}
-  .mcard .next.unconfirmed{background:var(--surface);color:var(--text-dim);font-weight:600;}
-  .mcard .mymosque-badge{font-size:0.5rem;font-weight:800;color:var(--coral-dark);letter-spacing:0.02rem;}
-  .mcard .leaveby{font-size:0.5rem;font-weight:700;text-align:center;padding:0.1875rem 0.375rem;border-radius:0.375rem;}
+  .mcard{flex:1;min-height:0;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:1rem 1.25rem;display:flex;flex-direction:column;gap:0.3125rem;overflow:hidden;}
+  .mcard .name{font-size:1rem;font-weight:800;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .mcard .dist{font-size:0.75rem;color:var(--text-dim);}
+  .mcard .next{margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);font-size:0.8125rem;font-weight:700;padding:0.375rem 0.625rem;border-radius:0.5rem;text-align:center;}
+  .mcard .next.unconfirmed{background:var(--surface-alt);color:var(--text-dim);font-weight:600;}
+  .mcard .mymosque-badge{font-size:0.6875rem;font-weight:800;color:var(--coral-dark);letter-spacing:0.05rem;}
+  .mcard .mymosque-badge.backup{color:var(--text-dim);}
+  .mcard .leaveby{font-size:0.75rem;font-weight:700;text-align:center;padding:0.3125rem 0.625rem;border-radius:0.5rem;}
   .mcard .leaveby.calm{background:var(--green-soft);color:var(--green);}
   .mcard .leaveby.soon{background:var(--amber-soft);color:var(--amber);}
   .mcard .leaveby.urgent{background:var(--red-soft);color:var(--red);animation:xp1-urgent-pulse 1.6s ease-in-out infinite;}
@@ -149,7 +153,6 @@
   @keyframes xp1-urgent-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 
   /* ---- Bottom widget row ---- */
-  .mosques-card{flex:0 0 auto;max-height:11rem;overflow:hidden;}
   .bottom-strip{display:flex;padding:0;flex:0 0 auto;}
   .bseg{flex:1;padding:1rem 1.125rem;display:flex;flex-direction:column;gap:0.3125rem;border-right:0.0625rem solid var(--border);}
   .bseg:last-child{border-right:none;}
@@ -178,7 +181,7 @@
   .umbrella-banner.show{display:block;}
 
   /* ---- Journal ---- */
-  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:1.5rem 1.75rem;justify-content:center;}
+  .journal{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;padding:1.125rem 1.5rem;justify-content:center;}
   .journal h2{font-size:1.0625rem;}
   .journal-quote{font-style:italic;font-size:0.875rem;color:var(--text-dim);margin:0.5rem 0 0.75rem;line-height:1.4;}
   .check-item{display:flex;align-items:center;gap:0.625rem;padding:0.4375rem 0;font-size:0.875rem;font-weight:600;}
@@ -361,12 +364,6 @@
         </div>
       </div>
 
-      <div class="card mosques-card">
-        <h2>📍 Nearby Mosques</h2>
-        <div class="mosque-row" data-group="mosques" data-widget="mosques" data-state="loading" id="mosqueRow">
-          <div class="mcard"><div class="m-body"><div class="name">Loading nearby mosques…</div></div></div>
-        </div>
-      </div>
 
       <div class="card bottom-strip" data-group="bottom">
         <div class="bseg focusable" tabindex="-1"><span class="btitle">Du'a</span><span class="bdesc">A short du'a for right now</span></div>
@@ -401,6 +398,11 @@
         <div class="check-item"><div class="dot">✓</div>Make 10 du'a for family</div>
         <div class="check-item pending"><div class="dot"></div>Be kind to someone today</div>
         <div class="view-full focusable" tabindex="-1" style="margin-top:auto;"><span>Open Journal</span><span>→</span></div>
+      </div>
+
+      <div class="mosque-row" data-group="mosques" data-widget="mosques" data-state="loading" id="mosqueRow">
+        <div class="mcard"><div class="mymosque-badge">★ MAIN MOSQUE</div><div class="name">Loading…</div></div>
+        <div class="mcard"><div class="mymosque-badge backup">BACK UP</div><div class="name">Loading…</div></div>
       </div>
     </div>
 
@@ -468,6 +470,20 @@
       so later phases can wire real fetches without touching markup/CSS.
    ========================================================= */
 window.XP1 = window.XP1 || {};
+(function(){
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var sameApi = url.indexOf('/api/') === 0 || url.indexOf(location.origin + '/api/') === 0;
+    if(sameApi && XP1.deviceId){
+      init = Object.assign({}, init);
+      var h = new Headers(init.headers || {});
+      if(!h.has('X-Device-Id')) h.set('X-Device-Id', XP1.deviceId());
+      init.headers = h;
+    }
+    return realFetch(input, init);
+  };
+})();
 XP1.setState = function(widgetName, state){
   document.querySelectorAll('[data-widget="' + widgetName + '"]').forEach(function(el){
     el.dataset.state = state;
@@ -498,12 +514,12 @@ XP1.setLocation = function(label){
     header:     { axis:'horizontal', adj:{ down:'weather' } },
     nextprayer: { axis:'vertical',   adj:{ down:'timetable', right:'youtube' } },
     timetable:  { axis:'vertical',   adj:{ up:'nextprayer', right:'youtube', down:'bottom' } },
-    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', right:'playlist', down:'mosques', up:'header' } },
-    playlist:   { axis:'vertical',   adj:{ left:'youtube', down:'mosques' } },
-    mosques:    { axis:'horizontal', adj:{ up:'youtube', left:'timetable', right:'weather', down:'bottom' } },
-    weather:    { axis:'vertical',   adj:{ left:'mosques', down:'journal', up:'header' } },
-    journal:    { axis:'vertical',   adj:{ up:'weather', down:'bottom', left:'mosques' } },
-    bottom:     { axis:'horizontal', adj:{ up:'timetable' } }
+    youtube:    { axis:'horizontal', adj:{ left:'nextprayer', right:'playlist', down:'bottom', up:'header' } },
+    playlist:   { axis:'vertical',   adj:{ left:'youtube', right:'weather', down:'bottom' } },
+    weather:    { axis:'vertical',   adj:{ left:'youtube', down:'journal', up:'header' } },
+    journal:    { axis:'vertical',   adj:{ up:'weather', down:'mosques', left:'youtube' } },
+    mosques:    { axis:'vertical',   adj:{ up:'journal', left:'bottom' } },
+    bottom:     { axis:'horizontal', adj:{ up:'youtube', right:'mosques' } }
   };
 
   function groupItems(name){
@@ -1014,7 +1030,6 @@ window.XP1Prayer = (function(){
    ========================================================= */
 window.XP1Mosques = (function(){
   var CACHE_KEY = 'xp1_mosques';
-  var SHOW_COUNT = 4; // matches the 4-up square card grid
 
   // Mirrors plan.js exactly — see that file for the reasoning behind
   // these specific numbers.
@@ -1062,7 +1077,7 @@ window.XP1Mosques = (function(){
     return '<div class="leaveby ' + urgencyClass + '">' + modeIcon + ' ' + label + '</div>';
   }
 
-  function buildCard(m, isMine){
+  function buildCard(m, isMine, isBackup){
     var el = document.createElement('div');
     el.className = 'mcard focusable';
     el.tabIndex = -1;
@@ -1074,10 +1089,10 @@ window.XP1Mosques = (function(){
       nextHtml = '<div class="next unconfirmed">Jama\u2019ah not confirmed</div>';
     }
     el.innerHTML =
-      (isMine ? '<div class="mymosque-badge">★ MY MOSQUE</div>' : '') +
+      (isBackup ? '<div class="mymosque-badge backup">BACK UP</div>' : '<div class="mymosque-badge">★ MAIN MOSQUE</div>') +
       '<div class="m-body">' +
         '<div class="name">' + m.name + '</div>' +
-        '<div class="dist">' + m.distanceMiles + ' mi</div>' +
+        '<div class="dist">' + m.distanceMiles + ' mi · ' + (function(t){ return (t.mode === 'walk' ? '🚶 ' : '🚗 ') + t.minutes + ' min'; })(travelEstimate(m.distanceMiles)) + '</div>' +
       '</div>' +
       nextHtml +
       leaveByHtml(m);
@@ -1094,9 +1109,18 @@ window.XP1Mosques = (function(){
     var row = document.getElementById('mosqueRow');
     row.innerHTML = '';
     var mySlug = window.XP1Prayer ? XP1Prayer.currentMosqueSlug() : null;
-    list.slice(0, SHOW_COUNT).forEach(function(m){
-      row.appendChild(buildCard(m, m.slug === mySlug));
-    });
+    // Main = your chosen mosque if it's nearby, otherwise the nearest.
+    var main = list.filter(function(m){ return m.slug === mySlug; })[0] || list[0];
+    // Back up = nearest other mosque you can still make it to, else just the next nearest.
+    var others = list.filter(function(m){ return main && m.slug !== main.slug; });
+    var backup = others.filter(function(m){
+      return m.next && (m.next.minutesUntil - travelEstimate(m.distanceMiles).minutes - SAFETY_BUFFER_MIN) >= 0;
+    })[0] || others[0];
+    if(main) row.appendChild(buildCard(main, true, false));
+    if(backup) row.appendChild(buildCard(backup, false, true));
+    if(!main){
+      row.innerHTML = '<div class="mcard"><div class="name">No mosques found nearby</div></div>';
+    }
     if(window.XP1) XP1.reindexGroup('mosques');
     if(window.XP1) XP1.setState('mosques', 'success');
     row.dataset.state = 'success';
@@ -1118,7 +1142,7 @@ window.XP1Mosques = (function(){
       if(cached && cached.length){ render(cached); }
       else{
         var row = document.getElementById('mosqueRow');
-        row.innerHTML = '<div class="mcard"><div class="m-body"><div class="name">Nearby mosques unavailable</div></div></div>';
+        row.innerHTML = '<div class="mcard"><div class="mymosque-badge">★ MAIN MOSQUE</div><div class="name">Mosques unavailable right now</div><div class="dist">Will retry when back online</div></div>';
         row.dataset.state = 'error';
       }
     }
@@ -1168,6 +1192,10 @@ window.XP1YouTube = (function(){
   var SIDEBAR_COUNT = 8; // matches roughly a screen's worth in the sidebar
 
   var ytPlayer = null;       // YT.Player instance, once created
+  var playerReady = false;   // true once onReady has fired
+  var creatingId = null;     // playlist id the player is being built with
+  var watchdog = null;
+  var retries = 0;
   var apiScriptAdded = false;
   var pendingMuted = null;   // set if play() is called before the API script has loaded
 
@@ -1252,7 +1280,25 @@ window.XP1YouTube = (function(){
       });
     });
     if(window.XP1) XP1.reindexGroup('playlist');
+    fitVideo();
   }
+
+  // Biggest exact 16:9 box that fits the space (next to the sidebar if it has items).
+  function fitVideo(){
+    var row = frame() && frame().parentElement;
+    if(!row || !row.clientWidth) return;
+    var side = sidebarEl();
+    var sideW = (side && side.children.length) ? side.offsetWidth + 16 : 0;
+    var w = row.clientWidth - sideW, h = row.clientHeight;
+    if(w <= 0 || h <= 0) return;
+    if(w * 9 / 16 > h) w = h * 16 / 9;
+    frame().style.width = Math.floor(w) + 'px';
+  }
+  window.addEventListener('resize', fitVideo);
+  window.addEventListener('load', function(){
+    fitVideo();
+    if(window.ResizeObserver){ new ResizeObserver(fitVideo).observe(frame().parentElement); }
+  });
 
   function highlightCurrent(){
     if(!ytPlayer) return;
@@ -1275,16 +1321,45 @@ window.XP1YouTube = (function(){
     if(pendingMuted !== null){ createPlayer(pendingMuted); pendingMuted = null; }
   };
 
+  // Put back a fresh placeholder div so a new player can be built.
+  function resetPlayerSlot(){
+    try{ if(ytPlayer && typeof ytPlayer.destroy === 'function') ytPlayer.destroy(); }catch(e){}
+    ytPlayer = null; playerReady = false; creatingId = null;
+    var old = document.getElementById('ytPlayer');
+    if(old) old.remove();
+    var div = document.createElement('div');
+    div.id = 'ytPlayer';
+    frame().insertBefore(div, frame().firstChild);
+  }
+
   function createPlayer(muted){
     var pl = xp1Get(PLAYLIST_KEY, null);
     if(!pl || !pl.id) return;
+    if(ytPlayer) return; // already building — never build two on one slot (that was the "loading forever" bug)
+    creatingId = pl.id;
+    clearTimeout(watchdog);
+    // If YouTube hasn't answered in 20s, rebuild once, then show a retry message.
+    watchdog = setTimeout(function(){
+      if(playerReady) return;
+      resetPlayerSlot();
+      if(retries < 1){ retries++; createPlayer(true); }
+      else {
+        frame().dataset.state = 'error';
+        document.getElementById('ytErrorMsg').textContent = 'Couldn\u2019t load videos \u2014 press OK to retry';
+      }
+    }, 20000);
     ytPlayer = new YT.Player('ytPlayer', {
       host: 'https://www.youtube-nocookie.com',
-      playerVars: { listType: 'playlist', list: pl.id, autoplay: 1, mute: muted ? 1 : 0, rel: 0, playsinline: 1 },
+      playerVars: { listType: 'playlist', list: pl.id, autoplay: 1, mute: muted ? 1 : 0, rel: 0, playsinline: 1, origin: location.origin },
       events: {
         onReady: function(){
+          playerReady = true; retries = 0;
+          clearTimeout(watchdog);
           frame().dataset.playing = 'true';
           frame().dataset.state = 'success';
+          // Playlist changed while it was starting up — switch now.
+          var latest = xp1Get(PLAYLIST_KEY, null);
+          if(latest && latest.id && latest.id !== creatingId){ ytPlayer.loadPlaylist({ list: latest.id }); creatingId = latest.id; }
           buildSidebar();
         },
         onStateChange: function(e){
@@ -1301,12 +1376,13 @@ window.XP1YouTube = (function(){
   function play(muted){
     var pl = xp1Get(PLAYLIST_KEY, null);
     if(!pl || !pl.id || !navigator.onLine) return;
-    if(ytPlayer && typeof ytPlayer.playVideo === 'function'){
+    if(ytPlayer && playerReady){
       ytPlayer.playVideo();
       frame().dataset.playing = 'true';
       frame().dataset.state = 'success';
       return;
     }
+    if(ytPlayer) return; // still starting up — onReady will finish the job
     if(window.YT && window.YT.Player){ createPlayer(muted); }
     else { pendingMuted = muted; loadApiScriptOnce(); }
   }
@@ -1317,6 +1393,9 @@ window.XP1YouTube = (function(){
   }
 
   function toggle(){
+    if(frame().dataset.state === 'error' && xp1Get(PLAYLIST_KEY, null)){
+      retries = 0; resetPlayerSlot(); frame().dataset.state = 'loading'; play(false); return;
+    }
     // A click is a real user gesture, so it's safe to ask for sound here
     // even on browsers that silently muted the automatic on-load start.
     if(frame().dataset.playing === 'true') stop();
@@ -1324,8 +1403,10 @@ window.XP1YouTube = (function(){
   }
 
   function switchPlaylist(id){
-    if(ytPlayer && typeof ytPlayer.loadPlaylist === 'function'){
+    if(ytPlayer && playerReady){
       ytPlayer.loadPlaylist({ list: id });
+      creatingId = id;
+      setTimeout(buildSidebar, 2500);
     } else {
       render();
     }
@@ -1719,7 +1800,12 @@ window.XP1YouTube = (function(){
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-Device-Id': XP1.deviceId() },
       body: JSON.stringify(body)
-    }).then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); });
+    }).then(function(r){
+      if(r.ok) return r.json();
+      return r.json().catch(function(){ return {}; }).then(function(d){
+        return Promise.reject({ status: r.status, detail: (d && (d.detail || d.error)) || '' });
+      });
+    });
   }
 
   var regPromise = null;
@@ -1748,7 +1834,7 @@ window.XP1YouTube = (function(){
 
   function applyShowFlags(){
     var w = document.querySelector('.card.weather');
-    var m = document.querySelector('.mosques-card');
+    var m = document.getElementById('mosqueRow');
     if(w) w.style.display = xp1Get(SHOW_WEATHER_KEY, true) === false ? 'none' : '';
     if(m) m.style.display = xp1Get(SHOW_MOSQUES_KEY, true) === false ? 'none' : '';
   }
@@ -1889,8 +1975,15 @@ window.XP1YouTube = (function(){
         // Fresh code a few seconds before this one expires.
         codeTimer = setTimeout(function(){ if(overlayOpen()) newCode(); }, Math.max(30000, d.expires - Date.now() - 5000));
       });
-    }).catch(function(){
-      showQrMessage('Couldn’t load the QR code.<br>Close and try again.');
+    }).catch(function(err){
+      var st = err && err.status, detail = String((err && err.detail) || '');
+      var msg;
+      if(/no such table/i.test(detail)) msg = 'Setup not finished:<br>run the Stage 8 SQL in D1.';
+      else if(st === 403) msg = 'Blocked (403).<br>Open XP1 on wherewepraying.com.';
+      else if(st === 404 || st === 405) msg = 'Settings service not deployed yet (' + st + ').';
+      else if(st) msg = 'Server error ' + st + '.<br>' + detail.slice(0, 80);
+      else msg = 'Couldn’t load the QR code.<br>Check internet and try again.';
+      showQrMessage(msg);
     });
   }
 
