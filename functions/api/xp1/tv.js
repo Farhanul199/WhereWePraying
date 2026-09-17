@@ -58,6 +58,10 @@ function cleanSettings(s) {
   if (typeof s.youtube_enabled === 'boolean') out.youtube_enabled = s.youtube_enabled;
   if (typeof s.show_weather === 'boolean') out.show_weather = s.show_weather;
   if (typeof s.show_mosques === 'boolean') out.show_mosques = s.show_mosques;
+  if (typeof s.show_playlist === 'boolean') out.show_playlist = s.show_playlist;
+  if (typeof s.brightness === 'number' && s.brightness >= 40 && s.brightness <= 100) {
+    out.brightness = Math.round(s.brightness);
+  }
   if (typeof s.playlist_url === 'string' && /[?&]list=[a-zA-Z0-9_-]+/.test(s.playlist_url)) {
     out.playlist_url = s.playlist_url.slice(0, 300);
   }
