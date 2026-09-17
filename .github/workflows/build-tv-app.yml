@@ -1,0 +1,41 @@
+name: Build TV app
+
+on:
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+  push:
+    paths:
+      - 'tv-app/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
+        working-directory: tv-app
+        run: gradle assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp tv-app/app/build/outputs/apk/debug/app-debug.apk xp1-tv.apk
+
+      - name: Publish download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tv-app-latest
+          name: WhereWePraying TV app (latest)
+          body: Install on your TV with the Downloader app.
+          files: xp1-tv.apk
+          make_latest: true
