@@ -68,17 +68,19 @@
   /* ===== Header ===== */
   header{display:flex;align-items:center;gap:1.25rem;}
   .xp1-logo{height:3.25rem;width:auto;}
-  .logo-stack{position:relative;height:3.25rem;width:3.25rem;flex:0 0 auto;}
-  .logo-stack img{position:absolute;top:0;left:0;height:3.25rem;width:3.25rem;transition:opacity 4s ease-in-out;}
+  .logo-stack{position:relative;height:5rem;width:5rem;flex:0 0 auto;}
+  .logo-stack img{position:absolute;top:0;left:0;height:5rem;width:5rem;transition:opacity 4s ease-in-out;}
   .logo-stack .logo-night{opacity:0;}
   #xp1-canvas.night .logo-stack .logo-day{opacity:0;}
   #xp1-canvas.night .logo-stack .logo-night{opacity:1;}
   #xp1-canvas.lite .logo-stack img{transition:none;}
   .brand h1{font-size:1.75rem;font-weight:800;letter-spacing:-0.03rem;}
   .brand .tag{font-size:0.6875rem;color:var(--text-dim);font-weight:700;letter-spacing:0.03rem;}
-  .datetime{margin-left:1.25rem;font-size:0.9375rem;color:var(--text);}
-  .datetime .clock{font-size:1.75rem;font-weight:800;margin-left:0.75rem;}
-  .datetime .loc{display:block;font-size:0.8125rem;color:var(--text-dim);margin-top:0.125rem;}
+  .datetime{display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem;font-size:0.9375rem;color:var(--text);margin-left:auto;margin-right:1rem;}
+  .datetime .date-top{font-size:0.9rem;color:var(--text-dim);}
+  .datetime .clock{font-size:2rem;font-weight:800;line-height:1;}
+  .datetime .hijri{font-size:0.8rem;color:var(--text-dim);}
+  .datetime .loc{font-size:0.8125rem;color:var(--text-dim);}
   .spacer{flex:1;}
   .status-pill{display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;color:var(--text-dim);font-weight:600;margin-right:0.875rem;}
   .status-dot{width:0.4375rem;height:0.4375rem;border-radius:50%;background:var(--green);}
@@ -118,7 +120,8 @@
   .next-prayer .name{font-size:2.25rem;font-weight:700;margin:1.25rem 0 0.25rem;color:#fff;text-shadow:0 0.125rem 0.625rem rgba(0,0,0,.4);}
   .next-prayer .countdown-label{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-top:auto;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
   .next-prayer .countdown{font-size:2.75rem;font-weight:800;color:var(--coral);text-shadow:0 0.125rem 0.75rem rgba(0,0,0,.5);}
-  .next-prayer .at{font-size:0.8125rem;font-weight:500;color:rgba(255,255,255,.9);margin-bottom:0.5rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);}
+  .next-prayer .at{font-size:1.25rem;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:0.5rem;text-shadow:0 0.0625rem 0.25rem rgba(0,0,0,.35);
+    border:2px solid rgba(255,255,255,.55);border-radius:8px;padding:0.625rem 0.75rem;display:inline-block;}
   .notify-btn{width:100%;margin-top:auto;background:var(--coral-soft);color:var(--coral-dark);border:none;border-radius:var(--r-sm);padding:0.9375rem;font-weight:700;font-size:0.9375rem;}
 
   /* ---- Timetable ---- */
@@ -229,6 +232,9 @@
   .check-item .dot{width:1.375rem;height:1.375rem;border-radius:50%;background:var(--coral-soft);color:var(--coral-dark);display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;}
   .check-item.pending .dot{background:transparent;border:0.125rem solid var(--border);}
 
+  .dua-hadith{text-align:center;font-style:italic;color:var(--text-dim);font-size:0.95rem;padding:0.75rem;border-top:1px solid rgba(36,28,21,.08);margin-top:0.5rem;line-height:1.5;min-height:3.5rem;display:flex;align-items:center;justify-content:center;}
+  .dua-hadith .content{flex:1;}
+  .dua-hadith .source{font-size:0.85rem;margin-top:0.375rem;font-style:normal;color:var(--text-dim);}
   footer{display:flex;justify-content:space-between;align-items:center;font-size:0.6875rem;color:var(--text-dim);}
 
   /* ===== Focus design — refined per spec section 12.
@@ -2656,11 +2662,13 @@ var qrcode = function() {
       <h1>WhenWePraying</h1>
       <div class="tag">CLOSER TO ALLAH, EVERY DAY</div>
     </div>
-    <div class="datetime">
-      <span id="dateStr">—</span><span class="clock" id="clockStr">--:--</span>
-      <span class="loc" id="locStr">📍 Location not set</span>
-    </div>
     <div class="spacer"></div>
+    <div class="datetime">
+      <span class="date-top" id="dateStr">—</span>
+      <span class="clock" id="clockStr">--:--</span>
+      <span class="hijri" id="hijriStr">—</span>
+      <span class="loc" id="locStr">📍 —</span>
+    </div>
     <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Connected</span></div>
     <div class="icon-btn focusable" tabindex="-1">🔍</div>
     <div class="icon-btn focusable" id="btnSettings" tabindex="-1">⚙️</div>
@@ -2759,6 +2767,13 @@ var qrcode = function() {
 
   </div>
 
+  <div class="dua-hadith" id="duaHadith">
+    <div class="content">
+      <div id="duaContent">Loading...</div>
+      <div class="source" id="duaSource"></div>
+    </div>
+  </div>
+
   <footer>
     <span>Better Muslims. Brighter Tomorrows.</span>
     <span id="footerRight">🌙 Stay Connected · Stay Inspired</span>
@@ -2829,19 +2844,82 @@ var qrcode = function() {
 })();
 
 /* =========================================================
+   1d. DUA / HADITH OF THE DAY
+   ========================================================= */
+window.XP1Dua = (function(){
+  var duaList = [
+    {text: "Allahumma inni as'aluka 'ilman naafi'an wa 'amalan tayyiban", source: "Authentic Dua"},
+    {text: "O Allah, I ask You for beneficial knowledge and righteous deeds", source: "Translation"},
+    {text: "Glory be to Allah and all praise is due to Him", source: "Glorification"},
+    {text: "There is no might or power except with Allah", source: "La hawla wa la quwwata"},
+    {text: "So remember Me; I will remember you", source: "Qur'an 2:152"},
+    {text: "Call upon Me; I will respond to you", source: "Qur'an 40:60"},
+    {text: "Indeed, with hardship there is ease", source: "Qur'an 94:5-6"},
+    {text: "My Lord, indeed I have wronged myself; forgive me", source: "Qur'an 28:16"}
+  ];
+  
+  function getDuaOfDay(){
+    var today = new Date();
+    var seed = today.getFullYear() * 365 + today.getMonth() * 30 + today.getDate();
+    return duaList[seed % duaList.length];
+  }
+  
+  function render(){
+    var dua = getDuaOfDay();
+    var el = document.getElementById('duaContent');
+    var src = document.getElementById('duaSource');
+    if(el) el.textContent = '"' + dua.text + '"';
+    if(src) src.textContent = '— ' + dua.source;
+  }
+  
+  return { render: render };
+})();
+
+/* =========================================================
    2. CLOCK / DATE (live; location is a Phase 2 hook — shows a
       placeholder until XP1.setLocation() is called by that phase)
    ========================================================= */
 (function(){
   var dateEl = document.getElementById('dateStr');
   var clockEl = document.getElementById('clockStr');
+  var hijriEl = document.getElementById('hijriStr');
+  
+  function xp1Get(key, fallback){
+    try{ var raw = localStorage.getItem(key); if(raw==null) return fallback; return JSON.parse(raw); }
+    catch(e){ return fallback; }
+  }
+  function xp1Set(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+  }
+  
   function tick(){
     var now = new Date();
     dateEl.textContent = now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
     clockEl.textContent = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    fetchHijri();
   }
+  
+  function fetchHijri(){
+    var today = new Date();
+    var cacheKey = 'xp1_hijri_' + today.toISOString().slice(0,10);
+    var cached = xp1Get(cacheKey, null);
+    if(cached){ hijriEl.textContent = cached; return; }
+    fetch('https://www.aladhan.com/api/convert?date=' + String(today.getDate()).padStart(2,'0') + '-' + String(today.getMonth() + 1).padStart(2,'0') + '-' + today.getFullYear())
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(d && d.hijri){
+          var h = d.hijri;
+          var hijriStr = h.day + '/' + h.month.number + '/' + h.year;
+          hijriEl.textContent = hijriStr;
+          xp1Set(cacheKey, hijriStr);
+        }
+      })
+      .catch(function(){});
+  }
+  
   tick();
   setInterval(tick, 1000);
+  if(window.XP1Dua) XP1Dua.render();
 })();
 
 /* =========================================================
