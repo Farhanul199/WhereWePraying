@@ -2,21 +2,23 @@
 //
 // "Match locations" - for holding-pen mosques that can't go live because
 // they have no map location (e.g. MasjidBox: 308 waiting), suggest the
-// same mosque from a source that DOES have coordinates (MuslimsInBritain).
+// same mosque from somewhere that DOES have coordinates:
+//   - a mosque already LIVE on the site (any source), or
+//   - a MuslimsInBritain entry that isn't live yet.
 // You approve or reject each suggestion by hand; nothing is copied until
 // you press Approve.
 //
 // All calls need the admin header:  X-Broadcast-Key: <BROADCAST_SECRET>
 //
-//   GET  ?action=suggest&source=masjidbox&pool=muslimsinbritain&limit=25
+//   GET  ?action=suggest&source=masjidbox&limit=25
 //        -> mosques still missing a location, each with its best matches
 //   POST { action:'approve', source, ref, cand_source, cand_ref }
-//        -> copies the match's coordinates (and address/postcode where the
-//           mosque has none) onto the mosque. It can then go live with
-//           "Put live + send times" as normal, and because it now sits on
-//           the exact same spot it LINKS to the live MuslimsInBritain
-//           listing instead of creating a duplicate - so its prayer times
-//           show on that listing.
+//        -> match is a LIVE mosque (cand_source 'live'): links straight to
+//           it, right now. Its prayer times (e.g. MasjidBox's live daily
+//           sync) start showing on that listing - no "Put live" needed.
+//        -> match is a MuslimsInBritain entry: copies its coordinates (and
+//           address/postcode where missing) so the mosque can go live with
+//           "Put live + send times".
 //   POST { action:'reject', source, ref, cand_refs:[...] }
 //        -> "not the same mosque" - those suggestions never come back.
 //
@@ -30,6 +32,11 @@
 // (postcode, phone, name words), so this stays fast.
 
 import { isAdminRequest } from '../../_lib/auth.js';
+import { clearTodaysAreas } from '../../_lib/area-times.js';
+
+// The live jama'ah sync workers write under their own source names -
+// link those too so their times attach (same list as promote.js).
+const SYNC_SOURCE_ALIASES = { masjidbox: ['masjidbox_scrape'], mymasjid: ['mymasjid_scrape'] };
 
 const MIN_SCORE = 40;
 const MAX_CANDIDATES = 3;
@@ -162,14 +169,21 @@ async function suggest(context, url) {
   const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit'), 10) || 25, 50));
   await ensureTable(db);
 
-  const [waiting, pool, reviews] = await db.batch([
+  const [waiting, live, mib, reviews] = await db.batch([
     db.prepare(`SELECT source_ref, name, city, address, zipcode, phone FROM source_discoveries WHERE ${NEEDS_LOCATION}`).bind(source),
     db.prepare(
+      `SELECT 'live' AS source, slug AS source_ref, name, city, address, postcode AS zipcode, NULL AS phone,
+              latitude AS lat, longitude AS lon, slug AS promoted_slug, NULL AS duplicate_of
+         FROM mosques WHERE active = 1 AND merged_into IS NULL AND latitude IS NOT NULL AND longitude IS NOT NULL`
+    ),
+    db.prepare(
       `SELECT source, source_ref, name, city, address, zipcode, phone, lat, lon, promoted_slug, duplicate_of
-         FROM source_discoveries WHERE source = ?1 AND lat IS NOT NULL AND lon IS NOT NULL`
+         FROM source_discoveries WHERE source = ?1 AND lat IS NOT NULL AND lon IS NOT NULL
+          AND promoted_slug IS NULL AND duplicate_of IS NULL`
     ).bind(poolSource),
     db.prepare(`SELECT source_ref, cand_source, cand_ref FROM source_match_reviews WHERE source = ?1 AND decision = 'reject'`).bind(source),
   ]);
+  const pool = { results: [...(live.results || []), ...(mib.results || [])] };
 
   const rejectedBy = new Map();
   for (const r of reviews.results || []) {
@@ -195,10 +209,12 @@ async function suggest(context, url) {
   });
 }
 
-async function approve(db, body) {
+async function approve(context, body) {
+  const db = context.env.DB;
   const source = String(body.source || ''), ref = String(body.ref || '');
   const cSource = String(body.cand_source || ''), cRef = String(body.cand_ref || '');
   if (!source || !ref || !cSource || !cRef) return json({ error: 'source, ref, cand_source and cand_ref are required' }, 400);
+  if (cSource === 'live') return approveLive(context, source, ref, cRef);
   const [rowR, candR] = await db.batch([
     db.prepare(`SELECT source_ref, address, zipcode, lat, lon FROM source_discoveries WHERE source = ?1 AND source_ref = ?2`).bind(source, ref),
     db.prepare(`SELECT source_ref, address, zipcode, lat, lon FROM source_discoveries WHERE source = ?1 AND source_ref = ?2`).bind(cSource, cRef),
@@ -225,6 +241,48 @@ async function approve(db, body) {
     ).bind(source, ref, cSource, cRef, now),
   ]);
   return json({ success: true, ref, lat: cand.lat, lon: cand.lon });
+}
+
+// The match is a mosque already on the site: link to it directly, the
+// same way "Put live" links a duplicate (see promote.js).
+async function approveLive(context, source, ref, slug) {
+  const db = context.env.DB;
+  const m = await db.prepare(
+    `SELECT slug, name, latitude, longitude, address, postcode FROM mosques WHERE slug = ?1 AND active = 1`
+  ).bind(slug).first();
+  if (!m) return json({ error: 'That live mosque no longer exists' }, 404);
+  const row = await db.prepare(`SELECT name FROM source_discoveries WHERE source = ?1 AND source_ref = ?2`).bind(source, ref).first();
+  if (!row) return json({ error: 'Mosque not found' }, 404);
+
+  const now = new Date().toISOString();
+  await ensureTable(db);
+  const stmts = [
+    db.prepare(
+      `UPDATE source_discoveries
+          SET lat = ?1, lon = ?2, geocode_status = 'matched', geocoded_at = ?3,
+              address = COALESCE(NULLIF(TRIM(address), ''), ?4), zipcode = COALESCE(NULLIF(TRIM(zipcode), ''), ?5),
+              status = 'duplicate', promoted_slug = ?6, promoted_at = ?3,
+              duplicate_of = ?6, duplicate_source = 'mosques', duplicate_reason = 'matched by hand'
+        WHERE source = ?7 AND source_ref = ?8`
+    ).bind(m.latitude, m.longitude, now, m.address || null, m.postcode || null, slug, source, ref),
+    db.prepare(
+      `INSERT INTO source_match_reviews (source, source_ref, cand_source, cand_ref, decision, decided_at)
+       VALUES (?1, ?2, 'live', ?3, 'approve', ?4)
+       ON CONFLICT(source, source_ref, cand_source, cand_ref) DO UPDATE SET decision='approve', decided_at=excluded.decided_at`
+    ).bind(source, ref, slug, now),
+  ];
+  // You approved this by hand, so the link is set even if the code was
+  // previously linked somewhere else.
+  for (const src of [source, ...(SYNC_SOURCE_ALIASES[source] || [])]) {
+    stmts.push(db.prepare(
+      `INSERT INTO mosque_sources (source, source_ref, name, lat, lon, mosque_slug, first_seen, last_seen)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+       ON CONFLICT(source, source_ref) DO UPDATE SET mosque_slug = excluded.mosque_slug, last_seen = excluded.last_seen`
+    ).bind(src, ref, row.name, m.latitude, m.longitude, slug, now));
+  }
+  await db.batch(stmts);
+  const cleared = await clearTodaysAreas(context.env);
+  return json({ success: true, ref, linkedTo: slug, areasCleared: cleared });
 }
 
 async function reject(db, body) {
@@ -262,7 +320,7 @@ export async function onRequestPost(context) {
   let body;
   try { body = await context.request.json(); } catch (e) { return json({ error: 'Bad JSON' }, 400); }
   try {
-    if (body.action === 'approve') return await approve(context.env.DB, body);
+    if (body.action === 'approve') return await approve(context, body);
     if (body.action === 'reject') return await reject(context.env.DB, body);
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
