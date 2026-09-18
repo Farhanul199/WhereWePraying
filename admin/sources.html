@@ -177,6 +177,14 @@
       <p class="hint"><label><input type="checkbox" id="keepThm" checked> Keep Tower Hamlets mosques live (they're the only ones with committee-set times right now)</label></p>
       <div class="status" id="rebuildStatus"></div>
 
+      <p class="step-label">Match missing locations</p>
+      <div class="actions">
+        <button class="ghost" id="matchLocBtn">Match with MuslimsInBritain</button>
+      </div>
+      <p class="hint">For mosques on this tab that can't go live because they have no map location. Suggests the same mosque from MuslimsInBritain (by postcode, phone and name). Check it on the map, then <b>Approve</b> to copy that location across, or <b>None of these</b> so it isn't suggested again. Approved mosques go live with <b>Put live + send times</b> and link to the existing listing instead of duplicating it.</p>
+      <div class="status" id="matchLocStatus"></div>
+      <table id="matchLocTable" class="hidden"><tbody></tbody></table>
+
       <p class="step-label">Duplicate mosques</p>
       <div class="actions">
         <button class="ghost" id="dupScanBtn">Find duplicates</button>
@@ -894,6 +902,78 @@
       (without ? ' · ' + without + ' had no reliable jama\'ah times (they show "No live prayer time")' : '') +
       '. Live within the hour, as each area refreshes.');
     refresh();
+  });
+
+  /* ------------------------------------------------ match locations */
+  var MATCH_LIST = [];
+
+  async function postJson(url, body){
+    var res, data;
+    try {
+      res = await fetch(url, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers()), body: JSON.stringify(body) });
+      data = await res.json();
+    } catch (e) { return { error: 'Network problem. Try again.' }; }
+    if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
+    return data;
+  }
+
+  function mapLink(lat, lon){
+    return 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon;
+  }
+
+  function matchInfo(m){
+    return [m.postcode, m.address, m.city, m.phone].filter(Boolean).map(esc).join(' · ') || 'no address details';
+  }
+
+  function renderMatches(){
+    var t = $('matchLocTable'), tbody = t.querySelector('tbody');
+    if (!MATCH_LIST.length) { t.classList.add('hidden'); tbody.innerHTML = ''; return; }
+    tbody.innerHTML = '<tr><th>Needs a location</th><th>Possible match (MuslimsInBritain)</th><th></th></tr>' +
+      MATCH_LIST.map(function(r, i){
+        var cands = r.candidates.map(function(c, j){
+          return '<div style="margin-bottom:8px"><b>' + esc(c.name) + '</b> <span class="hint">score ' + c.score + ' — ' + esc(c.why.join(', ')) + '</span><br>' +
+            '<span class="hint">' + matchInfo(c) + (c.liveSlug ? ' · live as <code>' + esc(c.liveSlug) + '</code>' : '') + '</span><br>' +
+            '<a href="' + mapLink(c.lat, c.lon) + '" target="_blank" rel="noopener">View on map</a> ' +
+            '<button class="ghost matchApprove" data-i="' + i + '" data-j="' + j + '">Approve</button></div>';
+        }).join('');
+        return '<tr><td><b>' + esc(r.name) + '</b><br><span class="hint">' + matchInfo(r) + '</span></td><td>' + cands +
+          '</td><td><button class="ghost matchReject" data-i="' + i + '">None of these</button></td></tr>';
+      }).join('');
+    t.classList.remove('hidden');
+  }
+
+  async function loadMatches(){
+    say($('matchLocStatus'), 'Looking for matches…');
+    var d = await api('/api/admin/match-locations?action=suggest&limit=25&pool=muslimsinbritain&source=' + SOURCE);
+    if (d.error) { say($('matchLocStatus'), d.error, true); return; }
+    MATCH_LIST = d.list || [];
+    say($('matchLocStatus'), d.waitingForLocation + ' mosques need a location · ' + d.withSuggestion + ' have a suggested match · ' +
+      d.noSuggestion + ' have none.' + (MATCH_LIST.length ? ' Showing ' + MATCH_LIST.length + '.' : ''));
+    renderMatches();
+  }
+
+  $('matchLocBtn').addEventListener('click', loadMatches);
+
+  $('matchLocTable').addEventListener('click', async function(e){
+    var ok = e.target.closest('.matchApprove'), no = e.target.closest('.matchReject');
+    if (!ok && !no) return;
+    var i = +(ok || no).dataset.i, r = MATCH_LIST[i];
+    if (!r) return;
+    (ok || no).disabled = true;
+    var d;
+    if (ok) {
+      var c = r.candidates[+ok.dataset.j];
+      d = await postJson('/api/admin/match-locations', { action: 'approve', source: SOURCE, ref: r.ref, cand_source: c.source, cand_ref: c.ref });
+      if (!d.error) say($('matchLocStatus'), 'Approved: ' + r.name + ' now has a location.');
+    } else {
+      d = await postJson('/api/admin/match-locations', { action: 'reject', source: SOURCE, ref: r.ref,
+        cand_refs: r.candidates.map(function(c){ return c.source + ':' + c.ref; }) });
+      if (!d.error) say($('matchLocStatus'), 'Noted: ' + r.name + ' — those suggestions won\'t come back.');
+    }
+    if (d.error) { say($('matchLocStatus'), d.error, true); (ok || no).disabled = false; return; }
+    MATCH_LIST.splice(i, 1);
+    renderMatches();
+    if (!MATCH_LIST.length) loadMatches();
   });
 
   /* ----------------------------------------------------- duplicates */
