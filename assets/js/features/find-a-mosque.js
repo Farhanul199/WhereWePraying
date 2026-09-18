@@ -7,6 +7,9 @@
    their ONE best mosque right now (Primary) plus up to TWO backup
    mosques with later Jama'ah times in case they miss it, worked out
    from their real location. Backed by functions/api/mosques/plan.js.
+   Below those cards, "All mosques near you" lists every nearby mosque,
+   closest first - including ones with no Jama'ah time on record, which
+   show "No Jama'ah time yet" instead of being hidden.
 
    Two small things carried over from the old list view, since they
    were built after the rewrite and are still worth keeping:
@@ -78,6 +81,7 @@
   const IP_GEO_TIMEOUT_MS = 3500;
   const POSTCODES_IO_BASE = 'https://api.postcodes.io';
   const PHOTON_BASE = 'https://photon.komoot.io/api/';
+  const PHOTON_REVERSE = 'https://photon.komoot.io/reverse';
   const IP_GEO_URL = 'https://get.geojs.io/v1/ip/geo.json';
   // A full UK postcode ("IG2 7HS") vs just its first half, an "outcode"
   // ("IG2", "E14") — both are looked up via postcodes.io, which has
@@ -194,15 +198,25 @@
   //     is city-level only — it matched "Poplar" to whichever
   //     same-named place ranked first worldwide, which is why it
   //     silently returned the wrong location instead of E14.
+  // A full postcode covers one street or block of flats - far more precise
+  // than a ward (a council voting area of ~10,000 people). The label is
+  // built from the postcode itself plus the nearest neighbourhood name
+  // (e.g. "IG2 7HS · Newbury Park"), never the ward.
+  // A postcode's centre point isn't a personal GPS fix, so it's kept to
+  // 4 decimal places (~11m) rather than the ~110m rounding used for GPS.
+  function roundPostcodeCoord(v){ return Math.round(v * 10000) / 10000; }
+
   async function geocodePostcode(compact){
     const res = await fetchWithTimeout(POSTCODES_IO_BASE + '/postcodes/' + encodeURIComponent(compact), null, 5000);
     if (!res.ok) return null; // 404 = genuinely not a postcode on record
     const data = await res.json();
     const r = data && data.result;
     if (!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    const lat = roundPostcodeCoord(r.latitude), lon = roundPostcodeCoord(r.longitude);
+    const area = await neighbourhoodName(lat, lon);
     return {
-      lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
-      label: [r.admin_ward, r.admin_district].filter(Boolean).join(', ') || r.postcode,
+      lat, lon,
+      label: postcodeLabel(r.postcode || compact, area, r.admin_district),
       source: 'manual'
     };
   }
@@ -213,11 +227,47 @@
     const data = await res.json();
     const r = data && data.result;
     if (!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    const district = r.admin_district && r.admin_district[0] ? r.admin_district[0] : null;
     return {
       lat: roundCoord(r.latitude), lon: roundCoord(r.longitude),
-      label: r.admin_district && r.admin_district[0] ? r.admin_district[0] : (r.outcode || compact),
+      label: postcodeLabel(r.outcode || compact, null, district),
       source: 'manual'
     };
+  }
+
+  // "IG2 7HS · Newbury Park", or "IG2 7HS, Redbridge" if no neighbourhood
+  // name came back.
+  function postcodeLabel(pc, area, district){
+    const code = String(pc || '').toUpperCase().trim();
+    if (area) return code + ' · ' + area;
+    return district ? code + ', ' + district : code;
+  }
+
+  // Nearest named neighbourhood (Newbury Park, Gants Hill, Seven Kings...)
+  // from OpenStreetMap via Photon. Best effort - never blocks a result.
+  async function neighbourhoodName(lat, lon){
+    const base = PHOTON_REVERSE + '?lat=' + lat + '&lon=' + lon + '&lang=en&limit=1';
+    // 1st try: nearest neighbourhood/suburb place itself.
+    try {
+      const res = await fetchWithTimeout(base + '&layer=district&layer=locality', null, 3000);
+      if (res.ok) {
+        const d = await res.json();
+        const p = d && d.features && d.features[0] && d.features[0].properties;
+        const n = p && (p.name || p.district || p.locality);
+        if (n) return n;
+      }
+    } catch (e) { /* fall through */ }
+    // 2nd try: nearest address, and the neighbourhood it belongs to.
+    try {
+      const res = await fetchWithTimeout(base, null, 3000);
+      if (res.ok) {
+        const d = await res.json();
+        const p = d && d.features && d.features[0] && d.features[0].properties;
+        const n = p && (p.district || p.locality || p.city);
+        if (n) return n;
+      }
+    } catch (e) { /* no name - postcode alone is still shown */ }
+    return null;
   }
 
   async function geocodePlaceName(query){
@@ -257,14 +307,21 @@
   // postcodes.io's "nearest postcodes" lookup doubles as a UK-relevant
   // reverse geocoder — ward + district reads better than a generic
   // city name for this app's audience.
-  async function reverseGeocodeLabel(lat, lon){
+  // GPS gets the nearest postcode + neighbourhood ("IG2 7HS · Newbury
+  // Park"). IP-based guesses are only town-level accurate, so they get
+  // just the borough - showing a postcode there would look more precise
+  // than it is.
+  async function reverseGeocodeLabel(lat, lon, precise){
     try {
       const url = POSTCODES_IO_BASE + '/postcodes?lon=' + lon + '&lat=' + lat + '&limit=1';
       const res = await fetchWithTimeout(url, null, 3500);
       if (!res.ok) return null;
       const data = await res.json();
       const r = data && data.result && data.result[0];
-      if (r) return [r.admin_ward, r.admin_district].filter(Boolean).join(', ');
+      if (!r) return null;
+      if (!precise) return r.admin_district || null;
+      const area = await neighbourhoodName(lat, lon);
+      return postcodeLabel(r.postcode, area, r.admin_district);
     } catch (e) { /* skip — generic source label still shown */ }
     return null;
   }
@@ -371,10 +428,62 @@
       </div>`;
   }
 
+  // One compact row per nearby mosque. A mosque with no Jama'ah time on
+  // record still shows - with a note instead of a time.
+  function nearbyRowHtml(m){
+    const travelWord = m.travelMode === 'walk' ? 'walk' : 'drive';
+    let chip;
+    if (m.prayer) {
+      chip = `
+        <div class="mq-plan-chip">
+          <div class="mq-plan-chip-label">${PRAYER_LABELS[m.prayer] || m.prayer}${m.isTomorrow ? ' · tomorrow' : ''}</div>
+          <div class="mq-plan-chip-time">${escapeHtml(m.time)}</div>
+        </div>`;
+    } else {
+      const text = m.status === 'none_left' ? 'No more Jama\'ah today' : 'No Jama\'ah time yet';
+      chip = `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">${text}</div></div>`;
+    }
+    return `
+      <div class="mq-plan-row mq-nearby-row" data-slug="${escapeHtml(m.slug)}">
+        <span class="mq-plan-row-icon" aria-hidden="true">📍</span>
+        <div class="mq-plan-row-main">
+          <div class="mq-plan-row-name">${escapeHtml(m.name)}</div>
+          <div class="mq-plan-row-sub">${m.distanceMiles} mi · ${m.travelMinutes} min ${travelWord}</div>
+        </div>
+        ${chip}
+      </div>`;
+  }
+
+  function nearbySectionHtml(plan, excludeSlugs){
+    const list = (plan.nearby || []).filter(m => !excludeSlugs.has(m.slug));
+    if (!list.length) return '';
+    return `
+      <div class="mq-nearby">
+        <div class="mq-nearby-title">All mosques near you</div>
+        <div class="mq-plan-rows">${list.map(nearbyRowHtml).join('')}</div>
+      </div>`;
+  }
+
   function renderPlan(plan){
     const list = document.getElementById('mqList');
     if (!list) return;
-    if (!plan.primary) { renderNote(plan.note || "No mosques with Jama'ah times found nearby."); return; }
+    if (!plan.primary) {
+      // Nothing reachable with a time - still list what's around.
+      if (!(plan.nearby && plan.nearby.length)) { renderNote(plan.note || "No mosques found near this location yet."); return; }
+      list.innerHTML = `
+        <div class="mq-plan-card">
+          <div class="mq-plan-header">
+            <span class="mq-plan-icon" aria-hidden="true">🕌</span>
+            <div>
+              <h2>Mosques near you</h2>
+              <p>${escapeHtml(plan.note || '')}</p>
+            </div>
+          </div>
+          ${nearbySectionHtml(plan, new Set())}
+        </div>`;
+      return;
+    }
+    const shown = new Set([plan.primary.slug, ...(plan.backups || []).map(b => b.slug)]);
     const rows = [planRowHtml(plan.primary, true), ...(plan.backups || []).map(b => planRowHtml(b, false))].join('');
     list.innerHTML = `
       <div class="mq-plan-card">
@@ -387,6 +496,7 @@
         </div>
         <div class="mq-plan-rows">${rows}</div>
         ${plan.expanded ? '<div class="mq-plan-expanded-note">Widened the search area to find enough options nearby.</div>' : ''}
+        ${nearbySectionHtml(plan, shown)}
       </div>`;
   }
 
@@ -458,7 +568,7 @@
     // Best-effort place name for auto-detected fixes — fills in the
     // label a moment later without blocking anything above.
     if ((loc.source === 'geo' || loc.source === 'edge' || loc.source === 'ip') && !loc.label) {
-      reverseGeocodeLabel(loc.lat, loc.lon).then(label => {
+      reverseGeocodeLabel(loc.lat, loc.lon, loc.source === 'geo').then(label => {
         if (label && mqLocation === loc) { loc.label = label; renderLocationLabel(); }
       });
     }
