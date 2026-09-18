@@ -1,61 +1,53 @@
 // functions/api/mosques/plan.js
 //
-// "Find a Mosque" plan endpoint — given the visitor's lat/lon, works
-// out ONE primary mosque (the closest one they can still reach before
-// Jama'ah) plus up to TWO backup mosques with later Jama'ah times, in
-// case they miss the primary.
+// "Find a Mosque" endpoint. Given the visitor's position it returns the
+// CLOSEST mosques first - that's the number one rule - each with today's
+// Jama'ah times and its next Jama'ah.
 //
-// It ALSO returns `nearby`: every mosque close to the visitor, closest
-// first, whether or not it has a Jama'ah time. A mosque with no time on
-// record is never hidden - it comes back with next = null and the page
-// shows "No Jama'ah time yet". (Product rule: a mosque with no live time
-// must still appear.)
+//   POST { lat, lon, count?: 1-10 (default 3), pins?: [{ slug, lat, lon }] }
+//     -> { mosques: [...closest `count`], pinned: [...pins], ... }
 //
-// Debug: GET ?lat=..&lon=..&debug=1 adds, for each nearby mosque, the
-// reason it did or didn't make the three cards.
+// Every mosque has a `state`:
+//   active    - it has a Jama'ah still to come today (next = that one).
+//               `canMakeIt` says whether the visitor can get there in time;
+//               it's a hint on the card, never a reason to hide a mosque.
+//   done_today - all of today's Jama'ah have passed. The card is shown
+//               greyed out with tomorrow's Fajr as `next`. After midnight
+//               (London) the date rolls over, today's Fajr is "to come"
+//               again, and the card is back to normal on its own.
+//   no_times  - nothing on record; still shown, "No Jama'ah time yet".
 //
-// COST DESIGN — read, don't copy (see _lib/area-times.js):
+// Mosques are never dropped for timing reasons. Nothing here filters by
+// "can you make it" any more.
 //
-//   1. Each mosque keeps its OWN timetable (a full year from Mawaqit, a
-//      rolling week from other sources). Nothing is expanded into daily
-//      rows in advance.
-//   2. The visitor's position is rounded to a ~7-mile area. The first
-//      visitor in that area on a given day causes one small database
-//      read — the mosques in that area, plus the current month's page of
-//      each one's timetable — which is then cached at the Cloudflare
-//      edge and in KV.
-//   3. Everyone else in that area that day is served from cache: no
-//      database, no storage read. Distance and "can I make it" maths
-//      happen in memory, which is free.
+// `pins` are favourites / a searched-for mosque that may be far away:
+// each is looked up in its own area (cached per area per day, same as
+// everything else), so pins cost nothing extra on the database.
 //
-//   Result: work happens once per populated area per day. Coverage can
-//   grow to every country without changing any of these numbers, because
-//   a visitor only ever loads their own area.
+// COST DESIGN - read, don't copy (see _lib/area-times.js): the visitor's
+// area is cached at the edge + KV per day; everything below is in-memory.
+// A bigger `count` changes nothing on the database side - the area is
+// already loaded - so up to 10 is safe.
 //
-// Travel time is ESTIMATED, not routed (no Google Maps/routing API —
-// costs money and this is a free-tier project). Straight-line distance
-// with a route-indirectness multiplier and a flat speed per mode.
-// Good enough for "can I make it", not turn-by-turn directions.
+// Debug: GET ?lat=..&lon=..&debug=1 adds each listed mosque's linked
+// data sources and their state, for working out missing times.
 //
-// PRIVACY: the frontend now sends coordinates as a POST body (see
-// onRequestPost below) rather than a GET query string, so they don't
-// land in access logs, browser history, or a Referer header. This
-// endpoint never writes the visitor's location anywhere — it's read
-// in memory for this one request, used to filter/sort, and discarded
-// when the response is sent. onRequestGet is kept only for backward
-// compatibility (e.g. direct testing) and shares the exact same logic.
+// PRIVACY: the frontend sends coordinates in a POST body, so they don't
+// land in access logs, browser history or a Referer header. Nothing about
+// the visitor's location is stored.
 
 import { loadArea } from "../../_lib/area-times.js";
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
-const CANDIDATE_BOX_MILES = 22;
-
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
 const WALK_SPEED_MPH = 3;
-const DRIVE_SPEED_MPH = 15;     // conservative — accounts for city traffic/parking, not motorway speed
+const DRIVE_SPEED_MPH = 15;     // conservative - city traffic/parking
 const ROUTE_FACTOR = 1.25;      // real roads/paths aren't a straight line
-const SAFETY_BUFFER_MIN = 5;    // arrive-by buffer, not arrive-exactly-on-time
-const PREFERRED_MAX_DRIVE_MIN = 20; // prioritise options within this drive time; never pad backups out with a far-flung option just to reach 3
+const SAFETY_BUFFER_MIN = 5;    // arrive-by buffer
+const MAX_COUNT = 10;
+const DEFAULT_COUNT = 3;
+const MAX_PINS = 12;
+const MAX_PIN_AREAS = 6;
 
 function londonNowParts() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -135,58 +127,122 @@ function rowToCandidate(row) {
   };
 }
 
-// The first Jama'ah this visitor can still reach at this mosque, given
-// how long it takes to get there. Checks today's prayers in order, then
-// tomorrow's Fajr. Previously only the very next prayer was checked, and
-// if that one was too soon to reach the whole mosque vanished - even
-// though a later prayer (or tomorrow's Fajr) was fine.
-function reachablePrayerFor(candidate, nowMinutes, travelMinutes) {
-  for (const prayer of PRAYER_ORDER) {
-    const mins = parseTimeToMinutes(prayer, candidate.jamaah[prayer]);
-    if (mins === null || mins < nowMinutes) continue;
-    const until = mins - nowMinutes;
-    if (until - travelMinutes - SAFETY_BUFFER_MIN >= 0) {
-      return { prayer, time: candidate.jamaah[prayer], minutesUntil: until, isTomorrow: false };
-    }
-  }
-  const tomorrowMins = parseTimeToMinutes("fajr", candidate.tomorrowFajr);
-  if (tomorrowMins !== null) {
-    return {
-      prayer: "fajr", time: candidate.tomorrowFajr,
-      minutesUntil: (1440 - nowMinutes) + tomorrowMins, isTomorrow: true,
-    };
-  }
-  return null;
-}
-
 function hasAnyTime(c) {
   return PRAYER_ORDER.some((p) => c.jamaah[p]) || !!c.tomorrowFajr;
 }
 
-function buildPlanEntry(candidate, dist, next, travel) {
-  return {
-    slug: candidate.slug, name: candidate.name, address: candidate.address, postcode: candidate.postcode,
-    latitude: candidate.latitude, longitude: candidate.longitude,
-    today: candidate.jamaah, tomorrowFajr: candidate.tomorrowFajr,
-    distanceMiles: Math.round(dist * 10) / 10,
-    travelMode: travel.mode, travelMinutes: travel.minutes,
-    prayer: next.prayer, time: next.time, jamaahInMinutes: next.minutesUntil,
-    isTomorrow: next.isTomorrow,
-  };
+// Next Jama'ah at this mosque, by the clock - not by whether the visitor
+// can reach it. After Isha: tomorrow's Fajr, flagged isTomorrow.
+function nextJamaah(c, nowMinutes) {
+  for (const prayer of PRAYER_ORDER) {
+    const mins = parseTimeToMinutes(prayer, c.jamaah[prayer]);
+    if (mins !== null && mins >= nowMinutes) {
+      return { prayer, time: c.jamaah[prayer], minutesUntil: mins - nowMinutes, isTomorrow: false };
+    }
+  }
+  const t = parseTimeToMinutes("fajr", c.tomorrowFajr);
+  if (t !== null) return { prayer: "fajr", time: c.tomorrowFajr, minutesUntil: (1440 - nowMinutes) + t, isTomorrow: true };
+  return null;
 }
 
-function computeFeasible(candidates, lat, lon, nowMinutes) {
-  const feasible = [];
-  for (const c of candidates) {
-    if (c.latitude == null || c.longitude == null) continue;
-    const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
-    const travel = travelEstimate(dist);
-    const next = reachablePrayerFor(c, nowMinutes, travel.minutes);
-    if (!next) continue;
-    feasible.push(buildPlanEntry(c, dist, next, travel));
+function toEntry(c, lat, lon, nowMinutes) {
+  const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
+  const travel = travelEstimate(dist);
+  const next = nextJamaah(c, nowMinutes);
+  const state = !hasAnyTime(c) ? "no_times" : (next && !next.isTomorrow ? "active" : "done_today");
+  return {
+    slug: c.slug, name: c.name, address: c.address, postcode: c.postcode,
+    latitude: c.latitude, longitude: c.longitude,
+    distanceMiles: Math.round(dist * 10) / 10, _dist: dist,
+    travelMode: travel.mode, travelMinutes: travel.minutes,
+    today: c.jamaah, tomorrowFajr: c.tomorrowFajr,
+    state,
+    prayer: next ? next.prayer : null, time: next ? next.time : null,
+    jamaahInMinutes: next ? next.minutesUntil : null, isTomorrow: next ? next.isTomorrow : false,
+    canMakeIt: state === "active" ? next.minutesUntil - travel.minutes - SAFETY_BUFFER_MIN >= 0 : null,
+  };
+}
+const strip = ({ _dist, ...e }) => e;
+
+async function buildPlanResponse(context, { lat, lon, count, pins, debug }) {
+  const { dateIso, minutes: nowMinutes } = londonNowParts();
+
+  let area;
+  try {
+    area = await loadArea(context, lat, lon, dateIso);
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
+      { status: 500, headers: { "Content-Type": "application/json" } });
   }
-  feasible.sort((a, b) => a.jamaahInMinutes - b.jamaahInMinutes);
-  return dedupeEntries(feasible);
+
+  // --- Closest first. Always. ---
+  const withCoords = area.rows.filter((r) => r.latitude != null && r.longitude != null);
+  let all = withCoords.map((r) => toEntry(rowToCandidate(r), lat, lon, nowMinutes));
+  all.sort((a, b) => a._dist - b._dist);
+
+  // Sparse area (rural, or the edge of one): also look one area over.
+  if (all.length < count) {
+    const seen = new Set(all.map((e) => e.slug));
+    const step = 0.35; // ~24 miles
+    for (const [dLat, dLon] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+      try {
+        const more = await loadArea(context, lat + dLat, lon + dLon, dateIso);
+        for (const r of more.rows) {
+          if (seen.has(r.slug) || r.latitude == null) continue;
+          seen.add(r.slug);
+          all.push(toEntry(rowToCandidate(r), lat, lon, nowMinutes));
+        }
+      } catch (e) { /* a neighbour failing shouldn't fail the answer */ }
+      if (all.length >= count) break;
+    }
+    all.sort((a, b) => a._dist - b._dist);
+  }
+  const mosques = dedupeEntries(all.slice(0, count * 3 + 10)).slice(0, count).map(strip);
+
+  // --- Pins: favourites / a searched mosque, each from its own area ---
+  const pinned = [];
+  if (pins.length) {
+    const found = new Map(all.map((e) => [e.slug, e]));
+    const missing = pins.filter((p) => !found.has(p.slug));
+    const areas = new Map();
+    for (const p of missing) {
+      const key = Math.round(p.lat * 10) + ":" + Math.round(p.lon * 10);
+      if (!areas.has(key)) areas.set(key, p);
+    }
+    for (const p of [...areas.values()].slice(0, MAX_PIN_AREAS)) {
+      try {
+        const a = await loadArea(context, p.lat, p.lon, dateIso);
+        for (const r of a.rows) {
+          if (r.latitude == null || found.has(r.slug)) continue;
+          if (pins.some((x) => x.slug === r.slug)) found.set(r.slug, toEntry(rowToCandidate(r), lat, lon, nowMinutes));
+        }
+      } catch (e) { /* skip that pin's area */ }
+    }
+    for (const p of pins) if (found.has(p.slug)) pinned.push(strip(found.get(p.slug)));
+  }
+
+  const note = mosques.length ? null : "No mosques found near this location yet.";
+  const out = { date: dateIso, generatedAtMinutes: nowMinutes, count, mosques, pinned, note, source: area.from };
+  if (debug) {
+    out.debug = mosques.map((m) => ({ slug: m.slug, name: m.name, distanceMiles: m.distanceMiles, state: m.state,
+      next: m.prayer ? `${m.prayer} ${m.time}${m.isTomorrow ? " (tomorrow)" : ""}` : null }));
+    try {
+      await addSourceDiagnostics(context.env.DB, out.debug, lat, lon);
+      out.unlinkedMawaqitNearby = out.debug.unlinkedMawaqitNearby;
+    } catch (e) { out.debugError = String(e); }
+  }
+  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+
+function readCount(v) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? Math.max(1, Math.min(MAX_COUNT, n)) : DEFAULT_COUNT;
+}
+function readPins(v) {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, MAX_PINS)
+    .map((p) => ({ slug: String(p && p.slug || "").slice(0, 120), lat: parseFloat(p && p.lat), lon: parseFloat(p && p.lon) }))
+    .filter((p) => p.slug && validateCoords(p.lat, p.lon));
 }
 
 // ---------- Same-mosque safety net ----------
@@ -232,183 +288,6 @@ function dedupeEntries(list) {
   return out;
 }
 
-function pickPrimaryAndBackups(feasible) {
-  if (!feasible.length) return { primary: null, backups: [] };
-
-  // Closest-first by real distance. "Can you make it" already filtered
-  // to feasible mosques; among those, proximity decides ranking, not
-  // which one's Jama'ah happens to be soonest on the clock.
-  //
-  // Not by travel minutes: anything under 0.6 miles is timed as a WALK
-  // (3 mph) and anything further as a DRIVE (15 mph), so a mosque 0.4
-  // miles away (10 min walk) used to lose to one 0.9 miles away (5 min
-  // drive) - the closest mosque to someone's house could drop off the
-  // cards entirely.
-  const byDistance = [...feasible].sort(
-    (a, b) => a.distanceMiles - b.distanceMiles || a.travelMinutes - b.travelMinutes
-  );
-
-  // Prefer a primary within the target drive-time ceiling; only reach
-  // further if nothing feasible is that close right now (better to
-  // show a real answer than none).
-  const withinCapAll = byDistance.filter((m) => m.travelMinutes <= PREFERRED_MAX_DRIVE_MIN);
-  const primary = withinCapAll[0] || byDistance[0];
-  const rest = byDistance.filter((m) => m !== primary);
-
-  // Backups are capped hard at PREFERRED_MAX_DRIVE_MIN — never padded
-  // out to 3 cards by reaching for a mosque that's an unreasonable
-  // drive away. Within that cap, prefer ones with a LATER Jama'ah
-  // than primary (genuinely useful if you miss it); fall back to any
-  // nearby one only if that's all that's close enough.
-  const withinCap = rest.filter((m) => m.travelMinutes <= PREFERRED_MAX_DRIVE_MIN);
-  const laterAndClose = withinCap.filter((m) => m.jamaahInMinutes > primary.jamaahInMinutes);
-
-  const backups = [];
-  for (const pool of [laterAndClose, withinCap]) {
-    for (const m of pool) {
-      if (backups.length >= 2) break;
-      if (!backups.includes(m)) backups.push(m);
-    }
-    if (backups.length >= 2) break;
-  }
-  return { primary, backups };
-}
-
-// ---------- Shared core (used by both POST and GET) ----------
-
-function validateCoords(lat, lon) {
-  const validLat = Number.isFinite(lat) && lat >= -90 && lat <= 90;
-  const validLon = Number.isFinite(lon) && lon >= -180 && lon <= 180;
-  return validLat && validLon;
-}
-
-async function buildPlanResponse(lat, lon, context, debug) {
-  const { dateIso, minutes: nowMinutes } = londonNowParts();
-
-  // --- Mosques near this visitor, with today's jama'ah times read
-  // straight from each mosque's own stored timetable (_lib/area-times.js).
-  // Cached per area per day at the edge, so only the first visitor in an
-  // area costs anything. No global file, no per-day copies. ---
-  let areaRows, source;
-  try {
-    const area = await loadArea(context, lat, lon, dateIso);
-    areaRows = area.rows;
-    source = area.from;
-  } catch (e) {
-    return new Response(
-      JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // --- Filter to bounding box (in-memory, free) ---
-  const latDelta = milesToLatDegrees(CANDIDATE_BOX_MILES);
-  const lonDelta = milesToLonDegrees(CANDIDATE_BOX_MILES, lat);
-  const minLat = lat - latDelta, maxLat = lat + latDelta;
-  const minLon = lon - lonDelta, maxLon = lon + lonDelta;
-
-  const candidates = [];
-  for (const row of areaRows) {
-    if (row.latitude >= minLat && row.latitude <= maxLat &&
-        row.longitude >= minLon && row.longitude <= maxLon) {
-      candidates.push(rowToCandidate(row));
-    }
-  }
-
-  // --- Compute feasibility ---
-  let feasible = computeFeasible(candidates, lat, lon, nowMinutes);
-
-  // If the tight box didn't produce 3 results, widen to everything in
-  // this area, then to the neighbouring areas (each one cached in its
-  // own right). Never "all mosques" — at worldwide scale that's far too
-  // much to read for one visitor.
-  let expanded = false;
-  if (feasible.length < 3) {
-    const wider = computeFeasible(areaRows.map(rowToCandidate), lat, lon, nowMinutes);
-    if (wider.length > feasible.length) { feasible = wider; expanded = true; }
-  }
-  if (feasible.length < 3) {
-    const step = 0.35; // ~24 miles
-    const seen = new Set(areaRows.map((r) => r.slug));
-    const extra = [];
-    for (const [dLat, dLon] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
-      try {
-        const area = await loadArea(context, lat + dLat, lon + dLon, dateIso);
-        for (const row of area.rows) {
-          if (seen.has(row.slug)) continue;
-          seen.add(row.slug);
-          extra.push(rowToCandidate(row));
-        }
-      } catch (e) { /* a neighbour failing shouldn't fail the answer */ }
-      if (extra.length) break;
-    }
-    if (extra.length) {
-      const widest = computeFeasible(areaRows.map(rowToCandidate).concat(extra), lat, lon, nowMinutes);
-      if (widest.length > feasible.length) { feasible = widest; expanded = true; }
-    }
-  }
-
-  const { primary, backups } = pickPrimaryAndBackups(feasible);
-
-  // --- Every mosque near the visitor, times or not ---
-  const nearby = buildNearby(areaRows.map(rowToCandidate), lat, lon, nowMinutes);
-
-  let note = null;
-  if (!primary) {
-    note = nearby.length
-      ? "None of the mosques near you have a Jama'ah time you can still make. Here's what's around you."
-      : "No mosques found near this location yet.";
-  }
-
-  const body = { date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, nearby, expanded, note, source };
-  if (debug) {
-    body.debug = debugReasons(nearby, primary, backups, feasible);
-    try {
-      await addSourceDiagnostics(context.env.DB, body.debug, lat, lon);
-      body.unlinkedMawaqitNearby = body.debug.unlinkedMawaqitNearby;
-    } catch (e) { body.debugError = String(e); }
-  }
-
-  return new Response(
-    JSON.stringify(body),
-    { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
-  );
-}
-
-// Closest mosques to the visitor, closest first - including ones with no
-// Jama'ah time on record (next: null). Up to NEARBY_LIMIT within
-// NEARBY_MILES; if that finds very few, the nearest few regardless.
-const NEARBY_MILES = 3;
-const NEARBY_LIMIT = 12;
-const NEARBY_MIN = 5;
-
-function buildNearby(candidates, lat, lon, nowMinutes) {
-  const all = [];
-  for (const c of candidates) {
-    if (c.latitude == null || c.longitude == null) continue;
-    const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
-    const travel = travelEstimate(dist);
-    const next = reachablePrayerFor(c, nowMinutes, travel.minutes);
-    all.push({
-      slug: c.slug, name: c.name, address: c.address, postcode: c.postcode,
-      latitude: c.latitude, longitude: c.longitude,
-      today: c.jamaah, tomorrowFajr: c.tomorrowFajr,
-      distanceMiles: Math.round(dist * 10) / 10, _dist: dist,
-      travelMode: travel.mode, travelMinutes: travel.minutes,
-      prayer: next ? next.prayer : null, time: next ? next.time : null,
-      jamaahInMinutes: next ? next.minutesUntil : null, isTomorrow: next ? next.isTomorrow : false,
-      // no_times  = nothing on record for today or tomorrow
-      // none_left = has times, but none left today and no Fajr for tomorrow
-      status: next ? "ok" : (hasAnyTime(c) ? "none_left" : "no_times"),
-    });
-  }
-  all.sort((a, b) => a._dist - b._dist);
-  const closest = dedupeEntries(all.slice(0, 40));
-  let list = closest.filter((m) => m._dist <= NEARBY_MILES).slice(0, NEARBY_LIMIT);
-  if (list.length < NEARBY_MIN) list = closest.slice(0, NEARBY_MIN);
-  return list.map(({ _dist, ...m }) => m);
-}
-
 // Debug only: for every nearby mosque with no times, show which data
 // sources are linked to it and what state each one is in, plus any
 // Mawaqit mosque close by that was never linked to a live listing.
@@ -445,18 +324,10 @@ async function addSourceDiagnostics(db, list, lat, lon) {
   list.unlinkedMawaqitNearby = loose || [];
 }
 
-function debugReasons(nearby, primary, backups, feasible) {
-  const shown = new Set([primary && primary.slug, ...backups.map((b) => b.slug)].filter(Boolean));
-  const feasibleSlugs = new Set(feasible.map((f) => f.slug));
-  return nearby.map((m) => ({
-    slug: m.slug, name: m.name, distanceMiles: m.distanceMiles,
-    next: m.prayer ? `${m.prayer} ${m.time}${m.isTomorrow ? " (tomorrow)" : ""}` : null,
-    reason: shown.has(m.slug) ? "shown as a card"
-      : m.status === "no_times" ? "no Jama'ah times on record"
-      : m.status === "none_left" ? "nothing left today and no Fajr on record for tomorrow"
-      : feasibleSlugs.has(m.slug) ? "reachable, but a closer mosque took the card slots"
-      : "reachable, but merged away as a duplicate of a nearby entry",
-  }));
+function validateCoords(lat, lon) {
+  const validLat = Number.isFinite(lat) && lat >= -90 && lat <= 90;
+  const validLon = Number.isFinite(lon) && lon >= -180 && lon <= 180;
+  return validLat && validLon;
 }
 
 function badCoordsResponse() {
@@ -467,31 +338,23 @@ function badCoordsResponse() {
 
 // ---------- Entry points ----------
 
-// Primary path — used by the frontend. Coordinates in the POST body
-// keep them out of URLs/access logs/Referer headers (see PRIVACY note
-// at the top of this file).
 export async function onRequestPost(context) {
-  const { request, env } = context;
   let body;
-  try {
-    body = await request.json();
-  } catch (e) {
-    return badCoordsResponse();
-  }
+  try { body = await context.request.json(); } catch (e) { return badCoordsResponse(); }
   const lat = parseFloat(body && body.lat);
   const lon = parseFloat(body && body.lon);
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, context, false);
+  return buildPlanResponse(context, { lat, lon, count: readCount(body.count), pins: readPins(body.pins), debug: false });
 }
 
-// Kept for backward compatibility (direct URL testing, older cached
-// clients) — identical logic, just reads coordinates from the query
-// string instead of a POST body.
+// Direct testing: GET ?lat=..&lon=..&count=5&debug=1
 export async function onRequestGet(context) {
-  const { request, env } = context;
-  const url = new URL(request.url);
+  const url = new URL(context.request.url);
   const lat = parseFloat(url.searchParams.get("lat"));
   const lon = parseFloat(url.searchParams.get("lon"));
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, context, url.searchParams.get("debug") === "1");
+  return buildPlanResponse(context, {
+    lat, lon, count: readCount(url.searchParams.get("count")), pins: [],
+    debug: url.searchParams.get("debug") === "1",
+  });
 }
