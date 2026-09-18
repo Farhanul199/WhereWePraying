@@ -1,23 +1,20 @@
 (function(){
 /* ============================================================
-   FIND A MOSQUE :: "Explore Alternatives" plan view.
+   FIND A MOSQUE :: "Mosques near you".
 
-   Replaces the old nationwide ranked list / By Time / By Area /
-   postcode-search browser. The person never sees a big list — just
-   their ONE best mosque right now (Primary) plus up to TWO backup
-   mosques with later Jama'ah times in case they miss it, worked out
-   from their real location. Backed by functions/api/mosques/plan.js.
-   Below those cards, "All mosques near you" lists every nearby mosque,
-   closest first - including ones with no Jama'ah time on record, which
-   show "No Jama'ah time yet" instead of being hidden.
-
-   Two small things carried over from the old list view, since they
-   were built after the rewrite and are still worth keeping:
-   - "Set as my usual mosque" — a plain per-device bookmark (not a
-     mode switch like it used to be), shown as a small link under
-     each of the 3 cards.
-   - "Reset" — clears the usual-mosque bookmark and this device's
-     cached plan/location, then reloads.
+   Rules (see functions/api/mosques/plan.js):
+   1. Closest mosques first, always - 3 by default, the person can pick
+      1 to 10 ("Show [n] nearest", remembered on this device).
+   2. Every mosque has a card, times or not. Once a mosque's last
+      Jama'ah of the day has passed its card is greyed out showing
+      tomorrow's Fajr; after midnight it's back to normal on its own.
+      Mosques are never hidden because of the time.
+   3. Tap a card: today's Jama'ah (passed ones dimmed, the next one
+      highlighted), the address, and "Getting there" (Google Maps) /
+      Waze.
+   4. ☆ favourites (up to 10, stored on this device) show in their own
+      section wherever they are. Search looks up any mosque by name,
+      town or postcode - in the browser, against a daily directory.
 
    ---- LOCATION :: four independent sources, best-wins ----
    Previous version only tried GPS *silently* (skipped unless the
@@ -75,7 +72,7 @@
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
   const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — matches the plan endpoint's own refresh cadence
   const REFRESH_MS = 5 * 60 * 1000;   // re-check every 5 min while the page is open
-  const PLAN_CACHE_KEY = 'wwp_mq_plan_v2';
+  const PLAN_CACHE_KEY = 'wwp_mq_plan_v3';
   const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
   const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
   const IP_GEO_TIMEOUT_MS = 3500;
@@ -343,10 +340,12 @@
   async function fetchPlan(lat, lon){
     // POST with coords in the body (not a GET query string) so they
     // never land in access logs, browser history, or a Referer header.
+    const pins = getFavs().map(f => ({ slug: f.slug, lat: f.lat, lon: f.lon }));
+    if (searchPin && !pins.some(p => p.slug === searchPin.slug)) pins.push({ slug: searchPin.slug, lat: searchPin.lat, lon: searchPin.lon });
     const res = await fetch('/api/mosques/plan', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-      body: JSON.stringify({ lat, lon })
+      body: JSON.stringify({ lat, lon, count: getCount(), pins })
     });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
@@ -360,8 +359,8 @@
         <div class="mq-plan-header">
           <span class="mq-plan-icon" aria-hidden="true">🕌</span>
           <div>
-            <h2>Explore Alternatives</h2>
-            <p>See alternative mosques nearby so you can always find a place to pray.</p>
+            <h2>Mosques near you</h2>
+            <p>Closest first. Tap a mosque for today's Jama'ah times and directions.</p>
           </div>
         </div>
         <div class="mq-plan-rows">
@@ -408,159 +407,192 @@
     return m === 0 ? `in ${h}hr` : `in ${h}hr ${m}min`;
   }
 
-  function planRowHtml(entry, isPrimary){
-    const label = isPrimary ? 'Primary' : 'Backup';
-    const travelWord = entry.travelMode === 'walk' ? 'walk' : 'drive';
-    const isUsual = getUsualMosque() === entry.slug;
-    return `
-      <div class="mq-item">
-      <div class="mq-plan-row mq-clickable${isPrimary ? ' is-primary' : ''}" data-slug="${escapeHtml(entry.slug)}" role="button" tabindex="0" aria-expanded="false">
-        <span class="mq-plan-row-icon" aria-hidden="true">${isPrimary ? '🕌' : '📍'}</span>
-        <div class="mq-plan-row-main">
-          <div class="mq-plan-row-name">${escapeHtml(entry.name)}<span class="mq-plan-row-tag">${label}</span></div>
-          <div class="mq-plan-row-sub">${entry.distanceMiles} mi · ${entry.travelMinutes} min ${travelWord}</div>
-          <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(entry.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>
-        </div>
-        <div class="mq-plan-chip">
-          <div class="mq-plan-chip-label">${PRAYER_LABELS[entry.prayer] || entry.prayer}${entry.isTomorrow ? ' · tomorrow' : ''}</div>
-          <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : formatMinutesUntil(entry.jamaahInMinutes)}</div>
-          ${entry.isTomorrow ? `<div class="mq-plan-chip-countdown">${formatMinutesUntil(entry.jamaahInMinutes)}</div>` : ''}
-        </div>
-      </div>
-      <div class="mq-detail hidden"></div>
-      </div>`;
-  }
+  // ============================================================
+  //   CARDS - closest first, always.
+  //   state from the server (functions/api/mosques/plan.js):
+  //     active     next Jama'ah still to come today
+  //     done_today all of today's have passed -> greyed out, showing
+  //                tomorrow's Fajr; back to normal after midnight
+  //     no_times   nothing on record -> "No Jama'ah time yet"
+  //   Tap a card: today's Jama'ah, address, "Getting there".
+  // ============================================================
+  const COUNT_KEY = 'wwp_mq_count';
+  const FAVS_KEY = 'wwp_mq_favs_v1';
+  const MAX_FAVS = 10;
+  const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const PRAYER_KEYS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+  let searchPin = null;          // a mosque picked from search: {slug, name, lat, lon}
+  let openAfterRender = null;    // slug whose card should open once drawn
+  let lastPlan = null;
+  let entriesBySlug = new Map();
 
-  // One compact row per nearby mosque. A mosque with no Jama'ah time on
-  // record still shows - with a note instead of a time.
-  function nearbyRowHtml(m){
-    const travelWord = m.travelMode === 'walk' ? 'walk' : 'drive';
-    let chip;
-    if (m.prayer) {
-      chip = `
-        <div class="mq-plan-chip">
-          <div class="mq-plan-chip-label">${PRAYER_LABELS[m.prayer] || m.prayer}${m.isTomorrow ? ' · tomorrow' : ''}</div>
-          <div class="mq-plan-chip-time">${escapeHtml(m.time)}</div>
-        </div>`;
-    } else {
-      const text = m.status === 'none_left' ? 'No more Jama\'ah today' : 'No Jama\'ah time yet';
-      chip = `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">${text}</div></div>`;
+  function getCount(){
+    const n = window.LocalCache ? parseInt(window.LocalCache.get(COUNT_KEY, 3), 10) : 3;
+    return n >= 1 && n <= 10 ? n : 3;
+  }
+  function setCount(n){ if (window.LocalCache) window.LocalCache.set(COUNT_KEY, n); }
+  function getFavs(){
+    const f = window.LocalCache ? window.LocalCache.get(FAVS_KEY, []) : [];
+    return Array.isArray(f) ? f.filter(x => x && x.slug) : [];
+  }
+  function isFav(slug){ return getFavs().some(f => f.slug === slug); }
+  function toggleFav(m){
+    let favs = getFavs();
+    if (favs.some(f => f.slug === m.slug)) favs = favs.filter(f => f.slug !== m.slug);
+    else {
+      if (favs.length >= MAX_FAVS) { alert('You can favourite up to ' + MAX_FAVS + ' mosques.'); return false; }
+      favs.push({ slug: m.slug, name: m.name, lat: m.latitude ?? m.lat, lon: m.longitude ?? m.lon });
     }
+    if (window.LocalCache) window.LocalCache.set(FAVS_KEY, favs);
+    return true;
+  }
+
+  function starHtml(slug){
+    const on = isFav(slug);
+    return `<button type="button" class="mq-star${on ? ' is-on' : ''}" data-star="${escapeHtml(slug)}" aria-pressed="${on}" aria-label="${on ? 'Remove from favourites' : 'Add to favourites'}">${on ? '★' : '☆'}</button>`;
+  }
+
+  function chipHtml(e){
+    if (e.state === 'no_times') {
+      return `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">No Jama'ah time yet</div></div>`;
+    }
+    if (!e.prayer) {
+      return `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">Done for today</div></div>`;
+    }
+    const label = (PRAYER_LABELS[e.prayer] || e.prayer) + (e.isTomorrow ? ' · tomorrow' : '');
+    const sub = e.isTomorrow ? 'Done for today'
+      : (e.canMakeIt === false ? 'May miss it' : formatMinutesUntil(e.jamaahInMinutes));
     return `
-      <div class="mq-item">
-      <div class="mq-plan-row mq-nearby-row mq-clickable" data-slug="${escapeHtml(m.slug)}" role="button" tabindex="0" aria-expanded="false">
-        <span class="mq-plan-row-icon" aria-hidden="true">📍</span>
-        <div class="mq-plan-row-main">
-          <div class="mq-plan-row-name">${escapeHtml(m.name)}</div>
-          <div class="mq-plan-row-sub">${m.distanceMiles} mi · ${m.travelMinutes} min ${travelWord}</div>
-        </div>
-        ${chip}
-      </div>
-      <div class="mq-detail hidden"></div>
+      <div class="mq-plan-chip${e.canMakeIt === false ? ' is-tight' : ''}">
+        <div class="mq-plan-chip-label">${label}</div>
+        <div class="mq-plan-chip-time">${escapeHtml(e.time)}</div>
+        <div class="mq-plan-chip-countdown">${sub}</div>
       </div>`;
   }
 
-  function nearbySectionHtml(plan, excludeSlugs){
-    const list = (plan.nearby || []).filter(m => !excludeSlugs.has(m.slug));
-    if (!list.length) return '';
+  function cardHtml(e, tag){
+    const travelWord = e.travelMode === 'walk' ? 'walk' : 'drive';
+    const cls = ['mq-plan-row', 'mq-clickable'];
+    if (tag === 'Closest') cls.push('is-primary');
+    if (e.state === 'done_today') cls.push('is-done');
+    if (e.state === 'no_times') cls.push('is-notimes');
     return `
-      <div class="mq-nearby">
-        <div class="mq-nearby-title">All mosques near you</div>
-        <div class="mq-plan-rows">${list.map(nearbyRowHtml).join('')}</div>
+      <div class="mq-item">
+        <div class="${cls.join(' ')}" data-slug="${escapeHtml(e.slug)}" role="button" tabindex="0" aria-expanded="false">
+          ${starHtml(e.slug)}
+          <div class="mq-plan-row-main">
+            <div class="mq-plan-row-name">${escapeHtml(e.name)}${tag ? `<span class="mq-plan-row-tag">${tag}</span>` : ''}</div>
+            <div class="mq-plan-row-sub">${e.distanceMiles} mi · ${e.travelMinutes} min ${travelWord}</div>
+          </div>
+          ${chipHtml(e)}
+        </div>
+        <div class="mq-detail hidden"></div>
       </div>`;
+  }
+
+  function sectionHtml(title, entries, firstTag){
+    if (!entries.length) return '';
+    return `
+      <div class="mq-section">
+        ${title ? `<div class="mq-nearby-title">${title}</div>` : ''}
+        <div class="mq-plan-rows">${entries.map((e, i) => cardHtml(e, i === 0 ? firstTag : '')).join('')}</div>
+      </div>`;
+  }
+
+  function rememberEntries(plan){
+    entriesBySlug = new Map();
+    [...(plan.pinned || []), ...(plan.mosques || [])].forEach(e => {
+      if (e && e.slug && !entriesBySlug.has(e.slug)) entriesBySlug.set(e.slug, e);
+    });
   }
 
   function renderPlan(plan){
     const list = document.getElementById('mqList');
     if (!list) return;
+    if (!plan || !Array.isArray(plan.mosques)) { renderNoLocationYet(); return; } // old cached shape
+    lastPlan = plan;
     rememberEntries(plan);
-    if (!plan.primary) {
-      // Nothing reachable with a time - still list what's around.
-      if (!(plan.nearby && plan.nearby.length)) { renderNote(plan.note || "No mosques found near this location yet."); return; }
-      list.innerHTML = `
-        <div class="mq-plan-card">
-          <div class="mq-plan-header">
-            <span class="mq-plan-icon" aria-hidden="true">🕌</span>
-            <div>
-              <h2>Mosques near you</h2>
-              <p>${escapeHtml(plan.note || '')}</p>
-            </div>
-          </div>
-          ${nearbySectionHtml(plan, new Set())}
-        </div>`;
+    ensureControls();
+
+    const pinned = plan.pinned || [];
+    const favSlugs = new Set(getFavs().map(f => f.slug));
+    const searched = searchPin ? pinned.filter(p => p.slug === searchPin.slug) : [];
+    const favs = pinned.filter(p => favSlugs.has(p.slug));
+    const nearest = plan.mosques;
+
+    if (!nearest.length && !favs.length && !searched.length) {
+      renderNote(plan.note || 'No mosques found near this location yet.');
       return;
     }
-    const shown = new Set([plan.primary.slug, ...(plan.backups || []).map(b => b.slug)]);
-    const rows = [planRowHtml(plan.primary, true), ...(plan.backups || []).map(b => planRowHtml(b, false))].join('');
     list.innerHTML = `
       <div class="mq-plan-card">
         <div class="mq-plan-header">
           <span class="mq-plan-icon" aria-hidden="true">🕌</span>
           <div>
-            <h2>Explore Alternatives</h2>
-            <p>See alternative mosques nearby so you can always find a place to pray.</p>
+            <h2>Mosques near you</h2>
+            <p>Closest first. Tap a mosque for today's Jama'ah times and directions.</p>
           </div>
         </div>
-        <div class="mq-plan-rows">${rows}</div>
-        ${plan.expanded ? '<div class="mq-plan-expanded-note">Widened the search area to find enough options nearby.</div>' : ''}
-        ${nearbySectionHtml(plan, shown)}
+        ${sectionHtml('Search result', searched, '')}
+        ${sectionHtml('Your favourites', favs, '')}
+        ${sectionHtml(favs.length || searched.length ? 'Nearest' : '', nearest, 'Closest')}
       </div>`;
+
+    if (openAfterRender) {
+      const row = list.querySelector(`.mq-clickable[data-slug="${CSS.escape(openAfterRender)}"]`);
+      openAfterRender = null;
+      if (row) { toggleDetail(row, true); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    }
   }
 
-  // ---- Tap a mosque: full day timetable + directions ----
-  // Every row (the 3 cards and the "near you" list) opens a small card
-  // underneath it with today's five Jama'ah times and buttons that open
-  // Google Maps or Waze with directions straight to the mosque.
-  const PRAYER_KEYS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
-  let entriesBySlug = new Map();
-
-  function rememberEntries(plan){
-    entriesBySlug = new Map();
-    [plan.primary, ...(plan.backups || []), ...(plan.nearby || [])].forEach(e => {
-      if (e && e.slug && !entriesBySlug.has(e.slug)) entriesBySlug.set(e.slug, e);
-    });
-  }
-
-  function directionsLinks(e){
-    if (e.latitude == null || e.longitude == null) return '';
-    const ll = Number(e.latitude).toFixed(6) + ',' + Number(e.longitude).toFixed(6);
-    const google = 'https://www.google.com/maps/dir/?api=1&destination=' + ll;
-    const waze = 'https://waze.com/ul?ll=' + ll + '&navigate=yes';
-    return `
-      <div class="mq-detail-actions">
-        <a class="mq-dir-btn" href="${google}" target="_blank" rel="noopener">Google Maps</a>
-        <a class="mq-dir-btn is-alt" href="${waze}" target="_blank" rel="noopener">Waze</a>
-      </div>`;
-  }
-
+  // ---- Detail: today's Jama'ah + getting there ----
   function detailHtml(e){
     const today = e.today || {};
     const hasAny = PRAYER_KEYS.some(k => today[k]);
+    const nowMins = lastPlan ? lastPlan.generatedAtMinutes : null;
     const nextKey = (e.prayer && !e.isTomorrow) ? e.prayer : null;
+    const toMins = (k, t) => {
+      const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return null;
+      let h = +m[1]; if (k !== 'fajr' && h >= 1 && h <= 11) h += 12;
+      return h * 60 + +m[2];
+    };
     const grid = hasAny ? `
       <div class="mq-detail-times">
-        ${PRAYER_KEYS.map(k => `
-          <div class="mq-detail-cell${k === nextKey ? ' is-next' : ''}">
+        ${PRAYER_KEYS.map(k => {
+          const past = nowMins != null && today[k] && toMins(k, today[k]) < nowMins;
+          return `
+          <div class="mq-detail-cell${k === nextKey ? ' is-next' : ''}${past ? ' is-past' : ''}">
             <div class="mq-detail-prayer">${PRAYER_LABELS[k]}</div>
             <div class="mq-detail-time">${today[k] ? escapeHtml(today[k]) : '—'}</div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
-      ${e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: ${escapeHtml(e.tomorrowFajr)}</div>` : ''}`
+      ${e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: <b>${escapeHtml(e.tomorrowFajr)}</b></div>` : ''}`
       : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
     const where = [e.address, e.postcode].filter(Boolean).join(', ');
+    let actions = '';
+    if (e.latitude != null && e.longitude != null) {
+      const ll = Number(e.latitude).toFixed(6) + ',' + Number(e.longitude).toFixed(6);
+      actions = `
+        <div class="mq-detail-actions">
+          <a class="mq-dir-btn" href="https://www.google.com/maps/dir/?api=1&destination=${ll}" target="_blank" rel="noopener">🧭 Getting there</a>
+          <a class="mq-dir-btn is-alt" href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a>
+        </div>`;
+    }
+    const isUsual = getUsualMosque() === e.slug;
     return `
-      <div class="mq-detail-title">Today's Jama'ah times</div>
+      <div class="mq-detail-title">Today's Jama'ah</div>
       ${grid}
-      ${where ? `<div class="mq-detail-address">${escapeHtml(where)}</div>` : ''}
-      ${directionsLinks(e)}`;
+      ${where ? `<div class="mq-detail-address">📍 ${escapeHtml(where)}</div>` : ''}
+      ${actions}
+      <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(e.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>`;
   }
 
-  function toggleDetail(row){
+  function toggleDetail(row, forceOpen){
     const item = row.closest('.mq-item');
     const panel = item && item.querySelector('.mq-detail');
     if (!panel) return;
-    const opening = panel.classList.contains('hidden');
-    // one open at a time keeps the list tidy
+    const opening = forceOpen || panel.classList.contains('hidden');
     document.querySelectorAll('#mqList .mq-detail:not(.hidden)').forEach(p => {
       p.classList.add('hidden');
       const r = p.closest('.mq-item').querySelector('.mq-clickable');
@@ -576,7 +608,14 @@
   }
 
   document.getElementById('mqList')?.addEventListener('click', (ev) => {
-    if (ev.target.closest('.mq-usual-btn, .mq-detail')) return; // own buttons/links
+    const star = ev.target.closest('.mq-star');
+    if (star) {
+      ev.stopPropagation();
+      const e = entriesBySlug.get(star.dataset.star);
+      if (e && toggleFav(e)) { if (lastPlan) renderPlan(lastPlan); if (mqLocation) loadPlanForLocation(mqLocation); }
+      return;
+    }
+    if (ev.target.closest('.mq-usual-btn, .mq-detail')) return;
     const row = ev.target.closest('.mq-clickable');
     if (row) toggleDetail(row);
   });
@@ -588,8 +627,132 @@
     toggleDetail(row);
   });
 
+  // ---- Controls: search + how many mosques ----
+  // Built once, above the list. Search runs in the browser against the
+  // daily mosque directory (/api/mosques/directory) - no server call per
+  // keystroke.
+  let directory = null, directoryLoading = null;
+
+  function loadDirectory(){
+    if (directory) return Promise.resolve(directory);
+    if (directoryLoading) return directoryLoading;
+    directoryLoading = fetch('/api/mosques/directory')
+      .then(r => r.ok ? r.json() : { mosques: [] })
+      .then(d => {
+        directory = (d.mosques || []).map(m => ({
+          slug: m[0], name: m[1], place: m[2], lat: m[3], lon: m[4],
+          key: (m[1] + ' ' + m[2]).toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+        }));
+        return directory;
+      })
+      .catch(() => { directoryLoading = null; return []; });
+    return directoryLoading;
+  }
+
+  function milesBetween(a, b, c, d){
+    const r = x => x * Math.PI / 180;
+    const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
+    return 3958.8 * 2 * Math.asin(Math.sqrt(h));
+  }
+
+  function searchDirectory(q){
+    const words = q.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    if (!words.length || !directory) return [];
+    const hits = directory.filter(m => words.every(w => m.key.includes(w)));
+    if (mqLocation) hits.forEach(m => { m.dist = milesBetween(mqLocation.lat, mqLocation.lon, m.lat, m.lon); });
+    hits.sort((a, b) => (a.dist ?? 0) - (b.dist ?? 0) || a.name.localeCompare(b.name));
+    return hits.slice(0, 12);
+  }
+
+  function renderResults(results, q){
+    const box = document.getElementById('mqSearchResults');
+    if (!box) return;
+    if (!q) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    if (!directory) { box.innerHTML = '<div class="mq-search-empty">Loading mosques…</div>'; return; }
+    if (!results.length) { box.innerHTML = '<div class="mq-search-empty">No mosques match that.</div>'; return; }
+    box.innerHTML = results.map(m => `
+      <div class="mq-search-hit" data-hit="${escapeHtml(m.slug)}" role="button" tabindex="0">
+        <div class="mq-search-hit-main">
+          <div class="mq-search-hit-name">${escapeHtml(m.name)}</div>
+          <div class="mq-search-hit-sub">${escapeHtml(m.place || '')}${m.dist != null ? ' · ' + (Math.round(m.dist * 10) / 10) + ' mi' : ''}</div>
+        </div>
+        ${starHtml(m.slug)}
+      </div>`).join('');
+  }
+
+  function pickSearchResult(slug){
+    const m = directory && directory.find(x => x.slug === slug);
+    if (!m) return;
+    searchPin = { slug: m.slug, name: m.name, lat: m.lat, lon: m.lon };
+    openAfterRender = m.slug;
+    const input = document.getElementById('mqSearchInput');
+    if (input) input.value = '';
+    renderResults([], '');
+    loadPlanForLocation(mqLocation || { lat: m.lat, lon: m.lon, source: 'manual', label: m.name });
+  }
+
+  function ensureControls(){
+    if (document.getElementById('mqControls')) return;
+    const list = document.getElementById('mqList');
+    if (!list) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'mqControls';
+    wrap.className = 'mq-controls';
+    const count = getCount();
+    wrap.innerHTML = `
+      <div class="mq-search">
+        <input type="search" id="mqSearchInput" class="mq-search-input" placeholder="Search mosques by name, town or postcode" autocomplete="off" aria-label="Search mosques">
+        <div id="mqSearchResults" class="mq-search-results hidden"></div>
+      </div>
+      <label class="mq-count">Show
+        <select id="mqCountSelect" aria-label="How many nearby mosques to show">
+          ${COUNT_OPTIONS.map(n => `<option value="${n}"${n === count ? ' selected' : ''}>${n}</option>`).join('')}
+        </select>
+        nearest
+      </label>`;
+    list.parentNode.insertBefore(wrap, list);
+
+    const input = wrap.querySelector('#mqSearchInput');
+    let t = null;
+    input.addEventListener('focus', () => { loadDirectory(); });
+    input.addEventListener('input', () => {
+      clearTimeout(t);
+      const q = input.value.trim();
+      t = setTimeout(async () => {
+        if (q.length < 2) { renderResults([], ''); return; }
+        renderResults([], q);
+        await loadDirectory();
+        if (input.value.trim() === q) renderResults(searchDirectory(q), q);
+      }, 150);
+    });
+    wrap.querySelector('#mqSearchResults').addEventListener('click', (ev) => {
+      const star = ev.target.closest('.mq-star');
+      if (star) {
+        ev.stopPropagation();
+        const m = directory && directory.find(x => x.slug === star.dataset.star);
+        if (m && toggleFav({ slug: m.slug, name: m.name, lat: m.lat, lon: m.lon })) {
+          renderResults(searchDirectory(input.value.trim()), input.value.trim());
+          if (mqLocation) loadPlanForLocation(mqLocation);
+        }
+        return;
+      }
+      const hit = ev.target.closest('.mq-search-hit');
+      if (hit) pickSearchResult(hit.dataset.hit);
+    });
+    wrap.querySelector('#mqSearchResults').addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter') return;
+      const hit = ev.target.closest('.mq-search-hit');
+      if (hit) pickSearchResult(hit.dataset.hit);
+    });
+    wrap.querySelector('#mqCountSelect').addEventListener('change', (ev) => {
+      setCount(parseInt(ev.target.value, 10));
+      if (mqLocation) loadPlanForLocation(mqLocation);
+    });
+  }
+
   // Delegated click handler for the usual-mosque toggle buttons rendered
-  // inside the plan card rows — survives every re-render since it's
+  // inside the detail panels - survives every re-render since it's
   // bound once on the container.
   document.getElementById('mqList')?.addEventListener('click', (e) => {
     const usualBtn = e.target.closest('.mq-usual-btn');
@@ -603,9 +766,6 @@
       setUsualMosque(slug);
       usualBtn.classList.add('is-usual');
       usualBtn.textContent = 'Saved as your usual mosque ✓';
-      document.querySelectorAll('.mq-usual-btn.is-usual').forEach(b => {
-        if (b !== usualBtn) { b.classList.remove('is-usual'); b.textContent = 'Set as my usual mosque'; }
-      });
     }
   });
 
@@ -617,8 +777,10 @@
   // "Reset" for this page: usual mosque + this device's cached
   // plan/location, so the next load starts completely fresh.
   function resetFindAMosqueData(){
-    if (!confirm("Reset your usual mosque and cached location for Find a Mosque? This can't be undone.")) return;
+    if (!confirm("Reset your usual mosque, favourites and cached location for Find a Mosque? This can't be undone.")) return;
     clearUsualMosque();
+    if (window.LocalCache) window.LocalCache.remove(FAVS_KEY);
+    searchPin = null;
     if (window.LocalCache) window.LocalCache.remove(PLAN_CACHE_KEY);
     mqLocation = null;
     renderLocationLabel();
