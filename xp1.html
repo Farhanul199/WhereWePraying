@@ -83,7 +83,8 @@
   .datetime .loc{font-size:0.75rem;color:var(--text-dim);line-height:1.1;}
   .spacer{flex:1;}
   .status-pill{display:none;}
-  .datetime .status-inline{font-size:0.7rem;color:var(--text-dim);display:flex;align-items:center;gap:0.25rem;}
+  .datetime .status-inline{font-size:0.7rem;color:var(--green);display:flex;align-items:center;gap:0.25rem;}
+  .datetime .status-inline.offline{color:var(--red);}
   .datetime .loc-status{display:flex;flex-direction:column;gap:0.125rem;}display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;color:var(--text-dim);font-weight:600;margin-right:0.875rem;}
   .status-dot{width:0.4375rem;height:0.4375rem;border-radius:50%;background:var(--green);}
   .status-pill.offline .status-dot{background:var(--red);}
@@ -2932,17 +2933,17 @@ window.XP1Dua = (function(){
    3. CONNECTION STATUS — subtle indicator, per spec section 5.
    ========================================================= */
 (function(){
-  var pill = document.getElementById('statusPill');
   var text = document.getElementById('statusText');
   var lastSync = new Date();
   function render(){
+    if(!text) return;
     if(navigator.onLine){
-      pill.classList.remove('offline');
-      text.textContent = 'Connected';
+      text.textContent = '● Connected';
+      text.classList.remove('offline');
       lastSync = new Date();
     } else {
-      pill.classList.add('offline');
-      text.textContent = 'Offline · Last synced ' + lastSync.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      text.textContent = '● Offline · Last synced ' + lastSync.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      text.classList.add('offline');
     }
   }
   window.addEventListener('online', render);
@@ -3089,6 +3090,11 @@ XP1.setLocation = function(label){
    ========================================================= */
 window.XP1Weather = (function(){
   var CACHE_KEY = 'xp1_weather';
+  // Shown for one paint on a brand-new device with zero cache, so the
+  // card is never blank -- replaced by the real fetch within a second.
+  // Rough London-ish placeholder only; not a real forecast.
+  var SEED_WEATHER = { place:'London, UK', temp:15, cond:{ text:'Partly cloudy', icon:'partly-cloudy-day' },
+    iconFile:'partly-cloudy-day', hi:18, lo:10, hourly:[], umbrella:null, fetchedAt:0 };
   var REFRESH_MS = 30 * 60 * 1000; // 30 min — plenty fresh, avoids hammering the API on an always-on TV
   var refreshTimer = null;
 
@@ -3249,7 +3255,13 @@ window.XP1Weather = (function(){
   async function refresh(loc){
     if(!loc || typeof loc.lat !== 'number') return;
     lastLoc = loc;
-    if(window.XP1) XP1.setState('weather', 'loading');
+    // Paint whatever we last knew (this location's cache, or a generic
+    // London seed on a brand-new device) immediately, so the card is
+    // never blank while the real fetch is in flight -- then silently
+    // replace it once fresh data lands.
+    var cachedNow = xp1Get(CACHE_KEY, null) || SEED_WEATHER;
+    if(cachedNow){ render(cachedNow); }
+    else if(window.XP1){ XP1.setState('weather', 'loading'); }
     try{
       var fresh = await fetchWeather(loc);
       xp1Set(CACHE_KEY, fresh);
@@ -3257,7 +3269,7 @@ window.XP1Weather = (function(){
     }catch(e){
       var cached = xp1Get(CACHE_KEY, null);
       if(cached){ render(cached); }
-      else if(window.XP1){ XP1.setState('weather', 'error'); }
+      else if(!cachedNow && window.XP1){ XP1.setState('weather', 'error'); }
     }
     if(refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function(){ refresh(loc); }, REFRESH_MS);
@@ -3288,6 +3300,10 @@ window.XP1Weather = (function(){
       in", until a later phase lets XP1 follow a specific mosque.
    ========================================================= */
 window.XP1Prayer = (function(){
+  // Rough London placeholder -- not calculated for the exact date, just
+  // enough to keep the card populated for the second or two before the
+  // real Al Adhan fetch lands.
+  var SEED_TIMINGS = { Fajr:'05:30', Dhuhr:'12:50', Asr:'16:15', Maghrib:'19:00', Isha:'20:30' };
   var CACHE_KEY = 'xp1_prayer';
   var API_BASE = 'https://api.aladhan.com/v1';
   var METHOD = 3; // Muslim World League — same default as prayer-times.js
@@ -3418,6 +3434,12 @@ window.XP1Prayer = (function(){
     try{
       var timings = xp1Get(todayKey, null);
       if(!timings){
+        // Paint an approximate London seed while the real fetch is in
+        // flight, so the card is never blank on a brand-new day/device.
+        try{
+          var seedResult = await computeNext(SEED_TIMINGS, loc);
+          render(SEED_TIMINGS, seedResult.next, seedResult.active);
+        }catch(eSeed){}
         timings = await fetchDay(new Date(), loc);
         xp1Set(todayKey, timings);
       }
