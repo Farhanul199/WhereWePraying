@@ -22,6 +22,19 @@
 //   POST { action:'reject', source, ref, cand_refs:[...] }
 //        -> "not the same mosque" - those suggestions never come back.
 //
+// Adding a location by hand (any source - MasjidBox, Masjidal, DITIB...):
+//   GET  ?action=missing&source=masjidbox&q=newbury&offset=0
+//        -> mosques on that source with no location (25 at a time)
+//   POST { action:'set_location', source, ref, input }
+//        -> `input` can be any of:
+//             a UK postcode ............ "IG2 7HS"
+//             coordinates .............. "51.5813, 0.0913"
+//             a Google Maps link ....... long links, or maps.app.goo.gl
+//                                        short links (followed to the
+//                                        real place)
+//           Saves the location (and postcode) on the mosque, marked as set
+//           by hand. It can then go live with "Put live + send times".
+//
 // How a match is scored (shown next to each suggestion):
 //   same postcode ............. +50     same postcode area (IG2) .. +10
 //   same phone number ......... +40
@@ -302,13 +315,116 @@ async function reject(db, body) {
   return json({ success: true, ref, rejected: cands.length });
 }
 
+/* ------------------------------------------------------ manual entry */
+
+const PAGE = 25;
+
+async function missing(context, url) {
+  const db = context.env.DB;
+  const source = String(url.searchParams.get('source') || '');
+  const q = String(url.searchParams.get('q') || '').trim().slice(0, 60);
+  const offset = Math.max(0, parseInt(url.searchParams.get('offset'), 10) || 0);
+  if (!source) return json({ error: 'source is required' }, 400);
+  let where = NEEDS_LOCATION;
+  const binds = [source];
+  if (q) { where += ` AND (name LIKE ?2 OR city LIKE ?2 OR address LIKE ?2 OR zipcode LIKE ?2)`; binds.push('%' + q + '%'); }
+  const [rows, total] = await db.batch([
+    db.prepare(`SELECT source_ref, name, city, address, zipcode, phone, site FROM source_discoveries
+                 WHERE ${where} ORDER BY name LIMIT ${PAGE + 1} OFFSET ${offset}`).bind(...binds),
+    db.prepare(`SELECT COUNT(*) AS n FROM source_discoveries WHERE ${where}`).bind(...binds),
+  ]);
+  const list = (rows.results || []);
+  return json({
+    source, total: (total.results && total.results[0] && total.results[0].n) || 0,
+    offset, more: list.length > PAGE,
+    list: list.slice(0, PAGE).map((r) => ({ ref: r.source_ref, ...describe(r), site: r.site || null })),
+  });
+}
+
+const okLat = (v) => Number.isFinite(v) && v >= -90 && v <= 90;
+const okLon = (v) => Number.isFinite(v) && v >= -180 && v <= 180;
+
+function coordsFromText(t) {
+  const pats = [
+    /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,                         // .../@51.58,0.09,17z
+    /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,                         // ...!3d51.58!4d0.09
+    /[?&](?:q|query|ll|destination|daddr|center)=(-?\d{1,3}\.\d+)(?:,|%2C)\s*(-?\d{1,3}\.\d+)/i,
+    /^\s*\(?(-?\d{1,3}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)\)?\s*$/,       // "51.58, 0.09"
+  ];
+  for (const re of pats) {
+    const m = re.exec(t);
+    if (m) {
+      const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+      if (okLat(lat) && okLon(lon)) return { lat, lon };
+    }
+  }
+  return null;
+}
+
+async function resolveInput(input) {
+  const text = String(input || '').trim();
+  if (!text) return { error: 'Enter a postcode, coordinates or a Google Maps link' };
+
+  let c = coordsFromText(text);
+  if (c) return { ...c, how: 'coordinates' };
+
+  // Short Google Maps links: follow the redirect to the full link.
+  if (/^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(text)) {
+    try {
+      let next = text;
+      for (let i = 0; i < 4; i++) {
+        const res = await fetch(next, { redirect: 'manual' });
+        const loc = res.headers.get('Location');
+        if (!loc) break;
+        next = new URL(loc, next).toString();
+        c = coordsFromText(decodeURIComponent(next));
+        if (c) return { ...c, how: 'Google Maps link' };
+      }
+    } catch (e) { /* fall through to the error below */ }
+    return { error: "Couldn't read that short link - open it, then copy the full link from the address bar" };
+  }
+
+  const pc = postcodeOf(text);
+  if (pc) {
+    try {
+      const res = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(pc.replace(/\s+/g, '')));
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.result && okLat(d.result.latitude)) {
+          return { lat: d.result.latitude, lon: d.result.longitude, postcode: d.result.postcode, how: 'postcode' };
+        }
+      }
+    } catch (e) { /* fall through */ }
+    return { error: `Postcode ${pc} wasn't found` };
+  }
+  return { error: 'Enter a postcode, coordinates (51.58, 0.09) or a Google Maps link' };
+}
+
+async function setLocation(db, body) {
+  const source = String(body.source || ''), ref = String(body.ref || '');
+  if (!source || !ref) return json({ error: 'source and ref are required' }, 400);
+  const r = await resolveInput(body.input);
+  if (r.error) return json({ error: r.error }, 400);
+  const now = new Date().toISOString();
+  const res = await db.prepare(
+    `UPDATE source_discoveries
+        SET lat = ?1, lon = ?2, zipcode = COALESCE(?3, zipcode),
+            geocode_status = 'manual', geocoded_at = ?4
+      WHERE source = ?5 AND source_ref = ?6`
+  ).bind(r.lat, r.lon, r.postcode || null, now, source, ref).run();
+  if (res && res.meta && res.meta.changes === 0) return json({ error: 'Mosque not found' }, 404);
+  return json({ success: true, ref, lat: r.lat, lon: r.lon, postcode: r.postcode || null, how: r.how });
+}
+
 /* ------------------------------------------------------------ handlers */
 
 export async function onRequestGet(context) {
   if (!isAdminRequest(context)) return json({ error: 'Unauthorized' }, 401);
   const url = new URL(context.request.url);
   try {
-    if ((url.searchParams.get('action') || 'suggest') === 'suggest') return await suggest(context, url);
+    const action = url.searchParams.get('action') || 'suggest';
+    if (action === 'suggest') return await suggest(context, url);
+    if (action === 'missing') return await missing(context, url);
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
     return json({ error: 'db_error', message: String(e) }, 500);
@@ -322,6 +438,7 @@ export async function onRequestPost(context) {
   try {
     if (body.action === 'approve') return await approve(context, body);
     if (body.action === 'reject') return await reject(context.env.DB, body);
+    if (body.action === 'set_location') return await setLocation(context.env.DB, body);
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
     return json({ error: 'db_error', message: String(e) }, 500);
