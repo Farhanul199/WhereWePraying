@@ -174,6 +174,7 @@ export async function ensureTimesSchema(db) {
   ).run();
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_through TEXT`).run(); } catch (e) {}
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_at TEXT`).run(); } catch (e) {}
+  try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN has_times INTEGER`).run(); } catch (e) {}
   ready = true;
 }
 
@@ -225,8 +226,9 @@ export async function prepareMonths(db, limit) {
     stmts.push(writePage(db, row.slug, thisKey, a, row.source, now));
     stmts.push(writePage(db, row.slug, nextKey, b, row.source, now));
     stmts.push(db.prepare(
-      `UPDATE source_discoveries SET compiled_through = ?1, compiled_at = ?2 WHERE source = ?3 AND source_ref = ?4`
-    ).bind(nextKey, now, row.source, row.source_ref));
+      `UPDATE source_discoveries SET compiled_through = ?1, compiled_at = ?2, has_times = ?3
+        WHERE source = ?4 AND source_ref = ?5`
+    ).bind(nextKey, now, (a || b) ? 1 : 0, row.source, row.source_ref));
     if (a || b) withTimes++; else without++;
   }
   for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
