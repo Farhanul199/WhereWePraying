@@ -68,21 +68,23 @@
   /* ===== Header ===== */
   header{display:flex;align-items:center;gap:1.25rem;}
   .xp1-logo{height:3.25rem;width:auto;}
-  .logo-stack{position:relative;height:5rem;width:5rem;flex:0 0 auto;}
-  .logo-stack img{position:absolute;top:0;left:0;height:5rem;width:5rem;transition:opacity 4s ease-in-out;}
+  .logo-stack{position:relative;height:3.25rem;width:3.25rem;flex:0 0 auto;}
+  .logo-stack img{position:absolute;top:0;left:0;height:3.25rem;width:3.25rem;transition:opacity 4s ease-in-out;}
   .logo-stack .logo-night{opacity:0;}
   #xp1-canvas.night .logo-stack .logo-day{opacity:0;}
   #xp1-canvas.night .logo-stack .logo-night{opacity:1;}
   #xp1-canvas.lite .logo-stack img{transition:none;}
   .brand h1{font-size:1.75rem;font-weight:800;letter-spacing:-0.03rem;}
   .brand .tag{font-size:0.6875rem;color:var(--text-dim);font-weight:700;letter-spacing:0.03rem;}
-  .datetime{display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem;font-size:0.9375rem;color:var(--text);margin-left:auto;margin-right:1rem;}
-  .datetime .date-top{font-size:0.9rem;color:var(--text-dim);}
-  .datetime .clock{font-size:2rem;font-weight:800;line-height:1;}
-  .datetime .hijri{font-size:0.8rem;color:var(--text-dim);}
-  .datetime .loc{font-size:0.8125rem;color:var(--text-dim);}
+  .datetime{display:flex;flex-direction:column;gap:0.5rem;font-size:0.9375rem;color:var(--text);margin-left:auto;margin-right:0.75rem;}
+  .datetime .date-top{font-size:0.8rem;color:var(--text-dim);line-height:1.2;white-space:nowrap;}
+  .datetime .hijri{font-size:0.75rem;color:var(--text-dim);margin-bottom:0.25rem;}
+  .datetime .clock{font-size:2.5rem;font-weight:800;line-height:1;text-align:right;}
+  .datetime .loc{font-size:0.75rem;color:var(--text-dim);line-height:1.1;}
   .spacer{flex:1;}
-  .status-pill{display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;color:var(--text-dim);font-weight:600;margin-right:0.875rem;}
+  .status-pill{display:none;}
+  .datetime .status-inline{font-size:0.7rem;color:var(--text-dim);display:flex;align-items:center;gap:0.25rem;}
+  .datetime .loc-status{display:flex;flex-direction:column;gap:0.125rem;}display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;color:var(--text-dim);font-weight:600;margin-right:0.875rem;}
   .status-dot{width:0.4375rem;height:0.4375rem;border-radius:50%;background:var(--green);}
   .status-pill.offline .status-dot{background:var(--red);}
   .icon-btn{width:2.75rem;height:2.75rem;border-radius:var(--r-sm);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:1.0625rem;box-shadow:var(--shadow);}
@@ -2664,12 +2666,16 @@ var qrcode = function() {
     </div>
     <div class="spacer"></div>
     <div class="datetime">
-      <span class="date-top" id="dateStr">—</span>
-      <span class="clock" id="clockStr">--:--</span>
-      <span class="hijri" id="hijriStr">—</span>
-      <span class="loc" id="locStr">📍 —</span>
+      <div>
+        <div class="date-top" id="dateStr">—</div>
+        <div class="hijri" id="hijriStr">—</div>
+      </div>
+      <div class="clock" id="clockStr">--:--</div>
+      <div class="loc-status">
+        <div class="loc" id="locStr">📍 —</div>
+        <div class="status-inline" id="statusText">● Connected</div>
+      </div>
     </div>
-    <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Connected</span></div>
     <div class="icon-btn focusable" tabindex="-1">🔍</div>
     <div class="icon-btn focusable" id="btnSettings" tabindex="-1">⚙️</div>
   </header>
