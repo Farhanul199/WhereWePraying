@@ -31,6 +31,11 @@ const GRID_SIZE_DEG = 0.1;            // ~7 miles - area bucket
 const CANDIDATE_BOX_MILES = 25;       // what one area file covers
 const EDGE_TTL = 3600;                // 1 hour at this Cloudflare location
 const KV_TTL = 21600;                 // 6 hours, shared worldwide
+// Bump AREA_CACHE_VERSION to throw away every cached area at once (e.g.
+// after a fix that changes what an area holds). merge-duplicates.js also
+// clears today's KV areas after a merge, using AREA_KV_PREFIX.
+export const AREA_CACHE_VERSION = 3;
+export const AREA_KV_PREFIX = `mq_area_v${AREA_CACHE_VERSION}:`;
 const MAX_COMPILE_PER_AREA = 120;     // year->month pages built per area build
 const SNAPSHOT_MAX_AGE_DAYS = 45;     // "current schedule" sources go stale
 const YEAR_SOURCES = ['mawaqit'];
@@ -52,6 +57,13 @@ export function addDaysIso(iso, n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 const monthKey = (iso) => iso.slice(0, 7);
+// The calendar month after this date's month. (Adding 32 days skipped a
+// month from late in some months - e.g. 30 March + 32 days = 1 May - so
+// April's page was never prepared and "tomorrow's Fajr" went missing.)
+export function nextMonthKey(iso) {
+  const y = +iso.slice(0, 4), m = +iso.slice(5, 7);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
 const daysInMonth = (key) => new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7), 0)).getUTCDate();
 
 /* ------------------------------------------------- month page format */
@@ -203,7 +215,7 @@ export async function prepareMonths(db, limit) {
   try { await db.prepare(`DELETE FROM jamaah_raw WHERE source IN ('mawaqit','masjidal','takbeertime')`).run(); } catch (e) {}
   const { dateIso } = londonNowParts();
   const thisKey = monthKey(dateIso);
-  const nextKey = monthKey(addDaysIso(dateIso, 32));
+  const nextKey = nextMonthKey(dateIso);
   const n = Math.max(1, Math.min(limit || 120, 150));
   const { results } = await db.prepare(
     `SELECT ms.mosque_slug AS slug, ${TIMETABLE_COLS}
@@ -327,13 +339,13 @@ export async function loadArea(context, lat, lon, dateIso) {
   const { env } = context;
   const tomorrowIso = addDaysIso(dateIso, 1);
   const thisKey = monthKey(dateIso);
-  const nextKey = monthKey(addDaysIso(dateIso, 32));
+  const nextKey = nextMonthKey(dateIso);
 
   const gLat = Math.round(lat / GRID_SIZE_DEG) * GRID_SIZE_DEG;
   const gLon = Math.round(lon / GRID_SIZE_DEG) * GRID_SIZE_DEG;
   const gridKey = `${gLat.toFixed(2)},${gLon.toFixed(2)}`;
-  const cacheReq = new Request(`https://cache-key.internal/mosques/area?g=${gridKey}&d=${dateIso}`);
-  const kvKey = `mq_area_v2:${gridKey}:${dateIso}`;
+  const cacheReq = new Request(`https://cache-key.internal/mosques/area?v=${AREA_CACHE_VERSION}&g=${gridKey}&d=${dateIso}`);
+  const kvKey = `${AREA_KV_PREFIX}${gridKey}:${dateIso}`;
   const cache = caches.default;
 
   const edgeHit = await cache.match(cacheReq);
