@@ -177,6 +177,16 @@
       <p class="hint"><label><input type="checkbox" id="keepThm" checked> Keep Tower Hamlets mosques live (they're the only ones with committee-set times right now)</label></p>
       <div class="status" id="rebuildStatus"></div>
 
+      <p class="step-label">Duplicate mosques</p>
+      <div class="actions">
+        <button class="ghost" id="dupScanBtn">Find duplicates</button>
+        <button class="ghost" id="dupScanNearBtn">Find duplicates near me</button>
+        <button id="dupMergeBtn" class="hidden">Merge ticked</button>
+      </div>
+      <p class="hint">Finds live mosques listed twice (same spot, or same name within 400m). Merging combines them into <b>one definitive entry</b>: the one with prayer times is kept, any gaps it has (address, postcode, coordinates, website) are filled from the other, and the other's times, source links, photos and favourites move across. The other entry is hidden, not deleted. Untick anything that isn't really the same mosque.</p>
+      <div class="status" id="dupStatus"></div>
+      <table id="dupTable" class="hidden"><tbody></tbody></table>
+
       <p class="hint">Pressing a go-live button is your sign-off. Each mosque is either added as a new listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. Each mosque serves its own stored timetable — nothing is copied per day, and any area a visitor opens gets itself ready automatically. New listings appear as each area refreshes, within the hour.</p>
     </div>
 
@@ -883,6 +893,94 @@
     say($('promoteStatus'), 'Ready — ' + withTimes + ' mosques now serve their own jama\'ah times' +
       (without ? ' · ' + without + ' had no reliable jama\'ah times (they show "No live prayer time")' : '') +
       '. Live within the hour, as each area refreshes.');
+    refresh();
+  });
+
+  /* ----------------------------------------------------- duplicates */
+  var DUP_GROUPS = [];
+
+  async function postMerge(body){
+    var res, data;
+    try {
+      res = await fetch('/api/admin/merge-duplicates', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify(body)
+      });
+      data = await res.json();
+    } catch (e) { return { error: 'Network problem. Try again.' }; }
+    if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
+    return data;
+  }
+
+  function dupLine(m, isKeep){
+    var bits = [];
+    bits.push(m.hasTimes ? 'has times' : 'no times');
+    if (m.postcode) bits.push(esc(m.postcode));
+    if (m.address) bits.push(esc(m.address));
+    if (m.sourceLinks) bits.push(m.sourceLinks + ' source link' + (m.sourceLinks === 1 ? '' : 's'));
+    if (m.locked) bits.push('edited by you');
+    return '<div' + (isKeep ? ' style="font-weight:700"' : '') + '>' + (isKeep ? 'Keep: ' : 'Merge in: ') +
+      esc(m.name) + ' <code>' + esc(m.slug) + '</code><br><span class="hint">' + bits.join(' · ') + '</span></div>';
+  }
+
+  function renderDups(){
+    var tbody = $('dupTable').querySelector('tbody');
+    if (!DUP_GROUPS.length) { $('dupTable').classList.add('hidden'); $('dupMergeBtn').classList.add('hidden'); return; }
+    tbody.innerHTML = '<tr><th><input type="checkbox" id="dupAll" checked></th><th>Same mosque</th><th>Why</th></tr>' +
+      DUP_GROUPS.map(function(g, i){
+        return '<tr><td><input type="checkbox" class="dupPick" data-i="' + i + '" checked></td><td>' +
+          dupLine(g.keep, true) + g.merge.map(function(m){ return dupLine(m, false); }).join('') +
+          (g.willFill.length ? '<div class="hint">Fills in: ' + esc(g.willFill.join(', ')) + '</div>' : '') +
+          '</td><td class="hint">' + g.why.map(esc).join('<br>') + '</td></tr>';
+      }).join('');
+    $('dupTable').classList.remove('hidden');
+    $('dupMergeBtn').classList.remove('hidden');
+    $('dupAll').addEventListener('change', function(e){
+      document.querySelectorAll('.dupPick').forEach(function(c){ c.checked = e.target.checked; });
+    });
+  }
+
+  async function scanDups(query){
+    say($('dupStatus'), 'Looking for duplicates…');
+    var d = await api('/api/admin/merge-duplicates?action=scan' + (query || ''));
+    if (d.error) { say($('dupStatus'), d.error, true); return; }
+    DUP_GROUPS = d.list || [];
+    say($('dupStatus'), DUP_GROUPS.length
+      ? DUP_GROUPS.length + ' duplicate group' + (DUP_GROUPS.length === 1 ? '' : 's') + ' found among ' + d.checked + ' live mosques. Untick any that are wrong, then Merge ticked.'
+      : 'No duplicates found among ' + d.checked + ' live mosques.');
+    renderDups();
+  }
+
+  $('dupScanBtn').addEventListener('click', function(){ scanDups(''); });
+  $('dupScanNearBtn').addEventListener('click', function(){
+    if (!navigator.geolocation) { say($('dupStatus'), 'This browser has no location.', true); return; }
+    say($('dupStatus'), 'Getting your location…');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      scanDups('&lat=' + pos.coords.latitude.toFixed(4) + '&lon=' + pos.coords.longitude.toFixed(4) + '&miles=5');
+    }, function(){ say($('dupStatus'), 'Location blocked — use Find duplicates instead.', true); });
+  });
+
+  $('dupMergeBtn').addEventListener('click', async function(){
+    var picked = [];
+    document.querySelectorAll('.dupPick').forEach(function(c){
+      if (c.checked) { var g = DUP_GROUPS[+c.dataset.i]; picked.push({ keep: g.keep.slug, merge: g.merge.map(function(m){ return m.slug; }) }); }
+    });
+    if (!picked.length) { say($('dupStatus'), 'Nothing ticked.', true); return; }
+    if (!confirm('Merge ' + picked.length + ' group' + (picked.length === 1 ? '' : 's') + ' into one entry each? The extra entries are hidden, not deleted.')) return;
+    $('dupMergeBtn').disabled = true;
+    var merged = 0, failed = 0, errors = [];
+    for (var i = 0; i < picked.length; i += 50) {
+      say($('dupStatus'), 'Merging… ' + merged + ' of ' + picked.length);
+      var d = await postMerge({ action: 'merge', groups: picked.slice(i, i + 50) });
+      if (d.error) { failed += Math.min(50, picked.length - i); errors.push(d.error); continue; }
+      merged += d.merged; failed += d.failed;
+      (d.results || []).forEach(function(r){ if (r.error) errors.push(r.keep + ': ' + r.error); });
+    }
+    $('dupMergeBtn').disabled = false;
+    say($('dupStatus'), merged + ' merged' + (failed ? ', ' + failed + ' failed — ' + errors.slice(0, 3).join('; ') : '') + '. Find a Mosque shows the change within the hour.', failed > 0);
+    DUP_GROUPS = [];
+    renderDups();
     refresh();
   });
 
