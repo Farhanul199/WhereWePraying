@@ -144,6 +144,7 @@
       <p class="hint" id="siteLine"></p>
       <div class="actions">
         <button class="ghost" id="rebuildCacheBtn">Prepare a batch now</button>
+        <button class="ghost" id="diagBtn">Test Find a Mosque here</button>
         <button class="ghost" id="sidelineBtn">Set old mosques aside</button>
         <button class="ghost" id="restoreBtn">Bring old mosques back</button>
       </div>
@@ -996,6 +997,26 @@
   });
 
 
+
+
+  $('diagBtn').addEventListener('click', function(){
+    var run = async function(lat, lon){
+      say($('rebuildStatus'), 'Checking what Find a Mosque sees at ' + lat.toFixed(3) + ', ' + lon.toFixed(3) + '…');
+      var d = await api('/api/admin/promote?action=diag&lat=' + lat + '&lon=' + lon);
+      if (d.error) { say($('rebuildStatus'), d.error, true); return; }
+      if (d.ok === false) { say($('rebuildStatus'), 'It is failing. Error: ' + d.failure, true); return; }
+      var msg = d.mosquesInArea + ' mosques in this area · ' + d.withTimesToday + ' have times today (served from ' + d.servedFrom + ').';
+      if (d.sample && d.sample.length) msg += ' e.g. ' + d.sample.map(function(x){ return x.name + ' fajr ' + (x.fajr || '—') + ', isha ' + (x.isha || '—'); }).join(' | ');
+      else if (d.nearestWithoutTimes && d.nearestWithoutTimes.length) msg += ' None have times yet — e.g. ' + d.nearestWithoutTimes.join(', ');
+      say($('rebuildStatus'), msg, d.withTimesToday === 0);
+    };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function(pos){ run(pos.coords.latitude, pos.coords.longitude); },
+        function(){ run(51.5806, 0.0836); } // Redbridge fallback
+      );
+    } else { run(51.5806, 0.0836); }
+  });
 
   $('sidelineBtn').addEventListener('click', async function(){
     var keep = $('keepThm').checked;
