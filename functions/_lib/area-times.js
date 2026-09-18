@@ -403,3 +403,24 @@ export async function loadArea(context, lat, lon, dateIso) {
   if (env.RATE_LIMIT) context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: KV_TTL }));
   return { rows: out, from: 'db' };
 }
+
+// Drop today's cached areas (KV) so a data fix shows on the next visit
+// instead of waiting up to 6 hours. Cloudflare's per-location edge copy
+// can still take up to an hour. Best effort; capped to stay cheap.
+export async function clearTodaysAreas(env, max = 300) {
+  if (!env.RATE_LIMIT) return 0;
+  const today = londonNowParts().dateIso;
+  let cleared = 0, cursor;
+  try {
+    do {
+      const page = await env.RATE_LIMIT.list({ prefix: AREA_KV_PREFIX, cursor, limit: 1000 });
+      for (const k of page.keys) {
+        if (!k.name.endsWith(':' + today)) continue;
+        await env.RATE_LIMIT.delete(k.name);
+        if (++cleared >= max) return cleared;
+      }
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  } catch (e) { /* areas expire within 6 hours anyway */ }
+  return cleared;
+}
