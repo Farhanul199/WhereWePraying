@@ -343,9 +343,16 @@ export async function loadArea(context, lat, lon, dateIso) {
   }
 
   const latD = milesToLat(CANDIDATE_BOX_MILES), lonD = milesToLon(CANDIDATE_BOX_MILES, gLat);
-  const { results } = await env.DB.prepare(AREA_QUERY)
-    .bind(dateIso, tomorrowIso, thisKey, nextKey, gLat - latD, gLat + latD, gLon - lonD, gLon + lonD)
-    .all();
+  const binds = [dateIso, tomorrowIso, thisKey, nextKey, gLat - latD, gLat + latD, gLon - lonD, gLon + lonD];
+  let results;
+  try {
+    ({ results } = await env.DB.prepare(AREA_QUERY).bind(...binds).all());
+  } catch (e) {
+    // First run after deploy: the month-page table doesn't exist yet.
+    // Create it and try once more, so a visitor never sees a broken page.
+    await ensureTimesSchema(env.DB);
+    ({ results } = await env.DB.prepare(AREA_QUERY).bind(...binds).all());
+  }
   const rows = results || [];
   await fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso);
   const out = rows.map((r) => applyPage(r, dateIso, tomorrowIso, thisKey));
