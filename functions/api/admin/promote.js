@@ -9,6 +9,9 @@
 //
 //   GET  ?action=status&source=ditib
 //        -> counts: ready / needs coordinates / live / duplicates / unusable
+//   GET  ?action=diag&lat=..&lon=..
+//        -> what Find a Mosque would see at that spot: how many mosques,
+//           how many have times today, and the exact error if it fails.
 //   GET  ?action=overview
 //        -> per-source progress: promoted / linked / still waiting / times
 //           sent / times waiting, plus what the live site currently holds.
@@ -50,7 +53,7 @@
 //   - Imamia Mission London (IG2 7LX) is always skipped.
 
 import { isAdminRequest } from '../../_lib/auth.js';
-import { prepareMonths, ensureTimesSchema } from '../../_lib/area-times.js';
+import { prepareMonths, ensureTimesSchema, loadArea } from '../../_lib/area-times.js';
 
 const BLOCKED_SOURCES = {};
 const MAX_PROMOTE = 150;
@@ -564,7 +567,23 @@ export async function onRequestGet(context) {
   const source = (p.get('source') || '').trim();
   try {
     await ensureSchema(db);
-    if (action === 'overview') { await countDue(db); return json(await overview(db)); }
+    if (action === 'overview') { return json(await overview(db)); }
+    if (action === 'diag') {
+      const lat = parseFloat(p.get('lat')), lon = parseFloat(p.get('lon'));
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: 'lat and lon required' }, 400);
+      try {
+        const area = await loadArea(context, lat, lon, londonTodayIso());
+        const rows = area.rows || [];
+        const withTimes = rows.filter((r) => r.fajr_jamaah || r.zuhr_jamaah || r.asr_jamaah || r.maghrib_jamaah || r.isha_jamaah);
+        return json({
+          ok: true, servedFrom: area.from, mosquesInArea: rows.length, withTimesToday: withTimes.length,
+          sample: withTimes.slice(0, 3).map((r) => ({ name: r.name, fajr: r.fajr_jamaah, zuhr: r.zuhr_jamaah, isha: r.isha_jamaah })),
+          nearestWithoutTimes: rows.filter((r) => !withTimes.includes(r)).slice(0, 3).map((r) => r.name),
+        });
+      } catch (e) {
+        return json({ ok: false, failure: String(e).slice(0, 500) });
+      }
+    }
     if (!source) return json({ error: 'source is required' }, 400);
     if (action === 'preview') {
       const limit = Math.min(parseInt(p.get('limit') || '50', 10) || 50, MAX_PROMOTE);
