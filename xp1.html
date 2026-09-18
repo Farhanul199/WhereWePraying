@@ -2784,6 +2784,36 @@ var qrcode = function() {
       pile of parallel requests at boot. Decide once here; the
       sections below trim themselves accordingly.
    ========================================================= */
+/* =========================================================
+   1c. REMOTE DOUBLE-KEYDOWN GUARD
+      Some Android/Google TV WebViews (confirmed on this project's
+      test TCL/Android TV set) dispatch TWO trusted 'keydown' events
+      for a single physical remote press — not a repeat (e.repeat is
+      false on both), just the same key firing twice a few
+      milliseconds apart. That's what caused "I" to type as "II" and
+      earlier reports of doubled characters/navigation.
+      Fix: a capture-phase listener on document runs before every
+      other keydown handler on the page (capture always precedes
+      bubble for the same node), so swallowing the duplicate here
+      protects the keypad, the settings overlay nav, and any future
+      remote handling in one place — nothing downstream needs to
+      know this happened. A real held-key repeat (e.repeat === true)
+      is never touched.
+   ========================================================= */
+(function(){
+  var lastKey = null, lastTime = 0;
+  document.addEventListener('keydown', function(e){
+    var now = e.timeStamp || Date.now();
+    if(!e.repeat && e.key === lastKey && (now - lastTime) < 220){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return;
+    }
+    lastKey = e.key;
+    lastTime = now;
+  }, true); // capture phase — must be added as capture to run first
+})();
+
 (function(){
   var ua = navigator.userAgent || '';
   var cores = navigator.hardwareConcurrency || 0;
@@ -4205,6 +4235,15 @@ window.XP1YouTube = (function(){
     if((e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') && xp1Get(LOC_KEY, null)){
       closeOverlay(); e.preventDefault(); return; // cancel "Change location"
     }
+    // Guard: one key event → one action. No double-typing.
+    if(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.row !== undefined){
+      // A keypad button is focused. 'Enter' clicks it; everything else is ignored.
+      if(e.key === 'Enter'){
+        if(document.activeElement.click) document.activeElement.click();
+        e.preventDefault();
+      }
+      return;
+    }
     switch(e.key){
       case 'ArrowLeft': keypadMove('left'); e.preventDefault(); break;
       case 'ArrowRight': keypadMove('right'); e.preventDefault(); break;
@@ -4212,7 +4251,16 @@ window.XP1YouTube = (function(){
       case 'ArrowDown': keypadMove('down'); e.preventDefault(); break;
       case 'Enter':
         if(document.activeElement && document.activeElement.click) document.activeElement.click();
+        e.preventDefault();
         break;
+      default:
+        // Character key: check if it's valid for the keypad, find the button, click it.
+        var k = e.key.toUpperCase();
+        if(/^[A-Z0-9 ]$/.test(k) || e.key === 'Backspace'){
+          var btnKey = e.key === 'Backspace' ? 'BACK' : k === ' ' ? 'SPACE' : k;
+          var btn = Array.prototype.find.call(keypadEl.querySelectorAll('.key'), function(b){ return b.textContent.replace(/[⌫✓]/g,'').trim() === btnKey || (b.textContent === 'Space' && btnKey === 'SPACE') || (b.textContent === '⌫' && btnKey === 'BACK'); });
+          if(btn){ btn.click(); e.preventDefault(); }
+        }
     }
   });
 
