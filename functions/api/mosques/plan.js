@@ -3,7 +3,16 @@
 // "Find a Mosque" plan endpoint — given the visitor's lat/lon, works
 // out ONE primary mosque (the closest one they can still reach before
 // Jama'ah) plus up to TWO backup mosques with later Jama'ah times, in
-// case they miss the primary. Not a browsable list — three cards, done.
+// case they miss the primary.
+//
+// It ALSO returns `nearby`: every mosque close to the visitor, closest
+// first, whether or not it has a Jama'ah time. A mosque with no time on
+// record is never hidden - it comes back with next = null and the page
+// shows "No Jama'ah time yet". (Product rule: a mosque with no live time
+// must still appear.)
+//
+// Debug: GET ?lat=..&lon=..&debug=1 adds, for each nearby mosque, the
+// reason it did or didn't make the three cards.
 //
 // COST DESIGN — read, don't copy (see _lib/area-times.js):
 //
@@ -126,11 +135,18 @@ function rowToCandidate(row) {
   };
 }
 
-function nextPrayerFor(candidate, nowMinutes) {
+// The first Jama'ah this visitor can still reach at this mosque, given
+// how long it takes to get there. Checks today's prayers in order, then
+// tomorrow's Fajr. Previously only the very next prayer was checked, and
+// if that one was too soon to reach the whole mosque vanished - even
+// though a later prayer (or tomorrow's Fajr) was fine.
+function reachablePrayerFor(candidate, nowMinutes, travelMinutes) {
   for (const prayer of PRAYER_ORDER) {
     const mins = parseTimeToMinutes(prayer, candidate.jamaah[prayer]);
-    if (mins !== null && mins >= nowMinutes) {
-      return { prayer, time: candidate.jamaah[prayer], minutesUntil: mins - nowMinutes, isTomorrow: false };
+    if (mins === null || mins < nowMinutes) continue;
+    const until = mins - nowMinutes;
+    if (until - travelMinutes - SAFETY_BUFFER_MIN >= 0) {
+      return { prayer, time: candidate.jamaah[prayer], minutesUntil: until, isTomorrow: false };
     }
   }
   const tomorrowMins = parseTimeToMinutes("fajr", candidate.tomorrowFajr);
@@ -143,9 +159,14 @@ function nextPrayerFor(candidate, nowMinutes) {
   return null;
 }
 
+function hasAnyTime(c) {
+  return PRAYER_ORDER.some((p) => c.jamaah[p]) || !!c.tomorrowFajr;
+}
+
 function buildPlanEntry(candidate, dist, next, travel) {
   return {
     slug: candidate.slug, name: candidate.name, address: candidate.address,
+    latitude: candidate.latitude, longitude: candidate.longitude,
     distanceMiles: Math.round(dist * 10) / 10,
     travelMode: travel.mode, travelMinutes: travel.minutes,
     prayer: next.prayer, time: next.time, jamaahInMinutes: next.minutesUntil,
@@ -157,26 +178,73 @@ function computeFeasible(candidates, lat, lon, nowMinutes) {
   const feasible = [];
   for (const c of candidates) {
     if (c.latitude == null || c.longitude == null) continue;
-    const next = nextPrayerFor(c, nowMinutes);
-    if (!next) continue;
     const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
     const travel = travelEstimate(dist);
-    if (next.minutesUntil - travel.minutes - SAFETY_BUFFER_MIN < 0) continue;
+    const next = reachablePrayerFor(c, nowMinutes, travel.minutes);
+    if (!next) continue;
     feasible.push(buildPlanEntry(c, dist, next, travel));
   }
   feasible.sort((a, b) => a.jamaahInMinutes - b.jamaahInMinutes);
-  return feasible;
+  return dedupeEntries(feasible);
+}
+
+// ---------- Same-mosque safety net ----------
+// Duplicates should be merged in the database (admin -> Sources ->
+// "Find duplicates"), but until they are, never show the same mosque
+// twice. Two entries are one mosque if they sit within 30m of each
+// other, or within 400m with names that match once words like
+// "mosque/masjid/centre" are ignored. The one with a time wins.
+const NAME_STOP = new Set([
+  "mosque", "masjid", "islamic", "islam", "centre", "center", "the", "of", "and", "uk",
+  "muslim", "muslims", "trust", "association", "community", "jamia", "jame", "jamme",
+  "al", "el", "bin", "ibn", "society",
+]);
+function nameTokens(name) {
+  return String(name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w && !NAME_STOP.has(w));
+}
+function namesMatch(a, b) {
+  const A = nameTokens(a), B = nameTokens(b);
+  if (!A.length || !B.length) {
+    const na = String(a || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return !!na && na === String(b || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+  const aSet = new Set(A), bSet = new Set(B);
+  return A.every((w) => bSet.has(w)) || B.every((w) => aSet.has(w));
+}
+function sameMosque(a, b) {
+  if (a.latitude == null || b.latitude == null) return false;
+  // Cheap reject first (~450m box) so big lists stay fast.
+  if (Math.abs(a.latitude - b.latitude) > 0.004 || Math.abs(a.longitude - b.longitude) > 0.007) return false;
+  const metres = distanceMiles(a.latitude, a.longitude, b.latitude, b.longitude) * 1609.34;
+  return metres <= 30 || (metres <= 400 && namesMatch(a.name, b.name));
+}
+// Keeps list order; drops any later entry that's the same mosque as an
+// earlier one - except it swaps in the later one if only it has a time.
+function dedupeEntries(list) {
+  const out = [];
+  for (const e of list) {
+    const i = out.findIndex((o) => sameMosque(o, e));
+    if (i === -1) out.push(e);
+    else if (!out[i].prayer && e.prayer) out[i] = e;
+  }
+  return out;
 }
 
 function pickPrimaryAndBackups(feasible) {
   if (!feasible.length) return { primary: null, backups: [] };
 
-  // Closest-first (drive time, then distance as a tiebreak) — "can
-  // you make it" already filtered to feasible mosques; among those,
-  // proximity decides ranking, not which one's Jama'ah happens to be
-  // soonest on the clock.
+  // Closest-first by real distance. "Can you make it" already filtered
+  // to feasible mosques; among those, proximity decides ranking, not
+  // which one's Jama'ah happens to be soonest on the clock.
+  //
+  // Not by travel minutes: anything under 0.6 miles is timed as a WALK
+  // (3 mph) and anything further as a DRIVE (15 mph), so a mosque 0.4
+  // miles away (10 min walk) used to lose to one 0.9 miles away (5 min
+  // drive) - the closest mosque to someone's house could drop off the
+  // cards entirely.
   const byDistance = [...feasible].sort(
-    (a, b) => a.travelMinutes - b.travelMinutes || a.distanceMiles - b.distanceMiles
+    (a, b) => a.distanceMiles - b.distanceMiles || a.travelMinutes - b.travelMinutes
   );
 
   // Prefer a primary within the target drive-time ceiling; only reach
@@ -213,7 +281,7 @@ function validateCoords(lat, lon) {
   return validLat && validLon;
 }
 
-async function buildPlanResponse(lat, lon, context) {
+async function buildPlanResponse(lat, lon, context, debug) {
   const { dateIso, minutes: nowMinutes } = londonNowParts();
 
   // --- Mosques near this visitor, with today's jama'ah times read
@@ -280,12 +348,71 @@ async function buildPlanResponse(lat, lon, context) {
   }
 
   const { primary, backups } = pickPrimaryAndBackups(feasible);
-  const note = !primary ? "No Jama'ah times found nearby — none of the nearby mosques have Fajr times on record yet." : null;
+
+  // --- Every mosque near the visitor, times or not ---
+  const nearby = buildNearby(areaRows.map(rowToCandidate), lat, lon, nowMinutes);
+
+  let note = null;
+  if (!primary) {
+    note = nearby.length
+      ? "None of the mosques near you have a Jama'ah time you can still make. Here's what's around you."
+      : "No mosques found near this location yet.";
+  }
+
+  const body = { date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, nearby, expanded, note, source };
+  if (debug) body.debug = debugReasons(nearby, primary, backups, feasible);
 
   return new Response(
-    JSON.stringify({ date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, expanded, note, source }),
+    JSON.stringify(body),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
   );
+}
+
+// Closest mosques to the visitor, closest first - including ones with no
+// Jama'ah time on record (next: null). Up to NEARBY_LIMIT within
+// NEARBY_MILES; if that finds very few, the nearest few regardless.
+const NEARBY_MILES = 3;
+const NEARBY_LIMIT = 12;
+const NEARBY_MIN = 5;
+
+function buildNearby(candidates, lat, lon, nowMinutes) {
+  const all = [];
+  for (const c of candidates) {
+    if (c.latitude == null || c.longitude == null) continue;
+    const dist = distanceMiles(lat, lon, c.latitude, c.longitude);
+    const travel = travelEstimate(dist);
+    const next = reachablePrayerFor(c, nowMinutes, travel.minutes);
+    all.push({
+      slug: c.slug, name: c.name, address: c.address,
+      latitude: c.latitude, longitude: c.longitude,
+      distanceMiles: Math.round(dist * 10) / 10, _dist: dist,
+      travelMode: travel.mode, travelMinutes: travel.minutes,
+      prayer: next ? next.prayer : null, time: next ? next.time : null,
+      jamaahInMinutes: next ? next.minutesUntil : null, isTomorrow: next ? next.isTomorrow : false,
+      // no_times  = nothing on record for today or tomorrow
+      // none_left = has times, but none left today and no Fajr for tomorrow
+      status: next ? "ok" : (hasAnyTime(c) ? "none_left" : "no_times"),
+    });
+  }
+  all.sort((a, b) => a._dist - b._dist);
+  const closest = dedupeEntries(all.slice(0, 40));
+  let list = closest.filter((m) => m._dist <= NEARBY_MILES).slice(0, NEARBY_LIMIT);
+  if (list.length < NEARBY_MIN) list = closest.slice(0, NEARBY_MIN);
+  return list.map(({ _dist, ...m }) => m);
+}
+
+function debugReasons(nearby, primary, backups, feasible) {
+  const shown = new Set([primary && primary.slug, ...backups.map((b) => b.slug)].filter(Boolean));
+  const feasibleSlugs = new Set(feasible.map((f) => f.slug));
+  return nearby.map((m) => ({
+    slug: m.slug, name: m.name, distanceMiles: m.distanceMiles,
+    next: m.prayer ? `${m.prayer} ${m.time}${m.isTomorrow ? " (tomorrow)" : ""}` : null,
+    reason: shown.has(m.slug) ? "shown as a card"
+      : m.status === "no_times" ? "no Jama'ah times on record"
+      : m.status === "none_left" ? "nothing left today and no Fajr on record for tomorrow"
+      : feasibleSlugs.has(m.slug) ? "reachable, but a closer mosque took the card slots"
+      : "reachable, but merged away as a duplicate of a nearby entry",
+  }));
 }
 
 function badCoordsResponse() {
@@ -310,7 +437,7 @@ export async function onRequestPost(context) {
   const lat = parseFloat(body && body.lat);
   const lon = parseFloat(body && body.lon);
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, context);
+  return buildPlanResponse(lat, lon, context, false);
 }
 
 // Kept for backward compatibility (direct URL testing, older cached
@@ -322,5 +449,5 @@ export async function onRequestGet(context) {
   const lat = parseFloat(url.searchParams.get("lat"));
   const lon = parseFloat(url.searchParams.get("lon"));
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, context);
+  return buildPlanResponse(lat, lon, context, url.searchParams.get("debug") === "1");
 }
