@@ -22,9 +22,9 @@
 //        -> fills missing coordinates from the address (OpenStreetMap
 //           Nominatim, 1 request/second, max 20 per call). Needed for
 //           DITIB before it can promote.
-//   POST { action:'sync_times', limit? }
-//        -> copies collected jama'ah times (Mawaqit, Masjidal, Takbeer Time)
-//           onto promoted mosques. Also runs automatically twice a day.
+//   POST { action:'prepare_times', limit? }
+//        -> gets promoted mosques' own timetables ready to read (one small
+//           month page each). Areas with visitors also do this themselves.
 //   POST { action:'sideline', keepThm?:true }
 //        -> hides every mosque that did NOT come from the Sources page, so
 //           the live site shows source-page data only. Reversible.
@@ -50,7 +50,7 @@
 //   - Imamia Mission London (IG2 7LX) is always skipped.
 
 import { isAdminRequest } from '../../_lib/auth.js';
-import { syncSourceTimes, countDue } from '../../_lib/source-times.js';
+import { prepareMonths, ensureTimesSchema } from '../../_lib/area-times.js';
 
 const BLOCKED_SOURCES = {};
 const MAX_PROMOTE = 150;
@@ -261,8 +261,9 @@ function plan(rows, live) {
 // One row per source: what's live, what still waits, and whether its times
 // have been sent. Drives the progress table + tab ticks on admin/sources.html.
 async function overview(db) {
+  await ensureTimesSchema(db);
   const today = londonTodayIso();
-  const soon = addDaysIso(today, 7);
+  const soon = londonTodayIso().slice(0, 7); // month pages are prepared a month at a time
   const [bySource, live] = await db.batch([
     db.prepare(
       `SELECT source,
@@ -276,13 +277,13 @@ async function overview(db) {
               SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
                         AND name IS NOT NULL AND TRIM(name) <> ''
                         AND (lat IS NULL OR lon IS NULL) AND geocode_status IS NULL THEN 1 ELSE 0 END) AS needs_geocode,
-              SUM(CASE WHEN times_live_through IS NOT NULL THEN 1 ELSE 0 END) AS times_sent,
+              SUM(CASE WHEN compiled_through IS NOT NULL THEN 1 ELSE 0 END) AS times_sent,
               SUM(CASE WHEN status IN ('imported','duplicate') AND promoted_slug IS NOT NULL AND times_status='ok'
-                        AND (times_live_through IS NULL OR times_live_through < ?1
-                             OR (times_updated_at IS NOT NULL AND (times_pushed_at IS NULL OR times_pushed_at < times_updated_at)))
+                        AND (compiled_through IS NULL OR compiled_through < ?1
+                             OR (times_updated_at IS NOT NULL AND (compiled_at IS NULL OR compiled_at < times_updated_at)))
                        THEN 1 ELSE 0 END) AS times_waiting,
               MAX(promoted_at) AS last_promoted_at,
-              MAX(times_pushed_at) AS last_times_at
+              MAX(compiled_at) AS last_times_at
          FROM source_discoveries GROUP BY source ORDER BY source`
     ).bind(soon),
     db.prepare(
@@ -311,6 +312,7 @@ async function overview(db) {
 /* ---------------------------------------------------------------- status */
 
 async function status(db, source) {
+  await ensureTimesSchema(db);
   const row = await db.prepare(
     `SELECT COUNT(*) AS total,
        SUM(CASE WHEN status='imported' THEN 1 ELSE 0 END) AS live,
@@ -322,14 +324,17 @@ async function status(db, source) {
        SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
                  AND name IS NOT NULL AND TRIM(name) <> '' AND (lat IS NULL OR lon IS NULL)
                  AND (geocode_status IS NULL) THEN 1 ELSE 0 END) AS needs_geocode,
+       SUM(CASE WHEN status IN ('imported','duplicate') AND promoted_slug IS NOT NULL AND times_status='ok'
+                 AND (compiled_through IS NULL OR compiled_through < ?2
+                      OR (times_updated_at IS NOT NULL AND (compiled_at IS NULL OR compiled_at < times_updated_at)))
+                THEN 1 ELSE 0 END) AS times_due,
        SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
                  AND (lat IS NULL OR lon IS NULL) AND geocode_status = 'not_found' THEN 1 ELSE 0 END) AS geocode_failed,
        SUM(CASE WHEN name IS NULL OR TRIM(name) = '' THEN 1 ELSE 0 END) AS unnamed,
        MAX(promote_batch) AS last_batch
      FROM source_discoveries WHERE source = ?1`
-  ).bind(source).first();
-  const times_due = await countDue(db);
-  return { source, blocked: BLOCKED_SOURCES[source] || null, times_due, ...row };
+  ).bind(source, londonTodayIso().slice(0, 7)).first();
+  return { source, blocked: BLOCKED_SOURCES[source] || null, ...row };
 }
 
 /* --------------------------------------------------------------- promote */
@@ -584,11 +589,11 @@ export async function onRequestPost(context) {
   let body;
   try { body = await context.request.json(); } catch (e) { return json({ error: 'Invalid JSON body.' }, 400); }
   const source = String(body.source || '').trim();
-  if (body.action === 'sync_times') {
+  if (body.action === 'prepare_times') {
     try {
       await ensureSchema(db);
-      const r = await syncSourceTimes(db, parseInt(body.limit, 10) || 40);
-      return json({ ok: true, ...r, stillDue: await countDue(db) });
+      const r = await prepareMonths(db, parseInt(body.limit, 10) || 120);
+      return json({ ok: true, ...r });
     } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
   }
   if (body.action === 'sideline' || body.action === 'restore') {
