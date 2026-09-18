@@ -280,7 +280,8 @@ async function overview(db) {
               SUM(CASE WHEN (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
                         AND name IS NOT NULL AND TRIM(name) <> ''
                         AND (lat IS NULL OR lon IS NULL) AND geocode_status IS NULL THEN 1 ELSE 0 END) AS needs_geocode,
-              SUM(CASE WHEN compiled_through IS NOT NULL THEN 1 ELSE 0 END) AS times_sent,
+              SUM(CASE WHEN has_times = 1 THEN 1 ELSE 0 END) AS times_sent,
+              SUM(CASE WHEN has_times = 0 THEN 1 ELSE 0 END) AS times_none,
               SUM(CASE WHEN status IN ('imported','duplicate') AND promoted_slug IS NOT NULL AND times_status='ok'
                         AND (compiled_through IS NULL OR compiled_through < ?1
                              OR (times_updated_at IS NOT NULL AND (compiled_at IS NULL OR compiled_at < times_updated_at)))
@@ -298,8 +299,15 @@ async function overview(db) {
               (SELECT COUNT(*) FROM mosques WHERE active=1 AND type='mosque' AND merged_into IS NULL
                  AND (created_by IS NULL OR created_by NOT LIKE 'promote:%')) AS live_pre_existing,
               (SELECT COUNT(*) FROM mosques WHERE sidelined_at IS NOT NULL) AS set_aside,
-              (SELECT COUNT(DISTINCT mosque) FROM thm_jamaah_times WHERE date = ?1) AS with_times_today`
-    ).bind(today),
+              (SELECT COUNT(*) FROM (
+                 SELECT mt.mosque AS m FROM mosque_month_times mt
+                   JOIN mosques mo ON mo.slug = mt.mosque AND mo.active = 1 AND mo.merged_into IS NULL
+                  WHERE mt.month = ?2 AND mt.times IS NOT NULL
+                 UNION
+                 SELECT t.mosque AS m FROM thm_jamaah_times t
+                   JOIN mosques mo2 ON mo2.slug = t.mosque AND mo2.active = 1 AND mo2.merged_into IS NULL
+                  WHERE t.date = ?1)) AS with_times_today`
+    ).bind(today, today.slice(0, 7)),
   ]);
   return {
     today,
