@@ -75,7 +75,7 @@
   const PRAYER_LABELS = {fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha'};
   const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — matches the plan endpoint's own refresh cadence
   const REFRESH_MS = 5 * 60 * 1000;   // re-check every 5 min while the page is open
-  const PLAN_CACHE_KEY = 'wwp_mq_plan_v1';
+  const PLAN_CACHE_KEY = 'wwp_mq_plan_v2';
   const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
   const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
   const IP_GEO_TIMEOUT_MS = 3500;
@@ -413,7 +413,8 @@
     const travelWord = entry.travelMode === 'walk' ? 'walk' : 'drive';
     const isUsual = getUsualMosque() === entry.slug;
     return `
-      <div class="mq-plan-row${isPrimary ? ' is-primary' : ''}" data-slug="${escapeHtml(entry.slug)}">
+      <div class="mq-item">
+      <div class="mq-plan-row mq-clickable${isPrimary ? ' is-primary' : ''}" data-slug="${escapeHtml(entry.slug)}" role="button" tabindex="0" aria-expanded="false">
         <span class="mq-plan-row-icon" aria-hidden="true">${isPrimary ? '🕌' : '📍'}</span>
         <div class="mq-plan-row-main">
           <div class="mq-plan-row-name">${escapeHtml(entry.name)}<span class="mq-plan-row-tag">${label}</span></div>
@@ -425,6 +426,8 @@
           <div class="mq-plan-chip-time">${entry.isTomorrow ? entry.time : formatMinutesUntil(entry.jamaahInMinutes)}</div>
           ${entry.isTomorrow ? `<div class="mq-plan-chip-countdown">${formatMinutesUntil(entry.jamaahInMinutes)}</div>` : ''}
         </div>
+      </div>
+      <div class="mq-detail hidden"></div>
       </div>`;
   }
 
@@ -444,13 +447,16 @@
       chip = `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">${text}</div></div>`;
     }
     return `
-      <div class="mq-plan-row mq-nearby-row" data-slug="${escapeHtml(m.slug)}">
+      <div class="mq-item">
+      <div class="mq-plan-row mq-nearby-row mq-clickable" data-slug="${escapeHtml(m.slug)}" role="button" tabindex="0" aria-expanded="false">
         <span class="mq-plan-row-icon" aria-hidden="true">📍</span>
         <div class="mq-plan-row-main">
           <div class="mq-plan-row-name">${escapeHtml(m.name)}</div>
           <div class="mq-plan-row-sub">${m.distanceMiles} mi · ${m.travelMinutes} min ${travelWord}</div>
         </div>
         ${chip}
+      </div>
+      <div class="mq-detail hidden"></div>
       </div>`;
   }
 
@@ -467,6 +473,7 @@
   function renderPlan(plan){
     const list = document.getElementById('mqList');
     if (!list) return;
+    rememberEntries(plan);
     if (!plan.primary) {
       // Nothing reachable with a time - still list what's around.
       if (!(plan.nearby && plan.nearby.length)) { renderNote(plan.note || "No mosques found near this location yet."); return; }
@@ -499,6 +506,87 @@
         ${nearbySectionHtml(plan, shown)}
       </div>`;
   }
+
+  // ---- Tap a mosque: full day timetable + directions ----
+  // Every row (the 3 cards and the "near you" list) opens a small card
+  // underneath it with today's five Jama'ah times and buttons that open
+  // Google Maps or Waze with directions straight to the mosque.
+  const PRAYER_KEYS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+  let entriesBySlug = new Map();
+
+  function rememberEntries(plan){
+    entriesBySlug = new Map();
+    [plan.primary, ...(plan.backups || []), ...(plan.nearby || [])].forEach(e => {
+      if (e && e.slug && !entriesBySlug.has(e.slug)) entriesBySlug.set(e.slug, e);
+    });
+  }
+
+  function directionsLinks(e){
+    if (e.latitude == null || e.longitude == null) return '';
+    const ll = Number(e.latitude).toFixed(6) + ',' + Number(e.longitude).toFixed(6);
+    const google = 'https://www.google.com/maps/dir/?api=1&destination=' + ll;
+    const waze = 'https://waze.com/ul?ll=' + ll + '&navigate=yes';
+    return `
+      <div class="mq-detail-actions">
+        <a class="mq-dir-btn" href="${google}" target="_blank" rel="noopener">Google Maps</a>
+        <a class="mq-dir-btn is-alt" href="${waze}" target="_blank" rel="noopener">Waze</a>
+      </div>`;
+  }
+
+  function detailHtml(e){
+    const today = e.today || {};
+    const hasAny = PRAYER_KEYS.some(k => today[k]);
+    const nextKey = (e.prayer && !e.isTomorrow) ? e.prayer : null;
+    const grid = hasAny ? `
+      <div class="mq-detail-times">
+        ${PRAYER_KEYS.map(k => `
+          <div class="mq-detail-cell${k === nextKey ? ' is-next' : ''}">
+            <div class="mq-detail-prayer">${PRAYER_LABELS[k]}</div>
+            <div class="mq-detail-time">${today[k] ? escapeHtml(today[k]) : '—'}</div>
+          </div>`).join('')}
+      </div>
+      ${e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: ${escapeHtml(e.tomorrowFajr)}</div>` : ''}`
+      : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
+    const where = [e.address, e.postcode].filter(Boolean).join(', ');
+    return `
+      <div class="mq-detail-title">Today's Jama'ah times</div>
+      ${grid}
+      ${where ? `<div class="mq-detail-address">${escapeHtml(where)}</div>` : ''}
+      ${directionsLinks(e)}`;
+  }
+
+  function toggleDetail(row){
+    const item = row.closest('.mq-item');
+    const panel = item && item.querySelector('.mq-detail');
+    if (!panel) return;
+    const opening = panel.classList.contains('hidden');
+    // one open at a time keeps the list tidy
+    document.querySelectorAll('#mqList .mq-detail:not(.hidden)').forEach(p => {
+      p.classList.add('hidden');
+      const r = p.closest('.mq-item').querySelector('.mq-clickable');
+      if (r) { r.setAttribute('aria-expanded', 'false'); r.classList.remove('is-open'); }
+    });
+    if (!opening) return;
+    const e = entriesBySlug.get(row.dataset.slug);
+    if (!e) return;
+    panel.innerHTML = detailHtml(e);
+    panel.classList.remove('hidden');
+    row.setAttribute('aria-expanded', 'true');
+    row.classList.add('is-open');
+  }
+
+  document.getElementById('mqList')?.addEventListener('click', (ev) => {
+    if (ev.target.closest('.mq-usual-btn, .mq-detail')) return; // own buttons/links
+    const row = ev.target.closest('.mq-clickable');
+    if (row) toggleDetail(row);
+  });
+  document.getElementById('mqList')?.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const row = ev.target.closest('.mq-clickable');
+    if (!row || ev.target !== row) return;
+    ev.preventDefault();
+    toggleDetail(row);
+  });
 
   // Delegated click handler for the usual-mosque toggle buttons rendered
   // inside the plan card rows — survives every re-render since it's
