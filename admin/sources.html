@@ -134,7 +134,7 @@
         <button id="doItAllBtn">Put live + send times</button>
         <button class="ghost" id="geocodeBtn">Find coordinates from addresses</button>
         <button class="ghost" id="undoPromoteBtn">Undo last batch</button>
-        <button class="ghost" id="syncTimesBtn">Send prayer times to the site</button>
+        <button class="ghost" id="syncTimesBtn">Prepare prayer times</button>
       </div>
       <div class="status" id="promoteStatus"></div>
       <table id="promoteTable" class="hidden"><tbody></tbody></table>
@@ -143,13 +143,13 @@
       <table id="progressTable"><tbody></tbody></table>
       <p class="hint" id="siteLine"></p>
       <div class="actions">
-        <button class="ghost" id="rebuildCacheBtn">Update the live site now</button>
+        <button class="ghost" id="rebuildCacheBtn">Prepare a batch now</button>
         <button class="ghost" id="sidelineBtn">Set old mosques aside</button>
         <button class="ghost" id="restoreBtn">Bring old mosques back</button>
       </div>
       <p class="hint"><label><input type="checkbox" id="keepThm" checked> Keep Tower Hamlets mosques live (they're the only ones with committee-set times right now)</label></p>
       <div class="status" id="rebuildStatus"></div>
-      <p class="hint">Pressing Promote is your sign-off. Each mosque is either added as a new live listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. New listings show on the map after the next cache rebuild (02:00 / 14:00 UTC). Undo removes only the mosques the last batch created. Prayer times from Mawaqit, Masjidal and Takbeer Time are copied onto live mosques automatically twice a day; "Send prayer times to the site" does it now.</p>
+      <p class="hint">Pressing Promote is your sign-off. Each mosque is either added as a new live listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. New listings show on the map after the next cache rebuild (02:00 / 14:00 UTC). Undo removes only the mosques the last batch created. Each mosque serves its own stored timetable — nothing is copied per day. "Prepare prayer times" gets a batch ready in advance; any area a visitor opens prepares itself anyway.</p>
     </div>
 
     <h2>By country</h2>
@@ -720,7 +720,7 @@
       stat(d.needs_geocode, 'Need coordinates') +
       (d.geocode_failed ? stat(d.geocode_failed, 'Address not found') : '') +
       (d.unnamed ? stat(d.unnamed, 'No name (can\'t list)') : '') +
-      (d.times_due ? stat(d.times_due, 'Mosques with times to send (all sources)') : '');
+      (d.times_due ? stat(d.times_due, 'Times still to prepare') : '');
     $('syncTimesBtn').style.display = d.times_due ? '' : 'none';
     $('syncTimesBtn').disabled = promoteBusy;
     var blocked = !!d.blocked;
@@ -770,11 +770,11 @@
   async function runTimes(){
     var withTimes = 0, without = 0;
     for (var round = 0; round < 80; round++) {
-      say($('promoteStatus'), 'Sending prayer times… ' + withTimes + ' mosques done so far.');
-      var d = await postPromote({ action: 'sync_times', limit: 55 });
+      say($('promoteStatus'), 'Preparing prayer times… ' + withTimes + ' mosques done so far.');
+      var d = await postPromote({ action: 'prepare_times', limit: 120 });
       if (d.error) { say($('promoteStatus'), d.error, true); return null; }
-      withTimes += d.mosquesWithTimes || 0; without += d.mosquesWithoutUsableTimes || 0;
-      if (!d.checked || !d.stillDue) break;
+      withTimes += d.withTimes || 0; without += d.without || 0;
+      if (!d.checked || !d.stillToPrepare) break;
       await wait(6500);
     }
     return { withTimes: withTimes, without: without };
@@ -791,7 +791,7 @@
     $('promoteTable').classList.add('hidden');
     if (p && t) {
       say($('promoteStatus'), 'All done — ' + p.created + ' new live mosques · ' + t.withTimes + ' with jama\'ah times' +
-        (t.without ? ' · ' + t.without + ' had no reliable times' : '') + '. Now press "Update the live site now".');
+        (t.without ? ' · ' + t.without + ' had no reliable times' : '') + '. Live within the hour, as each area refreshes.');
     }
     refresh();
   });
@@ -843,17 +843,17 @@
     promoteBusy = true; loadPromote();
     var withTimes = 0, without = 0;
     for (var round = 0; round < 80; round++) {
-      say($('promoteStatus'), 'Sending prayer times… ' + withTimes + ' mosques done so far.');
-      var d = await postPromote({ action: 'sync_times', limit: 40 });
+      say($('promoteStatus'), 'Preparing prayer times… ' + withTimes + ' mosques done so far.');
+      var d = await postPromote({ action: 'prepare_times', limit: 120 });
       if (d.error) { say($('promoteStatus'), d.error, true); break; }
-      withTimes += d.mosquesWithTimes || 0; without += d.mosquesWithoutUsableTimes || 0;
-      if (!d.checked || !d.stillDue) break;
+      withTimes += d.withTimes || 0; without += d.without || 0;
+      if (!d.checked || !d.stillToPrepare) break;
       await wait(7000);
     }
     promoteBusy = false;
-    say($('promoteStatus'), 'Times sent — ' + withTimes + ' mosques now have jama\'ah times' +
+    say($('promoteStatus'), 'Ready — ' + withTimes + ' mosques now serve their own jama\'ah times' +
       (without ? ' · ' + without + ' had no reliable jama\'ah times (they show "No live prayer time")' : '') +
-      '. Shows on the site after the next cache rebuild.');
+      '. Live within the hour, as each area refreshes.');
     refresh();
   });
 
@@ -1004,7 +1004,7 @@
     var d = await postPromote({ action: 'sideline', keepThm: keep });
     $('sidelineBtn').disabled = false;
     if (d.error) { say($('rebuildStatus'), d.error, true); return; }
-    say($('rebuildStatus'), d.hidden + ' old mosques set aside — ' + d.stillLive + ' live now. Press "Update the live site now".');
+    say($('rebuildStatus'), d.hidden + ' old mosques set aside — ' + d.stillLive + ' live now. Areas refresh within the hour.');
     loadOverview();
   });
 
@@ -1013,7 +1013,7 @@
     var d = await postPromote({ action: 'restore' });
     $('restoreBtn').disabled = false;
     if (d.error) { say($('rebuildStatus'), d.error, true); return; }
-    say($('rebuildStatus'), d.restored + ' mosques brought back. Press "Update the live site now".');
+    say($('rebuildStatus'), d.restored + ' mosques brought back. Areas refresh within the hour.');
     loadOverview();
   });
 
@@ -1024,7 +1024,9 @@
     var d = await api('/api/admin/build-r2-cache');
     btn.disabled = false;
     if (d.error || d.ok === false) { say($('rebuildStatus'), d.error || 'Failed.', true); return; }
-    say($('rebuildStatus'), 'Live site updated — ' + fmt(d.mosquesCount || 0) + ' mosques on the map now. Give the app a minute, then pull to refresh.');
+    say($('rebuildStatus'), 'Done — ' + fmt((d.timesPrepared && d.timesPrepared.withTimes) || 0) + ' more mosques prepared' +
+      ((d.timesPrepared && d.timesPrepared.stillToPrepare) ? ' · ' + fmt(d.timesPrepared.stillToPrepare) + ' left' : '') +
+      '. New mosques appear as each area refreshes, within the hour.');
     loadOverview();
   });
 
