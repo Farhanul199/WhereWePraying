@@ -185,6 +185,16 @@
       <div class="status" id="matchLocStatus"></div>
       <table id="matchLocTable" class="hidden"><tbody></tbody></table>
 
+      <p class="step-label">Add locations by hand</p>
+      <div class="actions">
+        <input type="text" id="manualLocSearch" placeholder="Filter by name, town or postcode (optional)" style="flex:1;min-width:200px">
+        <button class="ghost" id="manualLocBtn">Show mosques without a location</button>
+      </div>
+      <p class="hint">For any mosque on this tab (MasjidBox, Masjidal, DITIB…) that has no map location. For each one, paste <b>a Google Maps link</b> (most exact — open the mosque in Google Maps and copy the link, short links work too), <b>coordinates</b> like <code>51.5813, 0.0913</code>, or <b>a postcode</b> (lands on the middle of the postcode, so less exact). Press Save, check it with <b>View on map</b>, then <b>Put live + send times</b>. If it's already live on the site, <b>Find matching mosques</b> above is quicker.</p>
+      <div class="status" id="manualLocStatus"></div>
+      <table id="manualLocTable" class="hidden"><tbody></tbody></table>
+      <div class="actions"><button class="ghost hidden" id="manualLocMore">Show more</button></div>
+
       <p class="step-label">Duplicate mosques</p>
       <div class="actions">
         <button class="ghost" id="dupScanBtn">Find duplicates</button>
@@ -974,6 +984,58 @@
     MATCH_LIST.splice(i, 1);
     renderMatches();
     if (!MATCH_LIST.length) loadMatches();
+  });
+
+  /* --------------------------------------------- manual locations */
+  var MANUAL = { list: [], offset: 0, q: '' };
+
+  function manualRowHtml(r, i){
+    var info = matchInfo(r) + (r.site ? ' · <a href="' + esc(/^https?:/i.test(r.site) ? r.site : 'https://' + r.site) + '" target="_blank" rel="noopener">website</a>' : '');
+    var find = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, r.city || r.postcode || ''].join(' '));
+    return '<tr data-i="' + i + '"><td><b>' + esc(r.name) + '</b> <code>' + esc(r.ref) + '</code><br><span class="hint">' + info +
+      ' · <a href="' + find + '" target="_blank" rel="noopener">Search on Google Maps</a></span></td>' +
+      '<td><input type="text" class="manualLocInput" placeholder="Maps link, 51.58, 0.09, or postcode" style="width:100%">' +
+      '<div class="hint manualLocMsg"></div></td>' +
+      '<td><button class="ghost manualLocSave">Save</button></td></tr>';
+  }
+
+  function renderManual(){
+    var t = $('manualLocTable'), tbody = t.querySelector('tbody');
+    if (!MANUAL.list.length) { t.classList.add('hidden'); tbody.innerHTML = ''; return; }
+    tbody.innerHTML = '<tr><th>Mosque</th><th>Location</th><th></th></tr>' + MANUAL.list.map(manualRowHtml).join('');
+    t.classList.remove('hidden');
+  }
+
+  async function loadManual(append){
+    if (!append) { MANUAL.offset = 0; MANUAL.list = []; MANUAL.q = $('manualLocSearch').value.trim(); MANUAL.source = SOURCE; }
+    say($('manualLocStatus'), 'Loading…');
+    var d = await api('/api/admin/match-locations?action=missing&source=' + MANUAL.source + '&offset=' + MANUAL.offset + '&q=' + encodeURIComponent(MANUAL.q));
+    if (d.error) { say($('manualLocStatus'), d.error, true); return; }
+    MANUAL.list = MANUAL.list.concat(d.list || []);
+    MANUAL.offset += (d.list || []).length;
+    say($('manualLocStatus'), d.total + ' mosque' + (d.total === 1 ? '' : 's') + ' on this tab ' + (MANUAL.q ? 'matching "' + MANUAL.q + '" ' : '') + 'without a location.');
+    $('manualLocMore').classList.toggle('hidden', !d.more);
+    renderManual();
+  }
+
+  $('manualLocBtn').addEventListener('click', function(){ loadManual(false); });
+  $('manualLocSearch').addEventListener('keydown', function(e){ if (e.key === 'Enter') loadManual(false); });
+  $('manualLocMore').addEventListener('click', function(){ loadManual(true); });
+
+  $('manualLocTable').addEventListener('click', async function(e){
+    var btn = e.target.closest('.manualLocSave');
+    if (!btn) return;
+    var tr = btn.closest('tr'), r = MANUAL.list[+tr.dataset.i];
+    var input = tr.querySelector('.manualLocInput').value.trim(), msg = tr.querySelector('.manualLocMsg');
+    if (!input) { msg.textContent = 'Paste a link, coordinates or a postcode first.'; return; }
+    btn.disabled = true;
+    msg.textContent = 'Saving…';
+    var d = await postJson('/api/admin/match-locations', { action: 'set_location', source: MANUAL.source, ref: r.ref, input: input });
+    btn.disabled = false;
+    if (d.error) { msg.textContent = d.error; msg.style.color = 'var(--danger, #c0392b)'; return; }
+    msg.style.color = '';
+    msg.innerHTML = 'Saved ✓ (' + esc(d.how) + ') — <a href="' + mapLink(d.lat, d.lon) + '" target="_blank" rel="noopener">View on map</a>';
+    btn.textContent = 'Update';
   });
 
   /* ----------------------------------------------------- duplicates */
