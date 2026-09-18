@@ -179,9 +179,9 @@
 
       <p class="step-label">Match missing locations</p>
       <div class="actions">
-        <button class="ghost" id="matchLocBtn">Match with MuslimsInBritain</button>
+        <button class="ghost" id="matchLocBtn">Find matching mosques</button>
       </div>
-      <p class="hint">For mosques on this tab that can't go live because they have no map location. Suggests the same mosque from MuslimsInBritain (by postcode, phone and name). Check it on the map, then <b>Approve</b> to copy that location across, or <b>None of these</b> so it isn't suggested again. Approved mosques go live with <b>Put live + send times</b> and link to the existing listing instead of duplicating it.</p>
+      <p class="hint">For mosques on this tab that can't go live because they have no map location. Suggests the same mosque from what's already <b>live on the site</b>, or from MuslimsInBritain (by postcode, phone and name). Check it on the map, then <b>Approve</b> or <b>None of these</b> (never suggested again). Approving a <b>live</b> match links them straight away, so its prayer times start showing on that listing within minutes. Approving a MuslimsInBritain match copies the location; then press <b>Put live + send times</b>.</p>
       <div class="status" id="matchLocStatus"></div>
       <table id="matchLocTable" class="hidden"><tbody></tbody></table>
 
@@ -928,11 +928,11 @@
   function renderMatches(){
     var t = $('matchLocTable'), tbody = t.querySelector('tbody');
     if (!MATCH_LIST.length) { t.classList.add('hidden'); tbody.innerHTML = ''; return; }
-    tbody.innerHTML = '<tr><th>Needs a location</th><th>Possible match (MuslimsInBritain)</th><th></th></tr>' +
+    tbody.innerHTML = '<tr><th>Needs a location</th><th>Possible match</th><th></th></tr>' +
       MATCH_LIST.map(function(r, i){
         var cands = r.candidates.map(function(c, j){
-          return '<div style="margin-bottom:8px"><b>' + esc(c.name) + '</b> <span class="hint">score ' + c.score + ' — ' + esc(c.why.join(', ')) + '</span><br>' +
-            '<span class="hint">' + matchInfo(c) + (c.liveSlug ? ' · live as <code>' + esc(c.liveSlug) + '</code>' : '') + '</span><br>' +
+          return '<div style="margin-bottom:8px"><b>' + esc(c.name) + '</b> ' + (c.source === 'live' ? '<code>LIVE</code>' : '<code>MuslimsInBritain</code>') + ' <span class="hint">score ' + c.score + ' — ' + esc(c.why.join(', ')) + '</span><br>' +
+            '<span class="hint">' + matchInfo(c) + (c.source !== 'live' && c.liveSlug ? ' · live as <code>' + esc(c.liveSlug) + '</code>' : '') + '</span><br>' +
             '<a href="' + mapLink(c.lat, c.lon) + '" target="_blank" rel="noopener">View on map</a> ' +
             '<button class="ghost matchApprove" data-i="' + i + '" data-j="' + j + '">Approve</button></div>';
         }).join('');
@@ -964,7 +964,7 @@
     if (ok) {
       var c = r.candidates[+ok.dataset.j];
       d = await postJson('/api/admin/match-locations', { action: 'approve', source: SOURCE, ref: r.ref, cand_source: c.source, cand_ref: c.ref });
-      if (!d.error) say($('matchLocStatus'), 'Approved: ' + r.name + ' now has a location.');
+      if (!d.error) say($('matchLocStatus'), d.linkedTo ? 'Linked: ' + r.name + ' → ' + d.linkedTo + '. Its times show on that listing within minutes.' : 'Approved: ' + r.name + ' now has a location — press Put live + send times.');
     } else {
       d = await postJson('/api/admin/match-locations', { action: 'reject', source: SOURCE, ref: r.ref,
         cand_refs: r.candidates.map(function(c){ return c.source + ':' + c.ref; }) });
