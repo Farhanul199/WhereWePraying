@@ -129,7 +129,7 @@ function rowToCandidate(row) {
   };
   clearPlaceholders(jamaah);
   return {
-    slug: row.slug, name: row.name, address: row.address || null,
+    slug: row.slug, name: row.name, address: row.address || null, postcode: row.postcode || null,
     latitude: row.latitude, longitude: row.longitude, jamaah,
     tomorrowFajr: row.tomorrow_fajr || null,
   };
@@ -165,8 +165,9 @@ function hasAnyTime(c) {
 
 function buildPlanEntry(candidate, dist, next, travel) {
   return {
-    slug: candidate.slug, name: candidate.name, address: candidate.address,
+    slug: candidate.slug, name: candidate.name, address: candidate.address, postcode: candidate.postcode,
     latitude: candidate.latitude, longitude: candidate.longitude,
+    today: candidate.jamaah, tomorrowFajr: candidate.tomorrowFajr,
     distanceMiles: Math.round(dist * 10) / 10,
     travelMode: travel.mode, travelMinutes: travel.minutes,
     prayer: next.prayer, time: next.time, jamaahInMinutes: next.minutesUntil,
@@ -360,7 +361,13 @@ async function buildPlanResponse(lat, lon, context, debug) {
   }
 
   const body = { date: dateIso, generatedAtMinutes: nowMinutes, primary, backups, nearby, expanded, note, source };
-  if (debug) body.debug = debugReasons(nearby, primary, backups, feasible);
+  if (debug) {
+    body.debug = debugReasons(nearby, primary, backups, feasible);
+    try {
+      await addSourceDiagnostics(context.env.DB, body.debug, lat, lon);
+      body.unlinkedMawaqitNearby = body.debug.unlinkedMawaqitNearby;
+    } catch (e) { body.debugError = String(e); }
+  }
 
   return new Response(
     JSON.stringify(body),
@@ -383,8 +390,9 @@ function buildNearby(candidates, lat, lon, nowMinutes) {
     const travel = travelEstimate(dist);
     const next = reachablePrayerFor(c, nowMinutes, travel.minutes);
     all.push({
-      slug: c.slug, name: c.name, address: c.address,
+      slug: c.slug, name: c.name, address: c.address, postcode: c.postcode,
       latitude: c.latitude, longitude: c.longitude,
+      today: c.jamaah, tomorrowFajr: c.tomorrowFajr,
       distanceMiles: Math.round(dist * 10) / 10, _dist: dist,
       travelMode: travel.mode, travelMinutes: travel.minutes,
       prayer: next ? next.prayer : null, time: next ? next.time : null,
@@ -399,6 +407,42 @@ function buildNearby(candidates, lat, lon, nowMinutes) {
   let list = closest.filter((m) => m._dist <= NEARBY_MILES).slice(0, NEARBY_LIMIT);
   if (list.length < NEARBY_MIN) list = closest.slice(0, NEARBY_MIN);
   return list.map(({ _dist, ...m }) => m);
+}
+
+// Debug only: for every nearby mosque with no times, show which data
+// sources are linked to it and what state each one is in, plus any
+// Mawaqit mosque close by that was never linked to a live listing.
+async function addSourceDiagnostics(db, list, lat, lon) {
+  const missing = list.filter((d) => !d.next).map((d) => d.slug);
+  if (missing.length) {
+    const ph = missing.map((_, i) => "?" + (i + 1)).join(",");
+    const { results } = await db.prepare(
+      `SELECT ms.mosque_slug AS slug, ms.source, ms.source_ref,
+              sd.times_status, sd.iqama_enabled, sd.quality, sd.iqama_quality, sd.has_times, sd.compiled_through
+         FROM mosque_sources ms
+         LEFT JOIN source_discoveries sd ON sd.source = ms.source AND sd.source_ref = ms.source_ref
+        WHERE ms.mosque_slug IN (${ph})`
+    ).bind(...missing).all();
+    const bySlug = new Map();
+    for (const r of results || []) {
+      if (!bySlug.has(r.slug)) bySlug.set(r.slug, []);
+      bySlug.get(r.slug).push({
+        source: r.source, ref: r.source_ref, times_status: r.times_status,
+        iqama_enabled: r.iqama_enabled, quality: r.quality, iqama_quality: r.iqama_quality,
+        has_times: r.has_times, compiled_through: r.compiled_through,
+      });
+    }
+    for (const d of list) if (!d.next) d.sources = bySlug.get(d.slug) || [];
+  }
+  const dLat = 1.5 / 69, dLon = 1.5 / (69 * Math.cos((lat * Math.PI) / 180));
+  const { results: loose } = await db.prepare(
+    `SELECT source_ref, name, lat, lon, times_status, promoted_slug, duplicate_of
+       FROM source_discoveries
+      WHERE source = 'mawaqit' AND lat BETWEEN ?1 AND ?2 AND lon BETWEEN ?3 AND ?4
+        AND promoted_slug IS NULL AND duplicate_of IS NULL
+      LIMIT 20`
+  ).bind(lat - dLat, lat + dLat, lon - dLon, lon + dLon).all();
+  list.unlinkedMawaqitNearby = loose || [];
 }
 
 function debugReasons(nearby, primary, backups, feasible) {
