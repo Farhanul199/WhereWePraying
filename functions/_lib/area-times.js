@@ -34,7 +34,7 @@ const KV_TTL = 21600;                 // 6 hours, shared worldwide
 // Bump AREA_CACHE_VERSION to throw away every cached area at once (e.g.
 // after a fix that changes what an area holds). merge-duplicates.js also
 // clears today's KV areas after a merge, using AREA_KV_PREFIX.
-export const AREA_CACHE_VERSION = 3;
+export const AREA_CACHE_VERSION = 4;
 export const AREA_KV_PREFIX = `mq_area_v${AREA_CACHE_VERSION}:`;
 const MAX_COMPILE_PER_AREA = 120;     // year->month pages built per area build
 const SNAPSHOT_MAX_AGE_DAYS = 45;     // "current schedule" sources go stale
@@ -193,12 +193,31 @@ export async function ensureTimesSchema(db) {
 const TIMETABLE_COLS = `sd.source, sd.source_ref, sd.calendar_json, sd.iqama_json, sd.iqama_enabled,
   sd.jumua, sd.jumua2, sd.jumua_as_duhr, sd.quality, sd.iqama_quality, sd.times_updated_at`;
 
+// A mosque can be linked to more than one timetable source (e.g. the same
+// mosque on Mawaqit AND Takbeer Time). Each source writes the same month
+// row, so the rule for who wins matters - before this, whichever source
+// happened to be written LAST won, even when it had no times at all, so a
+// perfectly good Mawaqit timetable could be wiped by an empty one.
+//
+// Now: a source only replaces what's there if
+//   - it's the same source updating its own page, or
+//   - the page is currently empty, or
+//   - it has real times AND it's at least as trusted as the current one.
+// An empty result from a DIFFERENT source never wipes real times.
+const SOURCE_RANK_SQL = (col) =>
+  `CASE ${col} WHEN 'mawaqit' THEN 1 WHEN 'masjidal' THEN 2 WHEN 'takbeertime' THEN 3 ELSE 9 END`;
+export const SOURCE_RANK = { mawaqit: 1, masjidal: 2, takbeertime: 3 };
+
 function writePage(db, slug, key, page, source, now) {
   return db.prepare(
     `INSERT INTO mosque_month_times (mosque, month, times, jummah, source, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6)
      ON CONFLICT(mosque, month) DO UPDATE SET times=excluded.times, jummah=excluded.jummah,
-       source=excluded.source, updated_at=excluded.updated_at`
+       source=excluded.source, updated_at=excluded.updated_at
+     WHERE mosque_month_times.source IS excluded.source
+        OR mosque_month_times.times IS NULL
+        OR (excluded.times IS NOT NULL
+            AND ${SOURCE_RANK_SQL('excluded.source')} <= ${SOURCE_RANK_SQL('mosque_month_times.source')})`
   ).bind(slug, key, page ? page.times : null, page ? page.jummah : null, source, now);
 }
 
@@ -316,11 +335,17 @@ async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso
   const now = new Date().toISOString();
   const byslug = new Map(rows.map((r) => [r.slug, r]));
   const stmts = [];
-  for (const src of results || []) {
+  // Most trusted source first; a later (less trusted) source only fills a
+  // month the better one left empty.
+  const ordered = (results || []).slice().sort((x, y) => (SOURCE_RANK[x.source] || 9) - (SOURCE_RANK[y.source] || 9));
+  for (const src of ordered) {
     const a = buildMonthPage(src, thisKey);
     const b = buildMonthPage(src, nextKey);
     const row = byslug.get(src.slug);
-    if (row) { row.month_times = a ? a.times : null; row.next_month_times = b ? b.times : null; }
+    if (row) {
+      if (a && !row.month_times) row.month_times = a.times;
+      if (b && !row.next_month_times) row.next_month_times = b.times;
+    }
     stmts.push(writePage(db, src.slug, thisKey, a, src.source, now));
     stmts.push(writePage(db, src.slug, nextKey, b, src.source, now));
   }
