@@ -57,6 +57,8 @@
 // admin/sensitive/upload limiters below — all low-volume enough to stay
 // well under the 1,000-writes/day KV cap.
 
+import { isAdminRequest, isSyncRequest } from '../_lib/auth.js';
+
 const DEVICE_ID_RE = /^[a-zA-Z0-9-]{8,64}$/;
 const BAD_UA_RE = /curl|wget|python-requests|python-urllib|scrapy|go-http-client|okhttp|libwww-perl|java\/|axios\/|node-fetch|postmanruntime|httpclient|apache-httpclient/i;
 const ALLOWED_ORIGINS = new Set([
@@ -133,6 +135,12 @@ export async function onRequest(context) {
   // since they were never device-scoped to begin with.
   const hasAdminSecretHeader = !!(request.headers.get('X-Broadcast-Key') || request.headers.get('X-Sync-Key'));
   if (url.pathname.startsWith('/api/admin/') || hasAdminSecretHeader) {
+    // A request carrying the CORRECT secret isn't brute-forcing it, so it
+    // skips the limit (the admin pages fire several calls per click, and
+    // 10/min was blocking normal use). Only missing/wrong secrets are
+    // counted - which is exactly what the limit exists to stop - and
+    // valid admin traffic no longer spends a KV write per request.
+    if (isAdminRequest(context) || isSyncRequest(context)) return next();
     const bucket = Math.floor(Date.now() / (ADMIN_RATE_LIMIT_WINDOW * 1000));
     const ok = await checkRateLimit(env, `rl:admin:${ip}:${bucket}`, ADMIN_RATE_LIMIT_MAX, ADMIN_RATE_LIMIT_WINDOW);
     if (!ok) {
