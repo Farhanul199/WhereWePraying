@@ -9,39 +9,24 @@
 //
 // COST-SAVING DESIGN — read this before changing the radius/limit:
 //
-// 1. GRID-BUCKETED CACHE, NOT PER-EXACT-COORDINATE: the visitor's
-//    lat/lon is rounded to a ~0.1 degree grid cell (~6-7 miles) to
-//    build the cache key. Two people half a mile apart share the same
-//    cached candidate list instead of each triggering their own D1
-//    query. Both Cloudflare's free edge cache AND the shared RATE_LIMIT
-//    KV store (reused, no new namespace needed) are keyed this way.
-// 2. THE CACHED CANDIDATE LIST IS WIDER THAN THE ANSWER: each cache
-//    entry holds every mosque within ~22 miles of the GRID CELL'S
-//    CENTER (enough to safely cover the real 15-mile answer for anyone
-//    standing anywhere inside that cell). The exact per-visitor
-//    filtering (their real lat/lon, real distance, top 8, min 3) then
-//    happens AFTER the cache read, in the Worker's memory — zero extra
-//    D1 or KV cost per visitor, only on the first visitor per grid
-//    cell per 10 minutes.
-// 3. BOUNDING BOX BEFORE HAVERSINE: the D1 query itself filters by a
-//    plain lat/lon range (cheap, uses the columns directly) rather
-//    than reading the whole table — only rows in the rough box are
-//    read from D1 at all.
-// 4. RARE FALLBACK: if fewer than 3 mosques exist even within that
-//    ~22-mile candidate set (very sparse areas — e.g. rural
-//    Highlands), ONE extra uncached nationwide query runs to
-//    guarantee the 3-mosque minimum. This is intentionally NOT
-//    cached/bucketed — it should be rare by definition (most of the
-//    UK has 3+ mosques within 25 miles), so it's not worth the extra
-//    complexity of caching a second tier.
+// The heavy lifting lives in _lib/area-times.js: the visitor's position
+// is rounded to a ~7-mile area, and that area's mosques + today's
+// jama'ah times are cached at the edge and in KV. The first visitor in
+// an area builds it; everyone after that costs nothing. Times are read
+// out of each mosque's own stored timetable, never copied into daily
+// rows first. Exact distance filtering for THIS visitor then happens in
+// memory here, which is free.
+//
+// Sparse areas: if fewer than 3 mosques are within range, we look at
+// the four neighbouring areas (each itself cached) rather than reading
+// every mosque in the table — at worldwide scale that's not an option.
+
+import { loadArea } from "../../_lib/area-times.js";
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const RESULT_LIMIT = 8;
 const MIN_RESULTS = 3;
 const SEARCH_RADIUS_MILES = 15;
-const CANDIDATE_BOX_MILES = 22; // must cover SEARCH_RADIUS_MILES + grid-cell-center drift
-const GRID_SIZE_DEG = 0.1; // ~6-7 miles — cache bucket granularity
-const CACHE_TTL_SECONDS = 600; // 10 min, matches list.js/jummah.js
 
 function londonNowParts() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -86,16 +71,6 @@ function clearPlaceholders(jamaah) {
   }
 }
 
-function milesToLatDegrees(miles) {
-  return miles / 69; // ~69 miles per degree of latitude, everywhere
-}
-function milesToLonDegrees(miles, atLat) {
-  const rad = (atLat * Math.PI) / 180;
-  const milesPerDegree = 69 * Math.cos(rad);
-  return milesPerDegree > 0.1 ? miles / milesPerDegree : miles / 0.1; // guard near the poles (never hit in the UK, just a safety floor)
-}
-
-// Haversine great-circle distance in miles.
 function distanceMiles(lat1, lon1, lat2, lon2) {
   const R = 3958.8; // Earth radius, miles
   const toRad = (d) => (d * Math.PI) / 180;
@@ -135,28 +110,9 @@ function buildRow(row, dateIso, isToday, nowMinutes) {
   };
 }
 
-const BOX_QUERY = `
-  SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
-         ph.r2_key AS photo_key
-  FROM mosques m
-  LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
-  LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
-  WHERE m.active = 1 AND m.type = 'mosque'
-    AND m.latitude BETWEEN ? AND ?
-    AND m.longitude BETWEEN ? AND ?
-`;
 
-const NATIONWIDE_FALLBACK_QUERY = `
-  SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region,
-         t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
-         ph.r2_key AS photo_key
-  FROM mosques m
-  LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
-  LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
-  WHERE m.active = 1 AND m.type = 'mosque'
-    AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL
-`;
+
+
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -182,56 +138,18 @@ export async function onRequestGet(context) {
   const dateIso = requestedDate || todayIso;
   const isToday = dateIso === todayIso;
 
-  // Grid-bucket the cache key (see file header) — NOT the raw lat/lon.
-  const gridLat = Math.round(lat / GRID_SIZE_DEG) * GRID_SIZE_DEG;
-  const gridLon = Math.round(lon / GRID_SIZE_DEG) * GRID_SIZE_DEG;
-  const gridKey = `${gridLat.toFixed(2)},${gridLon.toFixed(2)}`;
-
-  const cache = caches.default;
-  const cacheKeyRequest = new Request(
-    `https://cache-key.internal/mosques/nearby-candidates?grid=${gridKey}&date=${dateIso}`
-  );
-  const kvKey = `mq_nearby_v1:${gridKey}:${dateIso}`;
-
-  let candidates = null;
-
-  // 1. Free edge cache (this Cloudflare location only).
-  const edgeHit = await cache.match(cacheKeyRequest);
-  if (edgeHit) {
-    candidates = await edgeHit.json();
-  }
-
-  // 2. Shared KV cache (every Cloudflare location, worldwide).
-  if (!candidates && env.RATE_LIMIT) {
-    const kvHit = await env.RATE_LIMIT.get(kvKey);
-    if (kvHit) candidates = JSON.parse(kvHit);
-  }
-
-  // 3. Cache miss on both — hit D1, but only the rough box, not the
-  // whole table.
-  if (!candidates) {
-    try {
-      const latDelta = milesToLatDegrees(CANDIDATE_BOX_MILES);
-      const lonDelta = milesToLonDegrees(CANDIDATE_BOX_MILES, gridLat);
-      const { results } = await env.DB.prepare(BOX_QUERY)
-        .bind(dateIso, gridLat - latDelta, gridLat + latDelta, gridLon - lonDelta, gridLon + lonDelta)
-        .all();
-      candidates = (results || []).map((row) => buildRow(row, dateIso, isToday, nowMinutes));
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ error: "Failed to load nearby mosques", detail: String(e) }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const body = JSON.stringify(candidates);
-    const cacheResponse = new Response(body, {
-      headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` },
-    });
-    context.waitUntil(cache.put(cacheKeyRequest, cacheResponse.clone()));
-    if (env.RATE_LIMIT) {
-      context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: CACHE_TTL_SECONDS }));
-    }
+  // Mosques + today's jama'ah times for this area, read straight from
+  // each mosque's own stored timetable (see _lib/area-times.js). Cached
+  // per area per day, so only the first visitor costs anything.
+  let candidates;
+  try {
+    const area = await loadArea(context, lat, lon, dateIso);
+    candidates = area.rows.map((row) => buildRow(row, dateIso, isToday, nowMinutes));
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: "Failed to load nearby mosques", detail: String(e) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // 4. Filter/sort against the VISITOR'S real coordinates (not the grid
@@ -252,20 +170,30 @@ export async function onRequestGet(context) {
     expanded = true;
   }
 
-  // 6. Still short (sparse area, even the ~22-mile box didn't have 3
-  // mosques) — one uncached nationwide query. Rare by definition.
+  // 6. Still short: widen the search by looking at the neighbouring
+  // areas rather than the whole table - at worldwide scale "everything"
+  // is far too big to read, and a mosque 200 miles away is no use anyway.
   if (nearby.length < MIN_RESULTS) {
-    try {
-      const { results } = await env.DB.prepare(NATIONWIDE_FALLBACK_QUERY).bind(dateIso).all();
-      const all = (results || [])
-        .map((row) => buildRow(row, dateIso, isToday, nowMinutes))
-        .filter((m) => m.latitude != null && m.longitude != null)
-        .map((m) => ({ ...m, distanceMiles: distanceMiles(lat, lon, m.latitude, m.longitude) }));
-      all.sort((a, b) => a.distanceMiles - b.distanceMiles);
+    const step = 0.35; // ~24 miles
+    const seen = new Set(withDistance.map((m) => m.slug));
+    const extra = [];
+    for (const [dLat, dLon] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+      try {
+        const area = await loadArea(context, lat + dLat, lon + dLon, dateIso);
+        for (const row of area.rows) {
+          if (seen.has(row.slug)) continue;
+          seen.add(row.slug);
+          const m = buildRow(row, dateIso, isToday, nowMinutes);
+          if (m.latitude == null || m.longitude == null) continue;
+          extra.push({ ...m, distanceMiles: distanceMiles(lat, lon, m.latitude, m.longitude) });
+        }
+      } catch (e) { /* one neighbour failing shouldn't fail the answer */ }
+      if (extra.length + withDistance.length >= MIN_RESULTS) break;
+    }
+    if (extra.length) {
+      const all = withDistance.concat(extra).sort((a, b) => a.distanceMiles - b.distanceMiles);
       nearby = all.slice(0, RESULT_LIMIT);
       expanded = true;
-    } catch (e) {
-      // Keep whatever we already had rather than failing the whole request.
     }
   }
 

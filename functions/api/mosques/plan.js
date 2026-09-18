@@ -5,22 +5,23 @@
 // Jama'ah) plus up to TWO backup mosques with later Jama'ah times, in
 // case they miss the primary. Not a browsable list — three cards, done.
 //
-// COST DESIGN — R2 + edge cache, zero D1 / zero KV on the visitor path:
+// COST DESIGN — read, don't copy (see _lib/area-times.js):
 //
-//   1. A cron Worker calls build-r2-cache.js twice daily. That job
-//      reads ALL mosques + times from D1 once, writes one JSON file
-//      to R2 keyed by date: `mosques/2026-09-12.json`.
-//   2. This endpoint reads that file from R2 on first request of the
-//      day (or on edge-cache miss), then caches it at the Cloudflare
-//      edge for hours. Subsequent visitors get the edge-cached copy —
-//      no R2 hit, no D1 hit, no KV hit.
-//   3. Bounding-box filtering and "next prayer" feasibility are
-//      computed in-memory per request from the cached data — free JS,
-//      no quota cost.
+//   1. Each mosque keeps its OWN timetable (a full year from Mawaqit, a
+//      rolling week from other sources). Nothing is expanded into daily
+//      rows in advance.
+//   2. The visitor's position is rounded to a ~7-mile area. The first
+//      visitor in that area on a given day causes one small database
+//      read — the mosques in that area, plus the current month's page of
+//      each one's timetable — which is then cached at the Cloudflare
+//      edge and in KV.
+//   3. Everyone else in that area that day is served from cache: no
+//      database, no storage read. Distance and "can I make it" maths
+//      happen in memory, which is free.
 //
-//   Result: D1 is only touched by the cron (twice/day), never by
-//   visitors. KV is not used at all. R2 is hit at most once per edge
-//   PoP per cache window. This scales to millions of visitors.
+//   Result: work happens once per populated area per day. Coverage can
+//   grow to every country without changing any of these numbers, because
+//   a visitor only ever loads their own area.
 //
 // Travel time is ESTIMATED, not routed (no Google Maps/routing API —
 // costs money and this is a free-tier project). Straight-line distance
@@ -35,9 +36,10 @@
 // when the response is sent. onRequestGet is kept only for backward
 // compatibility (e.g. direct testing) and shares the exact same logic.
 
+import { loadArea } from "../../_lib/area-times.js";
+
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const CANDIDATE_BOX_MILES = 22;
-const R2_EDGE_CACHE_SECONDS = 900; // 15 min — short enough that a manual cache rebuild (e.g. after promoting new mosques) shows up quickly; R2 free tier is 10M reads/month so the extra reads are immaterial
 
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
 const WALK_SPEED_MPH = 3;
@@ -203,41 +205,6 @@ function pickPrimaryAndBackups(feasible) {
   return { primary, backups };
 }
 
-// ---------- R2 data loader with edge cache ----------
-
-async function loadMosquesFromR2(env, dateIso, ctx) {
-  const r2Key = `mosques/${dateIso}.json`;
-
-  // 1. Check Cloudflare edge cache first (free, uncounted)
-  const cache = caches.default;
-  const cacheUrl = new Request(`https://cache-key.internal/r2-mosques/${dateIso}`);
-  const edgeHit = await cache.match(cacheUrl);
-  if (edgeHit) {
-    const data = await edgeHit.json();
-    return data.mosques || [];
-  }
-
-  // 2. Edge miss — read from R2
-  if (!env.CACHE_BUCKET) return null;
-
-  const r2Object = await env.CACHE_BUCKET.get(r2Key);
-  if (!r2Object) return null;
-
-  const body = await r2Object.text();
-
-  // 3. Put into edge cache for next visitors
-  const cacheResponse = new Response(body, {
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": `public, max-age=${R2_EDGE_CACHE_SECONDS}`,
-    },
-  });
-  ctx.waitUntil(cache.put(cacheUrl, cacheResponse));
-
-  const data = JSON.parse(body);
-  return data.mosques || [];
-}
-
 // ---------- Shared core (used by both POST and GET) ----------
 
 function validateCoords(lat, lon) {
@@ -246,41 +213,23 @@ function validateCoords(lat, lon) {
   return validLat && validLon;
 }
 
-async function buildPlanResponse(lat, lon, env, ctx) {
+async function buildPlanResponse(lat, lon, context) {
   const { dateIso, minutes: nowMinutes } = londonNowParts();
 
-  // --- Load all mosques from R2 (edge-cached), fall back to D1 ---
-  let allMosques = await loadMosquesFromR2(env, dateIso, ctx);
-  let source = "r2";
-
-  // Fallback: if R2 file doesn't exist yet (first deploy, cron hasn't
-  // run, or R2 not bound), query D1 directly so the site doesn't break.
-  if (!allMosques) {
-    source = "d1_fallback";
-    try {
-      const tomorrowIso = new Date(Date.UTC(
-        ...dateIso.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))
-      ));
-      tomorrowIso.setUTCDate(tomorrowIso.getUTCDate() + 1);
-      const tmrStr = tomorrowIso.toISOString().slice(0, 10);
-
-      const { results } = await env.DB.prepare(`
-        SELECT m.slug, m.name, m.address, m.latitude, m.longitude,
-               t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
-               tmr.fajr_jamaah AS tomorrow_fajr
-        FROM mosques m
-        LEFT JOIN thm_jamaah_times t ON t.mosque = m.slug AND t.date = ?
-        LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?
-        WHERE m.active = 1 AND m.type = 'mosque'
-          AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL
-      `).bind(dateIso, tmrStr).all();
-      allMosques = results || [];
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+  // --- Mosques near this visitor, with today's jama'ah times read
+  // straight from each mosque's own stored timetable (_lib/area-times.js).
+  // Cached per area per day at the edge, so only the first visitor in an
+  // area costs anything. No global file, no per-day copies. ---
+  let areaRows, source;
+  try {
+    const area = await loadArea(context, lat, lon, dateIso);
+    areaRows = area.rows;
+    source = area.from;
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // --- Filter to bounding box (in-memory, free) ---
@@ -290,7 +239,7 @@ async function buildPlanResponse(lat, lon, env, ctx) {
   const minLon = lon - lonDelta, maxLon = lon + lonDelta;
 
   const candidates = [];
-  for (const row of allMosques) {
+  for (const row of areaRows) {
     if (row.latitude >= minLat && row.latitude <= maxLat &&
         row.longitude >= minLon && row.longitude <= maxLon) {
       candidates.push(rowToCandidate(row));
@@ -300,15 +249,33 @@ async function buildPlanResponse(lat, lon, env, ctx) {
   // --- Compute feasibility ---
   let feasible = computeFeasible(candidates, lat, lon, nowMinutes);
 
-  // If local box didn't produce 3 results, try ALL mosques (already
-  // loaded in memory — no extra D1/R2 hit needed).
+  // If the tight box didn't produce 3 results, widen to everything in
+  // this area, then to the neighbouring areas (each one cached in its
+  // own right). Never "all mosques" — at worldwide scale that's far too
+  // much to read for one visitor.
   let expanded = false;
   if (feasible.length < 3) {
-    const allCandidates = allMosques.map(rowToCandidate);
-    const nationwide = computeFeasible(allCandidates, lat, lon, nowMinutes);
-    if (nationwide.length > feasible.length) {
-      feasible = nationwide;
-      expanded = true;
+    const wider = computeFeasible(areaRows.map(rowToCandidate), lat, lon, nowMinutes);
+    if (wider.length > feasible.length) { feasible = wider; expanded = true; }
+  }
+  if (feasible.length < 3) {
+    const step = 0.35; // ~24 miles
+    const seen = new Set(areaRows.map((r) => r.slug));
+    const extra = [];
+    for (const [dLat, dLon] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+      try {
+        const area = await loadArea(context, lat + dLat, lon + dLon, dateIso);
+        for (const row of area.rows) {
+          if (seen.has(row.slug)) continue;
+          seen.add(row.slug);
+          extra.push(rowToCandidate(row));
+        }
+      } catch (e) { /* a neighbour failing shouldn't fail the answer */ }
+      if (extra.length) break;
+    }
+    if (extra.length) {
+      const widest = computeFeasible(areaRows.map(rowToCandidate).concat(extra), lat, lon, nowMinutes);
+      if (widest.length > feasible.length) { feasible = widest; expanded = true; }
     }
   }
 
@@ -343,7 +310,7 @@ export async function onRequestPost(context) {
   const lat = parseFloat(body && body.lat);
   const lon = parseFloat(body && body.lon);
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, env, context);
+  return buildPlanResponse(lat, lon, context);
 }
 
 // Kept for backward compatibility (direct URL testing, older cached
@@ -355,5 +322,5 @@ export async function onRequestGet(context) {
   const lat = parseFloat(url.searchParams.get("lat"));
   const lon = parseFloat(url.searchParams.get("lon"));
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(lat, lon, env, context);
+  return buildPlanResponse(lat, lon, context);
 }
