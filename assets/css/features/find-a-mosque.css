@@ -317,3 +317,7 @@
 .mq-settings-empty{font-size:12.5px;color:var(--text-dim);padding:4px 0;}
 .mq-settings .mq-reset-all-btn{margin:12px 0 0;}
 .mq-plan-row-main{flex:1;min-width:0;}
+.mq-search-retry{margin-left:6px;background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;font:inherit;font-size:12px;font-weight:600;color:var(--coral-dark);cursor:pointer;}
+
+.mq-search-place{display:block;margin:8px auto 0;}
+.mq-search-place-error{color:#B5451F;font-size:12px;margin-top:6px;text-align:center;}
