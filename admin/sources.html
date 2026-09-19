@@ -778,8 +778,9 @@
       (d.geocode_failed ? stat(d.geocode_failed, 'Address not found') : '') +
       (d.unnamed ? stat(d.unnamed, 'No name (can\'t list)') : '') +
       (d.times_due ? stat(d.times_due, 'Times still to prepare') : '');
-    $('syncTimesBtn').style.display = d.times_due ? '' : 'none';
-    $('syncTimesBtn').disabled = promoteBusy;
+    $('syncTimesBtn').disabled = promoteBusy || !d.times_due;
+    const tt = promoteBusy ? 'Running…' : (!d.times_due ? 'Nothing to prepare' : '');
+    $('syncTimesBtn').title = tt;
     var blocked = !!d.blocked;
     $('promoteBtn').disabled = promoteBusy || blocked || !d.ready;
     $('doItAllBtn').disabled = promoteBusy || blocked || (!d.ready && !d.times_due);
