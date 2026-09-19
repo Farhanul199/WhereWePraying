@@ -221,6 +221,97 @@ function writePage(db, slug, key, page, source, now) {
   ).bind(slug, key, page ? page.times : null, page ? page.jummah : null, source, now);
 }
 
+/* --------------------------------------- daily-row sources (MasjidBox,
+   MyMasjid): one row per mosque per day in jamaah_raw, not a whole
+   calendar/year dump like buildMonthPage() above expects. Packed into
+   the exact same mosque_month_times format so readDay() and everything
+   downstream needs no changes - this is a second WRITER for that table,
+   reading a different shape of source data. */
+
+const DAILY_SOURCES = ['masjidbox_scrape', 'mymasjid_scrape'];
+
+function buildDailyMonthPage(dayRows, key) {
+  const days = daysInMonth(key);
+  const byDate = new Map(dayRows.map((r) => [r.date, r]));
+  let out = '';
+  let any = false;
+  for (let d = 1; d <= days; d++) {
+    const dateIso = `${key}-${String(d).padStart(2, '0')}`;
+    const r = byDate.get(dateIso);
+    for (const p of PRAYERS) {
+      const t = r ? hm(r[p + '_jamaah']) : null;
+      if (t) any = true;
+      out += pack(t);
+    }
+  }
+  return any ? { times: out, jummah: null } : null;
+}
+
+// Same shape as prepareMonths() below, for the daily sources: find every
+// (mosque, source) pair whose stored month page is missing or older than
+// its newest jamaah_raw row, rebuild this month + next month for it, and
+// write it the same way buildMonthPage()'s output does. Staleness is
+// tracked against mosque_month_times.updated_at directly (these sources
+// never write to source_discoveries, unlike the year/snapshot ones
+// above, so there's no compiled_through column to compare against here).
+export async function prepareDailySourceMonths(db, limit) {
+  await ensureTimesSchema(db);
+  const { dateIso } = londonNowParts();
+  const thisKey = monthKey(dateIso);
+  const nextKey = nextMonthKey(dateIso);
+  const n = Math.max(1, Math.min(limit || 120, 150));
+
+  const { results } = await db.prepare(
+    `SELECT ms.mosque_slug AS slug, ms.source, ms.source_ref, MAX(r.updated_at) AS latest
+       FROM jamaah_raw r
+       JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
+      WHERE r.source IN (${DAILY_SOURCES.map((s) => `'${s}'`).join(',')}) AND ms.mosque_slug IS NOT NULL
+      GROUP BY ms.mosque_slug, ms.source, ms.source_ref
+     HAVING latest > COALESCE(
+              (SELECT MIN(mt.updated_at) FROM mosque_month_times mt
+                WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?1, ?2)),
+              '')
+         OR (SELECT COUNT(*) FROM mosque_month_times mt WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?1, ?2)) < 2
+      LIMIT ${n}`
+  ).bind(thisKey, nextKey).all();
+
+  const rows = results || [];
+  const now = new Date().toISOString();
+  const stmts = [];
+  let withTimes = 0, without = 0;
+  for (const row of rows) {
+    const raw = await db.prepare(
+      `SELECT date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah
+         FROM jamaah_raw WHERE source = ?1 AND source_ref = ?2 AND date >= ?3 AND date < ?4`
+    ).bind(row.source, row.source_ref, `${thisKey}-01`, addDaysIso(`${nextKey}-01`, daysInMonth(nextKey))).all();
+    const byMonth = { [thisKey]: [], [nextKey]: [] };
+    for (const r of raw.results || []) { const k = monthKey(r.date); if (byMonth[k]) byMonth[k].push(r); }
+    const a = buildDailyMonthPage(byMonth[thisKey], thisKey);
+    const b = buildDailyMonthPage(byMonth[nextKey], nextKey);
+    stmts.push(writePage(db, row.slug, thisKey, a, row.source, now));
+    stmts.push(writePage(db, row.slug, nextKey, b, row.source, now));
+    if (a || b) withTimes++; else without++;
+  }
+  for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
+
+  const left = await db.prepare(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT ms.mosque_slug, MAX(r.updated_at) AS latest
+         FROM jamaah_raw r
+         JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
+        WHERE r.source IN (${DAILY_SOURCES.map((s) => `'${s}'`).join(',')}) AND ms.mosque_slug IS NOT NULL
+        GROUP BY ms.mosque_slug, ms.source, ms.source_ref
+       HAVING latest > COALESCE(
+                (SELECT MIN(mt.updated_at) FROM mosque_month_times mt
+                  WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?1, ?2)),
+                '')
+           OR (SELECT COUNT(*) FROM mosque_month_times mt WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?1, ?2)) < 2
+     )`
+  ).bind(thisKey, nextKey).first();
+
+  return { checked: rows.length, withTimes, without, stillToPrepare: (left && left.n) || 0 };
+}
+
 /* -------------------------------------------------- bulk preparation */
 
 // Admin "Prepare times": writes this month's and next month's pages for
