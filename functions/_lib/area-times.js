@@ -228,7 +228,7 @@ function writePage(db, slug, key, page, source, now) {
    downstream needs no changes - this is a second WRITER for that table,
    reading a different shape of source data. */
 
-const DAILY_SOURCES = ['masjidbox_scrape', 'mymasjid_scrape'];
+export const DAILY_SOURCES = ['masjidbox_scrape', 'mymasjid_scrape'];
 
 function buildDailyMonthPage(dayRows, key) {
   const days = daysInMonth(key);
