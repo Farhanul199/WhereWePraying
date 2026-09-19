@@ -53,7 +53,7 @@
 //   - Imamia Mission London (IG2 7LX) is always skipped.
 
 import { isAdminRequest } from '../../_lib/auth.js';
-import { prepareMonths, ensureTimesSchema, loadArea } from '../../_lib/area-times.js';
+import { prepareMonths, prepareDailySourceMonths, ensureTimesSchema, loadArea } from '../../_lib/area-times.js';
 
 const BLOCKED_SOURCES = {};
 const MAX_PROMOTE = 150;
@@ -619,8 +619,25 @@ export async function onRequestPost(context) {
   if (body.action === 'prepare_times') {
     try {
       await ensureSchema(db);
-      const r = await prepareMonths(db, parseInt(body.limit, 10) || 120);
-      return json({ ok: true, ...r });
+      const limit = parseInt(body.limit, 10) || 120;
+      // Two independent pipelines feed the same mosque_month_times table:
+      // year/snapshot sources (Mawaqit, Masjidal, Takbeer Time) via
+      // prepareMonths(), and daily-row sources (MasjidBox, MyMasjid) via
+      // prepareDailySourceMonths() - see area-times.js. One button press
+      // clears both, split roughly in half so neither starves the other
+      // when there's a big backlog in just one of them.
+      const [r1, r2] = await Promise.all([
+        prepareMonths(db, Math.ceil(limit / 2)),
+        prepareDailySourceMonths(db, Math.floor(limit / 2)),
+      ]);
+      const stillToPrepare = (r1.stillToPrepare || 0) + (r2.stillToPrepare || 0);
+      return json({
+        ok: true,
+        checked: r1.checked + r2.checked,
+        withTimes: r1.withTimes + r2.withTimes,
+        without: r1.without + r2.without,
+        stillToPrepare,
+      });
     } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
   }
   if (body.action === 'sideline' || body.action === 'restore') {
