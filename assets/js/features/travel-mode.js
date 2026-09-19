@@ -378,22 +378,49 @@ window.WWP_TravelHome = (function(){
   function qcAutoStart(){
     qcRefreshBearing();
     if(typeof window.DeviceOrientationEvent==='undefined') return;
-    if(typeof DeviceOrientationEvent.requestPermission==='function') return; // iOS: wait for the tap
+    if(typeof DeviceOrientationEvent.requestPermission==='function') return; // iOS: needs a tap (below)
     qcBeginListening();
   }
 
-  // iOS Safari only: the tap on the card itself doubles as the required
-  // user gesture, so the browser's one-time system prompt fires right
-  // here — no separate "Enable" step, no in-app modal.
-  async function qcHandleTap(){
-    if(typeof window.DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function' && !qcWatching){
-      try{
-        qcRefreshBearing();
-        const res=await DeviceOrientationEvent.requestPermission();
-        if(res==='granted') qcBeginListening();
-      }catch(err){/* ignore — user can tap again */}
-    }
+  // iOS Safari gates the motion sensor behind its own one-time system
+  // prompt, and that prompt can only be triggered from inside a real,
+  // synchronous tap — that's an OS rule, not something this app can turn
+  // off. But the tap doesn't have to land on the compass itself: the
+  // person's location is already in use the moment they open the app, so
+  // we ask for motion access on their FIRST tap anywhere, whatever they
+  // were already tapping (a nav icon, a button — anything). By the time
+  // they actually open Qiblah it's normally already live, with nothing
+  // for them to press. The compass card's own tap handler stays as a
+  // fallback for the rare case that first tap didn't count (e.g. it hit
+  // an element mid-navigation) or the person dismissed the system prompt
+  // and wants to retry.
+  let qcPermissionSettled=false; // true once we have a real answer: granted, or the person said no
+  async function qcRequestIOSPermission(){
+    if(qcPermissionSettled || qcWatching) return;
+    if(typeof window.DeviceOrientationEvent==='undefined' || typeof DeviceOrientationEvent.requestPermission!=='function') return;
+    try{
+      qcRefreshBearing();
+      const res=await DeviceOrientationEvent.requestPermission(); // must be the first await after the tap - it is
+      if(res==='granted'){ qcPermissionSettled=true; qcBeginListening(); }
+      else if(res==='denied'){
+        qcPermissionSettled=true;
+        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent='Compass access is off for this site — turn on Motion & Orientation Access in Settings ▸ Safari, then reopen the app.'; });
+      }
+      // any other result (e.g. the browser silently ignored an untrusted
+      // event): leave qcPermissionSettled false so the next real tap,
+      // including the card itself, gets another try.
+    }catch(err){ /* not treated as settled — the compass card can still be tapped directly */ }
   }
+  // Capture phase + {once:true}: fires on the very next real tap anywhere
+  // in the document, ahead of that element's own click handler, and only
+  // ever once — it unregisters itself whether or not it succeeded, so a
+  // denial or an unrelated click never asks twice.
+  document.addEventListener('click', qcRequestIOSPermission, {capture:true, once:true});
+
+  // The compass card itself: same call, so a person who lands directly on
+  // Qiblah before any other tap (or whose first tap didn't count) still
+  // gets the system prompt right here, no separate "Enable" step.
+  async function qcHandleTap(){ await qcRequestIOSPermission(); }
   document.querySelectorAll('.wwp-qibla-trigger').forEach(btn=>btn.addEventListener('click', qcHandleTap));
 
   qcAutoStart();
