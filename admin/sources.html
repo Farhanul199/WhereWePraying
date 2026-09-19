@@ -991,11 +991,15 @@
   var MANUAL = { list: [], offset: 0, q: '' };
 
   function manualRowHtml(r, i){
-    var info = matchInfo(r) + (r.site ? ' · <a href="' + esc(/^https?:/i.test(r.site) ? r.site : 'https://' + r.site) + '" target="_blank" rel="noopener">website</a>' : '');
-    var find = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, r.city || r.postcode || ''].join(' '));
-    return '<tr data-i="' + i + '"><td><b>' + esc(r.name) + '</b> <code>' + esc(r.ref) + '</code><br><span class="hint">' + info +
-      ' · <a href="' + find + '" target="_blank" rel="noopener">Search on Google Maps</a></span></td>' +
-      '<td><input type="text" class="manualLocInput" placeholder="Maps link, 51.58, 0.09, or postcode" style="width:100%">' +
+    var hasName = !!(r.name && r.name.trim());
+    var label = hasName ? esc(r.name) : '<i>No name on record</i>';
+    var info = matchInfo(r) + (r.site ? ' · <a href="' + esc(r.site) + '" target="_blank" rel="noopener">' + (hasName ? 'website' : 'page where this mosque was found — check it for the name') + '</a>' : '');
+    var find = hasName ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, r.city || r.postcode || ''].join(' ')) : null;
+    var nameField = hasName ? '' :
+      '<input type="text" class="manualNameInput" placeholder="Mosque name (required)" style="width:100%;margin-bottom:6px">';
+    return '<tr data-i="' + i + '"><td><b>' + label + '</b> <code>' + esc(r.ref) + '</code><br><span class="hint">' + info +
+      (find ? ' · <a href="' + find + '" target="_blank" rel="noopener">Search on Google Maps</a>' : '') + '</span></td>' +
+      '<td>' + nameField + '<input type="text" class="manualLocInput" placeholder="Maps link, 51.58, 0.09, or postcode" style="width:100%">' +
       '<div class="hint manualLocMsg"></div></td>' +
       '<td><button class="ghost manualLocSave">Save</button></td></tr>';
   }
@@ -1028,15 +1032,19 @@
     if (!btn) return;
     var tr = btn.closest('tr'), r = MANUAL.list[+tr.dataset.i];
     var input = tr.querySelector('.manualLocInput').value.trim(), msg = tr.querySelector('.manualLocMsg');
+    var nameInput = tr.querySelector('.manualNameInput');
+    var name = nameInput ? nameInput.value.trim() : '';
+    if (nameInput && !name) { msg.textContent = 'This mosque has no name on record — enter one first.'; return; }
     if (!input) { msg.textContent = 'Paste a link, coordinates or a postcode first.'; return; }
     btn.disabled = true;
     msg.textContent = 'Saving…';
-    var d = await postJson('/api/admin/match-locations', { action: 'set_location', source: MANUAL.source, ref: r.ref, input: input });
+    var d = await postJson('/api/admin/match-locations', { action: 'set_location', source: MANUAL.source, ref: r.ref, input: input, name: name || undefined });
     btn.disabled = false;
     if (d.error) { msg.textContent = d.error; msg.style.color = 'var(--danger, #c0392b)'; return; }
     msg.style.color = '';
     msg.innerHTML = 'Saved ✓ (' + esc(d.how) + ') — <a href="' + mapLink(d.lat, d.lon) + '" target="_blank" rel="noopener">View on map</a>';
     btn.textContent = 'Update';
+    r.name = d.name || r.name;
   });
 
   /* ----------------------------------------------------- duplicates */
