@@ -88,13 +88,20 @@ function phoneKey(p) {
   return d.length >= 9 ? d.slice(-9) : null; // drops +44 / leading 0 differences
 }
 
+function foundOnUrl(r) {
+  if (!r.raw_json) return null;
+  try { return JSON.parse(r.raw_json).foundOnUrl || null; } catch (e) { return null; }
+}
+
 function describe(r) {
+  const site = r.site || foundOnUrl(r);
   return {
-    name: r.name || '',
+    name: r.name || null,          // null => no name on record; show source_ref + site instead
     address: r.address || null,
     city: r.city || null,
     postcode: postcodeOf(r.zipcode, r.address),
     phone: r.phone || null,
+    site: site ? (/^https?:\/\//i.test(site) ? site : 'https://' + site) : null,
   };
 }
 
@@ -109,7 +116,7 @@ function scorePair(a, b) {
   const phA = phoneKey(a.phone), phB = phoneKey(b.phone);
   if (phA && phB && phA === phB) { score += 40; why.push('same phone'); anchor = true; }
 
-  const A = tokens(a.name), B = tokens(b.name);
+  const A = tokens(a.name || ''), B = tokens(b.name || '');
   if (A.length && B.length) {
     const aSet = new Set(A), bSet = new Set(B);
     const shared = A.filter((w) => bSet.has(w)).length;
@@ -171,9 +178,12 @@ async function ensureTable(db) {
   ).run();
 }
 
+// Name isn't required — Masjidal rows have none at all (only a mosque ID
+// and the page they were found on: raw_json.foundOnUrl). describe() below
+// falls back to that page, or the source_ref, so there's always something
+// to show and act on.
 const NEEDS_LOCATION = `source = ?1 AND (lat IS NULL OR lon IS NULL)
-  AND (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))
-  AND name IS NOT NULL AND TRIM(name) <> ''`;
+  AND (status IS NULL OR status NOT IN ('imported','duplicate','excluded'))`;
 
 async function suggest(context, url) {
   const db = context.env.DB;
@@ -327,17 +337,17 @@ async function missing(context, url) {
   if (!source) return json({ error: 'source is required' }, 400);
   let where = NEEDS_LOCATION;
   const binds = [source];
-  if (q) { where += ` AND (name LIKE ?2 OR city LIKE ?2 OR address LIKE ?2 OR zipcode LIKE ?2)`; binds.push('%' + q + '%'); }
+  if (q) { where += ` AND (name LIKE ?2 OR city LIKE ?2 OR address LIKE ?2 OR zipcode LIKE ?2 OR source_ref LIKE ?2 OR raw_json LIKE ?2)`; binds.push('%' + q + '%'); }
   const [rows, total] = await db.batch([
-    db.prepare(`SELECT source_ref, name, city, address, zipcode, phone, site FROM source_discoveries
-                 WHERE ${where} ORDER BY name LIMIT ${PAGE + 1} OFFSET ${offset}`).bind(...binds),
+    db.prepare(`SELECT source_ref, name, city, address, zipcode, phone, site, raw_json FROM source_discoveries
+                 WHERE ${where} ORDER BY name IS NULL, name, source_ref LIMIT ${PAGE + 1} OFFSET ${offset}`).bind(...binds),
     db.prepare(`SELECT COUNT(*) AS n FROM source_discoveries WHERE ${where}`).bind(...binds),
   ]);
   const list = (rows.results || []);
   return json({
     source, total: (total.results && total.results[0] && total.results[0].n) || 0,
     offset, more: list.length > PAGE,
-    list: list.slice(0, PAGE).map((r) => ({ ref: r.source_ref, ...describe(r), site: r.site || null })),
+    list: list.slice(0, PAGE).map((r) => ({ ref: r.source_ref, ...describe(r) })),
   });
 }
 
@@ -403,17 +413,19 @@ async function resolveInput(input) {
 async function setLocation(db, body) {
   const source = String(body.source || ''), ref = String(body.ref || '');
   if (!source || !ref) return json({ error: 'source and ref are required' }, 400);
+  const name = String(body.name || '').trim().slice(0, 200) || null;
   const r = await resolveInput(body.input);
   if (r.error) return json({ error: r.error }, 400);
   const now = new Date().toISOString();
   const res = await db.prepare(
     `UPDATE source_discoveries
         SET lat = ?1, lon = ?2, zipcode = COALESCE(?3, zipcode),
-            geocode_status = 'manual', geocoded_at = ?4
-      WHERE source = ?5 AND source_ref = ?6`
-  ).bind(r.lat, r.lon, r.postcode || null, now, source, ref).run();
+            name = COALESCE(NULLIF(TRIM(name), ''), ?4, name),
+            geocode_status = 'manual', geocoded_at = ?5
+      WHERE source = ?6 AND source_ref = ?7`
+  ).bind(r.lat, r.lon, r.postcode || null, name, now, source, ref).run();
   if (res && res.meta && res.meta.changes === 0) return json({ error: 'Mosque not found' }, 404);
-  return json({ success: true, ref, lat: r.lat, lon: r.lon, postcode: r.postcode || null, how: r.how });
+  return json({ success: true, ref, lat: r.lat, lon: r.lon, postcode: r.postcode || null, how: r.how, name });
 }
 
 /* ------------------------------------------------------------ handlers */
