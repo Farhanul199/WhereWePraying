@@ -322,6 +322,37 @@ async function overview(db) {
 
 /* ---------------------------------------------------------------- status */
 
+// MasjidBox/MyMasjid never write compiled_through/times_updated_at onto
+// source_discoveries (their sync only touches jamaah_raw + mosque_sources
+// - see area-times.js), so the times_due column below is always 0 for
+// them regardless of real pending work. For these two, times_due instead
+// mirrors prepareDailySourceMonths()'s own staleness check, so the
+// button lights up for exactly the sources it can actually do work for.
+//
+// The admin tab is named after the DISCOVERY source ("masjidbox"), but
+// the daily sync that actually writes jamaah_raw runs under its own,
+// different name ("masjidbox_scrape") - same split match-locations.js's
+// SYNC_SOURCE_ALIASES exists to bridge. This is that same mapping.
+const DAILY_SYNC_SOURCE = { masjidbox: 'masjidbox_scrape', mymasjid: 'mymasjid_scrape' };
+
+async function dailySourceTimesDue(db, syncSource) {
+  const row = await db.prepare(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT ms.mosque_slug, MAX(r.updated_at) AS latest
+         FROM jamaah_raw r
+         JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
+        WHERE r.source = ?1 AND ms.mosque_slug IS NOT NULL
+        GROUP BY ms.mosque_slug, ms.source, ms.source_ref
+       HAVING latest > COALESCE(
+                (SELECT MIN(mt.updated_at) FROM mosque_month_times mt
+                  WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?2, ?3)),
+                '')
+           OR (SELECT COUNT(*) FROM mosque_month_times mt WHERE mt.mosque = ms.mosque_slug AND mt.month IN (?2, ?3)) < 2
+     )`
+  ).bind(syncSource, londonTodayIso().slice(0, 7), (function(){ const [y,m]=londonTodayIso().slice(0,7).split('-').map(Number); return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`; })()).first();
+  return (row && row.n) || 0;
+}
+
 async function status(db, source) {
   await ensureTimesSchema(db);
   const row = await db.prepare(
@@ -345,6 +376,7 @@ async function status(db, source) {
        MAX(promote_batch) AS last_batch
      FROM source_discoveries WHERE source = ?1`
   ).bind(source, londonTodayIso().slice(0, 7)).first();
+  if (DAILY_SYNC_SOURCE[source]) row.times_due = await dailySourceTimesDue(db, DAILY_SYNC_SOURCE[source]);
   return { source, blocked: BLOCKED_SOURCES[source] || null, ...row };
 }
 
