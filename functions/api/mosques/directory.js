@@ -2,6 +2,8 @@
 //
 // GET /api/mosques/directory
 //   -> { date, mosques: [[slug, name, place, lat, lon], ...] }
+//        `place` is "postcode, city" (whichever exist) so search on the
+//        client matches either one.
 //
 // A compact list of every live mosque, used by the "Search mosques" box on
 // Find a Mosque. Search runs IN THE BROWSER against this list, so typing
@@ -43,7 +45,7 @@ export async function onRequestGet(context) {
         WHERE active = 1 AND type = 'mosque' AND latitude IS NOT NULL AND longitude IS NOT NULL`
     ).all();
     const list = (results || []).map((r) => [
-      r.slug, r.name, (r.postcode || r.city || '').trim(), round5(r.latitude), round5(r.longitude),
+      r.slug, r.name, [r.postcode, r.city].filter(Boolean).join(', ').trim(), round5(r.latitude), round5(r.longitude),
     ]);
     body = JSON.stringify({ date, mosques: list });
     if (env.RATE_LIMIT) context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: KV_SECONDS }));
