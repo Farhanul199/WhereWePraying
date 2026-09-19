@@ -673,18 +673,30 @@
   let directory = null, directoryLoading = null;
 
   function loadDirectory(){
+    // A once-off empty [] (not null) here would look "loaded and searched"
+    // forever after — a directory that never came back, not a directory
+    // with nothing in it — so a failed or empty fetch must NOT be cached:
+    // only a real list sets `directory`, and directoryLoading is always
+    // cleared so the next keystroke tries again.
     if (directory) return Promise.resolve(directory);
     if (directoryLoading) return directoryLoading;
     directoryLoading = fetch('/api/mosques/directory')
-      .then(r => r.ok ? r.json() : { mosques: [] })
+      .then(r => { if (!r.ok) throw new Error('directory http ' + r.status); return r.json(); })
       .then(d => {
-        directory = (d.mosques || []).map(m => ({
+        const list = d && Array.isArray(d.mosques) ? d.mosques : [];
+        if (!list.length) throw new Error('directory came back empty');
+        directory = list.map(m => ({
           slug: m[0], name: m[1], place: m[2], lat: m[3], lon: m[4],
           key: (m[1] + ' ' + m[2]).toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
         }));
+        directoryLoading = null;
         return directory;
       })
-      .catch(() => { directoryLoading = null; return []; });
+      .catch((e) => {
+        directoryLoading = null;
+        console.warn('[find-a-mosque] mosque directory failed to load:', e);
+        return [];
+      });
     return directoryLoading;
   }
 
@@ -708,8 +720,17 @@
     if (!box) return;
     if (!q) { box.innerHTML = ''; box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
-    if (!directory) { box.innerHTML = '<div class="mq-search-empty">Loading mosques…</div>'; return; }
-    if (!results.length) { box.innerHTML = '<div class="mq-search-empty">No mosques match that.</div>'; return; }
+    if (!directory) {
+      box.innerHTML = directoryLoading
+        ? '<div class="mq-search-empty">Loading mosques…</div>'
+        : '<div class="mq-search-empty">Couldn\'t load the mosque list. <button type="button" class="mq-search-retry">Try again</button></div>';
+      return;
+    }
+    if (!results.length) {
+      box.innerHTML = '<div class="mq-search-empty">No mosque named or listed in "' + escapeHtml(q) + '".<br>' +
+        '<button type="button" class="mq-search-retry mq-search-place" data-place="' + escapeHtml(q) + '">Show mosques near "' + escapeHtml(q) + '" instead</button></div>';
+      return;
+    }
     box.innerHTML = results.map(m => `
       <div class="mq-search-hit" data-hit="${escapeHtml(m.slug)}" role="button" tabindex="0">
         <div class="mq-search-hit-main">
@@ -761,7 +782,28 @@
         if (input.value.trim() === q) renderResults(searchDirectory(q), q);
       }, 150);
     });
-    wrap.querySelector('#mqSearchResults').addEventListener('click', (ev) => {
+    wrap.querySelector('#mqSearchResults').addEventListener('click', async (ev) => {
+      const placeBtn = ev.target.closest('.mq-search-place');
+      if (placeBtn) {
+        placeBtn.disabled = true;
+        placeBtn.textContent = 'Searching…';
+        try {
+          const loc = await geocodeManual(placeBtn.dataset.place);
+          applyLocation(loc, true);
+          input.value = '';
+          renderResults([], '');
+        } catch (err) {
+          placeBtn.disabled = false;
+          placeBtn.textContent = 'Show mosques near "' + placeBtn.dataset.place + '" instead';
+          const box = document.getElementById('mqSearchResults');
+          const msg = document.createElement('div');
+          msg.className = 'mq-search-place-error';
+          msg.textContent = err.message || "Couldn't find that place.";
+          box.appendChild(msg);
+        }
+        return;
+      }
+      if (ev.target.closest('.mq-search-retry')) { loadDirectory().then(() => renderResults(searchDirectory(input.value.trim()), input.value.trim())); return; }
       const star = ev.target.closest('.mq-star');
       if (star) {
         ev.stopPropagation();
