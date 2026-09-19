@@ -4,7 +4,8 @@
 // CLOSEST mosques first - that's the number one rule - each with today's
 // Jama'ah times and its next Jama'ah.
 //
-//   POST { lat, lon, count?: 1-10 (default 3), pins?: [{ slug, lat, lon }] }
+//   POST { lat, lon, count?: 1-10 (default 3), pins?: [{ slug, lat, lon }], exclude?: [slug] }
+//   (exclude = mosques the person hid; the list is refilled to `count`)
 //     -> { mosques: [...closest `count`], pinned: [...pins], ... }
 //
 // Every mosque has a `state`:
@@ -164,7 +165,8 @@ function toEntry(c, lat, lon, nowMinutes) {
 }
 const strip = ({ _dist, ...e }) => e;
 
-async function buildPlanResponse(context, { lat, lon, count, pins, debug }) {
+async function buildPlanResponse(context, { lat, lon, count, pins, exclude, debug }) {
+  exclude = exclude || new Set();
   const { dateIso, minutes: nowMinutes } = londonNowParts();
 
   let area;
@@ -176,7 +178,7 @@ async function buildPlanResponse(context, { lat, lon, count, pins, debug }) {
   }
 
   // --- Closest first. Always. ---
-  const withCoords = area.rows.filter((r) => r.latitude != null && r.longitude != null);
+  const withCoords = area.rows.filter((r) => r.latitude != null && r.longitude != null && !exclude.has(r.slug));
   let all = withCoords.map((r) => toEntry(rowToCandidate(r), lat, lon, nowMinutes));
   all.sort((a, b) => a._dist - b._dist);
 
@@ -188,7 +190,7 @@ async function buildPlanResponse(context, { lat, lon, count, pins, debug }) {
       try {
         const more = await loadArea(context, lat + dLat, lon + dLon, dateIso);
         for (const r of more.rows) {
-          if (seen.has(r.slug) || r.latitude == null) continue;
+          if (seen.has(r.slug) || r.latitude == null || exclude.has(r.slug)) continue;
           seen.add(r.slug);
           all.push(toEntry(rowToCandidate(r), lat, lon, nowMinutes));
         }
@@ -237,6 +239,10 @@ async function buildPlanResponse(context, { lat, lon, count, pins, debug }) {
 function readCount(v) {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? Math.max(1, Math.min(MAX_COUNT, n)) : DEFAULT_COUNT;
+}
+function readExclude(v) {
+  if (!Array.isArray(v)) return new Set();
+  return new Set(v.slice(0, 100).map((x) => String(x || "").slice(0, 120)).filter(Boolean));
 }
 function readPins(v) {
   if (!Array.isArray(v)) return [];
@@ -344,7 +350,7 @@ export async function onRequestPost(context) {
   const lat = parseFloat(body && body.lat);
   const lon = parseFloat(body && body.lon);
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(context, { lat, lon, count: readCount(body.count), pins: readPins(body.pins), debug: false });
+  return buildPlanResponse(context, { lat, lon, count: readCount(body.count), pins: readPins(body.pins), exclude: readExclude(body.exclude), debug: false });
 }
 
 // Direct testing: GET ?lat=..&lon=..&count=5&debug=1
