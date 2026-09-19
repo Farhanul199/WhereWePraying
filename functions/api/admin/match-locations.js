@@ -83,6 +83,29 @@ function postcodeOf(...texts) {
   return null;
 }
 function outcode(pc) { return pc ? pc.split(' ')[0] : null; }
+
+// See merge-duplicates.js for the fuller write-up - same idea here: "NPM"
+// or "RMCC" share no WORDS with "Newbury Park Masjid" / "Redbridge Muslim
+// Community Centre", so the word-overlap check above always misses them.
+// Only tried on a short, letters-only, no-space string, and only ever
+// adds to a score that still needs another anchor (postcode/phone/name)
+// to actually surface as a suggestion.
+function looksLikeAcronym(s) { return /^[a-z]{2,6}$/i.test(String(s || '').trim()); }
+function initials(words) { return words.map((w) => w[0]).join(''); }
+function isSubsequence(short, letters) {
+  let i = 0;
+  for (const ch of letters) { if (i < short.length && ch === short[i]) i++; }
+  return i === short.length;
+}
+function acronymMatch(short, fullName) {
+  if (!looksLikeAcronym(short)) return false;
+  const shortLetters = short.toLowerCase().replace(/[^a-z]/g, '');
+  const withStop = fold(fullName).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const withoutStop = tokens(fullName);
+  if (!withStop.length) return false;
+  return shortLetters === initials(withStop) || (withoutStop.length && shortLetters === initials(withoutStop))
+    || isSubsequence(shortLetters, initials(withStop));
+}
 function phoneKey(p) {
   const d = String(p || '').replace(/\D/g, '');
   return d.length >= 9 ? d.slice(-9) : null; // drops +44 / leading 0 differences
@@ -120,12 +143,20 @@ function scorePair(a, b) {
   if (A.length && B.length) {
     const aSet = new Set(A), bSet = new Set(B);
     const shared = A.filter((w) => bSet.has(w)).length;
-    if (A.every((w) => bSet.has(w)) || B.every((w) => aSet.has(w))) {
+    // A name that reduces to a single leftover word ("Poplar Central
+    // Mosque" -> "poplar") is too generic to count as "fully contained
+    // in" a different name that happens to share that one word - only
+    // trust it when BOTH sides reduce to that exact same single word.
+    const singleWordRisk = (A.length === 1 || B.length === 1) && !(A.length === 1 && B.length === 1 && A[0] === B[0]);
+    if (!singleWordRisk && (A.every((w) => bSet.has(w)) || B.every((w) => aSet.has(w)))) {
       score += 40; why.push('names match'); anchor = true;
     } else if (shared) {
       const j = shared / new Set([...A, ...B]).size;
       score += Math.round(j * 25); why.push(`names share "${A.filter((w) => bSet.has(w)).join(' ')}"`);
     }
+  }
+  if (!anchor && (acronymMatch(a.name, b.name) || acronymMatch(b.name, a.name))) {
+    score += 40; why.push('one name looks like an abbreviation of the other'); anchor = true;
   }
   const town = String(a.city || '').trim().toLowerCase();
   if (town.length > 2 && String(b.address || '').toLowerCase().includes(town)) { score += 10; why.push('same town'); }

@@ -64,11 +64,54 @@ function tokens(name) {
 }
 function normName(name) { return fold(name).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
+// An abbreviation like "NBM" for "Newbury Park Masjid" shares no WORDS
+// with the full name, so the token check above always misses it - it
+// needs its own check: do the short name's letters line up with the
+// first letters of the full name's words, in order? Tried both with and
+// without "masjid/mosque" itself counted (committees are inconsistent
+// about including it - "NBM" vs "NPM" for the same mosque), and as a
+// looser in-order subsequence for less tidy abbreviations ("NPMasjid").
+// Only ever applied to a clearly abbreviation-shaped word (short, all
+// letters, no spaces) - and only as one signal among several, still
+// gated by the same distance check every other name match goes through.
+function looksLikeAcronym(s) {
+  return /^[a-z]{2,6}$/i.test(String(s || '').trim());
+}
+function initials(words) { return words.map((w) => w[0]).join(''); }
+function isSubsequence(short, letters) {
+  let i = 0;
+  for (const ch of letters) { if (i < short.length && ch === short[i]) i++; }
+  return i === short.length;
+}
+function acronymMatch(short, fullName) {
+  if (!looksLikeAcronym(short)) return false;
+  const shortLetters = short.toLowerCase().replace(/[^a-z]/g, '');
+  const withStop = fold(fullName).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const withoutStop = tokens(fullName);
+  if (!withStop.length) return false;
+  return shortLetters === initials(withStop) || (withoutStop.length && shortLetters === initials(withoutStop))
+    || isSubsequence(shortLetters, initials(withStop));
+}
+
 function namesMatch(a, b) {
   const A = tokens(a), B = tokens(b);
-  if (!A.length || !B.length) return !!normName(a) && normName(a) === normName(b);
-  const aSet = new Set(A), bSet = new Set(B);
-  return A.every((w) => bSet.has(w)) || B.every((w) => aSet.has(w));
+  if (A.length && B.length) {
+    // A name that reduces to a SINGLE leftover word after stripping
+    // "mosque"/"masjid"/etc ("Poplar Central Mosque" -> "poplar") is too
+    // generic to trust as "every one of my words is in yours" - that
+    // would match it against any other "Poplar ..." mosque. Only trust
+    // a single-word reduction when both sides reduce to that exact same
+    // word; a real multi-word overlap still needs every word contained.
+    if (A.length === 1 || B.length === 1) {
+      if (A.length === 1 && B.length === 1 && A[0] === B[0]) return true;
+    } else {
+      const aSet = new Set(A), bSet = new Set(B);
+      if (A.every((w) => bSet.has(w)) || B.every((w) => aSet.has(w))) return true;
+    }
+  } else if (normName(a) && normName(a) === normName(b)) {
+    return true;
+  }
+  return acronymMatch(a, b) || acronymMatch(b, a);
 }
 
 function meters(lat1, lon1, lat2, lon2) {
