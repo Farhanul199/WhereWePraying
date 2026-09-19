@@ -13,7 +13,9 @@
       highlighted), the address, and "Getting there" (Google Maps) /
       Waze.
    4. ☆ favourites (up to 10, stored on this device) show in their own
-      section wherever they are. Search looks up any mosque by name,
+      section wherever they are. "Hide this mosque" (in a mosque's card)
+      removes it from the list; the settings panel at the bottom brings
+      it back, and holds "how many nearest" and the reset button. Search looks up any mosque by name,
       town or postcode - in the browser, against a daily directory.
 
    ---- LOCATION :: four independent sources, best-wins ----
@@ -345,7 +347,7 @@
     const res = await fetch('/api/mosques/plan', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-      body: JSON.stringify({ lat, lon, count: getCount(), pins })
+      body: JSON.stringify({ lat, lon, count: getCount(), pins, exclude: getHidden().map(h => h.slug) })
     });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
@@ -418,6 +420,8 @@
   // ============================================================
   const COUNT_KEY = 'wwp_mq_count';
   const FAVS_KEY = 'wwp_mq_favs_v1';
+  const HIDDEN_KEY = 'wwp_mq_hidden_v1';
+  const MAX_HIDDEN = 100;
   const MAX_FAVS = 10;
   const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const PRAYER_KEYS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
@@ -436,6 +440,21 @@
     return Array.isArray(f) ? f.filter(x => x && x.slug) : [];
   }
   function isFav(slug){ return getFavs().some(f => f.slug === slug); }
+  function getHidden(){
+    const h = window.LocalCache ? window.LocalCache.get(HIDDEN_KEY, []) : [];
+    return Array.isArray(h) ? h.filter(x => x && x.slug) : [];
+  }
+  function hideMosque(e){
+    const list = getHidden().filter(h => h.slug !== e.slug);
+    list.push({ slug: e.slug, name: e.name });
+    if (window.LocalCache) {
+      window.LocalCache.set(HIDDEN_KEY, list.slice(-MAX_HIDDEN));
+      window.LocalCache.set(FAVS_KEY, getFavs().filter(f => f.slug !== e.slug)); // hidden = not a favourite
+    }
+  }
+  function unhideMosque(slug){
+    if (window.LocalCache) window.LocalCache.set(HIDDEN_KEY, getHidden().filter(h => h.slug !== slug));
+  }
   function toggleFav(m){
     let favs = getFavs();
     if (favs.some(f => f.slug === m.slug)) favs = favs.filter(f => f.slug !== m.slug);
@@ -585,7 +604,10 @@
       ${grid}
       ${where ? `<div class="mq-detail-address">📍 ${escapeHtml(where)}</div>` : ''}
       ${actions}
-      <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(e.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>`;
+      <div class="mq-detail-links">
+        <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(e.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>
+        <button type="button" class="mq-hide-btn" data-hide-slug="${escapeHtml(e.slug)}">Hide this mosque</button>
+      </div>`;
   }
 
   function toggleDetail(row, forceOpen){
@@ -613,6 +635,23 @@
       ev.stopPropagation();
       const e = entriesBySlug.get(star.dataset.star);
       if (e && toggleFav(e)) { if (lastPlan) renderPlan(lastPlan); if (mqLocation) loadPlanForLocation(mqLocation); }
+      return;
+    }
+    const hideBtn = ev.target.closest('.mq-hide-btn');
+    if (hideBtn) {
+      const e = entriesBySlug.get(hideBtn.dataset.hideSlug);
+      if (e && confirm('Hide ' + e.name + '? You can bring it back in Find a Mosque settings at the bottom of the page.')) {
+        hideMosque(e);
+        renderSettings();
+        if (lastPlan) {
+          lastPlan = Object.assign({}, lastPlan, {
+            mosques: lastPlan.mosques.filter(m => m.slug !== e.slug),
+            pinned: (lastPlan.pinned || []).filter(m => m.slug !== e.slug)
+          });
+          renderPlan(lastPlan);
+        }
+        if (mqLocation) loadPlanForLocation(mqLocation);
+      }
       return;
     }
     if (ev.target.closest('.mq-usual-btn, .mq-detail')) return;
@@ -689,7 +728,8 @@
     const input = document.getElementById('mqSearchInput');
     if (input) input.value = '';
     renderResults([], '');
-    loadPlanForLocation(mqLocation || { lat: m.lat, lon: m.lon, source: 'manual', label: m.name });
+    if (!mqLocation) { mqLocation = { lat: m.lat, lon: m.lon, source: 'manual', label: m.name }; renderLocationLabel(); }
+    loadPlanForLocation(mqLocation);
   }
 
   function ensureControls(){
@@ -699,19 +739,14 @@
     const wrap = document.createElement('div');
     wrap.id = 'mqControls';
     wrap.className = 'mq-controls';
-    const count = getCount();
     wrap.innerHTML = `
       <div class="mq-search">
         <input type="search" id="mqSearchInput" class="mq-search-input" placeholder="Search mosques by name, town or postcode" autocomplete="off" aria-label="Search mosques">
         <div id="mqSearchResults" class="mq-search-results hidden"></div>
       </div>
-      <label class="mq-count">Show
-        <select id="mqCountSelect" aria-label="How many nearby mosques to show">
-          ${COUNT_OPTIONS.map(n => `<option value="${n}"${n === count ? ' selected' : ''}>${n}</option>`).join('')}
-        </select>
-        nearest
-      </label>`;
+`;
     list.parentNode.insertBefore(wrap, list);
+    renderSettings();
 
     const input = wrap.querySelector('#mqSearchInput');
     let t = null;
@@ -745,10 +780,56 @@
       const hit = ev.target.closest('.mq-search-hit');
       if (hit) pickSearchResult(hit.dataset.hit);
     });
-    wrap.querySelector('#mqCountSelect').addEventListener('change', (ev) => {
-      setCount(parseInt(ev.target.value, 10));
-      if (mqLocation) loadPlanForLocation(mqLocation);
-    });
+  }
+
+  // ---- Settings panel (bottom of the page) ----
+  // How many nearest mosques to show, the mosques you've hidden, and the
+  // reset button - folded away until opened. Built from JS around the
+  // existing #mqResetAllBtn, so index.html doesn't need to change.
+  function renderSettings(){
+    const reset = document.getElementById('mqResetAllBtn');
+    if (!reset) return;
+    let panel = document.getElementById('mqSettings');
+    if (!panel) {
+      panel = document.createElement('details');
+      panel.id = 'mqSettings';
+      panel.className = 'mq-settings';
+      panel.innerHTML = `
+        <summary>⚙️ Find a Mosque settings</summary>
+        <div class="mq-settings-body">
+          <label class="mq-settings-row">
+            <span>Nearest mosques to show</span>
+            <select id="mqCountSelect" aria-label="How many nearest mosques to show">
+              ${COUNT_OPTIONS.map(n => `<option value="${n}">${n}</option>`).join('')}
+            </select>
+          </label>
+          <div class="mq-settings-sub">Hidden mosques</div>
+          <div id="mqHiddenList"></div>
+          <div id="mqResetSlot"></div>
+        </div>`;
+      reset.parentNode.insertBefore(panel, reset);
+      panel.querySelector('#mqResetSlot').appendChild(reset);
+      panel.querySelector('#mqCountSelect').addEventListener('change', (ev) => {
+        setCount(parseInt(ev.target.value, 10));
+        if (mqLocation) loadPlanForLocation(mqLocation);
+      });
+      panel.querySelector('#mqHiddenList').addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-unhide]');
+        if (!b) return;
+        unhideMosque(b.dataset.unhide);
+        renderSettings();
+        if (mqLocation) loadPlanForLocation(mqLocation);
+      });
+    }
+    panel.querySelector('#mqCountSelect').value = String(getCount());
+    const hidden = getHidden();
+    panel.querySelector('#mqHiddenList').innerHTML = hidden.length
+      ? hidden.map(h => `
+          <div class="mq-hidden-row">
+            <span>${escapeHtml(h.name || h.slug)}</span>
+            <button type="button" class="mq-hidden-undo" data-unhide="${escapeHtml(h.slug)}">Show again</button>
+          </div>`).join('')
+      : `<div class="mq-settings-empty">None. Open a mosque and tap "Hide this mosque" to hide it.</div>`;
   }
 
   // Delegated click handler for the usual-mosque toggle buttons rendered
@@ -777,9 +858,10 @@
   // "Reset" for this page: usual mosque + this device's cached
   // plan/location, so the next load starts completely fresh.
   function resetFindAMosqueData(){
-    if (!confirm("Reset your usual mosque, favourites and cached location for Find a Mosque? This can't be undone.")) return;
+    if (!confirm("Reset your usual mosque, favourites, hidden mosques and cached location for Find a Mosque? This can't be undone.")) return;
     clearUsualMosque();
-    if (window.LocalCache) window.LocalCache.remove(FAVS_KEY);
+    if (window.LocalCache) { window.LocalCache.remove(FAVS_KEY); window.LocalCache.remove(HIDDEN_KEY); }
+    renderSettings();
     searchPin = null;
     if (window.LocalCache) window.LocalCache.remove(PLAN_CACHE_KEY);
     mqLocation = null;
@@ -791,12 +873,21 @@
   // Shared by every source — cached instant-paint, the three
   // automatic races, and manual/precise-button submissions all end
   // up here once they have coordinates.
+  // Several location sources report in at different speeds (IP/edge in
+  // under a second, GPS a few seconds later), and each one fetches its own
+  // list. Only the NEWEST request may paint: a slow answer for an older,
+  // less accurate location (e.g. an IP that places a VPN or mobile network
+  // in another country) must never overwrite the list for the real one.
+  let planSeq = 0;
   async function loadPlanForLocation(loc){
+    const seq = ++planSeq;
     try {
       const plan = await fetchPlan(loc.lat, loc.lon);
+      if (seq !== planSeq) return; // a newer request superseded this one
       renderPlan(plan);
       writeCachedPlan(loc, plan);
     } catch (e) {
+      if (seq !== planSeq) return;
       // A fetch failure for one source shouldn't nuke a result another
       // source already painted — only show the "no location" state if
       // nothing has ever rendered successfully this load.
@@ -829,6 +920,7 @@
   // waiting for the others — fastest reasonable result paints first,
   // then silently upgrades if something more precise lands after.
   async function kickOffLocationDetection(){
+    try { renderSettings(); } catch (e) { /* settings are optional */ }
     const cached = readCachedPlan();
     if (cached) {
       renderPlan(cached.plan);
