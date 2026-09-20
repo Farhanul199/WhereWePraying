@@ -251,6 +251,21 @@
       <p class="hint">One JSON object per line — name, street, postcode, city, phone, website, email. Address only, no coordinates and no prayer times — re-upload a newer export any time to refresh.</p>
     </div>
 
+    <div id="mlWrap" class="hidden">
+      <label for="mlInput">mosques.london file (mosques_london_all.json)</label>
+      <input type="file" id="mlInput" accept=".json,application/json">
+      <div class="actions">
+        <button id="mlImportBtn">1. Import JSON</button>
+      </div>
+      <p class="hint">Directory + one day of jama'ah times. Placeholder times ("00:00", or a jama'ah outside 0–150 min after it begins) are left blank. Its times only show for a mosque no other source covers, and only for 7 days from the file's date — re-upload a fresh file to keep them showing.</p>
+      <div class="actions">
+        <button class="ghost" id="mlEnrichBtn">3. Fill missing details on live mosques</button>
+      </div>
+      <p class="hint">Run after "Go live" below. For every mosques.london mosque that is live or linked to a live mosque (Tower Hamlets, MasjidBox, Mawaqit…), fills only <b>empty</b> address, postcode, website, coordinates and phone. Never overwrites, never touches locked fields. Where the two disagree it lists them below instead.</p>
+      <div class="status" id="mlStatus"></div>
+      <table id="mlTable" class="hidden"><tbody></tbody></table>
+    </div>
+
     <div id="manualAllWrap" class="hidden">
       <div class="actions" style="margin-top:10px;">
         <button class="ghost" id="findManualAllBtn">Find every supported country</button>
@@ -359,6 +374,14 @@
       coverageNote: 'Single submitted schedule (salah + separate iqamah times), not a full calendar. No name/address/coordinates come from Masjidal - discovered rows are location-blank until matched to a mosque record.',
       timesLimit: 10
     },
+    mosqueslondon: {
+      label: 'mosques.london',
+      endpoint: 'scrape-mosqueslondon',
+      discovery: 'importJson',       // JSON file upload, no API discovery
+      coverage: 'current',
+      coverageNote: 'London directory (name, address, coordinates, website, phone) plus ONE day of jama\'ah times. Lowest-ranked timetable: Tower Hamlets, Mawaqit, MasjidBox and MyMasjid always win for any mosque they cover.',
+      timesLimit: 0
+    },
     ditib: {
       label: 'DITIB (Germany)',
       endpoint: 'scrape-ditib',
@@ -450,6 +473,8 @@
     var byImport = c.discovery === 'import';
     var byUrlList = c.discovery === 'urlList';
     var byJsonl = c.discovery === 'importJsonl';
+    var byMl = c.discovery === 'importJson';
+    $('mlWrap').classList.toggle('hidden', !byMl);
     $('countryRow').style.display     = byCountry ? '' : 'none';
     $('continentWrap').style.display  = showContinents ? '' : 'none';
     if (showContinents) renderContinents(s.countries || []);
@@ -458,11 +483,11 @@
       $('manualAllHint').textContent = 'Runs "Find mosques" for all ' + (c.manualCodes || []).length +
         ' supported countries, one after another (about 7 seconds each). Keep the tab open.';
     }
-    $('discoverBtn').style.display    = (byImport || byUrlList || byJsonl) ? 'none' : '';
+    $('discoverBtn').style.display    = (byImport || byUrlList || byJsonl || byMl) ? 'none' : '';
     $('importWrap').classList.toggle('hidden', !byImport);
     $('urlListWrap').classList.toggle('hidden', !byUrlList);
     $('jsonlWrap').classList.toggle('hidden', !byJsonl);
-    if (!byImport && !byUrlList && !byJsonl) {
+    if (!byImport && !byUrlList && !byJsonl && !byMl) {
       $('discoverBtn').textContent      = (byCountry && showContinents) ? '1. Find mosques' : (byCountry ? '1. Find mosques for this country' : '1. Find mosques (' + (c.fixedNote || 'known list') + ')');
       $('discoverHint').textContent     = showContinents
         ? 'One quick request \u2014 gets names, addresses and coordinates for every mosque in that country. Do this once per country.'
@@ -474,14 +499,16 @@
       $('discoverHint').style.display = 'none';
     }
     $('coverageNote').textContent     = c.coverageNote || '';
-    $('workerHint').textContent = noTimes
+    $('workerHint').textContent = byMl
+      ? 'No background worker runs for this source \u2014 it only updates when you upload a fresh file.'
+      : noTimes
       ? 'No background worker runs for this source \u2014 it\u2019s a location-only, one-time import.'
       : 'Timetables fetch themselves in the background in small batches, so ' + c.label +
         ' never sees more than a trickle of requests \u2014 no button to hold down, and it keeps going with this page closed. Reopen any time to see progress.' +
         (rolling ? ' Because this source expires, the background job keeps cycling through it rather than stopping at 100%.' : '');
-    $('progressLine').style.display = noTimes ? 'none' : '';
-    $('bar').parentElement.style.display = noTimes ? 'none' : '';
-    $('recheckBtn').style.display = noTimes ? 'none' : '';
+    $('progressLine').style.display = (noTimes || byMl) ? 'none' : '';
+    $('bar').parentElement.style.display = (noTimes || byMl) ? 'none' : '';
+    $('recheckBtn').style.display = (noTimes || byMl) ? 'none' : '';
     showRunner();
     loadPromote();
     loadOverview();
@@ -709,6 +736,62 @@
     refresh();
   });
 
+
+  /* ------------------------------------------------- mosques.london */
+  $('mlImportBtn').addEventListener('click', async function(){
+    var file = $('mlInput').files[0];
+    if (!file) { say($('mlStatus'), 'Choose the JSON file first.', true); return; }
+    $('mlImportBtn').disabled = true;
+    say($('mlStatus'), 'Uploading and importing ' + file.name + '…');
+    var text = await file.text();
+    var res, data;
+    try {
+      res = await fetch('/api/admin/scrape-mosqueslondon?mode=import', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: text
+      });
+      data = await res.json();
+    } catch (e) {
+      $('mlImportBtn').disabled = false;
+      say($('mlStatus'), 'Network problem.', true); return;
+    }
+    $('mlImportBtn').disabled = false;
+    if (!res.ok || data.error) { say($('mlStatus'), data.error || 'Import failed.', true); return; }
+    say($('mlStatus'), 'Imported ' + fmt(data.imported || 0) + ' mosques · ' + fmt(data.withTimes || 0) + ' with jama\'ah times · ' +
+      fmt(data.placeholdersBlanked || 0) + ' placeholder times left blank' +
+      (data.skipped ? ' · ' + data.skipped + ' skipped' + ((data.outsideUk || []).length ? ' (bad location: ' + data.outsideUk.join(', ') + ')' : '') : '') +
+      '. Next: "Go live" below, then step 3.');
+    refresh();
+  });
+
+  $('mlEnrichBtn').addEventListener('click', async function(){
+    $('mlEnrichBtn').disabled = true;
+    say($('mlStatus'), 'Cross-checking live mosques…');
+    var res, data;
+    try {
+      res = await fetch('/api/admin/scrape-mosqueslondon?mode=enrich', { method: 'POST', headers: headers() });
+      data = await res.json();
+    } catch (e) {
+      $('mlEnrichBtn').disabled = false;
+      say($('mlStatus'), 'Network problem.', true); return;
+    }
+    $('mlEnrichBtn').disabled = false;
+    if (!res.ok || data.error) { say($('mlStatus'), data.error || 'Failed.', true); return; }
+    if (data.message) { say($('mlStatus'), data.message); return; }
+    var f = data.filled || {};
+    say($('mlStatus'), 'Checked ' + fmt(data.checked || 0) + ' live mosques · filled: ' + (f.address || 0) + ' addresses, ' +
+      (f.postcode || 0) + ' postcodes, ' + (f.website_url || 0) + ' websites, ' + (f.coordinates || 0) + ' coordinates, ' +
+      (f.phone || 0) + ' phones · ' + (data.conflictCount || 0) + ' disagreements to check.');
+    var t = $('mlTable');
+    var rows = data.conflicts || [];
+    t.classList.toggle('hidden', !rows.length);
+    t.querySelector('tbody').innerHTML = rows.length
+      ? '<tr><th>Mosque</th><th>Field</th><th>Live</th><th>mosques.london</th></tr>' + rows.map(function(r){
+          return '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.field) + '</td><td>' + esc(r.live) + '</td><td>' + esc(r.mosques_london) + '</td></tr>';
+        }).join('')
+      : '';
+  });
 
   /* ---------------------------------------------------------- go live */
   var promoteBusy = false;
