@@ -478,8 +478,10 @@
     if (!e.prayer) {
       return `<div class="mq-plan-chip is-empty"><div class="mq-plan-chip-note">Done for today</div></div>`;
     }
+    const isEstimated = e.prayer === 'maghrib' && !e.isTomorrow && e.today && e.today.maghribEstimated;
     const label = (PRAYER_LABELS[e.prayer] || e.prayer) + (e.isTomorrow ? ' · tomorrow' : '');
     const sub = e.isTomorrow ? 'Done for today'
+      : isEstimated ? 'Estimated for this area'
       : (e.canMakeIt === false ? 'May miss it' : formatMinutesUntil(e.jamaahInMinutes));
     return `
       <div class="mq-plan-chip${e.canMakeIt === false ? ' is-tight' : ''}">
@@ -583,6 +585,7 @@
           <div class="mq-detail-cell${k === nextKey ? ' is-next' : ''}${past ? ' is-past' : ''}">
             <div class="mq-detail-prayer">${PRAYER_LABELS[k]}</div>
             <div class="mq-detail-time">${today[k] ? escapeHtml(today[k]) : '—'}</div>
+            ${k === 'maghrib' && today.maghribEstimated ? `<div class="mq-detail-estimated">Estimated for this area</div>` : ''}
           </div>`;
         }).join('')}
       </div>
