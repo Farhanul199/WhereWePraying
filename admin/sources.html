@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>WhereWePraying — Sources</title>
 <style>
+  tr.dup-strong{background:#FFF6E8;}
   :root{
     --coral:#F4714E;
     --cream:#FBF3EC;
@@ -1080,10 +1081,12 @@
     if (!DUP_GROUPS.length) { $('dupTable').classList.add('hidden'); $('dupMergeBtn').classList.add('hidden'); return; }
     tbody.innerHTML = '<tr><th><input type="checkbox" id="dupAll" checked></th><th>Same mosque</th><th>Why</th></tr>' +
       DUP_GROUPS.map(function(g, i){
-        return '<tr><td><input type="checkbox" class="dupPick" data-i="' + i + '" checked></td><td>' +
+        var whyHtml = g.why.map(esc).join('<br>');
+        if (g.strong) whyHtml = '<b>' + whyHtml + '</b> <span class="hint">— same postcode is about as sure as this gets</span>';
+        return '<tr' + (g.strong ? ' class="dup-strong"' : '') + '><td><input type="checkbox" class="dupPick" data-i="' + i + '" checked></td><td>' +
           dupLine(g.keep, true) + g.merge.map(function(m){ return dupLine(m, false); }).join('') +
           (g.willFill.length ? '<div class="hint">Fills in: ' + esc(g.willFill.join(', ')) + '</div>' : '') +
-          '</td><td class="hint">' + g.why.map(esc).join('<br>') + '</td></tr>';
+          '</td><td class="hint">' + whyHtml + '</td></tr>';
       }).join('');
     $('dupTable').classList.remove('hidden');
     $('dupMergeBtn').classList.remove('hidden');
