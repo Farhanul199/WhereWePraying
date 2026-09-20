@@ -53,7 +53,7 @@
 //   - Imamia Mission London (IG2 7LX) is always skipped.
 
 import { isAdminRequest } from '../../_lib/auth.js';
-import { prepareMonths, prepareDailySourceMonths, ensureTimesSchema, loadArea } from '../../_lib/area-times.js';
+import { prepareMonths, prepareDailySourceMonths, ensureTimesSchema, loadArea, clearTodaysAreas } from '../../_lib/area-times.js';
 
 const BLOCKED_SOURCES = {};
 const MAX_PROMOTE = 150;
@@ -663,12 +663,19 @@ export async function onRequestPost(context) {
         prepareDailySourceMonths(db, Math.floor(limit / 2)),
       ]);
       const stillToPrepare = (r1.stillToPrepare || 0) + (r2.stillToPrepare || 0);
+      // Without this, freshly-written times sit correct in the database
+      // but invisible on the live site for up to 6 hours - whichever
+      // area cache a visitor already triggered keeps answering from
+      // before this run, same as merge-duplicates.js and
+      // match-locations.js already clear after their own writes.
+      const areasCleared = (r1.withTimes + r2.withTimes) > 0 ? await clearTodaysAreas(context.env) : 0;
       return json({
         ok: true,
         checked: r1.checked + r2.checked,
         withTimes: r1.withTimes + r2.withTimes,
         without: r1.without + r2.without,
         stillToPrepare,
+        areasCleared,
       });
     } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
   }
