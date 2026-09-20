@@ -310,6 +310,11 @@ async function approveLive(context, source, ref, slug) {
 
   const now = new Date().toISOString();
   await ensureTable(db);
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS mosque_aliases (
+       mosque_slug TEXT NOT NULL, alias TEXT NOT NULL, source TEXT,
+       created_at TEXT NOT NULL, PRIMARY KEY (mosque_slug, alias))`
+  ).run();
   const stmts = [
     db.prepare(
       `UPDATE source_discoveries
@@ -325,6 +330,14 @@ async function approveLive(context, source, ref, slug) {
        ON CONFLICT(source, source_ref, cand_source, cand_ref) DO UPDATE SET decision='approve', decided_at=excluded.decided_at`
     ).bind(source, ref, slug, now),
   ];
+  // This source's own name for the mosque is a real name it's known
+  // by - if it differs from the live listing's, keep it as a shown
+  // alias ("also known as ..."), the same way a merge does.
+  if (row.name && row.name.trim().toLowerCase() !== String(m.name || '').trim().toLowerCase()) {
+    stmts.push(db.prepare(
+      `INSERT OR IGNORE INTO mosque_aliases (mosque_slug, alias, source, created_at) VALUES (?1, ?2, ?3, ?4)`
+    ).bind(slug, row.name.trim(), source, now));
+  }
   // You approved this by hand, so the link is set even if the code was
   // previously linked somewhere else.
   for (const src of [source, ...(SYNC_SOURCE_ALIASES[source] || [])]) {
