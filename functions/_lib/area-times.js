@@ -27,6 +27,8 @@
 // first visitor in a cell builds it; everyone else that day is served
 // without touching the database.
 
+import { buildCalculatedMonthPage, isCalcMaghribEnabled } from './calculated-times.js';
+
 const GRID_SIZE_DEG = 0.1;            // ~7 miles - area bucket
 const CANDIDATE_BOX_MILES = 25;       // what one area file covers
 const EDGE_TTL = 3600;                // 1 hour at this Cloudflare location
@@ -275,8 +277,9 @@ const SOURCE_RANK_SQL = (col) =>
      WHEN 'takbeertime' THEN 4
      WHEN 'masjidal' THEN 5
      WHEN 'mosqueslondon' THEN 6
+     WHEN 'calculated' THEN 7
      ELSE 9 END`;
-export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5, mosqueslondon: 6 };
+export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5, mosqueslondon: 6, calculated: 7 };
 
 function writePage(db, slug, key, page, source, now) {
   return db.prepare(
@@ -444,10 +447,11 @@ export function milesToLon(miles, atLat) {
 }
 
 const AREA_QUERY = `
-  SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region,
+  SELECT m.slug, m.name, m.address, m.postcode, m.latitude, m.longitude, m.region, m.country,
          t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
          tmr.fajr_jamaah AS tomorrow_fajr,
          mt.times AS month_times, mt2.times AS next_month_times,
+         mt.source AS month_source, mt2.source AS next_month_source,
          ph.r2_key AS photo_key,
          (SELECT GROUP_CONCAT(alias, '||') FROM mosque_aliases WHERE mosque_slug = m.slug) AS aliases
     FROM mosques m
@@ -460,11 +464,16 @@ const AREA_QUERY = `
      AND m.latitude BETWEEN ?5 AND ?6 AND m.longitude BETWEEN ?7 AND ?8`;
 
 function applyPage(row, dateIso, tomorrowIso, thisKey) {
-  const page = dateIso.slice(0, 7) === thisKey ? row.month_times : row.next_month_times;
+  const isThisMonth = dateIso.slice(0, 7) === thisKey;
+  const page = isThisMonth ? row.month_times : row.next_month_times;
+  const pageSource = isThisMonth ? row.month_source : row.next_month_source;
   const today = readDay(page, dateIso);
   if (today && !row.fajr_jamaah && !row.zuhr_jamaah && !row.asr_jamaah && !row.maghrib_jamaah && !row.isha_jamaah) {
     row.fajr_jamaah = today.fajr; row.zuhr_jamaah = today.zuhr; row.asr_jamaah = today.asr;
     row.maghrib_jamaah = today.maghrib; row.isha_jamaah = today.isha;
+    // Calculated pages only ever hold Maghrib - flag it so the UI can
+    // mark it "Estimated for this area" rather than a real committee time.
+    if (pageSource === 'calculated' && today.maghrib) row.maghrib_estimated = true;
   }
   if (!row.tomorrow_fajr) {
     const tPage = tomorrowIso.slice(0, 7) === thisKey ? row.month_times : row.next_month_times;
@@ -472,6 +481,7 @@ function applyPage(row, dateIso, tomorrowIso, thisKey) {
     if (tmr) row.tomorrow_fajr = tmr.fajr;
   }
   delete row.month_times; delete row.next_month_times;
+  delete row.month_source; delete row.next_month_source;
   return row;
 }
 
@@ -511,6 +521,27 @@ async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso
     stmts.push(writePage(db, src.slug, thisKey, a, src.source, now));
     stmts.push(writePage(db, src.slug, nextKey, b, src.source, now));
   }
+
+  // Last resort, gated by an admin toggle: any mosque in this batch that
+  // STILL has no page at all (no real source covers it) gets Maghrib
+  // computed from its own coordinates - never a substitute for a real
+  // committee time, and never touches a mosque any real source already
+  // filled (see writePage's ON CONFLICT guard - a real source always wins).
+  if (await isCalcMaghribEnabled(db)) {
+    for (const slug of slugs) {
+      const row = byslug.get(slug);
+      if (!row || row.month_times || row.next_month_times) continue;
+      if (row.latitude == null || row.longitude == null) continue;
+      const a = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, thisKey);
+      const b = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, nextKey);
+      if (!a && !b) continue;
+      if (a) { row.month_times = a.times; row.month_source = 'calculated'; }
+      if (b) { row.next_month_times = b.times; row.next_month_source = 'calculated'; }
+      stmts.push(writePage(db, slug, thisKey, a, 'calculated', now));
+      stmts.push(writePage(db, slug, nextKey, b, 'calculated', now));
+    }
+  }
+
   if (stmts.length) {
     // Saving the pages is housekeeping - the visitor already has their
     // answer, so it happens after the response goes out.
