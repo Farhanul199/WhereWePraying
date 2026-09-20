@@ -15,6 +15,8 @@
 // this reads them once per day in total. The browser only downloads it
 // when someone actually opens search.
 
+import { ensureTimesSchema } from '../../_lib/area-times.js';
+
 const EDGE_SECONDS = 43200;   // 12 hours
 const KV_SECONDS = 86400;     // 1 day
 
@@ -39,14 +41,27 @@ export async function onRequestGet(context) {
   const kvKey = `mq_directory_v1:${date}`;
   let body = env.RATE_LIMIT ? await env.RATE_LIMIT.get(kvKey) : null;
   if (!body) {
-    const { results } = await env.DB.prepare(
-      `SELECT slug, name, postcode, city, latitude, longitude
-         FROM mosques
-        WHERE active = 1 AND type = 'mosque' AND latitude IS NOT NULL AND longitude IS NOT NULL`
-    ).all();
-    const list = (results || []).map((r) => [
-      r.slug, r.name, [r.postcode, r.city].filter(Boolean).join(', ').trim(), round5(r.latitude), round5(r.longitude),
-    ]);
+    const DIRECTORY_QUERY = `SELECT m.slug, m.name, m.postcode, m.city, m.latitude, m.longitude,
+              (SELECT GROUP_CONCAT(alias, '||') FROM mosque_aliases WHERE mosque_slug = m.slug) AS aliases
+         FROM mosques m
+        WHERE m.active = 1 AND m.type = 'mosque' AND m.latitude IS NOT NULL AND m.longitude IS NOT NULL`;
+    let results;
+    try {
+      ({ results } = await env.DB.prepare(DIRECTORY_QUERY).all());
+    } catch (e) {
+      // First run after deploy: mosque_aliases doesn't exist yet.
+      await ensureTimesSchema(env.DB);
+      ({ results } = await env.DB.prepare(DIRECTORY_QUERY).all());
+    }
+    // A 6th entry (only present when there's at least one) lists every
+    // other name this mosque is known by, so searching "NPM" finds the
+    // same card as searching "Newbury Park Masjid" - see
+    // mosque_aliases, filled in automatically by admin approvals.
+    const list = (results || []).map((r) => {
+      const row = [r.slug, r.name, [r.postcode, r.city].filter(Boolean).join(', ').trim(), round5(r.latitude), round5(r.longitude)];
+      if (r.aliases) row.push(r.aliases.split('||'));
+      return row;
+    });
     body = JSON.stringify({ date, mosques: list });
     if (env.RATE_LIMIT) context.waitUntil(env.RATE_LIMIT.put(kvKey, body, { expirationTtl: KV_SECONDS }));
   }
