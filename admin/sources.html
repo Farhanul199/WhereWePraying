@@ -212,6 +212,15 @@
     <h2>By country</h2>
     <table id="countryTable"><tbody></tbody></table>
 
+    <div class="row" id="calcMaghribRow" style="align-items:center;gap:10px;margin-top:14px;">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
+        <input type="checkbox" id="calcMaghribToggle">
+        Estimate Maghrib for mosques with zero live times (sunset calculation)
+      </label>
+    </div>
+    <p class="hint">Applies worldwide, wherever no real source has any jama'ah data \u2014 not just this source. Computed from each mosque's own coordinates; never a substitute for a real committee time. Cards show \u201cEstimated for this area\u201d next to it.</p>
+    <div class="status" id="calcMaghribStatus"></div>
+
     <h2>Collect data</h2>
     <div class="row" id="countryRow">
       <div>
@@ -414,6 +423,7 @@
     $('lockScreen').classList.add('hidden');
     $('mainScreen').classList.remove('hidden');
     refresh();
+    loadCalcMaghrib();
   });
   $('secretInput').addEventListener('keydown', function(e){
     if (e.key === 'Enter') $('unlockBtn').click();
@@ -811,6 +821,28 @@
     if (!res.ok) return { error: (data && (data.error || data.message)) || ('Failed (' + res.status + ')') };
     return data;
   }
+
+  /* --------------------------------------------- calculated Maghrib */
+  async function loadCalcMaghrib(){
+    var data = await api('/api/admin/calc-maghrib');
+    if (!data.error) $('calcMaghribToggle').checked = !!data.enabled;
+  }
+  $('calcMaghribToggle').addEventListener('change', async function(){
+    var on = this.checked;
+    this.disabled = true;
+    var res, data;
+    try {
+      res = await fetch('/api/admin/calc-maghrib', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify({ enabled: on })
+      });
+      data = await res.json();
+    } catch (e) { data = { error: 'Network problem.' }; }
+    this.disabled = false;
+    if (data.error) { say($('calcMaghribStatus'), data.error, true); this.checked = !on; return; }
+    say($('calcMaghribStatus'), on ? 'On \u2014 new areas will estimate Maghrib where nothing else has it.' : 'Off.');
+  });
 
   var OVERVIEW = null;
 
