@@ -36,8 +36,8 @@
 import { isAdminRequest } from '../../_lib/auth.js';
 import { AREA_KV_PREFIX, londonNowParts, ensureTimesSchema } from '../../_lib/area-times.js';
 
-const DUP_METERS = 75;
-const NEAR_NAME_METERS = 400;
+const DUP_METERS = 25;        // "blind" match: same spot, no name check needed
+const NEAR_NAME_METERS = 400; // needs a name/abbreviation match too, out to this range
 const MAX_GROUPS_PER_CALL = 50;
 const FILL_FIELDS = ['address', 'postcode', 'website_url', 'city', 'region', 'country'];
 
@@ -120,8 +120,24 @@ function meters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
+const normPostcode = (pc) => String(pc || '').toUpperCase().replace(/\s+/g, '');
+// The first run of digits in an address line - "117 Oaks Lane" -> "117".
+// Only meant to strengthen an already-matching postcode, never used alone.
+const buildingNumber = (addr) => { const m = /\b(\d+[a-z]?)\b/i.exec(String(addr || '')); return m ? m[1].toLowerCase() : null; };
+
 function matchReason(a, b) {
   const m = meters(a.latitude, a.longitude, b.latitude, b.longitude);
+  const pcA = normPostcode(a.postcode), pcB = normPostcode(b.postcode);
+  if (pcA && pcA === pcB) {
+    // A full UK postcode covers on the order of 15 addresses - two
+    // mosques sharing one exactly is effectively always the same
+    // building, regardless of how far apart their geocoded coordinates
+    // ended up (a common source of imprecision). Matching building
+    // numbers on top makes that certainty visible at a glance.
+    const bnA = buildingNumber(a.address), bnB = buildingNumber(b.address);
+    if (bnA && bnA === bnB) return { m, strong: true, reason: `same postcode & building number (${a.postcode})` };
+    return { m, strong: true, reason: `same postcode (${a.postcode})` };
+  }
   if (m <= DUP_METERS) return { m, reason: `same spot (${Math.round(m)}m apart)` };
   if (m <= NEAR_NAME_METERS && namesMatch(a.name, b.name)) return { m, reason: `same name, ${Math.round(m)}m apart` };
   return null;
@@ -151,21 +167,53 @@ function findGroups(rows) {
         if (j <= i) continue;
         const hit = matchReason(a, rows[j]);
         if (!hit) continue;
-        links.push({ i, j, reason: hit.reason });
+        links.push({ i, j, reason: hit.reason, strong: !!hit.strong });
         parent[find(j)] = find(i);
       }
     }
   });
 
+  // Same postcode is treated as certain regardless of distance (see
+  // matchReason), but the grid above only ever compares mosques that are
+  // ALREADY near each other - two records sharing a postcode because one
+  // was geocoded miles off (the exact case this rule exists for) would
+  // never even reach matchReason(). A second pass, grouped purely by
+  // postcode, catches those the distance-based grid structurally can't.
+  const byPostcode = new Map();
+  rows.forEach((r, i) => {
+    const pc = normPostcode(r.postcode);
+    if (!pc) return;
+    if (!byPostcode.has(pc)) byPostcode.set(pc, []);
+    byPostcode.get(pc).push(i);
+  });
+  for (const idxs of byPostcode.values()) {
+    for (let x = 0; x < idxs.length; x++) for (let y = x + 1; y < idxs.length; y++) {
+      const i = idxs[x], j = idxs[y];
+      const hit = matchReason(rows[i], rows[j]);
+      if (!hit) continue;
+      links.push({ i, j, reason: hit.reason, strong: !!hit.strong });
+      parent[find(j)] = find(i);
+    }
+  }
+
   const groups = new Map();
   for (const l of links) {
     const g = find(l.i);
-    if (!groups.has(g)) groups.set(g, { members: new Set(), reasons: [] });
+    if (!groups.has(g)) groups.set(g, { members: new Set(), reasons: new Set(), strong: false });
     const G = groups.get(g);
     G.members.add(l.i); G.members.add(l.j);
-    G.reasons.push(`${rows[l.i].slug} = ${rows[l.j].slug}: ${l.reason}`);
+    // The spatial pass and the postcode pass can both find the same
+    // pair - a Set drops the resulting duplicate line rather than
+    // showing the same reasoning twice.
+    G.reasons.add(`${rows[l.i].slug} = ${rows[l.j].slug}: ${l.reason}`);
+    if (l.strong) G.strong = true;
   }
-  return [...groups.values()].map((g) => ({ members: [...g.members].map((i) => rows[i]), reasons: g.reasons }));
+  // Same postcode (optionally + building number) is about as sure as this
+  // gets without opening a map - surface those first so a manual skim
+  // hits the confident ones before the ones that actually need a look.
+  return [...groups.values()]
+    .map((g) => ({ members: [...g.members].map((i) => rows[i]), reasons: [...g.reasons], strong: g.strong }))
+    .sort((a, b) => (b.strong - a.strong));
 }
 
 /* ---------------------------------------------------------------- keeper */
@@ -285,12 +333,35 @@ async function scan(context, url) {
       merge: others.map(summary),
       why: g.reasons,
       willFill: Object.keys(fills),
+      strong: g.strong,
     };
   });
   return json({ checked: rows.length, groups: groups.length, list: groups });
 }
 
 /* ----------------------------------------------------------------- merge */
+
+// Every alternate name a mosque has been known by, captured automatically
+// whenever an admin approves that two records are the same place (a
+// merge here, or a source-match approval in match-locations.js) - never
+// guessed, only ever names that actually appeared on a real record. Shown
+// on the mosque's own card as "Also known as ..." so a person searching
+// under any of MasjidBox's, MuslimsInBritain's, or the mosque's own name
+// still lands on the one card, and understands why it did.
+async function ensureAliasTable(db) {
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS mosque_aliases (
+       mosque_slug TEXT NOT NULL, alias TEXT NOT NULL, source TEXT,
+       created_at TEXT NOT NULL, PRIMARY KEY (mosque_slug, alias))`
+  ).run();
+}
+function addAliasStmt(db, mosqueSlug, alias, canonicalName, source, now) {
+  const a = String(alias || '').trim();
+  if (!a || a.toLowerCase() === String(canonicalName || '').trim().toLowerCase()) return null;
+  return db.prepare(
+    `INSERT OR IGNORE INTO mosque_aliases (mosque_slug, alias, source, created_at) VALUES (?1, ?2, ?3, ?4)`
+  ).bind(mosqueSlug, a, source || null, now);
+}
 
 async function mergeGroup(db, keepSlug, mergeSlugs) {
   const slugs = [keepSlug, ...mergeSlugs];
@@ -305,6 +376,8 @@ async function mergeGroup(db, keepSlug, mergeSlugs) {
 
   const { fills, lockAlso } = plannedFills(keep, others);
   const stmts = [];
+  await ensureAliasTable(db);
+  const keeperName = fills.name || keep.name; // if the merge renames the keeper, alias against the NEW name
 
   // 1. Fill the keeper's gaps.
   const cols = Object.keys(fills);
@@ -322,6 +395,11 @@ async function mergeGroup(db, keepSlug, mergeSlugs) {
   const now = new Date().toISOString();
   for (const o of others) {
     const from = o.slug;
+    // The merged-away listing's own name is a real name this mosque has
+    // been known by - keep it, rather than losing it once its row goes
+    // inactive.
+    const aliasStmt = addAliasStmt(db, keepSlug, o.name, keeperName, 'merged:' + from, now);
+    if (aliasStmt) stmts.push(aliasStmt);
     // 2. Source links - the times from every source follow the keeper.
     stmts.push(db.prepare(`UPDATE mosque_sources SET mosque_slug = ?1 WHERE mosque_slug = ?2`).bind(keepSlug, from));
     // 3. Month timetable pages - keep the keeper's own, take the rest.
