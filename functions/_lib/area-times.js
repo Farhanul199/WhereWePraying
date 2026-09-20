@@ -48,7 +48,23 @@ const MAX_COMPILE_PER_AREA = 120;     // year->month pages built per area build
 // not this constant.
 const SNAPSHOT_MAX_AGE_DAYS = 30;
 const YEAR_SOURCES = ['mawaqit'];
-const SNAPSHOT_SOURCES = ['masjidal', 'takbeertime'];
+const SNAPSHOT_SOURCES = ['masjidal', 'takbeertime', 'mosqueslondon'];
+// Every source whose timetable lives on source_discoveries (not jamaah_raw).
+const DISCOVERY_TIME_SOURCES = ['mawaqit', 'masjidal', 'takbeertime', 'mosqueslondon'];
+const DISCOVERY_TIME_SQL = DISCOVERY_TIME_SOURCES.map((s) => `'${s}'`).join(',');
+// mosques.london publishes ONE dated day. It's used only for the 7 days
+// from that date, and never across a clock change - nothing older, and
+// nothing carried forward. Maghrib is never stored for it (moves daily).
+const DATED_SNAPSHOT_DAYS = 7;
+function lastSundayUtc(y, month0) {
+  const d = new Date(Date.UTC(y, month0 + 1, 0));
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+}
+function isBst(iso) {
+  const y = +iso.slice(0, 4);
+  return iso >= lastSundayUtc(y, 2) && iso < lastSundayUtc(y, 9);
+}
 const PRAYERS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
 
 /* ------------------------------------------------------------ dates */
@@ -166,6 +182,7 @@ export function buildMonthPage(row, key) {
 
   if (SNAPSHOT_SOURCES.includes(row.source)) {
     if (row.source === 'takbeertime' && !row.iqama_enabled) return null; // unverified community entry
+    if (row.source === 'mosqueslondon') return datedSnapshotPage(row, key, days);
     const age = row.times_updated_at ? (Date.now() - Date.parse(row.times_updated_at)) / 86400000 : 999;
     if (!(age < SNAPSHOT_MAX_AGE_DAYS)) return null;
     const cal = safeJson(row.calendar_json);
@@ -181,6 +198,27 @@ export function buildMonthPage(row, key) {
   }
 
   return null;
+}
+
+// mosques.london: fill only the days from the published date, up to 7,
+// stopping at a clock change. Every other day stays '----'.
+function datedSnapshotPage(row, key, days) {
+  const cal = safeJson(row.calendar_json);
+  if (!cal || !/^\d{4}-\d{2}-\d{2}$/.test(cal.date || '')) return null;
+  const day = [hm(cal.fajr), hm(cal.zuhr), hm(cal.asr), null, hm(cal.isha)];
+  if (day.every((x) => !x)) return null;
+  const block = day.map(pack).join('');
+  const bst = isBst(cal.date);
+  const last = addDaysIso(cal.date, DATED_SNAPSHOT_DAYS - 1);
+  let out = '', any = false;
+  for (let d = 1; d <= days; d++) {
+    const iso = `${key}-${String(d).padStart(2, '0')}`;
+    if (iso >= cal.date && iso <= last && isBst(iso) === bst) { out += block; any = true; }
+    else out += '-'.repeat(20);
+  }
+  if (!any) return null;
+  const j1 = hm(row.jumua), j2 = hm(row.jumua2);
+  return { times: out, jummah: (j1 || j2) ? JSON.stringify({ 1: j1 || undefined, 2: j2 || undefined }) : null };
 }
 
 /* ----------------------------------------------------------- schema */
@@ -236,8 +274,9 @@ const SOURCE_RANK_SQL = (col) =>
      WHEN 'ditib' THEN 3
      WHEN 'takbeertime' THEN 4
      WHEN 'masjidal' THEN 5
+     WHEN 'mosqueslondon' THEN 6
      ELSE 9 END`;
-export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5 };
+export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5, mosqueslondon: 6 };
 
 function writePage(db, slug, key, page, source, now) {
   return db.prepare(
@@ -363,7 +402,7 @@ export async function prepareMonths(db, limit) {
        FROM source_discoveries sd
        JOIN mosque_sources ms ON ms.source = sd.source AND ms.source_ref = sd.source_ref
       WHERE sd.times_status = 'ok' AND ms.mosque_slug IS NOT NULL
-        AND sd.source IN ('mawaqit','masjidal','takbeertime')
+        AND sd.source IN (${DISCOVERY_TIME_SQL})
         AND (sd.compiled_through IS NULL OR sd.compiled_through < ?1
              OR (sd.times_updated_at IS NOT NULL AND (sd.compiled_at IS NULL OR sd.compiled_at < sd.times_updated_at)))
       LIMIT ${n}`
@@ -389,7 +428,7 @@ export async function prepareMonths(db, limit) {
     `SELECT COUNT(*) AS n FROM source_discoveries sd JOIN mosque_sources ms
         ON ms.source = sd.source AND ms.source_ref = sd.source_ref
       WHERE sd.times_status='ok' AND ms.mosque_slug IS NOT NULL
-        AND sd.source IN ('mawaqit','masjidal','takbeertime')
+        AND sd.source IN (${DISCOVERY_TIME_SQL})
         AND (sd.compiled_through IS NULL OR sd.compiled_through < ?1
              OR (sd.times_updated_at IS NOT NULL AND (sd.compiled_at IS NULL OR sd.compiled_at < sd.times_updated_at)))`
   ).bind(nextKey).first();
@@ -451,7 +490,7 @@ async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso
          FROM mosque_sources ms JOIN source_discoveries sd
            ON sd.source = ms.source AND sd.source_ref = ms.source_ref
         WHERE ms.mosque_slug IN (${placeholders}) AND sd.times_status = 'ok'
-          AND sd.source IN ('mawaqit','masjidal','takbeertime')`
+          AND sd.source IN (${DISCOVERY_TIME_SQL})`
     ).bind(...slugs).all());
   } catch (e) { return; }
 
