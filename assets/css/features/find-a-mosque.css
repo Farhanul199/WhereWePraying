@@ -321,3 +321,4 @@
 
 .mq-search-place{display:block;margin:8px auto 0;}
 .mq-search-place-error{color:#B5451F;font-size:12px;margin-top:6px;text-align:center;}
+.mq-detail-aliases{font-size:12px;color:var(--text-dim);font-style:italic;margin:-4px 0 8px;}
