@@ -500,7 +500,7 @@
         <div class="${cls.join(' ')}" data-slug="${escapeHtml(e.slug)}" role="button" tabindex="0" aria-expanded="false">
           ${starHtml(e.slug)}
           <div class="mq-plan-row-main">
-            <div class="mq-plan-row-name">${escapeHtml(e.name)}${tag ? `<span class="mq-plan-row-tag">${tag}</span>` : ''}</div>
+            <div class="mq-plan-row-name"${e.aliases && e.aliases.length ? ` title="Also known as ${escapeHtml(e.aliases.join(', '))}"` : ''}>${escapeHtml(e.name)}${tag ? `<span class="mq-plan-row-tag">${tag}</span>` : ''}</div>
             <div class="mq-plan-row-sub">${e.distanceMiles} mi · ${e.travelMinutes} min ${travelWord}</div>
           </div>
           ${chipHtml(e)}
@@ -599,8 +599,11 @@
         </div>`;
     }
     const isUsual = getUsualMosque() === e.slug;
+    const aliasLine = e.aliases && e.aliases.length
+      ? `<div class="mq-detail-aliases">Also known as ${escapeHtml(e.aliases.join(', '))}</div>` : '';
     return `
       <div class="mq-detail-title">Today's Jama'ah</div>
+      ${aliasLine}
       ${grid}
       ${where ? `<div class="mq-detail-address">📍 ${escapeHtml(where)}</div>` : ''}
       ${actions}
@@ -686,8 +689,11 @@
         const list = d && Array.isArray(d.mosques) ? d.mosques : [];
         if (!list.length) throw new Error('directory came back empty');
         directory = list.map(m => ({
-          slug: m[0], name: m[1], place: m[2], lat: m[3], lon: m[4],
-          key: (m[1] + ' ' + m[2]).toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+          slug: m[0], name: m[1], place: m[2], lat: m[3], lon: m[4], aliases: m[5] || [],
+          // Searching "NPM" or "Newbury Park Mosque" should find the same
+          // card as "Newbury Park Masjid" - m[5] (when present) is every
+          // other name that mosque is known by.
+          key: [m[1], m[2], ...(m[5] || [])].join(' ').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
         }));
         directoryLoading = null;
         return directory;
@@ -735,7 +741,7 @@
       <div class="mq-search-hit" data-hit="${escapeHtml(m.slug)}" role="button" tabindex="0">
         <div class="mq-search-hit-main">
           <div class="mq-search-hit-name">${escapeHtml(m.name)}</div>
-          <div class="mq-search-hit-sub">${escapeHtml(m.place || '')}${m.dist != null ? ' · ' + (Math.round(m.dist * 10) / 10) + ' mi' : ''}</div>
+          <div class="mq-search-hit-sub">${escapeHtml(m.place || '')}${m.dist != null ? ' · ' + (Math.round(m.dist * 10) / 10) + ' mi' : ''}${m.aliases && m.aliases.length ? ' · also known as ' + escapeHtml(m.aliases.join(', ')) : ''}</div>
         </div>
         ${starHtml(m.slug)}
       </div>`).join('');
