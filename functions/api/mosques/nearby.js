@@ -91,6 +91,7 @@ function buildRow(row, dateIso, isToday, nowMinutes) {
     isha: row.isha_jamaah || null,
   };
   clearPlaceholders(jamaah);
+  if (row.maghrib_estimated && jamaah.maghrib) jamaah.maghribEstimated = true;
   const photoUrl = row.photo_key ? `/api/community/photo/${row.photo_key}` : null;
   let next = null;
   if (isToday) {

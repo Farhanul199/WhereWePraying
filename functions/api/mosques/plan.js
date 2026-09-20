@@ -121,6 +121,9 @@ function rowToCandidate(row) {
     maghrib: row.maghrib_jamaah || null, isha: row.isha_jamaah || null,
   };
   clearPlaceholders(jamaah);
+  // Sun-calculated Maghrib fallback (see area-times.js) - not a real
+  // committee time, so the UI needs to say so.
+  if (row.maghrib_estimated && jamaah.maghrib) jamaah.maghribEstimated = true;
   return {
     slug: row.slug, name: row.name, address: row.address || null, postcode: row.postcode || null,
     latitude: row.latitude, longitude: row.longitude, jamaah,
