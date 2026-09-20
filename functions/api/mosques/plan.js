@@ -125,6 +125,7 @@ function rowToCandidate(row) {
     slug: row.slug, name: row.name, address: row.address || null, postcode: row.postcode || null,
     latitude: row.latitude, longitude: row.longitude, jamaah,
     tomorrowFajr: row.tomorrow_fajr || null,
+    aliases: row.aliases ? row.aliases.split('||') : [],
   };
 }
 
@@ -156,7 +157,7 @@ function toEntry(c, lat, lon, nowMinutes) {
     latitude: c.latitude, longitude: c.longitude,
     distanceMiles: Math.round(dist * 10) / 10, _dist: dist,
     travelMode: travel.mode, travelMinutes: travel.minutes,
-    today: c.jamaah, tomorrowFajr: c.tomorrowFajr,
+    today: c.jamaah, tomorrowFajr: c.tomorrowFajr, aliases: c.aliases || [],
     state,
     prayer: next ? next.prayer : null, time: next ? next.time : null,
     jamaahInMinutes: next ? next.minutesUntil : null, isTomorrow: next ? next.isTomorrow : false,
