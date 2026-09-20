@@ -37,7 +37,16 @@ const KV_TTL = 21600;                 // 6 hours, shared worldwide
 export const AREA_CACHE_VERSION = 4;
 export const AREA_KV_PREFIX = `mq_area_v${AREA_CACHE_VERSION}:`;
 const MAX_COMPILE_PER_AREA = 120;     // year->month pages built per area build
-const SNAPSHOT_MAX_AGE_DAYS = 45;     // "current schedule" sources go stale
+// "Current schedule" sources (Masjidal, Takbeer Time - a snapshot, not a
+// full calendar) stop being shown after this many days without a fresh
+// scrape, rather than risk serving an outdated timetable forever. This
+// check runs in-memory while building a page a visitor is already
+// requesting - it doesn't scrape, write, or store anything on its own,
+// so changing this number has no effect on D1 or Cloudflare usage either
+// way. Shortened from 45 as asked; if the goal was reducing actual
+// usage, the levers for that are elsewhere (cache TTLs, batch sizes),
+// not this constant.
+const SNAPSHOT_MAX_AGE_DAYS = 30;
 const YEAR_SOURCES = ['mawaqit'];
 const SNAPSHOT_SOURCES = ['masjidal', 'takbeertime'];
 const PRAYERS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
@@ -187,6 +196,11 @@ export async function ensureTimesSchema(db) {
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_through TEXT`).run(); } catch (e) {}
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_at TEXT`).run(); } catch (e) {}
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN has_times INTEGER`).run(); } catch (e) {}
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS mosque_aliases (
+       mosque_slug TEXT NOT NULL, alias TEXT NOT NULL, source TEXT,
+       created_at TEXT NOT NULL, PRIMARY KEY (mosque_slug, alias))`
+  ).run();
   ready = true;
 }
 
@@ -204,9 +218,26 @@ const TIMETABLE_COLS = `sd.source, sd.source_ref, sd.calendar_json, sd.iqama_jso
 //   - the page is currently empty, or
 //   - it has real times AND it's at least as trusted as the current one.
 // An empty result from a DIFFERENT source never wipes real times.
+//
+// Order (most to least trusted), as instructed: Mawaqit, then MasjidBox
+// and MyMasjid (tied), then DITIB, then Takbeer Time, then Masjidal.
+// Two things worth flagging about this list:
+//   - Masjidal wasn't named in the instruction - it's placed last here,
+//     a real change from its old rank 2 (it used to outrank Takbeer
+//     Time). If that's not right, it's a one-line fix.
+//   - DITIB has no prayer-time pipeline at all (see scrape-ditib.js -
+//     it's location-only, always shows "No live prayer time available"),
+//     so its rank here is never actually exercised - included only for
+//     a complete, documented order.
 const SOURCE_RANK_SQL = (col) =>
-  `CASE ${col} WHEN 'mawaqit' THEN 1 WHEN 'masjidal' THEN 2 WHEN 'takbeertime' THEN 3 ELSE 9 END`;
-export const SOURCE_RANK = { mawaqit: 1, masjidal: 2, takbeertime: 3 };
+  `CASE ${col}
+     WHEN 'mawaqit' THEN 1
+     WHEN 'masjidbox_scrape' THEN 2 WHEN 'mymasjid_scrape' THEN 2
+     WHEN 'ditib' THEN 3
+     WHEN 'takbeertime' THEN 4
+     WHEN 'masjidal' THEN 5
+     ELSE 9 END`;
+export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5 };
 
 function writePage(db, slug, key, page, source, now) {
   return db.prepare(
@@ -378,7 +409,8 @@ const AREA_QUERY = `
          t.fajr_jamaah, t.zuhr_jamaah, t.asr_jamaah, t.maghrib_jamaah, t.isha_jamaah,
          tmr.fajr_jamaah AS tomorrow_fajr,
          mt.times AS month_times, mt2.times AS next_month_times,
-         ph.r2_key AS photo_key
+         ph.r2_key AS photo_key,
+         (SELECT GROUP_CONCAT(alias, '||') FROM mosque_aliases WHERE mosque_slug = m.slug) AS aliases
     FROM mosques m
     LEFT JOIN thm_jamaah_times t   ON t.mosque = m.slug AND t.date = ?1
     LEFT JOIN thm_jamaah_times tmr ON tmr.mosque = m.slug AND tmr.date = ?2
