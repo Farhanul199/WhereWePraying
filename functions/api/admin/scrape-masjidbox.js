@@ -90,6 +90,42 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+const UK_PC = /\b[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}\b/;
+
+// The athany API (used for times above) often has no address at all for
+// a mosque - but the mosque's own public MasjidBox page almost always
+// shows one right under its name, e.g. masjidbox.com/prayer-times/{slug}
+// -> "9 Laird St, Greenock PA15 1LB, UK". One extra fetch, only for a
+// mosque that still has no address after the primary attempt, so this
+// never doubles the cost of a normal pass - it only pays for the actual
+// gap (what used to need "Add location by hand").
+async function fetchAddressFromPage(slug, budget) {
+  if (budget.used >= budget.max) return null;
+  budget.used++;
+  try {
+    const res = await fetch(`https://masjidbox.com/prayer-times/${encodeURIComponent(slug)}`, {
+      headers: { 'User-Agent': 'WhereWePraying/1.0 (+https://wherewepraying.com) mosque prayer time aggregator' },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<\/(h1|h2|h3|p|div)>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
+      .replace(/[ \t]+/g, ' ');
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    // The address is the first short line near the top of the page (right
+    // under the mosque's name) that contains a UK postcode - never the
+    // countdown text or the times grid further down.
+    for (const line of lines.slice(0, 25)) {
+      if (UK_PC.test(line) && line.length < 120 && !/iqamah|prayer times/i.test(line)) return line;
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
 /* ------------------------------------------------------------ discover */
 
 async function discover(env) {
@@ -269,6 +305,14 @@ async function times(env, limit, retry) {
       failed++;
       stmts.push(env.DB.prepare(updateFail).bind('no timetable in response', nowIso, SOURCE, r.slug));
       continue;
+    }
+    if (!e.address && !e.lat) {
+      const pageAddr = await fetchAddressFromPage(r.slug, budget);
+      if (pageAddr) {
+        e.address = pageAddr;
+        const pc = pageAddr.match(UK_PC);
+        if (pc && !e.zipcode) e.zipcode = pc[0].toUpperCase();
+      }
     }
     succeeded++;
     stmts.push(env.DB.prepare(updateOk).bind(
