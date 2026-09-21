@@ -1,25 +1,41 @@
 // functions/api/admin/scrape-mosqueslondon.js
 //
 // mosques.london - a London directory (~430 mosques) with name, address,
-// postcode, borough, coordinates, website, phone and ONE day of times
-// (begins + jama'ah). There is no year calendar, so this is a
-// DIRECTORY + gap-filler source, never a primary timetable:
+// postcode, borough, coordinates, website, phone, and either ONE day of
+// times or (mode=importYear) a full year, one row per mosque per day.
 //
-//   - Full-year / rolling times still come from Tower Hamlets Mosques,
-//     Mawaqit, MasjidBox and MyMasjid. A mosque linked to any of those
-//     keeps their times - mosques.london ranks last (see area-times.js).
-//   - Its own jama'ah times are only used for a mosque no other source
-//     covers, and only for 7 days from the date they were published
-//     (stopping early at a clock change). Nothing is carried forward
-//     beyond that, and Maghrib is never used (it moves every day).
+//   - mode=import (the directory export, mosques_london_all.json):
+//     discovers a mosque's name/address/coordinates/site/phone and ONE
+//     day of times. Full-year / rolling times otherwise come from Tower
+//     Hamlets Mosques, Mawaqit, MasjidBox and MyMasjid - a mosque linked
+//     to any of those keeps their times (mosques.london ranks last, see
+//     area-times.js). Without mode=importYear ever being run for it,
+//     mosques.london's own times are used only for a mosque no other
+//     source covers, and only for 7 days from the date they were
+//     published (stopping early at a clock change) - Maghrib is never
+//     used there, since a single day can't hold it (it moves daily).
+//   - mode=importYear (a full-year scrape, one row per mosque per day):
+//     replaces that 7-day snapshot with the mosque's real committee
+//     calendar for every day given, Maghrib included. Requires the
+//     mosque to already exist from mode=import (this export has no
+//     coordinates of its own) - run mode=import first. Large files
+//     upload in batches from the admin page automatically; each batch
+//     only ever touches whole mosques, and only the months it's given -
+//     the rest of that mosque's calendar is left as it was.
 //   - "00:00" and any jama'ah outside 0-150 min after its begins time is
-//     treated as a placeholder and left blank - never guessed.
+//     treated as a placeholder and left blank - never guessed, in both
+//     modes.
 //
 // All calls need X-Broadcast-Key (admin) or X-Sync-Key.
 //
 //   POST ?mode=import   body = the mosques_london_all.json array
 //        -> upserts into source_discoveries (source='mosqueslondon').
 //           Re-upload a fresh file any time to refresh the 7-day window.
+//   POST ?mode=importYear   body = one batch's worth of daily rows
+//        -> merges into the SAME source_discoveries rows' calendar_json,
+//           keyed by month ("2026-01" etc.), each value a packed month
+//           blob in the exact mosque_month_times format - no expansion
+//           work happens later on the request path.
 //   POST ?mode=enrich
 //        -> for every mosques.london row already put live (new OR linked
 //           as a duplicate), fills EMPTY fields on the live mosque:
@@ -31,6 +47,7 @@
 import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
 
 const SOURCE = 'mosqueslondon';
+const SOURCE_REF_PREFIX = 'ml_';
 const UK_PC = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
 const MAX_JAMAAH_AFTER_BEGIN = 150; // minutes
 
@@ -50,6 +67,10 @@ function hm(v) {
   return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
 }
 const mins = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+const daysInMonth = (key) => new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7), 0)).getUTCDate();
+// Same 4-char packing area-times.js uses for every other source, so a
+// month built here needs no translation on the request path.
+function pack4(t) { return t ? t.slice(0, 2) + t.slice(3, 5) : '----'; }
 
 // Jama'ah must fall 0-150 min after its begins time, else it's blanked.
 function checked(jamaah, begins) {
@@ -126,7 +147,12 @@ async function doImport(env, body) {
       name=excluded.name, city=excluded.city, address=excluded.address, zipcode=excluded.zipcode,
       lat=excluded.lat, lon=excluded.lon, site=excluded.site, phone=excluded.phone,
       jumua=excluded.jumua, jumua2=excluded.jumua2, iqama_enabled=excluded.iqama_enabled,
-      calendar_json=excluded.calendar_json, times_status=excluded.times_status,
+      -- a mode=importYear calendar is worth more than this one-day
+      -- snapshot - never let a re-run of the directory file clobber it
+      calendar_json = CASE WHEN json_extract(source_discoveries.calendar_json, '$.shape') = 'year'
+                            THEN source_discoveries.calendar_json ELSE excluded.calendar_json END,
+      times_status = CASE WHEN json_extract(source_discoveries.calendar_json, '$.shape') = 'year'
+                           THEN source_discoveries.times_status ELSE excluded.times_status END,
       times_updated_at=excluded.times_updated_at, last_seen=excluded.last_seen,
       raw_json=excluded.raw_json`;
 
@@ -157,6 +183,93 @@ async function doImport(env, body) {
     catch (e) { skipped += Math.min(50, stmts.length - i); if (errors.length < 5) errors.push(String(e).slice(0, 200)); }
   }
   return json({ imported, skipped, total: rows.length, withTimes, placeholdersBlanked: blanked, outsideUk, errors });
+}
+
+/* ------------------------------------------------------------ import year */
+
+// One day's four prayers + Maghrib from a mode=importYear row, packed
+// into the same 20-char block every other source's month page uses.
+function dayBlock(r) {
+  const fajr = checked(r.fajr_jamaat, r.fajr_begins);
+  const zuhr = checked(r.dhuhr_jamaat, r.dhuhr_begins);
+  const asr = checked(r.asr_jamaat, r.asr_begins || r.asr_begins_mithl1);
+  const maghrib = checked(r.maghrib_jamaat, r.maghrib_begins);
+  const isha = checked(r.isha_jamaat, r.isha_begins);
+  if (!fajr && !zuhr && !asr && !maghrib && !isha) return null;
+  return pack4(fajr) + pack4(zuhr) + pack4(asr) + pack4(maghrib) + pack4(isha);
+}
+
+// A full-year scrape: one row per mosque per day (mosque_id, date, the
+// five begins/jama'ah pairs). Requires mode=import to have discovered
+// the mosque already - this export carries no coordinates of its own,
+// so a mosque_id with no matching source_discoveries row is reported
+// back as notFound rather than guessed into existence. Merges by month:
+// whichever months this batch covers get fully replaced for that
+// mosque, any other month already stored is left untouched - so a
+// later re-scrape of just one month (e.g. Ramadan) never disturbs the
+// rest of the year.
+async function doImportYear(env, body) {
+  let rows;
+  try { rows = JSON.parse(body); } catch (e) { return json({ error: 'Not valid JSON.' }, 400); }
+  if (!Array.isArray(rows)) return json({ error: 'Expected a JSON array of daily rows.' }, 400);
+
+  const byMosque = new Map(); // mosque_id -> Map(monthKey -> Map(day -> 20-char block))
+  let rowsUsed = 0;
+  for (const r of rows) {
+    if (!r || r.mosque_id == null) continue;
+    const date = typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : null;
+    if (!date) continue;
+    const block = dayBlock(r);
+    if (!block) continue;
+    const mk = date.slice(0, 7);
+    const day = +date.slice(8, 10);
+    if (!byMosque.has(r.mosque_id)) byMosque.set(r.mosque_id, new Map());
+    const months = byMosque.get(r.mosque_id);
+    if (!months.has(mk)) months.set(mk, new Map());
+    months.get(mk).set(day, block);
+    rowsUsed++;
+  }
+  if (!byMosque.size) return json({ ok: true, mosques: 0, monthsWritten: 0, rowsUsed: 0, notFound: 0 });
+
+  const refs = [...byMosque.keys()].map((id) => SOURCE_REF_PREFIX + id);
+  const existing = new Map();
+  for (let i = 0; i < refs.length; i += 90) {
+    const part = refs.slice(i, i + 90);
+    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+    const q = await env.DB.prepare(
+      `SELECT source_ref, calendar_json, jumua, jumua2 FROM source_discoveries
+        WHERE source = ? AND source_ref IN (${ph})`
+    ).bind(SOURCE, ...part).all();
+    for (const row of q.results || []) existing.set(row.source_ref, row);
+  }
+
+  const now = new Date().toISOString();
+  const stmts = [];
+  let mosques = 0, monthsWritten = 0, notFound = 0;
+  for (const [mid, months] of byMosque) {
+    const ref = SOURCE_REF_PREFIX + mid;
+    const found = existing.get(ref);
+    if (!found) { notFound++; continue; } // never discovered - run mode=import first
+    let cal = { shape: 'year', months: {} };
+    if (found.calendar_json) {
+      try { const p = JSON.parse(found.calendar_json); if (p && p.shape === 'year' && p.months) cal = p; } catch (e) {}
+    }
+    for (const [mk, dayMap] of months) {
+      const dim = daysInMonth(mk);
+      let blob = '';
+      for (let d = 1; d <= dim; d++) blob += dayMap.get(d) || '--------------------';
+      cal.months[mk] = blob;
+      monthsWritten++;
+    }
+    stmts.push(env.DB.prepare(
+      `UPDATE source_discoveries SET calendar_json = ?1, iqama_enabled = 1, times_status = 'ok', times_updated_at = ?2
+        WHERE source = '${SOURCE}' AND source_ref = ?3`
+    ).bind(JSON.stringify(cal), now, ref));
+    mosques++;
+  }
+  for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
+
+  return json({ ok: true, mosques, monthsWritten, rowsUsed, notFound });
 }
 
 /* ----------------------------------------------------------------- enrich */
@@ -241,8 +354,9 @@ export async function onRequestPost(context) {
   const mode = new URL(request.url).searchParams.get('mode');
   try {
     if (mode === 'import') return await doImport(env, await request.text());
+    if (mode === 'importYear') return await doImportYear(env, await request.text());
     if (mode === 'enrich') return await doEnrich(env);
-    return json({ error: 'unknown mode, use mode=import or mode=enrich' }, 400);
+    return json({ error: 'unknown mode, use mode=import, mode=importYear or mode=enrich' }, 400);
   } catch (e) {
     return json({ error: String(e).slice(0, 300) }, 500);
   }
