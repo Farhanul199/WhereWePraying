@@ -224,6 +224,10 @@
     <h2>Match sources to mosques</h2>
     <p class="hint">Every source (MasjidBox, mosques.london, ...) registers the mosques it finds under its own code first (the "translator sheet") - a code only feeds the live site once it's linked to one of your official mosque listings. "Run automatic matching" links anything with a confident match (same spot, or a clearly matching name) across <b>every</b> source at once. Whatever's left needs a manual link below - type the mosque's slug (from its page on the live site) and press Link.</p>
     <div class="actions">
+      <button class="ghost" id="mbSyncNewBtn">Sync newest MasjidBox mosques</button>
+    </div>
+    <p class="hint">MasjidBox has no "list every mosque" API, so new ones are added to a known-slugs list by hand (functions/_lib/masjidbox-mosques.js) as they're found, and the regular weekly sync only reaches everyone once it rotates all the way round. This button fetches just the most recently added entries right now, so a newly-added mosque doesn't have to wait for its turn.</p>
+    <div class="actions">
       <button id="matchRebuildBtn">Run automatic matching</button>
       <button class="ghost" id="matchRefreshBtn">Refresh list</button>
     </div>
@@ -922,6 +926,27 @@
   });
 
   /* --------------------------------------------- source matching */
+  $('mbSyncNewBtn').addEventListener('click', async function(){
+    $('mbSyncNewBtn').disabled = true;
+    say($('matchStatus'), 'Fetching the newest MasjidBox entries\u2026');
+    var res, data;
+    try {
+      // Last 20 entries of the known-slugs list - covers anything just
+      // added (see functions/_lib/masjidbox-mosques.js) without re-
+      // fetching all 349 every time.
+      res = await fetch('/api/admin/sync-masjidbox-jamaah?start=329&end=349', { headers: headers() });
+      data = await res.json();
+    } catch (e) {
+      $('mbSyncNewBtn').disabled = false;
+      say($('matchStatus'), 'Network problem.', true); return;
+    }
+    $('mbSyncNewBtn').disabled = false;
+    if (!res.ok) { say($('matchStatus'), (data && data.error) || 'Failed (' + res.status + ')', true); return; }
+    var processed = (data.processed || []).length, failed = (data.failed || []).length;
+    say($('matchStatus'), 'Fetched ' + processed + ' mosque' + (processed === 1 ? '' : 's') + ' \u00b7 ' + fmt(data.recordsSaved || 0) + ' days of times saved' +
+      (failed ? ' \u00b7 ' + failed + ' failed' : '') + '. Now run \u201cAutomatic matching\u201d below to link ' + (processed === 1 ? 'it' : 'them') + ' to your mosques.');
+  });
+
   async function loadMatch(){
     var d = await api('/api/admin/mosque-mappings');
     if (d.error) { say($('matchStatus'), d.error, true); return; }
