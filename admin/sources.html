@@ -221,6 +221,15 @@
     <p class="hint">Applies worldwide, wherever no real source has any jama'ah data \u2014 not just this source. Computed from each mosque's own coordinates; never a substitute for a real committee time. Cards show \u201cEstimated for this area\u201d next to it.</p>
     <div class="status" id="calcMaghribStatus"></div>
 
+    <h2>Match sources to mosques</h2>
+    <p class="hint">Every source (MasjidBox, mosques.london, ...) registers the mosques it finds under its own code first (the "translator sheet") - a code only feeds the live site once it's linked to one of your official mosque listings. "Run automatic matching" links anything with a confident match (same spot, or a clearly matching name) across <b>every</b> source at once. Whatever's left needs a manual link below - type the mosque's slug (from its page on the live site) and press Link.</p>
+    <div class="actions">
+      <button id="matchRebuildBtn">Run automatic matching</button>
+      <button class="ghost" id="matchRefreshBtn">Refresh list</button>
+    </div>
+    <div class="status" id="matchStatus"></div>
+    <table id="matchTable" class="hidden"><tbody></tbody></table>
+
     <h2>Collect data</h2>
     <div class="row" id="countryRow">
       <div>
@@ -432,6 +441,7 @@
     $('mainScreen').classList.remove('hidden');
     refresh();
     loadCalcMaghrib();
+    loadMatch();
   });
   $('secretInput').addEventListener('keydown', function(e){
     if (e.key === 'Enter') $('unlockBtn').click();
@@ -909,6 +919,68 @@
     this.disabled = false;
     if (data.error) { say($('calcMaghribStatus'), data.error, true); this.checked = !on; return; }
     say($('calcMaghribStatus'), on ? 'On \u2014 new areas will estimate Maghrib where nothing else has it.' : 'Off.');
+  });
+
+  /* --------------------------------------------- source matching */
+  async function loadMatch(){
+    var d = await api('/api/admin/mosque-mappings');
+    if (d.error) { say($('matchStatus'), d.error, true); return; }
+    var c = d.counts || {};
+    say($('matchStatus'), fmt(c.unlinked || 0) + ' unmatched of ' + fmt(c.total || 0) + ' source links \u00b7 ' + fmt(c.linked || 0) + ' already linked and live.');
+    var rows = d.unlinked_sample || [];
+    var t = $('matchTable');
+    t.classList.toggle('hidden', !rows.length);
+    t.querySelector('tbody').innerHTML = rows.length
+      ? '<tr><th>Source</th><th>Name</th><th>Best guess</th><th>Link to mosque slug</th></tr>' + rows.map(function(r){
+          var sug = (r.suggestions || [])[0];
+          var sugText = sug ? esc(sug.name) + ' (' + sug.score + '%)' : '\u2014 no close match found';
+          return '<tr><td>' + esc(r.source) + '</td><td>' + esc(r.name || r.source_ref) + '</td><td>' + sugText + '</td>' +
+            '<td><input type="text" class="matchInput" placeholder="mosque-slug" value="' + (sug ? esc(sug.slug) : '') + '" style="width:160px">' +
+            ' <button class="ghost matchLinkBtn" data-source="' + esc(r.source) + '" data-ref="' + esc(r.source_ref) + '">Link</button></td></tr>';
+        }).join('')
+      : '';
+  }
+  $('matchRefreshBtn').addEventListener('click', loadMatch);
+  $('matchRebuildBtn').addEventListener('click', async function(){
+    $('matchRebuildBtn').disabled = true;
+    say($('matchStatus'), 'Matching every unmatched source code against your mosques\u2026');
+    var res, data;
+    try {
+      res = await fetch('/api/admin/mosque-mappings', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify({ action: 'rebuild' })
+      });
+      data = await res.json();
+    } catch (e) {
+      $('matchRebuildBtn').disabled = false;
+      say($('matchStatus'), 'Network problem.', true); return;
+    }
+    $('matchRebuildBtn').disabled = false;
+    if (!res.ok || data.error) { say($('matchStatus'), data.error || data.message || 'Failed.', true); return; }
+    say($('matchStatus'), 'Linked ' + fmt(data.linked || 0) + ' automatically \u2014 ' + fmt(data.still_unmatched || 0) + ' left needing a manual link. Live within the hour, as each area refreshes.');
+    loadMatch();
+  });
+  $('matchTable').addEventListener('click', async function(e){
+    if (!e.target.classList.contains('matchLinkBtn')) return;
+    var btn = e.target;
+    var input = btn.parentElement.querySelector('.matchInput');
+    var slug = input.value.trim();
+    if (!slug) { input.focus(); return; }
+    btn.disabled = true;
+    var res, data;
+    try {
+      res = await fetch('/api/admin/mosque-mappings', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify({ action: 'link', source: btn.dataset.source, source_ref: btn.dataset.ref, slug: slug })
+      });
+      data = await res.json();
+    } catch (e) { btn.disabled = false; say($('matchStatus'), 'Network problem.', true); return; }
+    btn.disabled = false;
+    if (!res.ok || data.error) { say($('matchStatus'), data.error || 'Failed.', true); return; }
+    say($('matchStatus'), 'Linked.');
+    loadMatch();
   });
 
   var OVERVIEW = null;
