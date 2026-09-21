@@ -235,10 +235,14 @@ async function doImportYear(env, body) {
   const existing = new Map();
   for (let i = 0; i < refs.length; i += 90) {
     const part = refs.slice(i, i + 90);
-    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+    // Numbered placeholders throughout - SQLite throws "column index out
+    // of range" if an anonymous ? is mixed with ?N in the same statement
+    // (the anonymous ? collides with ?1), which is what silently failed
+    // every batch here before this fix.
+    const ph = part.map((_, k) => '?' + (k + 2)).join(',');
     const q = await env.DB.prepare(
       `SELECT source_ref, calendar_json, jumua, jumua2 FROM source_discoveries
-        WHERE source = ? AND source_ref IN (${ph})`
+        WHERE source = ?1 AND source_ref IN (${ph})`
     ).bind(SOURCE, ...part).all();
     for (const row of q.results || []) existing.set(row.source_ref, row);
   }
