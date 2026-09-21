@@ -12,10 +12,21 @@
 //     times  = one 20-character block per day: 5 prayers x "HHMM",
 //              "----" where a mosque has no jama'ah time for that prayer.
 //              A whole month is ~620 characters.
+//     source = every linked source that actually contributed a slot to
+//              this page, most-trusted first ("mawaqit+masjidbox_scrape")
+//              - an admin diagnostic label, not something the site reads.
+//
+// A mosque linked to more than one source (e.g. Mawaqit AND MasjidBox)
+// gets ONE merged page: each of the 5 daily slots is taken from the
+// most-trusted linked source that actually HAS it, so one source's gaps
+// get patched by the next instead of a whole month losing to whichever
+// source is "most trusted" even when it only half-covers that mosque.
+// See mergeEntries() and SOURCE_RANK below.
 //
 // Nothing is written per day, and nothing expires. A month page is
-// written once, and rewritten only when that mosque's own timetable
-// changes. Months are filled in three ways, all of them cheap:
+// written once, and rewritten only when one of that mosque's linked
+// sources' own timetable changes. Months are filled in three ways, all
+// of them cheap:
 //   1. the admin "Prepare times" button (bulk, for a country going live)
 //   2. automatically, the first time someone looks at an area whose
 //      mosques have no page yet (so we only ever do work where there
@@ -266,50 +277,68 @@ const TIMETABLE_COLS = `sd.source, sd.source_ref, sd.calendar_json, sd.iqama_jso
   sd.jumua, sd.jumua2, sd.jumua_as_duhr, sd.quality, sd.iqama_quality, sd.times_updated_at`;
 
 // A mosque can be linked to more than one timetable source (e.g. the same
-// mosque on Mawaqit AND Takbeer Time). Each source writes the same month
-// row, so the rule for who wins matters - before this, whichever source
-// happened to be written LAST won, even when it had no times at all, so a
-// perfectly good Mawaqit timetable could be wiped by an empty one.
+// mosque on Mawaqit AND MasjidBox). Every linked source is merged into
+// ONE page per mosque per month, per prayer, per day: for each of the 5
+// daily slots, the most-trusted source that actually HAS a value wins
+// that slot - not "the most trusted source that has anything", so one
+// source's gaps get patched by the next rather than a whole month
+// losing to a source that only half-covers that mosque. See
+// mergeEntries() below; writePage() just stores whatever mergeEntries()
+// (or, for the calculated-Maghrib fallback, buildCalculatedMonthPage())
+// decided, unconditionally - the merge itself is the authority now,
+// there's nothing left for a WHERE guard on the write to decide.
 //
-// Now: a source only replaces what's there if
-//   - it's the same source updating its own page, or
-//   - the page is currently empty, or
-//   - it has real times AND it's at least as trusted as the current one.
-// An empty result from a DIFFERENT source never wipes real times.
-//
-// Order (most to least trusted), as instructed: Mawaqit, then MasjidBox
-// and MyMasjid (tied), then DITIB, then Takbeer Time, then Masjidal.
-// Two things worth flagging about this list:
-//   - Masjidal wasn't named in the instruction - it's placed last here,
-//     a real change from its old rank 2 (it used to outrank Takbeer
-//     Time). If that's not right, it's a one-line fix.
+// Order (most to least trusted): Mawaqit, then mosques.london (a real
+// committee-submitted year calendar, not the old one-day snapshot - see
+// scrape-mosqueslondon.js), then MasjidBox and MyMasjid (tied), then
+// DITIB, then Takbeer Time, then Masjidal.
 //   - DITIB has no prayer-time pipeline at all (see scrape-ditib.js -
 //     it's location-only, always shows "No live prayer time available"),
 //     so its rank here is never actually exercised - included only for
 //     a complete, documented order.
-const SOURCE_RANK_SQL = (col) =>
-  `CASE ${col}
-     WHEN 'mawaqit' THEN 1
-     WHEN 'masjidbox_scrape' THEN 2 WHEN 'mymasjid_scrape' THEN 2
-     WHEN 'ditib' THEN 3
-     WHEN 'takbeertime' THEN 4
-     WHEN 'masjidal' THEN 5
-     WHEN 'mosqueslondon' THEN 6
-     WHEN 'calculated' THEN 7
-     ELSE 9 END`;
-export const SOURCE_RANK = { mawaqit: 1, masjidbox_scrape: 2, mymasjid_scrape: 2, ditib: 3, takbeertime: 4, masjidal: 5, mosqueslondon: 6, calculated: 7 };
+export const SOURCE_RANK = { mawaqit: 1, mosqueslondon: 2, masjidbox_scrape: 3, mymasjid_scrape: 3, ditib: 4, takbeertime: 5, masjidal: 6, calculated: 7 };
 
 function writePage(db, slug, key, page, source, now) {
   return db.prepare(
     `INSERT INTO mosque_month_times (mosque, month, times, jummah, source, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6)
      ON CONFLICT(mosque, month) DO UPDATE SET times=excluded.times, jummah=excluded.jummah,
-       source=excluded.source, updated_at=excluded.updated_at
-     WHERE mosque_month_times.source IS excluded.source
-        OR mosque_month_times.times IS NULL
-        OR (excluded.times IS NOT NULL
-            AND ${SOURCE_RANK_SQL('excluded.source')} <= ${SOURCE_RANK_SQL('mosque_month_times.source')})`
+       source=excluded.source, updated_at=excluded.updated_at`
   ).bind(slug, key, page ? page.times : null, page ? page.jummah : null, source, now);
+}
+
+// Combine every linked source's own page for one mosque, one month, into
+// a single blob, slot by slot (see the SOURCE_RANK comment above for
+// why). `entries` is [{source, blob, jummah}]; blob is the same 20-
+// chars-per-day packed format buildMonthPage()/buildDailyMonthPage()
+// both already produce. `source` on the result is every source that
+// actually contributed at least one slot, most-trusted first
+// ("mawaqit+masjidbox_scrape") - an admin diagnostic label, not
+// something the site reads.
+function mergeEntries(entries, key) {
+  if (!entries.length) return null;
+  const ranked = entries.slice().sort((a, b) => (SOURCE_RANK[a.source] || 9) - (SOURCE_RANK[b.source] || 9));
+  const days = daysInMonth(key);
+  let out = '';
+  const contributors = [];
+  for (let d = 0; d < days; d++) {
+    for (let p = 0; p < 5; p++) {
+      let val = '----';
+      for (const e of ranked) {
+        const chunk = e.blob.slice(d * 20 + p * 4, d * 20 + p * 4 + 4);
+        if (chunk && chunk !== '----') {
+          val = chunk;
+          if (!contributors.includes(e.source)) contributors.push(e.source);
+          break;
+        }
+      }
+      out += val;
+    }
+  }
+  if (!/[0-9]/.test(out)) return null;
+  let jummah = null;
+  for (const e of ranked) { if (e.jummah) { jummah = e.jummah; break; } }
+  return { times: out, jummah, source: contributors.join('+').slice(0, 60) };
 }
 
 /* --------------------------------------- daily-row sources (MasjidBox,
@@ -338,13 +367,111 @@ function buildDailyMonthPage(dayRows, key) {
   return any ? { times: out, jummah: null } : null;
 }
 
+/* ----------------------------------------- shared merge-and-compile,
+   used by fillMissing() (lazy, per visited area), prepareMonths() (the
+   admin "Prepare times" bulk button) and prepareDailySourceMonths()
+   (its MasjidBox/MyMasjid counterpart) alike, so a mosque linked to
+   several sources always gets the SAME best-of-everything page no
+   matter which of the three triggered the rebuild. Two batched reads
+   regardless of how many mosques - never one query per mosque. */
+
+async function fetchDiscoveryEntries(db, slugs) {
+  const map = new Map();
+  for (let i = 0; i < slugs.length; i += 90) {
+    const part = slugs.slice(i, i + 90);
+    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+    const { results } = await db.prepare(
+      `SELECT ms.mosque_slug AS slug, ${TIMETABLE_COLS}
+         FROM mosque_sources ms JOIN source_discoveries sd
+           ON sd.source = ms.source AND sd.source_ref = ms.source_ref
+        WHERE ms.mosque_slug IN (${ph}) AND sd.times_status = 'ok'
+          AND sd.source IN (${DISCOVERY_TIME_SQL})`
+    ).bind(...part).all();
+    for (const r of results || []) { if (!map.has(r.slug)) map.set(r.slug, []); map.get(r.slug).push(r); }
+  }
+  return map;
+}
+
+async function fetchDailyEntries(db, slugs, thisKey, nextKey) {
+  const map = new Map();
+  const start = `${thisKey}-01`, end = addDaysIso(`${nextKey}-01`, daysInMonth(nextKey));
+  for (let i = 0; i < slugs.length; i += 90) {
+    const part = slugs.slice(i, i + 90);
+    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+    const { results } = await db.prepare(
+      `SELECT ms.mosque_slug AS slug, r.source, r.date, r.fajr_jamaah, r.zuhr_jamaah, r.asr_jamaah, r.maghrib_jamaah, r.isha_jamaah
+         FROM jamaah_raw r JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
+        WHERE ms.mosque_slug IN (${ph}) AND r.source IN (${DAILY_SOURCES.map((s) => `'${s}'`).join(',')})
+          AND r.date >= ?${part.length + 1} AND r.date < ?${part.length + 2}`
+    ).bind(...part, start, end).all();
+    for (const r of results || []) { if (!map.has(r.slug)) map.set(r.slug, []); map.get(r.slug).push(r); }
+  }
+  return map;
+}
+
+// One mosque's merged page for one month, from whichever of its linked
+// sources (discovery-based or daily-based) already showed up in the two
+// batched fetches above.
+function mergedPageFor(slug, key, discBySlug, dailyBySlug) {
+  const list = [];
+  for (const src of discBySlug.get(slug) || []) {
+    const p = buildMonthPage(src, key);
+    if (p) list.push({ source: src.source, blob: p.times, jummah: p.jummah });
+  }
+  const dayRows = (dailyBySlug.get(slug) || []).filter((r) => monthKey(r.date) === key);
+  if (dayRows.length) {
+    const bySrc = new Map();
+    for (const r of dayRows) { if (!bySrc.has(r.source)) bySrc.set(r.source, []); bySrc.get(r.source).push(r); }
+    for (const [src, rowsForSrc] of bySrc) {
+      const p = buildDailyMonthPage(rowsForSrc, key);
+      if (p) list.push({ source: src, blob: p.times, jummah: p.jummah });
+    }
+  }
+  return mergeEntries(list, key);
+}
+
+// Fetch + merge only (no write) - fillMissing() uses this directly so it
+// can defer the actual database write to after the response goes out.
+async function computeMergedPages(db, slugs, thisKey, nextKey) {
+  if (!slugs.length) return new Map();
+  const [discBySlug, dailyBySlug] = await Promise.all([
+    fetchDiscoveryEntries(db, slugs),
+    fetchDailyEntries(db, slugs, thisKey, nextKey),
+  ]);
+  const out = new Map();
+  for (const slug of slugs) {
+    out.set(slug, { a: mergedPageFor(slug, thisKey, discBySlug, dailyBySlug), b: mergedPageFor(slug, nextKey, discBySlug, dailyBySlug) });
+  }
+  return out;
+}
+
+// Fetch + merge + write, awaited to completion - what the two admin
+// "prepare" jobs use, since they're expected to report a final count
+// once done rather than fire-and-forget.
+async function mergeAndWrite(db, slugs, thisKey, nextKey) {
+  if (!slugs.length) return { withTimes: 0, without: 0 };
+  const merged = await computeMergedPages(db, slugs, thisKey, nextKey);
+  const now = new Date().toISOString();
+  const stmts = [];
+  let withTimes = 0, without = 0;
+  for (const slug of slugs) {
+    const { a, b } = merged.get(slug) || {};
+    stmts.push(writePage(db, slug, thisKey, a, a ? a.source : null, now));
+    stmts.push(writePage(db, slug, nextKey, b, b ? b.source : null, now));
+    if (a || b) withTimes++; else without++;
+  }
+  for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
+  return { withTimes, without };
+}
+
 // Same shape as prepareMonths() below, for the daily sources: find every
 // (mosque, source) pair whose stored month page is missing or older than
-// its newest jamaah_raw row, rebuild this month + next month for it, and
-// write it the same way buildMonthPage()'s output does. Staleness is
-// tracked against mosque_month_times.updated_at directly (these sources
-// never write to source_discoveries, unlike the year/snapshot ones
-// above, so there's no compiled_through column to compare against here).
+// its newest jamaah_raw row, then merge-and-write the FULL set of
+// affected mosques (every source each one has, not just its MasjidBox/
+// MyMasjid row - see mergeAndWrite above). Staleness is tracked against
+// mosque_month_times.updated_at directly (these sources never write to
+// source_discoveries, unlike the year/snapshot ones above, so there's
+// no compiled_through column to compare against here).
 export async function prepareDailySourceMonths(db, limit) {
   await ensureTimesSchema(db);
   const { dateIso } = londonNowParts();
@@ -367,23 +494,8 @@ export async function prepareDailySourceMonths(db, limit) {
   ).bind(thisKey, nextKey).all();
 
   const rows = results || [];
-  const now = new Date().toISOString();
-  const stmts = [];
-  let withTimes = 0, without = 0;
-  for (const row of rows) {
-    const raw = await db.prepare(
-      `SELECT date, fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah
-         FROM jamaah_raw WHERE source = ?1 AND source_ref = ?2 AND date >= ?3 AND date < ?4`
-    ).bind(row.source, row.source_ref, `${thisKey}-01`, addDaysIso(`${nextKey}-01`, daysInMonth(nextKey))).all();
-    const byMonth = { [thisKey]: [], [nextKey]: [] };
-    for (const r of raw.results || []) { const k = monthKey(r.date); if (byMonth[k]) byMonth[k].push(r); }
-    const a = buildDailyMonthPage(byMonth[thisKey], thisKey);
-    const b = buildDailyMonthPage(byMonth[nextKey], nextKey);
-    stmts.push(writePage(db, row.slug, thisKey, a, row.source, now));
-    stmts.push(writePage(db, row.slug, nextKey, b, row.source, now));
-    if (a || b) withTimes++; else without++;
-  }
-  for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
+  const slugs = [...new Set(rows.map((r) => r.slug))];
+  const { withTimes, without } = await mergeAndWrite(db, slugs, thisKey, nextKey);
 
   const left = await db.prepare(
     `SELECT COUNT(*) AS n FROM (
@@ -430,21 +542,33 @@ export async function prepareMonths(db, limit) {
   ).bind(nextKey).all();
 
   const rows = results || [];
+  // Diagnostics per stale (mosque, source) row - drives the "Progress by
+  // source" table's Times Sent / no-times-in-source columns, so this
+  // stays keyed exactly as before even though the ACTUAL write below
+  // covers every source a mosque has, not just the stale one that got
+  // it onto this list.
   const now = new Date().toISOString();
-  const stmts = [];
+  const markStmts = [];
   let withTimes = 0, without = 0;
   for (const row of rows) {
     const a = buildMonthPage(row, thisKey);
     const b = buildMonthPage(row, nextKey);
-    stmts.push(writePage(db, row.slug, thisKey, a, row.source, now));
-    stmts.push(writePage(db, row.slug, nextKey, b, row.source, now));
-    stmts.push(db.prepare(
+    markStmts.push(db.prepare(
       `UPDATE source_discoveries SET compiled_through = ?1, compiled_at = ?2, has_times = ?3
         WHERE source = ?4 AND source_ref = ?5`
     ).bind(nextKey, now, (a || b) ? 1 : 0, row.source, row.source_ref));
     if (a || b) withTimes++; else without++;
   }
-  for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
+  for (let i = 0; i < markStmts.length; i += 90) await db.batch(markStmts.slice(i, i + 90));
+
+  // The actual write: every mosque touched by this batch, merged across
+  // ALL of its linked sources (see mergeAndWrite above), not just the
+  // stale one above - so a mosque with e.g. both mosques.london and
+  // MasjidBox linked gets the best of both instead of one blocking the
+  // other.
+  const slugs = [...new Set(rows.map((r) => r.slug))];
+  await mergeAndWrite(db, slugs, thisKey, nextKey);
+
   const left = await db.prepare(
     `SELECT COUNT(*) AS n FROM source_discoveries sd JOIN mosque_sources ms
         ON ms.source = sd.source AND ms.source_ref = sd.source_ref
@@ -510,54 +634,34 @@ async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso
   if (!missing.length) return;
   const slugs = missing.slice(0, MAX_COMPILE_PER_AREA);
   const db = context.env.DB;
-  const placeholders = slugs.map((_, i) => '?' + (i + 1)).join(',');
-  let results;
-  try {
-    ({ results } = await db.prepare(
-      `SELECT ms.mosque_slug AS slug, ${TIMETABLE_COLS}
-         FROM mosque_sources ms JOIN source_discoveries sd
-           ON sd.source = ms.source AND sd.source_ref = ms.source_ref
-        WHERE ms.mosque_slug IN (${placeholders}) AND sd.times_status = 'ok'
-          AND sd.source IN (${DISCOVERY_TIME_SQL})`
-    ).bind(...slugs).all());
-  } catch (e) { return; }
+  const byslug = new Map(rows.map((r) => [r.slug, r]));
+
+  let merged = new Map();
+  try { merged = await computeMergedPages(db, slugs, thisKey, nextKey); } catch (e) { return; }
+  const calcOn = await isCalcMaghribEnabled(db).catch(() => false);
 
   const now = new Date().toISOString();
-  const byslug = new Map(rows.map((r) => [r.slug, r]));
   const stmts = [];
-  // Most trusted source first; a later (less trusted) source only fills a
-  // month the better one left empty.
-  const ordered = (results || []).slice().sort((x, y) => (SOURCE_RANK[x.source] || 9) - (SOURCE_RANK[y.source] || 9));
-  for (const src of ordered) {
-    const a = buildMonthPage(src, thisKey);
-    const b = buildMonthPage(src, nextKey);
-    const row = byslug.get(src.slug);
-    if (row) {
-      if (a && !row.month_times) row.month_times = a.times;
-      if (b && !row.next_month_times) row.next_month_times = b.times;
-    }
-    stmts.push(writePage(db, src.slug, thisKey, a, src.source, now));
-    stmts.push(writePage(db, src.slug, nextKey, b, src.source, now));
-  }
+  for (const slug of slugs) {
+    const row = byslug.get(slug);
+    if (!row) continue;
+    let { a, b } = merged.get(slug) || {};
 
-  // Last resort, gated by an admin toggle: any mosque in this batch that
-  // STILL has no page at all (no real source covers it) gets Maghrib
-  // computed from its own coordinates - never a substitute for a real
-  // committee time, and never touches a mosque any real source already
-  // filled (see writePage's ON CONFLICT guard - a real source always wins).
-  if (await isCalcMaghribEnabled(db)) {
-    for (const slug of slugs) {
-      const row = byslug.get(slug);
-      if (!row || row.month_times || row.next_month_times) continue;
-      if (row.latitude == null || row.longitude == null) continue;
-      const a = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, thisKey);
-      const b = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, nextKey);
-      if (!a && !b) continue;
-      if (a) { row.month_times = a.times; row.month_source = 'calculated'; }
-      if (b) { row.next_month_times = b.times; row.next_month_source = 'calculated'; }
-      stmts.push(writePage(db, slug, thisKey, a, 'calculated', now));
-      stmts.push(writePage(db, slug, nextKey, b, 'calculated', now));
+    // Last resort, gated by an admin toggle: only when no real source
+    // covers this mosque at all does it get Maghrib computed from its
+    // own coordinates - never a substitute for a real committee time.
+    if (!a && !b && calcOn && row.latitude != null && row.longitude != null) {
+      const ca = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, thisKey);
+      const cb = buildCalculatedMonthPage(row.latitude, row.longitude, row.country, nextKey);
+      if (ca) a = { times: ca.times, jummah: ca.jummah, source: 'calculated' };
+      if (cb) b = { times: cb.times, jummah: cb.jummah, source: 'calculated' };
     }
+    if (!a && !b) continue;
+
+    if (a) { row.month_times = a.times; row.month_source = a.source; }
+    if (b) { row.next_month_times = b.times; row.next_month_source = b.source; }
+    stmts.push(writePage(db, slug, thisKey, a, a ? a.source : null, now));
+    stmts.push(writePage(db, slug, nextKey, b, b ? b.source : null, now));
   }
 
   if (stmts.length) {
