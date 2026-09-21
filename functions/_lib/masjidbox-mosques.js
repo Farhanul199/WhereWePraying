@@ -165,6 +165,7 @@ export const MASJIDBOX_MOSQUES = [
   { slug: "ihya-foundation", name: "Ihya Foundation" },
   { slug: "ikhewa-mosque", name: "Ikhewa mosque" },
   { slug: "ilford-community-center", name: "Ilford Community Center" },
+  { slug: "ilfordmosque", name: "Ilford Islamic Centre" },
   { slug: "imam-yusuf-motala-academy", name: "Imam Yusuf Motala Academy" },
   { slug: "inverclyde-muslim-centre", name: "Inverclyde Muslim Centre" },
   { slug: "iqra-academy-edinburgh", name: "Iqra Academy Edinburgh" },
