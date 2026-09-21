@@ -47,7 +47,7 @@ const KV_TTL = 21600;                 // 6 hours, shared worldwide
 // Bump AREA_CACHE_VERSION to throw away every cached area at once (e.g.
 // after a fix that changes what an area holds). merge-duplicates.js also
 // clears today's KV areas after a merge, using AREA_KV_PREFIX.
-export const AREA_CACHE_VERSION = 4;
+export const AREA_CACHE_VERSION = 5;
 export const AREA_KV_PREFIX = `mq_area_v${AREA_CACHE_VERSION}:`;
 const MAX_COMPILE_PER_AREA = 120;     // year->month pages built per area build
 // "Current schedule" sources (Masjidal, Takbeer Time - a snapshot, not a
@@ -594,6 +594,7 @@ const AREA_QUERY = `
          tmr.fajr_jamaah AS tomorrow_fajr,
          mt.times AS month_times, mt2.times AS next_month_times,
          mt.source AS month_source, mt2.source AS next_month_source,
+         mt.updated_at AS month_updated_at,
          ph.r2_key AS photo_key,
          (SELECT GROUP_CONCAT(alias, '||') FROM mosque_aliases WHERE mosque_slug = m.slug) AS aliases
     FROM mosques m
@@ -624,16 +625,63 @@ function applyPage(row, dateIso, tomorrowIso, thisKey) {
   }
   delete row.month_times; delete row.next_month_times;
   delete row.month_source; delete row.next_month_source;
+  delete row.month_updated_at;
   return row;
+}
+
+// Batched: for these mosques (which already have a page), the newest
+// times_updated_at/updated_at across every one of their linked sources -
+// discovery-based and daily-based alike. Compared in JS against each
+// row's own month_updated_at, so a mosque whose source got new data
+// after its page was last compiled gets picked up on the next real
+// visit, instead of sitting stale until someone clicks "Prepare times".
+async function fetchLatestSourceUpdate(db, slugs) {
+  const map = new Map();
+  for (let i = 0; i < slugs.length; i += 90) {
+    const part = slugs.slice(i, i + 90);
+    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+    const { results } = await db.prepare(
+      `SELECT slug, MAX(latest) AS latest FROM (
+         SELECT ms.mosque_slug AS slug, sd.times_updated_at AS latest
+           FROM mosque_sources ms JOIN source_discoveries sd
+             ON sd.source = ms.source AND sd.source_ref = ms.source_ref
+          WHERE ms.mosque_slug IN (${ph}) AND sd.source IN (${DISCOVERY_TIME_SQL})
+         UNION ALL
+         SELECT ms.mosque_slug AS slug, r.updated_at AS latest
+           FROM jamaah_raw r JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
+          WHERE ms.mosque_slug IN (${ph}) AND r.source IN (${DAILY_SOURCES.map((s) => `'${s}'`).join(',')})
+       ) GROUP BY slug`
+    ).bind(...part).all();
+    for (const r of results || []) if (r.latest) map.set(r.slug, r.latest);
+  }
+  return map;
 }
 
 // Fill in month pages for mosques in this area that don't have one yet,
 // so an area is only ever "prepared" when someone actually looks at it.
+// "Missing" now means two things: no page at all, or a page whose
+// underlying source(s) have newer data than the page itself does - a
+// re-scrape or an admin re-import should reach the live site on the
+// next real visit, not sit there until someone remembers to click
+// "Prepare times".
 async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso) {
-  const missing = rows.filter((r) => !r.month_times && !r.next_month_times).map((r) => r.slug);
-  if (!missing.length) return;
-  const slugs = missing.slice(0, MAX_COMPILE_PER_AREA);
   const db = context.env.DB;
+  const missing = rows.filter((r) => !r.month_times && !r.next_month_times).map((r) => r.slug);
+  const haveEither = rows.filter((r) => r.month_times || r.next_month_times);
+
+  const staleSlugs = [];
+  if (haveEither.length) {
+    const checkSlugs = haveEither.slice(0, MAX_COMPILE_PER_AREA).map((r) => r.slug);
+    let latestMap = new Map();
+    try { latestMap = await fetchLatestSourceUpdate(db, checkSlugs); } catch (e) {}
+    for (const r of haveEither) {
+      const latest = latestMap.get(r.slug);
+      if (latest && r.month_updated_at && latest > r.month_updated_at) staleSlugs.push(r.slug);
+    }
+  }
+
+  const slugs = [...new Set([...missing, ...staleSlugs])].slice(0, MAX_COMPILE_PER_AREA);
+  if (!slugs.length) return;
   const byslug = new Map(rows.map((r) => [r.slug, r]));
 
   let merged = new Map();
