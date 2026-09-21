@@ -27,7 +27,7 @@
 //   start=30&end=60
 //   ... up to start=330&end=348
 
-import { isSyncRequest } from '../../_lib/auth.js';
+import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
 
 const API_BASE = "https://api.masjidbox.com/1.0/masjidbox/landing/athany/";
 const APIKEY = "JejYcMS7hsOsZTPDk2ZhKOAlW9IyQ6Px"; // public frontend key, embedded in MasjidBox's own JS bundle
@@ -434,7 +434,7 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  if (!isSyncRequest(context)) {
+  if (!isSyncRequest(context) && !isAdminRequest(context)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
