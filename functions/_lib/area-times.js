@@ -184,7 +184,7 @@ export function buildMonthPage(row, key) {
 
   if (SNAPSHOT_SOURCES.includes(row.source)) {
     if (row.source === 'takbeertime' && !row.iqama_enabled) return null; // unverified community entry
-    if (row.source === 'mosqueslondon') return datedSnapshotPage(row, key, days);
+    if (row.source === 'mosqueslondon') return mosquesLondonPage(row, key, days);
     const age = row.times_updated_at ? (Date.now() - Date.parse(row.times_updated_at)) / 86400000 : 999;
     if (!(age < SNAPSHOT_MAX_AGE_DAYS)) return null;
     const cal = safeJson(row.calendar_json);
@@ -200,6 +200,24 @@ export function buildMonthPage(row, key) {
   }
 
   return null;
+}
+
+// mosques.london: prefer a full committee-sourced year calendar (real
+// Maghrib included - see scrape-mosqueslondon.js mode=importYear, which
+// writes one packed month blob per month, exactly like this table's own
+// format, so no expansion work happens on the request path). Falls back
+// to the older single dated snapshot (7 days, no Maghrib) for any
+// mosque only ever given a one-day export.
+function mosquesLondonPage(row, key, days) {
+  const cal = safeJson(row.calendar_json);
+  if (!cal) return null;
+  if (cal.shape === 'year' && cal.months) {
+    const blob = cal.months[key];
+    if (!blob || blob.length !== days * 20 || !/[0-9]/.test(blob)) return null;
+    const j1 = hm(row.jumua), j2 = hm(row.jumua2);
+    return { times: blob, jummah: (j1 || j2) ? JSON.stringify({ 1: j1 || undefined, 2: j2 || undefined }) : null };
+  }
+  return datedSnapshotPage(row, key, days);
 }
 
 // mosques.london: fill only the days from the published date, up to 7,
