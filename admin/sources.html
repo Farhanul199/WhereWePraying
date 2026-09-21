@@ -266,7 +266,15 @@
       <div class="actions">
         <button id="mlImportBtn">1. Import JSON</button>
       </div>
-      <p class="hint">Directory + one day of jama'ah times. Placeholder times ("00:00", or a jama'ah outside 0–150 min after it begins) are left blank. Its times only show for a mosque no other source covers, and only for 7 days from the file's date — re-upload a fresh file to keep them showing.</p>
+      <p class="hint">Directory + one day of jama'ah times. Placeholder times ("00:00", or a jama'ah outside 0–150 min after it begins) are left blank. Without a full-year file imported below, its times only show for a mosque no other source covers, and only for 7 days from this file's date — re-upload a fresh file to keep them showing.</p>
+
+      <label for="mlYearInput">Full-year file (one row per mosque per day, e.g. mosques_london_2026.json)</label>
+      <input type="file" id="mlYearInput" accept=".json,application/json">
+      <div class="actions">
+        <button id="mlYearImportBtn">2. Import full-year jama'ah times</button>
+      </div>
+      <p class="hint">The mosque's real committee calendar for every day given, Maghrib included — replaces the 7-day snapshot for any mosque in the file. Needs step 1 run first (this file has no coordinates of its own). Large files upload in batches automatically — keep this tab open until it says done. Re-run any time to refresh, or to add just one month (e.g. Ramadan) without touching the rest of the year.</p>
+
       <div class="actions">
         <button class="ghost" id="mlEnrichBtn">3. Fill missing details on live mosques</button>
       </div>
@@ -773,6 +781,65 @@
       (data.skipped ? ' · ' + data.skipped + ' skipped' + ((data.outsideUk || []).length ? ' (bad location: ' + data.outsideUk.join(', ') + ')' : '') : '') +
       '. Next: "Go live" below, then step 3.');
     refresh();
+  });
+
+  $('mlYearImportBtn').addEventListener('click', async function(){
+    var file = $('mlYearInput').files[0];
+    if (!file) { say($('mlStatus'), 'Choose the full-year JSON file first.', true); return; }
+    $('mlYearImportBtn').disabled = true;
+    say($('mlStatus'), 'Reading ' + file.name + '…');
+    var rows;
+    try {
+      rows = JSON.parse(await file.text());
+    } catch (e) {
+      $('mlYearImportBtn').disabled = false;
+      say($('mlStatus'), 'Could not read that as JSON.', true); return;
+    }
+    if (!Array.isArray(rows)) {
+      $('mlYearImportBtn').disabled = false;
+      say($('mlStatus'), 'Expected a JSON array of daily rows.', true); return;
+    }
+    // Group into whole per-mosque blocks first, so a batch never splits
+    // one mosque's days across two requests - keeps each upload small
+    // (this file is too big to send in one go) without any server-side
+    // merge risk.
+    var byMosque = new Map();
+    for (var gi = 0; gi < rows.length; gi++) {
+      var r = rows[gi];
+      if (r == null || r.mosque_id == null) continue;
+      if (!byMosque.has(r.mosque_id)) byMosque.set(r.mosque_id, []);
+      byMosque.get(r.mosque_id).push(r);
+    }
+    rows = null;
+    var groups = Array.from(byMosque.values());
+    byMosque = null;
+    var BATCH = 20;
+    var total = groups.length, mosquesDone = 0, monthsWritten = 0, rowsUsed = 0, notFound = 0, batchErrors = 0;
+    for (var bi = 0; bi < groups.length; bi += BATCH) {
+      var chunkGroups = groups.slice(bi, bi + BATCH);
+      var chunkRows = [].concat.apply([], chunkGroups);
+      say($('mlStatus'), 'Uploading ' + Math.min(bi + BATCH, total) + ' of ' + total + ' mosques…');
+      var res, data;
+      try {
+        res = await fetch('/api/admin/scrape-mosqueslondon?mode=importYear', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+          body: JSON.stringify(chunkRows)
+        });
+        data = await res.json();
+      } catch (e) { batchErrors++; continue; }
+      if (!res.ok || data.error) { batchErrors++; continue; }
+      mosquesDone += data.mosques || 0;
+      monthsWritten += data.monthsWritten || 0;
+      rowsUsed += data.rowsUsed || 0;
+      notFound += data.notFound || 0;
+    }
+    $('mlYearImportBtn').disabled = false;
+    say($('mlStatus'),
+      'Updated ' + fmt(mosquesDone) + ' mosques · ' + fmt(monthsWritten) + ' months written · ' + fmt(rowsUsed) + ' days used' +
+      (notFound ? ' · ' + notFound + ' not found (run step 1 for these first)' : '') +
+      (batchErrors ? ' · ' + batchErrors + ' batch' + (batchErrors > 1 ? 'es' : '') + ' failed, re-run to retry' : '') +
+      '. Times refresh as visitors load each area — no "Go live" needed for mosques already live.');
   });
 
   $('mlEnrichBtn').addEventListener('click', async function(){
