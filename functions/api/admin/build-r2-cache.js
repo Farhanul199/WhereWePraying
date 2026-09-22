@@ -20,6 +20,13 @@
 //      (about an hour), with no global rebuild to wait for.
 //
 // Auth: cron Worker sends X-Sync-Key; the admin page sends X-Broadcast-Key.
+//
+// Optional ?limit=N (admin only, default 60, capped at 500 - see the
+// Math.min inside prepareMonths/prepareDailySourceMonths) - the twice-
+// daily cron always uses the default, gentle 60. The admin "Recompile
+// all mosques now" button on Sources passes a bigger limit and calls
+// this in a loop until nothing is left, so a full re-merge (e.g. after
+// a merge-logic change) doesn't take 80+ days of waiting for cron.
 
 import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
 import { prepareMonths, prepareDailySourceMonths, ensureTimesSchema, londonNowParts } from '../../_lib/area-times.js';
@@ -31,12 +38,16 @@ export async function onRequestGet(context) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const url = new URL(context.request.url);
+  const limitParam = parseInt(url.searchParams.get('limit') || '', 10);
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 60;
+
   const { dateIso } = londonNowParts();
 
   let timesPrepared = null;
   try {
     await ensureTimesSchema(env.DB);
-    timesPrepared = await prepareMonths(env.DB, 60);
+    timesPrepared = await prepareMonths(env.DB, limit);
   } catch (e) {
     timesPrepared = { error: String(e).slice(0, 200) };
   }
@@ -49,13 +60,13 @@ export async function onRequestGet(context) {
   // recompile call, a sync that errored after writing, etc.
   let dailyTimesPrepared = null;
   try {
-    dailyTimesPrepared = await prepareDailySourceMonths(env.DB, 60);
+    dailyTimesPrepared = await prepareDailySourceMonths(env.DB, limit);
   } catch (e) {
     dailyTimesPrepared = { error: String(e).slice(0, 200) };
   }
 
   return new Response(JSON.stringify({
-    ok: true, date: dateIso, timesPrepared, dailyTimesPrepared,
+    ok: true, date: dateIso, limit, timesPrepared, dailyTimesPrepared,
     note: "Per-area serving is live; no global mosque file is built any more. New mosques appear as each area's cache rolls over (within about an hour).",
   }), { headers: { "Content-Type": "application/json" } });
 }
