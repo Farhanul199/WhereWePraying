@@ -1846,6 +1846,31 @@
     loadOverview();
   });
 
+  $('recompileAllBtn').addEventListener('click', async function(){
+    var btn = $('recompileAllBtn');
+    var msg = $('rebuildStatus');
+    if (btn.dataset.running) return;
+    btn.dataset.running = '1';
+    btn.disabled = true;
+    var totalProcessed = 0, batchNum = 0;
+    say(msg, 'Starting…');
+    while (true) {
+      batchNum++;
+      say(msg, 'Batch ' + batchNum + ' (' + fmt(totalProcessed) + ' so far)…');
+      await wait(500); // pace to stay under 10-req/min limit
+      var d = await api('/api/admin/build-r2-cache?limit=500');
+      if (d.error || d.ok === false) { say(msg, (d.error || 'Failed') + ' at batch ' + batchNum + '.', true); break; }
+      totalProcessed += ((d.timesPrepared && d.timesPrepared.withTimes) || 0);
+      var stillToDo = (d.timesPrepared && d.timesPrepared.stillToPrepare) || 0;
+      say(msg, 'Batch ' + batchNum + ' done — ' + fmt(totalProcessed) + ' total · ' + fmt(stillToDo) + ' remaining…');
+      if (stillToDo === 0) { say(msg, 'All done — ' + fmt(totalProcessed) + ' total mosques recompiled.'); break; }
+      await wait(500);
+    }
+    delete btn.dataset.running;
+    btn.disabled = false;
+    loadOverview();
+  });
+
   /* ---------------------------------------------------------- download */
   $('dlBtn').addEventListener('click', async function(){
     var cc = $('dlCountry').value;
