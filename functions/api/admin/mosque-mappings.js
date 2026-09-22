@@ -32,7 +32,18 @@
 //   names share most of their words (Jaccard) .... 65
 
 import { isAdminRequest } from '../../_lib/auth.js';
-import { recompileMosquePages } from '../../_lib/area-times.js';
+import {
+  recompileMosquePages, ensureTimesSchema, buildMonthPage, readDay,
+  DAILY_SOURCES, SOURCE_RANK, londonNowParts,
+} from '../../_lib/area-times.js';
+
+// Sources whose timetable lives on source_discoveries (a snapshot or a
+// full calendar), as opposed to DAILY_SOURCES (one jamaah_raw row per
+// mosque per day) or 'manual' (one fallback row in jamaah_raw). Kept in
+// sync with DISCOVERY_TIME_SOURCES in area-times.js by hand - it isn't
+// exported there, and duplicating one short array here is simpler than
+// widening that module's exports for it.
+const DISCOVERY_SOURCES = ['mawaqit', 'masjidal', 'takbeertime', 'mosqueslondon'];
 
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
@@ -146,9 +157,102 @@ function bestMatches(src, mosques, limit) {
     .slice(0, limit);
 }
 
+// One mosque's full source breakdown: every source it's linked to, what
+// each of them actually has for TODAY (so a gap like a missing Dhuhr is
+// visible as "this source genuinely has no Dhuhr" rather than a mystery),
+// what's currently live (the merged page + which source(s) contributed),
+// and its forced_source override if one is set. Powers the mosque
+// search box in "Match sources to mosques" on admin/sources.html.
+async function breakdownForSlug(db, slug) {
+  await ensureTimesSchema(db); // makes sure mosques.forced_source exists
+  const mosque = await db
+    .prepare(`SELECT slug, name, active, forced_source FROM mosques WHERE slug = ?1`)
+    .bind(slug)
+    .first();
+  if (!mosque) return json({ error: `No mosque with slug "${slug}".` }, 404);
+
+  const { results: linkRows } = await db
+    .prepare(`SELECT source, source_ref, name, last_seen FROM mosque_sources WHERE mosque_slug = ?1 ORDER BY source`)
+    .bind(slug)
+    .all();
+  const linked = linkRows || [];
+
+  const { dateIso } = londonNowParts();
+  const thisKey = dateIso.slice(0, 7);
+
+  const breakdown = [];
+  for (const l of linked) {
+    let today = null, note = null;
+    if (DISCOVERY_SOURCES.indexOf(l.source) !== -1) {
+      const sd = await db
+        .prepare(
+          `SELECT calendar_json, iqama_json, iqama_enabled, jumua, jumua2, jumua_as_duhr,
+                  quality, iqama_quality, times_updated_at
+             FROM source_discoveries WHERE source = ?1 AND source_ref = ?2`
+        )
+        .bind(l.source, l.source_ref)
+        .first();
+      if (sd) {
+        const page = buildMonthPage(Object.assign({}, sd, { source: l.source }), thisKey);
+        today = page ? readDay(page.times, dateIso) : null;
+        if (!page) note = "No usable timetable from this source right now.";
+      } else {
+        note = "Not fetched from this source yet.";
+      }
+    } else if (DAILY_SOURCES.indexOf(l.source) !== -1) {
+      const row = await db
+        .prepare(
+          `SELECT fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah
+             FROM jamaah_raw WHERE source = ?1 AND source_ref = ?2 AND date = ?3`
+        )
+        .bind(l.source, l.source_ref, dateIso)
+        .first();
+      if (row) {
+        today = { fajr: row.fajr_jamaah || null, zuhr: row.zuhr_jamaah || null, asr: row.asr_jamaah || null, maghrib: row.maghrib_jamaah || null, isha: row.isha_jamaah || null };
+        if (!today.fajr && !today.zuhr && !today.asr && !today.maghrib && !today.isha) { today = null; note = "No prayer times submitted for today by this source."; }
+      } else {
+        note = "No data yet for today from this source.";
+      }
+    } else if (l.source === "manual") {
+      const row = await db
+        .prepare(
+          `SELECT fajr_jamaah, zuhr_jamaah, asr_jamaah, maghrib_jamaah, isha_jamaah
+             FROM jamaah_raw WHERE source = 'manual' AND source_ref = ?1 ORDER BY date DESC LIMIT 1`
+        )
+        .bind(slug)
+        .first();
+      if (row) today = { fajr: row.fajr_jamaah || null, zuhr: row.zuhr_jamaah || null, asr: row.asr_jamaah || null, maghrib: row.maghrib_jamaah || null, isha: row.isha_jamaah || null };
+      else note = "No manual fallback times set.";
+    } else {
+      note = "Location-only source \u2014 no prayer times.";
+    }
+    breakdown.push({ source: l.source, source_ref: l.source_ref, name: l.name, rank: SOURCE_RANK[l.source] || null, today, note });
+  }
+
+  const mt = await db
+    .prepare(`SELECT times, source FROM mosque_month_times WHERE mosque = ?1 AND month = ?2`)
+    .bind(slug, thisKey)
+    .first();
+  const live = mt ? { today: readDay(mt.times, dateIso), contributors: mt.source } : null;
+
+  return json({
+    mosque: { slug: mosque.slug, name: mosque.name, active: !!mosque.active, forced_source: mosque.forced_source || null },
+    linked: linked.map((l) => ({ source: l.source, source_ref: l.source_ref, name: l.name })),
+    breakdown,
+    live,
+    today: dateIso,
+  });
+}
+
 export async function onRequestGet(context) {
   if (!isAdminRequest(context)) return json({ error: "Unauthorized" }, 401);
   const db = context.env.DB;
+  const url = new URL(context.request.url);
+  const slug = (url.searchParams.get("slug") || "").trim();
+  if (slug) {
+    try { return await breakdownForSlug(db, slug); }
+    catch (e) { return json({ error: "db_error", message: String(e) }, 500); }
+  }
   try {
     const counts = await db
       .prepare(
@@ -344,6 +448,26 @@ export async function onRequestPost(context) {
       ]);
       try { await recompileMosquePages(db, [keep]); } catch (e) {}
       return json({ success: true, kept: keep, merged: merge });
+    }
+
+    if (body.action === "set_forced_source") {
+      const slug = String(body.slug || "").trim();
+      const source = String(body.source || "").trim(); // '' clears it back to automatic
+      if (!slug) return json({ error: "slug is required." }, 400);
+      const mosque = await db.prepare(`SELECT slug FROM mosques WHERE slug = ?1`).bind(slug).first();
+      if (!mosque) return json({ error: `No mosque with slug "${slug}".` }, 404);
+      if (source) {
+        const linkedRow = await db
+          .prepare(`SELECT 1 FROM mosque_sources WHERE mosque_slug = ?1 AND source = ?2 LIMIT 1`)
+          .bind(slug, source)
+          .first();
+        if (!linkedRow) return json({ error: `"${source}" isn't currently linked to this mosque.` }, 400);
+      }
+      await ensureTimesSchema(db);
+      await db.prepare(`UPDATE mosques SET forced_source = ?1 WHERE slug = ?2`).bind(source || null, slug).run();
+      let recompiled = { withTimes: 0, without: 0 };
+      try { recompiled = await recompileMosquePages(db, [slug]); } catch (e) {}
+      return json({ success: true, forced_source: source || null, recompiled });
     }
 
     return json({ error: "Unknown action." }, 400);
