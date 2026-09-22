@@ -17,11 +17,13 @@
 //              - an admin diagnostic label, not something the site reads.
 //
 // A mosque linked to more than one source (e.g. Mawaqit AND MasjidBox)
-// gets ONE merged page: each of the 5 daily slots is taken from the
-// most-trusted linked source that actually HAS it, so one source's gaps
-// get patched by the next instead of a whole month losing to whichever
-// source is "most trusted" even when it only half-covers that mosque.
-// See mergeEntries() and SOURCE_RANK below.
+// gets ONE merged page: for each day, the highest-ranked linked source
+// that has ALL 5 prayers for that day wins the whole day outright: one
+// source's complete picture beats stitching prayers together across
+// sources. Only when no single linked source is complete for a day does
+// it fall back to patching slot-by-slot (most-trusted-that-HAS-it wins
+// each prayer) as a last resort. See mergeEntries() and SOURCE_RANK
+// below.
 //
 // Nothing is written per day, and nothing expires. A month page is
 // written once, and rewritten only when one of that mosque's linked
@@ -308,29 +310,48 @@ function writePage(db, slug, key, page, source, now) {
 }
 
 // Combine every linked source's own page for one mosque, one month, into
-// a single blob, slot by slot (see the SOURCE_RANK comment above for
-// why). `entries` is [{source, blob, jummah}]; blob is the same 20-
-// chars-per-day packed format buildMonthPage()/buildDailyMonthPage()
-// both already produce. `source` on the result is every source that
-// actually contributed at least one slot, most-trusted first
-// ("mawaqit+masjidbox_scrape") - an admin diagnostic label, not
-// something the site reads.
+// a single blob (see the SOURCE_RANK comment above for why). `entries`
+// is [{source, blob, jummah}]; blob is the same 20-chars-per-day packed
+// format buildMonthPage()/buildDailyMonthPage() both already produce.
+//
+// Per DAY (not per slot): the highest-ranked source that has ALL 5
+// prayers for that day wins the whole day outright - a mosque's daily
+// schedule comes from one committee/site whenever one of them actually
+// has the complete picture, rather than being stitched prayer-by-prayer
+// across sources that might round or interpret jama'ah differently.
+// Only when NO ranked source is complete for that day do we fall back
+// to patching slot-by-slot, most-trusted-that-HAS-it wins each prayer -
+// the old behaviour, now a last resort instead of the default.
+//
+// `source` on the result is every source that actually contributed at
+// least one day or slot, most-trusted first ("mawaqit+masjidbox_scrape")
+// - an admin diagnostic label, not something the site reads.
 function mergeEntries(entries, key) {
   if (!entries.length) return null;
   const ranked = entries.slice().sort((a, b) => (SOURCE_RANK[a.source] || 9) - (SOURCE_RANK[b.source] || 9));
   const days = daysInMonth(key);
   let out = '';
   const contributors = [];
+  const note = (src) => { if (!contributors.includes(src)) contributors.push(src); };
+
   for (let d = 0; d < days; d++) {
+    let dayBlock = null, daySource = null;
+    for (const e of ranked) {
+      const block = e.blob.slice(d * 20, d * 20 + 20);
+      if (block.length === 20 && !block.includes('----')) { dayBlock = block; daySource = e.source; break; }
+    }
+    if (dayBlock) {
+      out += dayBlock;
+      note(daySource);
+      continue;
+    }
+    // No single source is complete for this day - autofill: patch each
+    // of the 5 slots individually, most-trusted-that-HAS-it wins.
     for (let p = 0; p < 5; p++) {
       let val = '----';
       for (const e of ranked) {
         const chunk = e.blob.slice(d * 20 + p * 4, d * 20 + p * 4 + 4);
-        if (chunk && chunk !== '----') {
-          val = chunk;
-          if (!contributors.includes(e.source)) contributors.push(e.source);
-          break;
-        }
+        if (chunk && chunk !== '----') { val = chunk; note(e.source); break; }
       }
       out += val;
     }
