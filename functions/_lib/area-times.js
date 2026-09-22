@@ -464,6 +464,52 @@ async function mergeAndWrite(db, slugs, thisKey, nextKey) {
   return { withTimes, without };
 }
 
+// The write-time invalidation hook. Call this right after writing new
+// source data (jamaah_raw rows, a source_discoveries timetable, or a
+// fresh mosque_sources link) for a known set of mosque slugs, so their
+// month_times page is recompiled from ALL of that mosque's linked
+// sources immediately - the visitor-facing page is correct on the very
+// next request, no staleness check ever needed on the read path.
+// Safe to call with duplicate/unlinked slugs (filters to non-empty).
+// Best-effort: never throws, so a sync job's own response isn't held up
+// or broken by a compile failure - errors are swallowed and left for
+// the periodic prepareMonths()/prepareDailySourceMonths() safety net.
+export async function recompileMosquePages(db, slugs) {
+  const clean = [...new Set((slugs || []).filter(Boolean))];
+  if (!clean.length) return { withTimes: 0, without: 0 };
+  await ensureTimesSchema(db);
+  const { dateIso } = londonNowParts();
+  const thisKey = monthKey(dateIso);
+  const nextKey = nextMonthKey(dateIso);
+  try {
+    return await mergeAndWrite(db, clean, thisKey, nextKey);
+  } catch (e) {
+    return { withTimes: 0, without: 0, error: String(e) };
+  }
+}
+
+// Given a source + a list of source_ref codes that were just written to
+// (e.g. MasjidBox slugs, MyMasjid IDs), look up which mosques they're
+// currently linked to and recompile those mosques' pages. Call this at
+// the end of every sync job right after its own writes. Unlinked source
+// codes are simply skipped (nothing to recompile yet) - they'll pick up
+// a mosque_slug the next time the admin matcher runs, which itself
+// calls recompileMosquePages() directly once linked.
+export async function recompileForSourceRefs(db, source, sourceRefs) {
+  const refs = [...new Set((sourceRefs || []).filter(Boolean))];
+  if (!refs.length) return { withTimes: 0, without: 0 };
+  const slugs = new Set();
+  for (let i = 0; i < refs.length; i += 90) {
+    const part = refs.slice(i, i + 90);
+    const ph = part.map((_, k) => '?' + (k + 2)).join(',');
+    const { results } = await db.prepare(
+      `SELECT DISTINCT mosque_slug FROM mosque_sources WHERE source = ?1 AND source_ref IN (${ph}) AND mosque_slug IS NOT NULL`
+    ).bind(source, ...part).all();
+    for (const r of results || []) slugs.add(r.mosque_slug);
+  }
+  return recompileMosquePages(db, [...slugs]);
+}
+
 // Same shape as prepareMonths() below, for the daily sources: find every
 // (mosque, source) pair whose stored month page is missing or older than
 // its newest jamaah_raw row, then merge-and-write the FULL set of
@@ -629,58 +675,23 @@ function applyPage(row, dateIso, tomorrowIso, thisKey) {
   return row;
 }
 
-// Batched: for these mosques (which already have a page), the newest
-// times_updated_at/updated_at across every one of their linked sources -
-// discovery-based and daily-based alike. Compared in JS against each
-// row's own month_updated_at, so a mosque whose source got new data
-// after its page was last compiled gets picked up on the next real
-// visit, instead of sitting stale until someone clicks "Prepare times".
-async function fetchLatestSourceUpdate(db, slugs) {
-  const map = new Map();
-  for (let i = 0; i < slugs.length; i += 90) {
-    const part = slugs.slice(i, i + 90);
-    const ph = part.map((_, k) => '?' + (k + 1)).join(',');
-    const { results } = await db.prepare(
-      `SELECT slug, MAX(latest) AS latest FROM (
-         SELECT ms.mosque_slug AS slug, sd.times_updated_at AS latest
-           FROM mosque_sources ms JOIN source_discoveries sd
-             ON sd.source = ms.source AND sd.source_ref = ms.source_ref
-          WHERE ms.mosque_slug IN (${ph}) AND sd.source IN (${DISCOVERY_TIME_SQL})
-         UNION ALL
-         SELECT ms.mosque_slug AS slug, r.updated_at AS latest
-           FROM jamaah_raw r JOIN mosque_sources ms ON ms.source = r.source AND ms.source_ref = r.source_ref
-          WHERE ms.mosque_slug IN (${ph}) AND r.source IN (${DAILY_SOURCES.map((s) => `'${s}'`).join(',')})
-       ) GROUP BY slug`
-    ).bind(...part).all();
-    for (const r of results || []) if (r.latest) map.set(r.slug, r.latest);
-  }
-  return map;
-}
-
-// Fill in month pages for mosques in this area that don't have one yet,
-// so an area is only ever "prepared" when someone actually looks at it.
-// "Missing" now means two things: no page at all, or a page whose
-// underlying source(s) have newer data than the page itself does - a
-// re-scrape or an admin re-import should reach the live site on the
-// next real visit, not sit there until someone remembers to click
-// "Prepare times".
+// Fill in month pages for mosques in this area that don't have one yet
+// AT ALL, so an area is only ever "prepared" when someone actually
+// looks at it. This is now the ONLY thing fillMissing does - it no
+// longer re-checks every already-compiled mosque's sources for newer
+// data on every cache miss (that per-request JOIN across every mosque
+// in the viewport was the actual cause of slow /find-a-mosque loads).
+//
+// Staleness is handled at write time instead: every sync/scrape/import
+// job calls recompileMosquePages() (below) for exactly the mosques it
+// just touched, right after writing, so a page is fresh the moment its
+// source changes - not "eventually, whenever a visitor's request
+// happens to trigger a recheck". prepareMonths()/prepareDailySourceMonths()
+// remain as a periodic safety net (run them on a schedule, e.g. from
+// the r2-cache-builder cron) for anything a write-time call ever misses.
 async function fillMissing(context, rows, thisKey, nextKey, dateIso, tomorrowIso) {
   const db = context.env.DB;
-  const missing = rows.filter((r) => !r.month_times && !r.next_month_times).map((r) => r.slug);
-  const haveEither = rows.filter((r) => r.month_times || r.next_month_times);
-
-  const staleSlugs = [];
-  if (haveEither.length) {
-    const checkSlugs = haveEither.slice(0, MAX_COMPILE_PER_AREA).map((r) => r.slug);
-    let latestMap = new Map();
-    try { latestMap = await fetchLatestSourceUpdate(db, checkSlugs); } catch (e) {}
-    for (const r of haveEither) {
-      const latest = latestMap.get(r.slug);
-      if (latest && r.month_updated_at && latest > r.month_updated_at) staleSlugs.push(r.slug);
-    }
-  }
-
-  const slugs = [...new Set([...missing, ...staleSlugs])].slice(0, MAX_COMPILE_PER_AREA);
+  const slugs = rows.filter((r) => !r.month_times && !r.next_month_times).map((r) => r.slug).slice(0, MAX_COMPILE_PER_AREA);
   if (!slugs.length) return;
   const byslug = new Map(rows.map((r) => [r.slug, r]));
 
