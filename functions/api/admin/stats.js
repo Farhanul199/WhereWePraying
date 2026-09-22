@@ -118,21 +118,31 @@ export async function onRequestGet(context) {
     const byDaily = {};
     for (const r of (dailyBySource.results || [])) byDaily[r.source] = r.ok;
 
+    // Sources with no times-fetch pipeline at all (location data only -
+    // see coverage:'none' in SOURCE_CONFIG on the admin page). Their
+    // source_discoveries rows still get a times_status column by default
+    // ('pending', since nothing ever sets it otherwise), which made them
+    // look permanently stuck on the Overview tab even though nothing is
+    // ever going to run for them. Report them separately instead.
+    const NO_TIMES_SOURCES = new Set(['ditib', 'muslimsinbritain']);
+
     const allSources = new Set([...Object.keys(byLink), ...Object.keys(byDisc)]);
     const bySource = [...allSources].sort().map((source) => {
       const link = byLink[source] || { total: 0, linked: 0, unlinked: 0 };
       const disc = byDisc[source] || null;
       const isDaily = DAILY_SOURCES.indexOf(source) !== -1;
+      const isNoTimes = NO_TIMES_SOURCES.has(source);
       return {
         source,
         total_links: link.total || 0,
         linked: link.linked || 0,
         unlinked: link.unlinked || 0,
-        ok: disc ? (disc.ok || 0) : (isDaily ? (byDaily[source] || 0) : null),
-        pending: disc ? (disc.pending || 0) : null,
-        failed: disc ? (disc.failed || 0) : null,
-        no_data: disc ? (disc.no_data || 0) : null,
+        ok: isNoTimes ? null : disc ? (disc.ok || 0) : (isDaily ? (byDaily[source] || 0) : null),
+        pending: isNoTimes ? null : disc ? (disc.pending || 0) : null,
+        failed: isNoTimes ? null : disc ? (disc.failed || 0) : null,
+        no_data: isNoTimes ? null : disc ? (disc.no_data || 0) : null,
         daily_source: isDaily,
+        location_only: isNoTimes,
       };
     });
 
