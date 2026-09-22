@@ -28,6 +28,7 @@
 //   ... up to start=330&end=348
 
 import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
+import { recompileForSourceRefs } from '../../_lib/area-times.js';
 
 const API_BASE = "https://api.masjidbox.com/1.0/masjidbox/landing/athany/";
 const APIKEY = "JejYcMS7hsOsZTPDk2ZhKOAlW9IyQ6Px"; // public frontend key, embedded in MasjidBox's own JS bundle
@@ -506,6 +507,19 @@ export async function onRequestGet(context) {
     }
 
     await sleep(DELAY_MS); // politeness delay between mosques
+  }
+
+  // Write-time invalidation: any mosque already linked to one of the
+  // MasjidBox slugs we just wrote gets its live page recompiled right
+  // now, from ALL its linked sources - not just MasjidBox - so the fix
+  // is on the site on the next request instead of waiting for a visitor
+  // request to happen to notice the change.
+  try {
+    const touchedRefs = results.processed.filter((p) => p.days > 0).map((p) => p.slug);
+    const recompiled = await recompileForSourceRefs(env.DB, "masjidbox_scrape", touchedRefs);
+    results.recompiled = recompiled;
+  } catch (e) {
+    results.recompileError = String(e);
   }
 
   return new Response(JSON.stringify(results, null, 2), {

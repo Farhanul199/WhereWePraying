@@ -45,6 +45,7 @@
 //           disagree (postcode / website), for you to eyeball.
 
 import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
+import { recompileForSourceRefs } from '../../_lib/area-times.js';
 
 const SOURCE = 'mosqueslondon';
 const SOURCE_REF_PREFIX = 'ml_';
@@ -273,7 +274,18 @@ async function doImportYear(env, body) {
   }
   for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
 
-  return json({ ok: true, mosques, monthsWritten, rowsUsed, notFound });
+  // Write-time invalidation: recompile the live page for every mosque
+  // already linked to a mosques.london ref we just wrote a new year-page
+  // for, so this batch is live on the next request.
+  let recompiled = { withTimes: 0, without: 0 };
+  try {
+    const touchedRefs = [...byMosque.keys()].map((id) => SOURCE_REF_PREFIX + id).filter((ref) => existing.has(ref));
+    recompiled = await recompileForSourceRefs(env.DB, SOURCE, touchedRefs);
+  } catch (e) {
+    recompiled = { withTimes: 0, without: 0, error: String(e) };
+  }
+
+  return json({ ok: true, mosques, monthsWritten, rowsUsed, notFound, recompiled });
 }
 
 /* ----------------------------------------------------------------- enrich */

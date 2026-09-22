@@ -32,6 +32,7 @@
 //   names share most of their words (Jaccard) .... 65
 
 import { isAdminRequest } from '../../_lib/auth.js';
+import { recompileMosquePages } from '../../_lib/area-times.js';
 
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
@@ -196,6 +197,7 @@ export async function onRequestPost(context) {
       const nowIso = new Date().toISOString();
       let linked = 0;
       const review = [];
+      const linkedSlugs = new Set();
 
       for (const s of sources) {
         // Fill in missing coordinates on the official mosque if this
@@ -221,6 +223,7 @@ export async function onRequestPost(context) {
               .run();
           }
           linked++;
+          linkedSlugs.add(best.slug);
         } else {
           review.push({
             source: s.source, source_ref: s.source_ref, name: s.name,
@@ -239,7 +242,15 @@ export async function onRequestPost(context) {
         )
         .run();
 
-      return json({ success: true, linked, still_unmatched: review.length, review_sample: review.slice(0, 50) });
+      // Write-time invalidation: every mosque newly linked by this
+      // matcher run gets its page compiled right now from every source
+      // it's linked to (not just the one that triggered the match) - a
+      // mosque discovered on MasjidBox with all 5 prayers no longer has
+      // to wait for that source's own next daily sync to show up.
+      let recompiled = { withTimes: 0, without: 0 };
+      try { recompiled = await recompileMosquePages(db, [...linkedSlugs]); } catch (e) {}
+
+      return json({ success: true, linked, still_unmatched: review.length, review_sample: review.slice(0, 50), recompiled });
     }
 
     if (body.action === "link") {
@@ -255,6 +266,7 @@ export async function onRequestPost(context) {
         )
         .bind(slug, new Date().toISOString(), source, ref)
         .run();
+      try { await recompileMosquePages(db, [slug]); } catch (e) {}
       return json({ success: true });
     }
 
@@ -262,10 +274,18 @@ export async function onRequestPost(context) {
       const source = String(body.source || "").trim();
       const ref = String(body.source_ref || "").trim();
       if (!source || !ref) return json({ error: "source and source_ref are required." }, 400);
+      const was = await db
+        .prepare(`SELECT mosque_slug FROM mosque_sources WHERE source = ?1 AND source_ref = ?2`)
+        .bind(source, ref)
+        .first();
       await db
         .prepare(`UPDATE mosque_sources SET mosque_slug = NULL WHERE source = ?1 AND source_ref = ?2`)
         .bind(source, ref)
         .run();
+      // The mosque this source used to feed needs its page recompiled
+      // too, so an unlinked source's times stop showing immediately
+      // instead of lingering until something else happens to touch it.
+      if (was && was.mosque_slug) { try { await recompileMosquePages(db, [was.mosque_slug]); } catch (e) {} }
       return json({ success: true });
     }
 
@@ -298,6 +318,7 @@ export async function onRequestPost(context) {
         .prepare(`UPDATE mosque_sources SET mosque_slug = ?1, last_seen = ?2 WHERE source = ?3 AND source_ref = ?4`)
         .bind(slug, nowIso, source, ref)
         .run();
+      try { await recompileMosquePages(db, [slug]); } catch (e) {}
       return json({ success: true, slug });
     }
 
@@ -321,6 +342,7 @@ export async function onRequestPost(context) {
         // and device-stored favourites don't hard-break).
         db.prepare(`UPDATE mosques SET merged_into = ?1, active = 0 WHERE slug = ?2`).bind(keep, merge),
       ]);
+      try { await recompileMosquePages(db, [keep]); } catch (e) {}
       return json({ success: true, kept: keep, merged: merge });
     }
 

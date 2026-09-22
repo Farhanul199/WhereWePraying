@@ -32,6 +32,7 @@
 
 import { isSyncRequest } from '../../_lib/auth.js';
 import { logSyncRun } from '../../_lib/synclog.js';
+import { recompileForSourceRefs } from '../../_lib/area-times.js';
 
 const API_BASE = "https://api.masjidbox.com/1.0/masjidbox/landing/athany/";
 const APIKEY = "JejYcMS7hsOsZTPDk2ZhKOAlW9IyQ6Px"; // public frontend key, embedded in MasjidBox's own JS bundle
@@ -539,6 +540,18 @@ export async function onRequestGet(context) {
 
   const finishedAt = new Date().toISOString();
   const gaps = results.processed.filter((p) => !p.days).map((p) => p.name || p.slug);
+
+  // Write-time invalidation: recompile the live page for every mosque
+  // already linked to a MasjidBox slug we just wrote new times for, so
+  // today's cron run reaches the site immediately instead of waiting on
+  // a visitor request to notice the change.
+  try {
+    const touchedRefs = results.processed.filter((p) => p.days > 0).map((p) => p.slug);
+    results.recompiled = await recompileForSourceRefs(env.DB, "masjidbox_scrape", touchedRefs);
+  } catch (e) {
+    results.recompileError = String(e);
+  }
+
   await logSyncRun(env.DB, {
     source: "masjidbox_scrape",
     startedAt,

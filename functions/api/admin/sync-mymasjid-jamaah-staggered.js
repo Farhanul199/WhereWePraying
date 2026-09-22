@@ -55,6 +55,7 @@
 
 import { isSyncRequest } from '../../_lib/auth.js';
 import { logSyncRun } from '../../_lib/synclog.js';
+import { recompileForSourceRefs } from '../../_lib/area-times.js';
 
 const API_BASE = "https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings";
 const EXCLUDED_MOSQUES = new Set(); // matched by name below if ever needed
@@ -776,6 +777,17 @@ export async function onRequestGet(context) {
 
   const finishedAt = new Date().toISOString();
   const gaps = results.processed.filter((p) => !p.days).map((p) => p.name || p.guid);
+
+  // Write-time invalidation: recompile the live page for every mosque
+  // already linked to a MyMasjid guid we just wrote new times for, so
+  // today's cron run reaches the site immediately.
+  try {
+    const touchedRefs = results.processed.filter((p) => p.days > 0).map((p) => p.guid);
+    results.recompiled = await recompileForSourceRefs(env.DB, "mymasjid_scrape", touchedRefs);
+  } catch (e) {
+    results.recompileError = String(e);
+  }
+
   await logSyncRun(env.DB, {
     source: "mymasjid_scrape",
     startedAt,

@@ -40,6 +40,7 @@
 //   start=0&end=30 ... up to start=540&end=553
 
 import { isSyncRequest } from '../../_lib/auth.js';
+import { recompileForSourceRefs } from '../../_lib/area-times.js';
 
 const API_BASE = "https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings";
 const EXCLUDED_MOSQUES = new Set(); // matched by name below if ever needed
@@ -733,6 +734,15 @@ export async function onRequestGet(context) {
     }
 
     await sleep(DELAY_MS);
+  }
+
+  // Write-time invalidation: recompile the live page for every mosque
+  // already linked to a MyMasjid guid we just wrote new times for.
+  try {
+    const touchedRefs = results.processed.filter((p) => p.days > 0).map((p) => p.guid);
+    results.recompiled = await recompileForSourceRefs(env.DB, "mymasjid_scrape", touchedRefs);
+  } catch (e) {
+    results.recompileError = String(e);
   }
 
   return new Response(JSON.stringify(results, null, 2), {
