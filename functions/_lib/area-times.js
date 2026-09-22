@@ -267,6 +267,10 @@ export async function ensureTimesSchema(db) {
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_through TEXT`).run(); } catch (e) {}
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN compiled_at TEXT`).run(); } catch (e) {}
   try { await db.prepare(`ALTER TABLE source_discoveries ADD COLUMN has_times INTEGER`).run(); } catch (e) {}
+  // An admin override: pin a mosque to exactly one of its linked sources
+  // instead of the automatic completeness-first pick. NULL/empty = automatic
+  // (the default, unchanged behaviour). See fetchForcedSources/mergedPageFor.
+  try { await db.prepare(`ALTER TABLE mosques ADD COLUMN forced_source TEXT`).run(); } catch (e) {}
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS mosque_aliases (
        mosque_slug TEXT NOT NULL, alias TEXT NOT NULL, source TEXT,
@@ -430,10 +434,36 @@ async function fetchDailyEntries(db, slugs, thisKey, nextKey) {
   return map;
 }
 
+// mosques.forced_source lets an admin pin one mosque to exactly one of
+// its linked sources (see admin/sources.html "Match sources to mosques"
+// -> mosque search -> "Preferred source"), instead of the automatic
+// completeness-first pick. Best-effort: a missing/not-yet-migrated
+// column must never break area loading, so this swallows errors and
+// just means nothing is pinned.
+async function fetchForcedSources(db, slugs) {
+  const map = new Map();
+  try {
+    for (let i = 0; i < slugs.length; i += 90) {
+      const part = slugs.slice(i, i + 90);
+      const ph = part.map((_, k) => '?' + (k + 1)).join(',');
+      const { results } = await db.prepare(
+        `SELECT slug, forced_source FROM mosques WHERE slug IN (${ph}) AND forced_source IS NOT NULL AND forced_source != ''`
+      ).bind(...part).all();
+      for (const r of results || []) map.set(r.slug, r.forced_source);
+    }
+  } catch (e) { /* column not migrated yet on this DB - treat as unset */ }
+  return map;
+}
+
 // One mosque's merged page for one month, from whichever of its linked
 // sources (discovery-based or daily-based) already showed up in the two
-// batched fetches above.
-function mergedPageFor(slug, key, discBySlug, dailyBySlug) {
+// batched fetches above. If this mosque is pinned to one source
+// (forcedBySlug), only that source's own entries are considered - so its
+// own gaps are never patched by a different source, the admin gets
+// exactly what they asked for. Falls back to the normal automatic merge
+// if the pinned source turns out to have no entries at all (e.g. it was
+// unlinked after being pinned), so a stale pin can never blank a mosque.
+function mergedPageFor(slug, key, discBySlug, dailyBySlug, forcedBySlug) {
   const list = [];
   for (const src of discBySlug.get(slug) || []) {
     const p = buildMonthPage(src, key);
@@ -448,6 +478,11 @@ function mergedPageFor(slug, key, discBySlug, dailyBySlug) {
       if (p) list.push({ source: src, blob: p.times, jummah: p.jummah });
     }
   }
+  const forced = forcedBySlug && forcedBySlug.get(slug);
+  if (forced) {
+    const only = list.filter((e) => e.source === forced);
+    if (only.length) return mergeEntries(only, key);
+  }
   return mergeEntries(list, key);
 }
 
@@ -455,13 +490,17 @@ function mergedPageFor(slug, key, discBySlug, dailyBySlug) {
 // can defer the actual database write to after the response goes out.
 async function computeMergedPages(db, slugs, thisKey, nextKey) {
   if (!slugs.length) return new Map();
-  const [discBySlug, dailyBySlug] = await Promise.all([
+  const [discBySlug, dailyBySlug, forcedBySlug] = await Promise.all([
     fetchDiscoveryEntries(db, slugs),
     fetchDailyEntries(db, slugs, thisKey, nextKey),
+    fetchForcedSources(db, slugs),
   ]);
   const out = new Map();
   for (const slug of slugs) {
-    out.set(slug, { a: mergedPageFor(slug, thisKey, discBySlug, dailyBySlug), b: mergedPageFor(slug, nextKey, discBySlug, dailyBySlug) });
+    out.set(slug, {
+      a: mergedPageFor(slug, thisKey, discBySlug, dailyBySlug, forcedBySlug),
+      b: mergedPageFor(slug, nextKey, discBySlug, dailyBySlug, forcedBySlug),
+    });
   }
   return out;
 }
@@ -544,7 +583,7 @@ export async function prepareDailySourceMonths(db, limit) {
   const { dateIso } = londonNowParts();
   const thisKey = monthKey(dateIso);
   const nextKey = nextMonthKey(dateIso);
-  const n = Math.max(1, Math.min(limit || 120, 150));
+  const n = Math.max(1, Math.min(limit || 120, 500));
 
   const { results } = await db.prepare(
     `SELECT ms.mosque_slug AS slug, ms.source, ms.source_ref, MAX(r.updated_at) AS latest
@@ -596,7 +635,7 @@ export async function prepareMonths(db, limit) {
   const { dateIso } = londonNowParts();
   const thisKey = monthKey(dateIso);
   const nextKey = nextMonthKey(dateIso);
-  const n = Math.max(1, Math.min(limit || 120, 150));
+  const n = Math.max(1, Math.min(limit || 120, 500));
   const { results } = await db.prepare(
     `SELECT ms.mosque_slug AS slug, ${TIMETABLE_COLS}
        FROM source_discoveries sd
