@@ -583,6 +583,11 @@
     $('overviewTable').querySelector('tbody').innerHTML =
       '<tr><th>Source</th><th>Linked</th><th>Unlinked</th><th>Has times today</th><th>Pending</th><th>Failed</th><th>No data</th></tr>' +
       (rows.length ? rows.map(function(r){
+        if (r.location_only) {
+          return '<tr><td>' + esc(srcLabel(r.source)) + '</td>' +
+            '<td>' + fmt(r.linked || 0) + '</td><td>' + fmt(r.unlinked || 0) + '</td>' +
+            '<td colspan="4" class="hint">Location only \u2014 no times tracked for this source. Check the ' + esc(srcLabel(r.source)) + ' tab\u2019s \u201cGo live\u201d section for how many are actually live.</td></tr>';
+        }
         return '<tr><td>' + esc(srcLabel(r.source)) + (r.daily_source ? ' <span class="hint">(daily)</span>' : '') + '</td>' +
           '<td>' + fmt(r.linked || 0) + '</td><td>' + fmt(r.unlinked || 0) + '</td>' +
           '<td>' + (r.ok == null ? '\u2014' : fmt(r.ok)) + '</td>' +
