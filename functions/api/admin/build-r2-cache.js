@@ -22,7 +22,7 @@
 // Auth: cron Worker sends X-Sync-Key; the admin page sends X-Broadcast-Key.
 
 import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
-import { prepareMonths, ensureTimesSchema, londonNowParts } from '../../_lib/area-times.js';
+import { prepareMonths, prepareDailySourceMonths, ensureTimesSchema, londonNowParts } from '../../_lib/area-times.js';
 
 export async function onRequestGet(context) {
   const { env } = context;
@@ -41,8 +41,21 @@ export async function onRequestGet(context) {
     timesPrepared = { error: String(e).slice(0, 200) };
   }
 
+  // Safety net for MasjidBox/MyMasjid (daily-row sources): every real
+  // sync already recompiles the exact mosques it touches the moment it
+  // writes (see recompileForSourceRefs in area-times.js), so this
+  // should normally find nothing left to do. Kept as a twice-daily
+  // backstop for anything a write-time hook ever misses - a failed
+  // recompile call, a sync that errored after writing, etc.
+  let dailyTimesPrepared = null;
+  try {
+    dailyTimesPrepared = await prepareDailySourceMonths(env.DB, 60);
+  } catch (e) {
+    dailyTimesPrepared = { error: String(e).slice(0, 200) };
+  }
+
   return new Response(JSON.stringify({
-    ok: true, date: dateIso, timesPrepared,
+    ok: true, date: dateIso, timesPrepared, dailyTimesPrepared,
     note: "Per-area serving is live; no global mosque file is built any more. New mosques appear as each area's cache rolls over (within about an hour).",
   }), { headers: { "Content-Type": "application/json" } });
 }
