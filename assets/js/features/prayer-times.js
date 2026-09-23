@@ -223,12 +223,18 @@ const PrayerTimes = (function(){
 
   async function useGeolocation(){
     const coords = await detectGeolocation();
-    const label = await reverseGeocodeLabel(coords.lat, coords.lon);
     let tz = null;
     try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
-    const loc = {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+    // Save & fetch immediately with a coordinate placeholder label —
+    // reverse geocoding is cosmetic only (prayer times/Qiblah just need
+    // lat/lon) and shouldn't add a network round trip to the critical
+    // path. The real place name swaps in the moment it resolves.
+    const loc = {lat:coords.lat, lon:coords.lon, label:coords.lat.toFixed(2)+', '+coords.lon.toFixed(2), tz:tz, source:'geo'};
     saveLocation(loc);
-    await fetchTimings();
+    fetchTimings();
+    reverseGeocodeLabel(coords.lat, coords.lon).then(label=>{
+      if(state.location === loc){ loc.label = label; saveLocation(loc); notify(); }
+    }).catch(()=>{});
     return loc;
   }
 
@@ -400,10 +406,18 @@ const PrayerTimes = (function(){
       const status = await navigator.permissions.query({name:'geolocation'});
       if(status.state !== 'granted') return null;
       const coords = await detectGeolocation();
-      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
       let tz = null;
       try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
-      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+      // Label is cosmetic only — prayer times/Qiblah only need lat/lon,
+      // so don't make the location (and everything downstream of it)
+      // wait on a reverse-geocode network round trip. Coordinates are
+      // used as a placeholder label and upgraded in place once the
+      // real place name resolves (see the .then() below).
+      const loc = {lat:coords.lat, lon:coords.lon, label:coords.lat.toFixed(2)+', '+coords.lon.toFixed(2), tz:tz, source:'geo'};
+      reverseGeocodeLabel(coords.lat, coords.lon).then(label=>{
+        if(state.location === loc){ loc.label = label; saveLocation(loc); notify(); }
+      }).catch(()=>{});
+      return loc;
     }catch(e){ return null; }
   }
 
@@ -414,10 +428,15 @@ const PrayerTimes = (function(){
   async function detectActiveGeolocation(){
     try{
       const coords = await detectGeolocation();
-      const label = await reverseGeocodeLabel(coords.lat, coords.lon);
       let tz = null;
       try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
-      return {lat:coords.lat, lon:coords.lon, label:label, tz:tz, source:'geo'};
+      // See detectSilentGeolocation above — label resolves in the
+      // background so prayer times/Qiblah aren't held up by it.
+      const loc = {lat:coords.lat, lon:coords.lon, label:coords.lat.toFixed(2)+', '+coords.lon.toFixed(2), tz:tz, source:'geo'};
+      reverseGeocodeLabel(coords.lat, coords.lon).then(label=>{
+        if(state.location === loc){ loc.label = label; saveLocation(loc); notify(); }
+      }).catch(()=>{});
+      return loc;
     }catch(e){ return null; }
   }
 
@@ -796,38 +815,43 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   }
 
   // ==> Adhkar After Salah — Arabic / transliteration / translation
-  // display toggle. One button cycles through 4 modes; the chosen
-  // mode is saved to localStorage on this device so it persists for
-  // the user across visits.
-  const ADHKAR_DISPLAY_KEY = 'wwp:adhkar:displayMode';
-  const ADHKAR_DISPLAY_MODES = [
-    { cls:'', short:'Aa' },
-    { cls:'hide-arabic', short:'No Ar' },
-    { cls:'hide-translit', short:'No Tl' },
-    { cls:'hide-translation', short:'No Tr' }
-  ];
-  let adhkarDisplayIdx = 0;
+  // display toggles. Independent checkboxes (any combination can be
+  // hidden at once), living in the Calculation method settings popover
+  // rather than next to the section heading. Saved to localStorage on
+  // this device so the choice persists across visits.
+  const ADHKAR_DISPLAY_KEY = 'wwp:adhkar:display';
+  let adhkarDisplay = { arabic:true, translit:true, translation:true };
   {
-    const saved = parseInt(window.LocalCache ? window.LocalCache.get(ADHKAR_DISPLAY_KEY, null) : null, 10);
-    if(!isNaN(saved) && saved >= 0 && saved < ADHKAR_DISPLAY_MODES.length) adhkarDisplayIdx = saved;
+    const saved = window.LocalCache ? window.LocalCache.get(ADHKAR_DISPLAY_KEY, null) : null;
+    if(saved && typeof saved === 'object') adhkarDisplay = Object.assign(adhkarDisplay, saved);
   }
   function applyAdhkarDisplayMode(){
     const body = document.getElementById('ptAdhkarBody');
-    const btn = document.getElementById('ptAdhkarDisplayBtn');
     if(!body) return;
-    body.classList.remove('hide-arabic','hide-translit','hide-translation');
-    const mode = ADHKAR_DISPLAY_MODES[adhkarDisplayIdx];
-    if(mode.cls) body.classList.add(mode.cls);
-    if(btn) btn.textContent = mode.short;
+    body.classList.toggle('hide-arabic', !adhkarDisplay.arabic);
+    body.classList.toggle('hide-translit', !adhkarDisplay.translit);
+    body.classList.toggle('hide-translation', !adhkarDisplay.translation);
   }
-  const ptAdhkarDisplayBtn = document.getElementById('ptAdhkarDisplayBtn');
-  if(ptAdhkarDisplayBtn){
-    ptAdhkarDisplayBtn.addEventListener('click', function(){
-      adhkarDisplayIdx = (adhkarDisplayIdx + 1) % ADHKAR_DISPLAY_MODES.length;
-      if(window.LocalCache) window.LocalCache.set(ADHKAR_DISPLAY_KEY, adhkarDisplayIdx);
+  function syncAdhkarDisplayCheckboxes(){
+    const arEl = document.getElementById('ptAdhkarShowArabic');
+    const trEl = document.getElementById('ptAdhkarShowTranslit');
+    const tlEl = document.getElementById('ptAdhkarShowTranslation');
+    if(arEl) arEl.checked = adhkarDisplay.arabic;
+    if(trEl) trEl.checked = adhkarDisplay.translit;
+    if(tlEl) tlEl.checked = adhkarDisplay.translation;
+  }
+  function wireAdhkarDisplayCheckbox(id, key){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', function(){
+      adhkarDisplay[key] = el.checked;
+      if(window.LocalCache) window.LocalCache.set(ADHKAR_DISPLAY_KEY, adhkarDisplay);
       applyAdhkarDisplayMode();
     });
   }
+  wireAdhkarDisplayCheckbox('ptAdhkarShowArabic', 'arabic');
+  wireAdhkarDisplayCheckbox('ptAdhkarShowTranslit', 'translit');
+  wireAdhkarDisplayCheckbox('ptAdhkarShowTranslation', 'translation');
 
   function renderAdhkarCard(entry, colorClass){
     let html = '<div class="pt-hadith-card '+colorClass+'">';
@@ -1419,6 +1443,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     if(methodSelect) methodSelect.value = String(state.method);
     if(citySearch) citySearch.value = '';
     renderCityList('');
+    syncAdhkarDisplayCheckboxes();
     backdrop.style.display = 'flex';
   }
   function closePopover(){ if(backdrop) backdrop.style.display = 'none'; }
@@ -1489,6 +1514,16 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   renderAll();
   renderInitialPrayerReferenceContent();
   PrayerTimes.init();
+
+  // The live Qiblah compass (device-orientation listener) lives in the
+  // travel-mode module, which is normally only fetched when the person
+  // opens Travel Mode — meaning the Qiblah card here on Prayer Times
+  // would sit on "Turning on…" forever for anyone who never visits that
+  // tab. Kick off a background, non-blocking load of it here too, so
+  // the compass is already live well before anyone taps the card. Safe
+  // to load while this page is showing: the travel page's own DOM is
+  // just hidden (never removed), so its setup code is a no-op visually.
+  if(window.WWP_loadFeature) window.WWP_loadFeature('travel').catch(()=>{});
 
   // Live countdown tick — re-renders once a minute is enough for the
   // "Xh Ym remaining" display, but check every 15s so it flips promptly
