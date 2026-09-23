@@ -177,6 +177,15 @@
       <p class="step-label">By source</p>
       <table id="overviewTable"><tbody></tbody></table>
       <p class="hint">"Full-year coverage" currently counts Mawaqit only — mosques.london can also carry a full year, but it's stored inside a JSON blob this count doesn't parse, so it's not included here.</p>
+
+      <p class="step-label">By country</p>
+      <p class="hint">Every live mosque on the site, combined across all sources and grouped by country — not a per-source count.</p>
+      <table id="overviewCountryTable"><tbody></tbody></table>
+      <details id="overviewOtherCountriesWrap" class="hidden" style="margin-top:10px;">
+        <summary style="cursor:pointer;font-weight:600;">Other countries (<span id="overviewOtherCount">0</span>)</summary>
+        <table id="overviewOtherCountryTable" style="margin-top:8px;"><tbody></tbody></table>
+      </details>
+
       <div class="actions"><button class="ghost" id="overviewRefreshBtn">Refresh</button></div>
     </div>
 
@@ -595,6 +604,23 @@
           '<td>' + (r.failed == null ? '\u2014' : fmt(r.failed)) + '</td>' +
           '<td>' + (r.no_data == null ? '\u2014' : fmt(r.no_data)) + '</td></tr>';
       }).join('') : '<tr><td colspan="7" class="hint">Nothing collected yet.</td></tr>');
+
+    var byCountry = d.byCountry || [];
+    var otherCountries = d.otherCountries || [];
+
+    $('overviewCountryTable').querySelector('tbody').innerHTML =
+      '<tr><th>Country</th><th>Live mosques</th></tr>' +
+      (byCountry.length ? byCountry.map(function(c){
+        return '<tr><td>' + esc(c.country) + '</td><td>' + fmt(c.total || 0) + '</td></tr>';
+      }).join('') : '<tr><td colspan="2" class="hint">Nothing live yet.</td></tr>');
+
+    $('overviewOtherCountriesWrap').classList.toggle('hidden', !otherCountries.length);
+    $('overviewOtherCount').textContent = otherCountries.length;
+    $('overviewOtherCountryTable').querySelector('tbody').innerHTML =
+      '<tr><th>Country</th><th>Live mosques</th></tr>' +
+      otherCountries.map(function(c){
+        return '<tr><td>' + esc(c.country) + '</td><td>' + fmt(c.total || 0) + '</td></tr>';
+      }).join('');
   }
 
   /* ---------------------------------------------------------- summary */
