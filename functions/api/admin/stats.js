@@ -25,6 +25,12 @@ function json(body, status) {
   });
 }
 
+// Countries with fewer than this many live mosques get folded into an
+// "Other countries" group in the response, so the admin page doesn't have
+// to render a row per single-mosque country. Purely a display grouping -
+// change this number to change where the line sits.
+const MIN_COUNTRY_GROUP_SIZE = 10;
+
 export async function onRequestGet(context) {
   if (!isAdminRequest(context)) return json({ error: 'Unauthorized' }, 401);
   const db = context.env.DB;
@@ -33,7 +39,7 @@ export async function onRequestGet(context) {
   const dailySourceList = DAILY_SOURCES.map((s) => `'${s}'`).join(',');
 
   try {
-    const [mosqueRow, timesRow, mawaqitRow, linkTotalsRow, discBySource, dailyBySource, linksBySource] = await Promise.all([
+    const [mosqueRow, timesRow, mawaqitRow, linkTotalsRow, discBySource, dailyBySource, linksBySource, countryRows] = await Promise.all([
       db.prepare(
         `SELECT COUNT(*) AS total_live,
                 SUM(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 ELSE 0 END) AS with_location
@@ -109,6 +115,17 @@ export async function onRequestGet(context) {
                 SUM(CASE WHEN mosque_slug IS NULL THEN 1 ELSE 0 END) AS unlinked
            FROM mosque_sources GROUP BY source`
       ).all(),
+
+      // Live mosques grouped by country, combined across every source
+      // (mosques.country is a single value per live mosque, set at
+      // promote time - see MOSQUE_COLS/ensureSchema in promote.js - so
+      // this is already deduplicated, not a sum of per-source counts).
+      db.prepare(
+        `SELECT COALESCE(country, 'Unknown') AS country, COUNT(*) AS total
+           FROM mosques WHERE active = 1 AND merged_into IS NULL AND type = 'mosque'
+          GROUP BY COALESCE(country, 'Unknown')
+          ORDER BY total DESC`
+      ).all(),
     ]);
 
     const byLink = {};
@@ -150,6 +167,13 @@ export async function onRequestGet(context) {
     const published = (timesRow && timesRow.published) || 0;
     const estimatedOnly = (timesRow && timesRow.estimated_only) || 0;
 
+    // Split into countries big enough to list on their own vs. everything
+    // else, which the admin page collapses into an "Other countries"
+    // dropdown. Order is preserved from the query (largest first).
+    const allCountries = countryRows.results || [];
+    const byCountry = allCountries.filter((c) => c.total >= MIN_COUNTRY_GROUP_SIZE);
+    const otherCountries = allCountries.filter((c) => c.total < MIN_COUNTRY_GROUP_SIZE);
+
     return json({
       today: dateIso,
       mosques: {
@@ -164,6 +188,8 @@ export async function onRequestGet(context) {
       full_year: { mawaqit_ok: (mawaqitRow && mawaqitRow.n) || 0 },
       source_links: linkTotalsRow || { total: 0, linked: 0, unlinked: 0 },
       bySource,
+      byCountry,
+      otherCountries,
     });
   } catch (e) {
     return json({ error: 'db_error', message: String(e) }, 500);
