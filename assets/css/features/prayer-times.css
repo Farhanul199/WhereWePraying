@@ -199,9 +199,9 @@
 #ptAdhkarBody.hide-arabic .phc-arabic{display:none;}
 #ptAdhkarBody.hide-translit .phc-translit{display:none;}
 #ptAdhkarBody.hide-translation .phc-translation{display:none;}
-.pt-adhkar-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-.pt-adhkar-display-btn{flex:none;font-size:12px;font-weight:800;color:var(--coral-dark);background:var(--coral-soft);border:1px solid var(--coral);border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;white-space:nowrap;}
-.pt-adhkar-display-btn:active{transform:scale(.96);}
+.pt-adhkar-toggle-group{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px;}
+.pt-adhkar-toggle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0;}
+.pt-adhkar-toggle input{flex:none;width:15px;height:15px;margin:0;}
 .pt-hadith-showall-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:none;border:1px dashed var(--border);border-radius:999px;padding:9px 14px;margin-top:10px;font-size:12.5px;font-weight:700;color:var(--text-dim);cursor:pointer;font-family:inherit;}
 .pt-hadith-showall-btn:hover{border-color:var(--coral);color:var(--coral-dark);}
 .pt-hadith-showall-btn[aria-expanded="true"] svg{transform:rotate(180deg);}
