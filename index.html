@@ -2068,12 +2068,9 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         </div>
 
         <div class="pt-adhkar-section" id="ptAdhkarSection">
-          <div class="pt-hadith-header pt-adhkar-header-row">
-            <div>
-              <h2>Adhkar After Salah</h2>
-              <p id="ptAdhkarSubhead">What to recite after Fajr, shortest to longest.</p>
-            </div>
-            <button type="button" class="pt-adhkar-display-btn" id="ptAdhkarDisplayBtn" title="Toggle Arabic / transliteration / translation">Aa</button>
+          <div class="pt-hadith-header">
+            <h2>Adhkar After Salah</h2>
+            <p id="ptAdhkarSubhead">What to recite after Fajr, shortest to longest.</p>
           </div>
           <div class="pt-hadith-body open pt-loading-state" id="ptAdhkarBody" data-pt-skeleton="1" aria-busy="true">
             <div class="pt-skeleton-group-title"><span class="pt-skeleton pt-skeleton-group"></span></div>
@@ -2174,6 +2171,13 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       <option value="15">Moonsighting Committee Worldwide</option>
       <option value="17">JAKIM, Malaysia</option>
     </select>
+
+    <label style="margin-top:14px;">Adhkar After Salah — display</label>
+    <div class="pt-adhkar-toggle-group">
+      <label class="pt-adhkar-toggle"><input type="checkbox" id="ptAdhkarShowArabic" checked> Arabic</label>
+      <label class="pt-adhkar-toggle"><input type="checkbox" id="ptAdhkarShowTranslit" checked> Transliteration</label>
+      <label class="pt-adhkar-toggle"><input type="checkbox" id="ptAdhkarShowTranslation" checked> Translation</label>
+    </div>
 
     <div class="pt-popover-actions">
       <a class="home-btn home-btn-secondary" id="ptPopoverCancel">Cancel</a>
