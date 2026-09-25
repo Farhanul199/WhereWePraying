@@ -235,7 +235,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="broadcast">Broadcast</button>
       <button class="tab" data-tab="photos">Masjid Photos <span id="pendingBadge"></span></button>
-      <button class="tab" data-tab="mosquephotos">Mosque Photos <span id="mqPendingBadge"></span></button>
+      <button class="tab" data-tab="mosquephotos" hidden style="display:none">Mosque Photos <span id="mqPendingBadge"></span></button>
       <button class="tab" data-tab="locations">Locations</button>
       <button class="tab" data-tab="bugs">Bugs <span id="bugsBadge"></span></button>
       <button class="tab" data-tab="roles">Roles</button>
@@ -381,7 +381,7 @@
     lockScreen.style.display = 'none';
     mainScreen.style.display = 'block';
     loadPendingPhotos();
-    loadPendingMosquePhotos();
+    // Mosque Photos tab retired (its backend was removed) - hidden above.
     loadAllBugs();
   });
 
