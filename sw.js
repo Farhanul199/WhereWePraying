@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v25';
+const CACHE_NAME = 'wwp-v26';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -15,10 +15,11 @@ const OFFLINE_URLS = [
 // actually visited, so a first-time offline visitor still gets a
 // working home + prayer-times experience without downloading everything.
 const CORE_ASSETS = [
-  '/assets/js/wwp-core.js?v=14',
+  '/assets/js/wwp-core.js?v=15',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=3',
-  '/assets/js/features/prayer-times.js?v=6',
+  '/assets/js/features/prayer-times.js?v=7',
+  '/assets/js/services/qibla-compass.js?v=1',
   '/assets/js/services/auth.js?v=4',
   '/assets/js/services/twinkle.js?v=2',
   '/assets/js/features/seasonal-themes.js?v=3',
@@ -96,6 +97,42 @@ self.addEventListener('notificationclick', (e) => {
       if (self.clients.openWindow) return self.clients.openWindow(target);
     })
   );
+});
+
+// Periodic Background Sync (Android/Chrome only, permission-gated on the
+// client side — see index.html): refreshes already-cached prayer-time and
+// mosque API responses in the background, so an offline open is never
+// more than ~12h stale. It only re-fetches URLs this cache already knows
+// about — never blind-fetches new ones — so it stays cheap and safe.
+self.addEventListener('periodicsync', (e) => {
+  if (e.tag !== 'wwp-refresh-data') return;
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const keys = await cache.keys();
+    const refreshable = keys.filter(req => {
+      const h = new URL(req.url).hostname;
+      return h === 'api.aladhan.com' || (h === self.location.hostname && req.url.includes('/api/mosques/'));
+    });
+    await Promise.all(refreshable.map(async req => {
+      try {
+        const resp = await fetch(req);
+        if (resp.ok) await cache.put(req, resp);
+      } catch (_) { /* stays on the last cached copy until next attempt */ }
+    }));
+  })());
+});
+
+// Background Sync: fired by the browser when connectivity returns, even
+// if the tab was only backgrounded (not closed) — the 'online' listener
+// in wwp-core.js alone can't catch that case. Just wakes any open page(s)
+// to run their own retry logic (WWP.flushPending), since the data that
+// needs syncing lives in that page's localStorage, not in the SW.
+self.addEventListener('sync', (e) => {
+  if (e.tag !== 'wwp-flush-pending') return;
+  e.waitUntil((async () => {
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clientsList.forEach(c => c.postMessage('FLUSH_PENDING'));
+  })());
 });
 
 self.addEventListener('fetch', (e) => {

@@ -183,11 +183,36 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
           if(nw.state==='installed' && navigator.serviceWorker.controller) nw.postMessage('SKIP_WAITING');
         });
       });
+
+      // Periodic Background Sync: on Android/Chrome, ask permission to
+      // refresh cached prayer-time/mosque data in the background every
+      // ~12h so offline opens are never more than half a day stale.
+      // Silently a no-op anywhere unsupported (iOS Safari, desktop) —
+      // feature-detected end to end, nothing else depends on it.
+      (async ()=>{
+        try{
+          if(!('periodicSync' in reg)) return;
+          const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+          if(status.state !== 'granted') return;
+          const tags = await reg.periodicSync.getTags();
+          if(!tags.includes('wwp-refresh-data')){
+            await reg.periodicSync.register('wwp-refresh-data', { minInterval: 12 * 60 * 60 * 1000 });
+          }
+        }catch(_){}
+      })();
     }).catch(()=>0);
     // Once the new SW takes control, reload once so the fresh app shell renders.
     let refreshed=false;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
       if(refreshed)return; refreshed=true; window.location.reload();
+    });
+    // Background Sync: when the SW wakes up on reconnect (tag registered
+    // from wwp-core.js whenever an offline save fails), it messages this
+    // page to flush any pending saves — covers the case where the tab is
+    // backgrounded rather than closed, which the plain 'online' listener
+    // in wwp-core.js doesn't catch.
+    navigator.serviceWorker.addEventListener('message', (e)=>{
+      if(e.data === 'FLUSH_PENDING' && window.WWP && window.WWP.flushPending) window.WWP.flushPending();
     });
   })}
 })();
@@ -1564,6 +1589,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
               <textarea class="f-textarea" id="mistakeInput" maxlength="500" placeholder="However today went, note it here if it helps — write it down, ask for forgiveness, and let it go." style="margin-top:8px;"></textarea>
               <div class="char-count"><span id="mistakeCharCount">0</span>/500</div>
               <div class="mistakes-actions"><button class="ghost-btn" id="logMistakeBtn">Log entry</button></div>
+              <div class="mistakes-list" id="mistakesList"></div>
             </div>
           </details>
 
@@ -2505,10 +2531,11 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 </div>
 
 <!-- Core: needed on every page (router, storage, auth, home, prayer times widgets). -->
-<script src="/assets/js/wwp-core.js?v=14" defer></script>
+<script src="/assets/js/wwp-core.js?v=15" defer></script>
 <script src="/assets/js/services/storage.js?v=2" defer></script>
 <script src="/assets/js/services/platform.js?v=3" defer></script>
-<script src="/assets/js/features/prayer-times.js?v=6" defer></script>
+<script src="/assets/js/features/prayer-times.js?v=7" defer></script>
+<script src="/assets/js/services/qibla-compass.js?v=1" defer></script>
 <script src="/assets/js/features/seasonal-themes.js?v=3" defer></script>
 <script src="/assets/js/services/auth.js?v=4" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
