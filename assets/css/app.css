@@ -6,7 +6,7 @@
    cache will keep serving the old copy of that one file indefinitely. */
 @import url('base.css?v=2');
 @import url('features/glass-mode.css?v=1');
-@import url('features/seasonal-themes.css?v=1');
+@import url('features/seasonal-themes.css?v=2');
 @import url('layout.css?v=1');
 @import url('features/popups.css?v=2');
 @import url('responsive-mobile.css?v=1');
