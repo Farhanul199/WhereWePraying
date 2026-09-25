@@ -1372,7 +1372,11 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
       + '<div class="pac-time">'+PrayerTimes.to12h(state.timings[stack.afterNext.name])+'</div>');
   }
 
+  // Bearing calc is shared with Travel Mode via qibla-compass.js (a
+  // core module, always loaded) — kept as a local fallback only in
+  // case that module somehow isn't ready yet.
   function qiblaBearing(lat,lon){
+    if(window.WWP_QiblaCompass) return window.WWP_QiblaCompass.bearing(lat,lon);
     const KAABA_LAT=21.4225, KAABA_LON=39.8262;
     const φ1=lat*Math.PI/180, φ2=KAABA_LAT*Math.PI/180, Δλ=(KAABA_LON-lon)*Math.PI/180;
     const y=Math.sin(Δλ)*Math.cos(φ2);
@@ -1515,15 +1519,10 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   renderInitialPrayerReferenceContent();
   PrayerTimes.init();
 
-  // The live Qiblah compass (device-orientation listener) lives in the
-  // travel-mode module, which is normally only fetched when the person
-  // opens Travel Mode — meaning the Qiblah card here on Prayer Times
-  // would sit on "Turning on…" forever for anyone who never visits that
-  // tab. Kick off a background, non-blocking load of it here too, so
-  // the compass is already live well before anyone taps the card. Safe
-  // to load while this page is showing: the travel page's own DOM is
-  // just hidden (never removed), so its setup code is a no-op visually.
-  if(window.WWP_loadFeature) window.WWP_loadFeature('travel').catch(()=>{});
+  // The live Qiblah compass (device-orientation listener) runs from the
+  // shared assets/js/services/qibla-compass.js core module, loaded
+  // independently of both this page and Travel Mode — nothing to kick
+  // off here.
 
   // Live countdown tick — re-renders once a minute is enough for the
   // "Xh Ym remaining" display, but check every 15s so it flips promptly
