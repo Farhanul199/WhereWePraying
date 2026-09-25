@@ -36,14 +36,8 @@
                  below covers that case with a real tap.
      2. EDGE   — same-origin /api/geo, Cloudflare's own per-request
                  IP geolocation. No permission dialog, no 3rd party.
-     3. IP     — a second, separate IP-geolocation provider
-                 (geojs.io), queried directly from the browser. A
-                 genuinely different network path/provider to EDGE,
-                 so if Cloudflare's own geo data is missing or wrong
-                 for a given PoP, this doesn't share the same blind
-                 spot. Note: this sends the visitor's IP directly to
-                 geojs.io, a third party — same trade-off as any
-                 "detect my location" widget.
+     3. IP     — REMOVED 25 Sep 2026 (sent the IP to geojs.io, a
+                 third party). EDGE above covers the same need.
      4. MANUAL — a postcode/place box (always visible, not gated
                  behind failure). A postcode or outcode ("IG2 7HS",
                  "E14") is looked up via postcodes.io (real Royal
@@ -77,11 +71,9 @@
   const PLAN_CACHE_KEY = 'wwp_mq_plan_v3';
   const USUAL_MOSQUE_KEY = 'wwp_usual_mosque_slug'; // same key the old list view used — carries over any existing saved choice
   const LOCATION_OPTS = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
-  const IP_GEO_TIMEOUT_MS = 3500;
   const POSTCODES_IO_BASE = 'https://api.postcodes.io';
   const PHOTON_BASE = 'https://photon.komoot.io/api/';
   const PHOTON_REVERSE = 'https://photon.komoot.io/reverse';
-  const IP_GEO_URL = 'https://get.geojs.io/v1/ip/geo.json';
   // A full UK postcode ("IG2 7HS") vs just its first half, an "outcode"
   // ("IG2", "E14") — both are looked up via postcodes.io, which has
   // real Royal Mail data, rather than a general place-name geocoder
@@ -165,24 +157,9 @@
     return null;
   }
 
-  // ---- Source 3: independent 3rd-party IP geolocation ----
-  // Deliberately a different provider to EDGE so the two don't share
-  // a failure mode (e.g. a PoP where Cloudflare's own cf.latitude is
-  // null). Sends the visitor's IP to geojs.io directly from the
-  // browser — flagged in the header comment above.
-  async function ipGeoLocation(){
-    try {
-      const res = await fetchWithTimeout(IP_GEO_URL, { cache: 'no-store' }, IP_GEO_TIMEOUT_MS);
-      if (res.ok) {
-        const d = await res.json();
-        const lat = parseFloat(d.latitude), lon = parseFloat(d.longitude);
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          return { lat: roundCoord(lat), lon: roundCoord(lon), source: 'ip' };
-        }
-      }
-    } catch (e) { /* offline, blocked, or provider down — give up */ }
-    return null;
-  }
+  // (Former Source 3 — third-party IP lookup via geojs.io — removed
+  // 25 Sep 2026: it sent the visitor's IP to a third party without
+  // consent. The same-origin /api/geo edge lookup above covers it.)
 
   // ---- Source 4: manual postcode/place entry ----
   // Two different lookups depending on what was typed, since neither
@@ -686,7 +663,7 @@
     // cleared so the next keystroke tries again.
     if (directory) return Promise.resolve(directory);
     if (directoryLoading) return directoryLoading;
-    directoryLoading = fetch('/api/mosques/directory')
+    directoryLoading = fetch('/api/mosques/directory', { headers: deviceHeaders() })
       .then(r => { if (!r.ok) throw new Error('directory http ' + r.status); return r.json(); })
       .then(d => {
         const list = d && Array.isArray(d.mosques) ? d.mosques : [];
@@ -981,7 +958,7 @@
       renderSkeleton();
     }
 
-    const sources = [gpsLocation(), edgeGeoLocation(), ipGeoLocation()];
+    const sources = [gpsLocation(), edgeGeoLocation()];
     sources.forEach(p => p.then(loc => applyLocation(loc, false)));
 
     const settled = await Promise.allSettled(sources);
@@ -993,6 +970,8 @@
   // reuses the already-known location instead of re-racing all four
   // sources every 5 minutes.
   function refreshPlan(){
+    // Don't spend network/battery while the app is in the background.
+    if (document.hidden) return;
     const status = document.getElementById('mqStatus');
     if (status) status.textContent = '';
     if (mqLocation) loadPlanForLocation(mqLocation);
@@ -1042,7 +1021,13 @@
     }
   });
 
+  let lastShownAt = 0;
   function onMosqueShown(){
+    // The page-shown event and the nav-link click both call this on the
+    // same tap — run once, not twice (was doubling GPS + plan calls).
+    const now = Date.now();
+    if (now - lastShownAt < 1500) return;
+    lastShownAt = now;
     const header = document.getElementById('mqPrayerHeader');
     if (header) header.classList.add('hidden');
     const liveToggle = document.getElementById('mqLiveToggle');
@@ -1054,6 +1039,7 @@
 
   window.addEventListener('wwp-page-shown', (e)=>{
     if(e.detail && e.detail.id === 'mosque') onMosqueShown();
+    else { clearInterval(mqTimer); mqTimer = null; } // left the page: stop refreshing
   });
   document.querySelectorAll('a[data-page="mosque"]').forEach(a=>{
     a.addEventListener('click', onMosqueShown);
