@@ -309,6 +309,35 @@ function renderBalance(){
   }
   $('#balanceMsg').textContent = msg;
   $('#mistakeCharCount').textContent = $('#mistakeInput').value.length;
+  renderMistakesList();
+}
+
+// Robust note list: every logged entry for the active day, newest first,
+// with a timestamp and a delete button — previously entries were
+// write-only (no way to review or remove a past note).
+function renderMistakesList(){
+  const wrap = $('#mistakesList');
+  if(!wrap) return;
+  const entries = state.mistakes[activeKey] || [];
+  if(!entries.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = entries.slice().reverse().map(m => {
+    const time = new Date(m.ts).toLocaleString(undefined,{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    const safeNote = String(m.note).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    return `<div class="mistake-item" data-ts="${m.ts}">
+      <div class="mistake-item-text">${safeNote}</div>
+      <div class="mistake-item-meta"><span>${time}</span><button class="mistake-item-del" data-ts="${m.ts}" title="Delete this entry" aria-label="Delete this entry">&times;</button></div>
+    </div>`;
+  }).join('');
+  $$('.mistake-item-del', wrap).forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteMistake(Number(btn.getAttribute('data-ts'))));
+  });
+}
+
+function deleteMistake(ts){
+  state.mistakes[activeKey] = (state.mistakes[activeKey]||[]).filter(m => m.ts !== ts);
+  persistJournal();
+  renderAll();
+  showToast('Entry deleted.');
 }
 
 function renderCalendar(){
