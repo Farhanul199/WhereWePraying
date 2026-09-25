@@ -157,7 +157,7 @@ body[data-event-theme="ramadan"] .home-ramadan-reminders{display:block;}
 .home-about p + p{margin-top:12px;}
 
 @media (max-width:980px){
-  .jummah-banner,.ramadan-banner{margin-top:18px;}
+  .jummah-banner,.ramadan-banner{margin-top:2px;}
   .home-hero{grid-template-columns:1fr;padding:14px 20px 0;gap:10px;}
   .home-hero-art{order:-1;}
   .home-hero-text{padding-top:2px;}
