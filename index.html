@@ -49,7 +49,7 @@ window.__wwpGoogleAuthResult = (function(){
 
 <link rel="icon" type="image/png" href="/assets/logo.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#F4714E">
+<meta name="theme-color" content="#D85A38">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,8 +59,8 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 <!-- Critical CSS: needed for first paint on every page (home + prayer times widgets appear on the home page itself). -->
-<link rel="stylesheet" href="/assets/css/app.css?v=10">
-<link rel="stylesheet" href="/assets/css/features/home.css?v=2">
+<link rel="stylesheet" href="/assets/css/app.css?v=11">
+<link rel="stylesheet" href="/assets/css/features/home.css?v=3">
 <link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
 <!-- Deferred CSS: only needed on their own page. Loaded on-demand by the
@@ -117,8 +117,8 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
   }catch(e){}
 })();
 </script>
-<div id="offline-banner" class="offline-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,0.20);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,0.4);border-radius:16px;color:#2C2C2C;padding:10px 16px;font-weight:500;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.1);animation:slideUp 0.3s ease;width:fit-content;max-width:calc(100% - 32px);cursor:pointer;user-select:none;touch-action:pan-y;">
-  <span style="display:flex;align-items:center;gap:8px;"><span>📡</span><span>Internet took a break. We'll auto-refresh soon.</span><button type="button" style="background:none;border:none;color:inherit;font-size:16px;padding:0;margin-left:8px;cursor:pointer;opacity:0.7;" id="offlineBannerClose">✕</button></span>
+<div id="offline-banner" class="offline-banner">
+  <span>📡</span><span>Internet took a break. We'll auto-refresh soon.</span><button type="button" class="offline-banner-close" id="offlineBannerClose" aria-label="Dismiss">✕</button>
 </div>
 
 <!-- Install App banner -->
@@ -155,12 +155,20 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
   const b=document.getElementById('offline-banner');
   const closeBtn=document.getElementById('offlineBannerClose');
   let touchStart=0;
-  const dismiss=()=>{b.classList.add('hide');setTimeout(()=>{b.classList.remove('show','hide');},300);};
-  const show=()=>{b.classList.remove('hide');b.classList.add('show');};
+  let autoDismissTimer=null;
+  const clearAutoDismiss=()=>{ if(autoDismissTimer){ clearTimeout(autoDismissTimer); autoDismissTimer=null; } };
+  const dismiss=()=>{clearAutoDismiss();b.classList.add('hide');setTimeout(()=>{b.classList.remove('show','hide');},300);};
+  const show=()=>{
+    b.classList.remove('hide');b.classList.add('show');
+    clearAutoDismiss();
+    // Small/non-blocking notice — don't leave it sitting there forever
+    // even if we never actually come back online (e.g. airplane mode).
+    autoDismissTimer=setTimeout(dismiss,12000);
+  };
   closeBtn.addEventListener('click',dismiss);
   b.addEventListener('click',dismiss);
   b.addEventListener('touchstart',(e)=>{touchStart=e.touches[0].clientY;},{passive:true});
-  b.addEventListener('touchend',(e)=>{const touchEnd=e.changedTouches[0].clientY;if(touchEnd-touchStart>50){dismiss;}},{passive:true});
+  b.addEventListener('touchend',(e)=>{const touchEnd=e.changedTouches[0].clientY;if(touchEnd-touchStart>50){dismiss();}},{passive:true});
   window.addEventListener('offline',show);
   window.addEventListener('online',()=>{
     dismiss();
@@ -391,6 +399,14 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 
     if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
     else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
+
+    // Match the Android status bar to whichever event theme is active —
+    // same dark accent variant each theme already defines for itself
+    // (sage green on Fridays, plum in Ramadan), not the bright default.
+    try{
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if(tc) tc.setAttribute('content', ramadanActive ? '#7E5182' : (isFriday ? '#5C7A59' : '#D85A38'));
+    }catch(e){}
 
     // Stash the computed values so the banner-visibility script just
     // below the banners (they don't exist in the DOM yet at this point)
@@ -2536,7 +2552,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 <script src="/assets/js/services/platform.js?v=3" defer></script>
 <script src="/assets/js/features/prayer-times.js?v=7" defer></script>
 <script src="/assets/js/services/qibla-compass.js?v=1" defer></script>
-<script src="/assets/js/features/seasonal-themes.js?v=3" defer></script>
+<script src="/assets/js/features/seasonal-themes.js?v=4" defer></script>
 <script src="/assets/js/services/auth.js?v=4" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>

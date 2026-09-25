@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v26';
+const CACHE_NAME = 'wwp-v27';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -22,13 +22,13 @@ const CORE_ASSETS = [
   '/assets/js/services/qibla-compass.js?v=1',
   '/assets/js/services/auth.js?v=4',
   '/assets/js/services/twinkle.js?v=2',
-  '/assets/js/features/seasonal-themes.js?v=3',
+  '/assets/js/features/seasonal-themes.js?v=4',
   '/assets/js/features/glass-mode.js?v=3',
   '/assets/js/features/misc-widgets.js?v=2',
   '/assets/js/features/backup-restore.js?v=3',
   '/assets/js/features/supporter-checkout.js?v=2',
-  '/assets/css/app.css?v=9',
-  '/assets/css/features/home.css?v=1',
+  '/assets/css/app.css?v=11',
+  '/assets/css/features/home.css?v=3',
   '/assets/css/features/prayer-times.css?v=2',
   '/assets/css/services/twinkle.css?v=2',
   '/assets/logo.png',
