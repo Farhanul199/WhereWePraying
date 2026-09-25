@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v27';
+const CACHE_NAME = 'wwp-v28';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -22,7 +22,7 @@ const CORE_ASSETS = [
   '/assets/js/services/qibla-compass.js?v=1',
   '/assets/js/services/auth.js?v=4',
   '/assets/js/services/twinkle.js?v=2',
-  '/assets/js/features/seasonal-themes.js?v=4',
+  '/assets/js/features/seasonal-themes.js?v=5',
   '/assets/js/features/glass-mode.js?v=3',
   '/assets/js/features/misc-widgets.js?v=2',
   '/assets/js/features/backup-restore.js?v=3',
