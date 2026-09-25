@@ -39,13 +39,11 @@ window.__wwpGoogleAuthResult = (function(){
 <title>WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More</title>
 <meta name="description" content="WhereWePraying? is your all-in-one Islamic companion: find nearby mosques and Jama'ah times, check accurate prayer times, read the Qur'an with translation and recitation, track good deeds in your Islamic journal, and explore du'a, dhikr and worship guides.">
 <link rel="canonical" href="https://wherewepraying.com/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://api.aladhan.com">
 <link rel="preconnect" href="https://api.alquran.cloud">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&family=Lora:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&family=Lora:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet"></noscript>
+<!-- Self-hosted fonts (was Google Fonts). Manrope preloaded: it's the UI font. -->
+<link rel="preload" href="/assets/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/fonts.css?v=1">
 
 <link rel="icon" type="image/png" href="/assets/logo.png">
 <link rel="manifest" href="/manifest.json">
@@ -59,7 +57,16 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 <!-- Critical CSS: needed for first paint on every page (home + prayer times widgets appear on the home page itself). -->
-<link rel="stylesheet" href="/assets/css/app.css?v=12">
+<link rel="stylesheet" href="/assets/css/base.css?v=2">
+<link rel="stylesheet" href="/assets/css/features/glass-mode.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/seasonal-themes.css?v=3">
+<link rel="stylesheet" href="/assets/css/layout.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/popups.css?v=2">
+<link rel="stylesheet" href="/assets/css/responsive-mobile.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/auth.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/leaderboard.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/notifications.css?v=3">
+<link rel="stylesheet" href="/assets/css/app.css?v=13">
 <link rel="stylesheet" href="/assets/css/features/home.css?v=3">
 <link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
@@ -2595,16 +2602,16 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 </div>
 
 <!-- Core: needed on every page (router, storage, auth, home, prayer times widgets). -->
-<script src="/assets/js/wwp-core.js?v=17" defer></script>
+<script src="/assets/js/wwp-core.js?v=18" defer></script>
 <script src="/assets/js/services/storage.js?v=2" defer></script>
 <script src="/assets/js/services/platform.js?v=3" defer></script>
-<script src="/assets/js/features/prayer-times.js?v=7" defer></script>
+<script src="/assets/js/features/prayer-times.js?v=8" defer></script>
 <script src="/assets/js/services/qibla-compass.js?v=1" defer></script>
 <script src="/assets/js/features/seasonal-themes.js?v=5" defer></script>
 <script src="/assets/js/services/auth.js?v=4" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>
-<script src="/assets/js/services/twinkle.js?v=2" defer></script>
+<script src="/assets/js/services/twinkle.js?v=3" defer></script>
 <script src="/assets/js/features/glass-mode.js?v=3" defer></script>
 <script src="/assets/js/features/misc-widgets.js?v=2" defer></script>
 <!-- Page-specific bundles (quran, journal, dua, guides, find-a-mosque,

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v30';
+const CACHE_NAME = 'wwp-v31';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -15,19 +15,30 @@ const OFFLINE_URLS = [
 // actually visited, so a first-time offline visitor still gets a
 // working home + prayer-times experience without downloading everything.
 const CORE_ASSETS = [
-  '/assets/js/wwp-core.js?v=17',
+  '/assets/js/wwp-core.js?v=18',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=3',
-  '/assets/js/features/prayer-times.js?v=7',
+  '/assets/js/features/prayer-times.js?v=8',
   '/assets/js/services/qibla-compass.js?v=1',
   '/assets/js/services/auth.js?v=4',
-  '/assets/js/services/twinkle.js?v=2',
+  '/assets/js/services/twinkle.js?v=3',
   '/assets/js/features/seasonal-themes.js?v=5',
   '/assets/js/features/glass-mode.js?v=3',
   '/assets/js/features/misc-widgets.js?v=2',
   '/assets/js/features/backup-restore.js?v=3',
   '/assets/js/features/supporter-checkout.js?v=2',
-  '/assets/css/app.css?v=12',
+  '/assets/css/fonts.css?v=1',
+  '/assets/fonts/manrope-latin-wght-normal.woff2',
+  '/assets/css/base.css?v=2',
+  '/assets/css/features/glass-mode.css?v=1',
+  '/assets/css/features/seasonal-themes.css?v=3',
+  '/assets/css/layout.css?v=1',
+  '/assets/css/features/popups.css?v=2',
+  '/assets/css/responsive-mobile.css?v=1',
+  '/assets/css/features/auth.css?v=1',
+  '/assets/css/features/leaderboard.css?v=1',
+  '/assets/css/features/notifications.css?v=3',
+  '/assets/css/app.css?v=13',
   '/assets/css/features/home.css?v=3',
   '/assets/css/features/prayer-times.css?v=2',
   '/assets/css/services/twinkle.css?v=2',
