@@ -49,16 +49,8 @@
   .cs-features{grid-template-columns:repeat(2,1fr);}
 }
 
-/* ---------- Find a Mosque :: backdrop + polaroid card ---------- */
-.offline-banner{
-  position:fixed;top:0;left:0;right:0;z-index:9999;
-  background:var(--coral,#F4714E);color:#fff;
-  padding:12px 16px;text-align:center;font-weight:500;font-size:14px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.15);
-  animation:slideDown 0.3s cubic-bezier(0.34,1.56,0.64,1);
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.offline-banner span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-@keyframes slideDown{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
-@media(max-width:480px){.offline-banner{font-size:12px;padding:10px 12px;}.offline-banner span{font-size:12px;}}
+/* .offline-banner styling lives in notifications.css — this old
+   top:0/right:0 full-width block was dead weight left over from an
+   earlier design and, worse, was leaking its unset top/right values
+   through the element's positioning (removed 2026-09-25). */
 
