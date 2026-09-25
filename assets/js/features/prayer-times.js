@@ -1240,7 +1240,23 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
 
   // The map ticks live once a minute while in "live" mode; the play
   // animation above handles its own faster interval when active.
-  setInterval(()=>{ if(mapState.mode==='live') renderMap(); }, 30000);
+  // Skip while the app is backgrounded or the Prayer Times page isn't showing.
+  setInterval(()=>{
+    if(document.hidden) return;
+    const pg = document.getElementById('page-prayertimes');
+    if(pg && pg.classList.contains('hidden')) return;
+    if(mapState.mode==='live') renderMap();
+  }, 30000);
+  // Catch up instantly when returning to the page/app, since the ticks
+  // above now pause while hidden.
+  window.addEventListener('wwp-page-shown', (e)=>{
+    if(e.detail && e.detail.id === 'prayertimes' && mapState.mode==='live') renderMap();
+  });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden) return;
+    try{ if(mapState.mode==='live') renderMap(); }catch(_){}
+    try{ renderAll(); }catch(_){}
+  });
 
   /* ---- Previous / next prayer stack ---- */
   const PT_STACK_ORDER = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
@@ -1528,6 +1544,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
   // "Xh Ym remaining" display, but check every 15s so it flips promptly
   // right as a prayer time passes.
   setInterval(function(){
+    if(document.hidden) return; // backgrounded: nothing to update on screen
     if(isPrayerTimesPageVisible()) renderFullPage();
     else if(!document.getElementById('page-home')?.classList.contains('hidden')) renderHome();
   }, 15000);

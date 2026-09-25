@@ -316,6 +316,12 @@
     el.textContent = mqLocation ? locationBarText(mqLocation) : '';
   }
 
+  // The device's time zone, so "today" and "next Jama'ah" are worked out
+  // in local time (not always London).
+  function deviceTimeZone(){
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { return null; }
+  }
+
   async function fetchPlan(lat, lon){
     // POST with coords in the body (not a GET query string) so they
     // never land in access logs, browser history, or a Referer header.
@@ -324,7 +330,7 @@
     const res = await fetch('/api/mosques/plan', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-      body: JSON.stringify({ lat, lon, count: getCount(), pins, exclude: getHidden().map(h => h.slug) })
+      body: JSON.stringify({ lat, lon, count: getCount(), pins, exclude: getHidden().map(h => h.slug), tz: deviceTimeZone() })
     });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
