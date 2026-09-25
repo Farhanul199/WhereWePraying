@@ -29,49 +29,72 @@
 <div class="wrap">
   <a class="back" href="/">&larr; Back to WhereWePraying?</a>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: August 2026</p>
+  <p class="updated">Last updated: 25 September 2026</p>
 
-  <p>WhereWePraying? ("the app", "we", "us") helps Muslims find mosque Jama'ah times and use Islamic prayer tools. This page explains what data we collect, why, and how you can control or delete it.</p>
+  <p>WhereWePraying? ("the app", "we", "us") helps Muslims find mosque Jama'ah times and use Islamic prayer tools, on the web and in our Android app. This page explains what data we collect, why, and how you can control or delete it.</p>
 
   <h2>What we collect</h2>
   <ul>
-    <li><strong>Anonymous device ID.</strong> A random identifier stored on your device so your prayer settings, journal entries, and progress can sync without requiring an account.</li>
-    <li><strong>Account info (only if you sign in).</strong> Email address, and optionally a username, recovery email, and avatar, used for sign-in, Friends, and leaderboards.</li>
-    <li><strong>Location.</strong> Used only to calculate prayer times, Qiblah direction, and nearby mosques. You can enter a location manually instead of sharing your device location.</li>
-    <li><strong>Notification tokens.</strong> If you enable prayer or friend-request notifications, we store a push subscription tied to your device so we can deliver them.</li>
-    <li><strong>Content you submit.</strong> Journal entries, Community Ideas posts/comments, and mosque photos you choose to upload.</li>
+    <li><strong>Anonymous device ID.</strong> A random identifier stored on your device so your settings, journal and progress can sync without an account. It is not linked to your name unless you sign in.</li>
+    <li><strong>Account info (only if you sign in).</strong> Email address, and optionally a username, recovery email and avatar. Used for sign-in, Friends and leaderboards.</li>
+    <li><strong>Location (optional).</strong> See "How we use your location" below.</li>
+    <li><strong>Notification subscription.</strong> If you turn on notifications, we store a push subscription for your device so we can deliver them.</li>
+    <li><strong>Content you submit.</strong> Journal entries, Community Ideas posts, bug reports, mosque photos, and any reports or blocks you make.</li>
+  </ul>
+
+  <h2>How we use your location</h2>
+  <ul>
+    <li>Location is optional. You can type a postcode or place instead of sharing your device location.</li>
+    <li>When finding mosques, your location is rounded to roughly 100 metres before it leaves your device, and sent to our server only to find the nearest mosques and their Jama'ah times.</li>
+    <li>For prayer times and weather, the location is sent to AlAdhan and Open-Meteo (see below).</li>
+    <li>We do not store your location or keep a location history on our servers.</li>
+    <li>If you don't share your location, we may use the approximate area of your internet connection (city level, provided by our host Cloudflare) to show nearby results. This is not stored either.</li>
+    <li>Your last-used location may be saved on your device only, so the app opens faster next time.</li>
   </ul>
 
   <h2>What we don't do</h2>
   <ul>
     <li>We do not sell your data.</li>
     <li>We do not show ads or share data with advertisers.</li>
+    <li>We do not use analytics, tracking or crash-reporting tools.</li>
     <li>We do not track you across other apps or websites.</li>
   </ul>
 
   <h2>How data is stored</h2>
-  <p>Data is stored on Cloudflare's infrastructure (D1 database, KV storage, R2 for photos). Sessions expire automatically after 7 days of inactivity.</p>
+  <p>Data is stored on Cloudflare's infrastructure (D1 database, KV storage, R2 for photos). All connections are encrypted (HTTPS). Sessions expire automatically after 7 days of inactivity.</p>
 
-  <h2>Third parties</h2>
+  <h2>Services we rely on</h2>
+  <p>To make certain features work, your device connects directly to these services. They receive only what's needed for that feature (for example, a location or search term) plus your IP address, as with any website.</p>
   <ul>
-    <li><strong>Google</strong> — if you choose to sign in with Google.</li>
-    <li><strong>Resend</strong> — sends magic-link sign-in emails and, if you opt in, notification emails.</li>
-    <li><strong>AlAdhan &amp; Al Quran Cloud APIs</strong> — public prayer-time and Qur'an data providers; your location coordinates may be sent to AlAdhan to calculate times.</li>
-    <li><strong>Stripe</strong> — only if you choose to become a Supporter; payment details are handled entirely by Stripe and never touch our servers.</li>
+    <li><strong>Cloudflare</strong> — hosting, security and data storage.</li>
+    <li><strong>Google</strong> — if you choose to sign in with Google; also serves the fonts used in the app.</li>
+    <li><strong>Resend</strong> — sends sign-in emails and, if you opt in, update emails.</li>
+    <li><strong>AlAdhan</strong> — prayer-time calculation; receives the location you're viewing times for.</li>
+    <li><strong>Open-Meteo</strong> — weather and place-name lookup.</li>
+    <li><strong>postcodes.io and Photon (OpenStreetMap)</strong> — turn a postcode or place you type into a map position.</li>
+    <li><strong>Al Quran Cloud, jsDelivr, EveryAyah, VerseByVerseQuran</strong> — Qur'an text, tafsir and recitation audio.</li>
+    <li><strong>Stripe</strong> — only if you choose to become a Supporter. Payment details are handled entirely by Stripe and never touch our servers.</li>
   </ul>
+
+  <h2>Community content &amp; safety</h2>
+  <p>Posts and photos you submit may be visible to other users. You can report content or block users at any time. Reported content is reviewed and removed if it breaks our <a href="/terms.html">Terms of Service</a>.</p>
 
   <h2>Your controls</h2>
   <ul>
     <li><strong>Export your data</strong> anytime via Settings &rarr; Backup &amp; Restore.</li>
-    <li><strong>Delete your account</strong> anytime via Settings &rarr; Danger Zone. This permanently removes your account, journal, and submitted content from our servers. This cannot be undone.</li>
+    <li><strong>Delete your account</strong> anytime via Settings &rarr; Danger Zone, or from the web at <a href="/delete-account.html">wherewepraying.com/delete-account.html</a>. This permanently removes your account, journal and submitted content from our servers. It cannot be undone.</li>
     <li><strong>Turn off notifications or location</strong> anytime in Settings or your device settings.</li>
   </ul>
 
   <h2>Children</h2>
-  <p>WhereWePraying? is not directed at children under 13, and we do not knowingly collect data from them.</p>
+  <p>WhereWePraying? is not directed at children under 13, and we do not knowingly collect data from them. If you believe a child has given us personal data, contact us and we will delete it.</p>
+
+  <h2>Changes</h2>
+  <p>If we change this policy, we'll update the date at the top of this page.</p>
 
   <h2>Contact</h2>
-  <p>Questions about this policy or your data can be sent to <a href="mailto:privacy@wherewepraying.com">privacy@wherewepraying.com</a>.</p>
+  <p>Questions about this policy or your data: <a href="mailto:privacy@wherewepraying.com">privacy@wherewepraying.com</a>.</p>
+  <p style="margin-top:40px;font-size:14px;"><a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a> · <a href="/support.html">Support</a> · <a href="/delete-account.html">Delete account</a></p>
 </div>
 </body>
 </html>

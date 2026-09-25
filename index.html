@@ -59,7 +59,7 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 <!-- Critical CSS: needed for first paint on every page (home + prayer times widgets appear on the home page itself). -->
-<link rel="stylesheet" href="/assets/css/app.css?v=11">
+<link rel="stylesheet" href="/assets/css/app.css?v=12">
 <link rel="stylesheet" href="/assets/css/features/home.css?v=3">
 <link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
@@ -69,12 +69,12 @@ window.__wwpGoogleAuthResult = (function(){
      noscript fallback keeps no-JS visitors styled. -->
 <noscript>
 <link rel="stylesheet" href="/assets/css/features/quran.css?v=1">
-<link rel="stylesheet" href="/assets/css/features/journal.css?v=1">
+<link rel="stylesheet" href="/assets/css/features/journal.css?v=2">
 <link rel="stylesheet" href="/assets/css/features/dua.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/guides.css?v=2">
 <link rel="stylesheet" href="/assets/css/features/find-a-mosque.css?v=5">
 <link rel="stylesheet" href="/assets/css/features/community.css?v=1">
-<link rel="stylesheet" href="/assets/css/features/travel-mode.css?v=4">
+<link rel="stylesheet" href="/assets/css/features/travel-mode.css?v=5">
 </noscript>
 <style>
 #bootLoader{position:fixed;inset:0;z-index:99999;background:#FBF3EC;display:flex;align-items:center;justify-content:center;transition:opacity .25s ease}
@@ -1418,7 +1418,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
             <span>Tafsir (Ibn Kathir)</span>
           </button>
-          <button class="tool-row" id="toolWbw" type="button">
+          <button class="tool-row" id="toolWbw" type="button" hidden style="display:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
             <span>Word by word</span>
             <span class="tool-soon">Soon</span>
@@ -1427,12 +1427,12 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>
             <span>Bookmarks</span>
           </button>
-          <button class="tool-row" id="toolNotes" type="button">
+          <button class="tool-row" id="toolNotes" type="button" hidden style="display:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             <span>Notes</span>
             <span class="tool-soon">Soon</span>
           </button>
-          <button class="tool-row" id="toolHighlights" type="button">
+          <button class="tool-row" id="toolHighlights" type="button" hidden style="display:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-3.2-3.2a2 2 0 0 1 0-2.8L16 6"/></svg>
             <span>Highlights</span>
             <span class="tool-soon">Soon</span>
@@ -1534,7 +1534,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c1 4-2 5-2 9a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 4 3 6a6 6 0 0 1-12 0c0-5 3-7 4-12Z"/></svg>
           Reading Streak</span>
         <button type="button" class="poke-badge hidden" id="pokeReceivedBadge" title="You've been poked"></button>
-        <span class="foot-link" id="viewHistoryBtn">View history</span>
+        <span class="foot-link" id="viewHistoryBtn" hidden style="display:none">View history</span>
       </div>
       <div class="streak-count">
         <span class="streak-flame">
@@ -1930,7 +1930,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <div class="pane-head-icons">
           <button class="ph-icon" id="detailBmBtn" title="Bookmark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg></button>
           <button class="ph-icon" id="detailShareBtn" title="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6 15.4 6.4M8.6 13.4l6.8 4.2"/></svg></button>
-          <button class="ph-icon" id="detailMoreBtn" title="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+          <button class="ph-icon" id="detailMoreBtn" title="More" hidden style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
         </div>
       </div>
       <div id="detailBody" class="detail-body"></div>
@@ -2361,7 +2361,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       </div>
 
       <div class="tm-grid tm-grid-bottom">
-        <article class="tm-card tm-mosque-card">
+        <article class="tm-card tm-mosque-card" hidden style="display:none">
           <div class="tm-coming-soon">
             <div class="tm-cs-icon">⌕</div>
             <strong>Nearby mosques — coming soon</strong>
@@ -2376,13 +2376,13 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
           <label><input type="checkbox"> <span>Locate Qiblah direction</span></label>
           <label><input type="checkbox"> <span>Download offline prayer<br>times</span></label>
           <label><input type="checkbox"> <span>Save masajid along the way</span></label>
-          <button class="tm-link" type="button" id="tmChecklistBtn">Edit Checklist <span>→</span></button>
+          <button class="tm-link" type="button" id="tmChecklistBtn" hidden style="display:none">Edit Checklist <span>→</span></button>
         </article>
 
         <article class="tm-card tm-settings-card">
           <div class="tm-card-title">Settings</div>
           <div class="tm-card-scroll">
-            <button class="tm-setting-row" id="tmJuristicBtn" type="button"><span>Juristic Preference</span><b id="tmJuristicValue">Shafi'i</b><i>›</i></button>
+            <button class="tm-setting-row" id="tmJuristicBtn" type="button" hidden style="display:none"><span>Juristic Preference</span><b id="tmJuristicValue">Shafi'i</b><i>›</i></button>
             <button class="tm-setting-row" id="tmMethodBtn" type="button"><span>Calculation Method<small id="tmMethodValue">Muslim World League</small></span><i>›</i></button>
             <button class="tm-setting-row" type="button"><span>Timezone<small id="tmTimezoneValue">—</small></span><i>›</i></button>
             <label class="tm-setting-row tm-setting-toggle-row" style="cursor:pointer;"><span>Open Travel Mode by default<small>Use this as your homepage</small></span><input type="checkbox" id="tmDefaultHomeToggle" style="width:16px;height:16px;flex:none;"></label>
@@ -2399,7 +2399,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         </article>
       </div>
 
-      <div class="tm-flight-section">
+      <div class="tm-flight-section" hidden style="display:none">
         <article class="tm-card tm-flight-teaser">
           <div class="tm-flight-teaser-icon">✨</div>
           <strong>Something new is coming to Travel Mode</strong>
@@ -2570,7 +2570,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p class="footer-newsletter-status" id="footerNewsletterStatus"></p>
       </div>
     </div>
-    <div class="footer-coming-soon">
+    <div class="footer-coming-soon" hidden style="display:none">
       <img src="/assets/footer-coming-soon.webp" alt="Illustration preview of the upcoming mosque finder feature" width="120" height="120" loading="lazy">
       <div>
         <h4>Coming soon</h4>
@@ -2578,7 +2578,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       </div>
     </div>
   </div>
-  <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a></div>
+  <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a> · <a href="/terms.html" style="color:inherit;text-decoration:underline;">Terms of Service</a> · <a href="/support.html" style="color:inherit;text-decoration:underline;">Support</a></div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -2609,7 +2609,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 </div>
 
 <!-- Core: needed on every page (router, storage, auth, home, prayer times widgets). -->
-<script src="/assets/js/wwp-core.js?v=15" defer></script>
+<script src="/assets/js/wwp-core.js?v=16" defer></script>
 <script src="/assets/js/services/storage.js?v=2" defer></script>
 <script src="/assets/js/services/platform.js?v=3" defer></script>
 <script src="/assets/js/features/prayer-times.js?v=7" defer></script>
