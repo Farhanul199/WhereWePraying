@@ -32,7 +32,7 @@
 import { isSyncRequest } from '../../_lib/auth.js';
 import { logSyncRun } from '../../_lib/synclog.js';
 
-const YEAR = 2026;
+// Year: ?year=YYYY if given, otherwise the current year (was hardcoded 2026).
 const SOURCE_URL = "https://www.towerhamletsmosques.co.uk/wp-content/themes/squared/masajid-files/request.php?showJumma=true";
 const PRAYERS = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const SKIP_KEYS = new Set(["date", "date1", "strtotime", "selectedDate", "salah", "alaqsa"]);
@@ -127,6 +127,7 @@ export async function onRequestGet(context) {
 
   const start = parseInt(url.searchParams.get("start") || "1", 10);
   const end = parseInt(url.searchParams.get("end") || "40", 10);
+  const YEAR = parseInt(url.searchParams.get("year") || String(new Date().getUTCFullYear()), 10);
 
   const results = { processed: [], failed: [], recordsSaved: 0 };
 
