@@ -107,6 +107,14 @@
     else if(jummahActive){ document.body.setAttribute('data-event-theme', 'jummah'); }
     else{ document.body.removeAttribute('data-event-theme'); }
 
+    // Status bar accent: each theme's own dark variant (dimmer than the
+    // base bright accent), matching whichever event theme actually won
+    // — corrects the pre-paint guess above once Ramadan is confirmed live.
+    try{
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if(tc) tc.setAttribute('content', ramadanActive ? '#7E5182' : (jummahActive ? '#5C7A59' : '#D85A38'));
+    }catch(e){}
+
     var jummahBanner = document.getElementById('jummah-banner');
     if(jummahBanner){ jummahBanner.classList.toggle('hidden', !jummahActive); }
 
