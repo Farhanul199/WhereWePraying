@@ -47,7 +47,7 @@ window.__wwpGoogleAuthResult = (function(){
 
 <link rel="icon" type="image/png" href="/assets/logo.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#D85A38">
+<meta name="theme-color" content="#F5956A">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2571,8 +2571,9 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       </div>
     </div>
   </div>
-  <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a> · <a href="/terms.html" style="color:inherit;text-decoration:underline;">Terms of Service</a> · <a href="/support.html" style="color:inherit;text-decoration:underline;">Support</a></div>
+  <div class="footer-bottom">© <span id="footerYear">2026</span> WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a> · <a href="/terms.html" style="color:inherit;text-decoration:underline;">Terms of Service</a> · <a href="/support.html" style="color:inherit;text-decoration:underline;">Support</a></div>
 </footer>
+<script>try{document.getElementById('footerYear').textContent=new Date().getFullYear();}catch(e){}</script>
 
 <div class="toast" id="toast"></div>
 

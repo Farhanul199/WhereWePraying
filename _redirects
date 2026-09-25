@@ -5,6 +5,18 @@
 # based on the URL. Kept as explicit routes (not a catch-all /*) so
 # genuinely missing paths still 404 as expected.
 #
+# ---- Block internal project files (25 Sep 2026) ----
+# The whole repo is the site's output folder, so these developer files
+# were publicly downloadable (e.g. /wrangler.toml). Redirects win over
+# real files on Cloudflare Pages, so each is sent to the home page.
+# NOT blocked on purpose: /.well-known/ (Play Store app link), /api/*.
+/wrangler.toml        /   301
+/migrations/*         /   301
+/workers/*            /   301
+/tv-app/*             /   301
+/.github/*            /   301
+/functions/*          /   301
+
 # Guide routes below are generated from the GUIDES array in
 # assets/js/features/guides.js — when a new guide is added there,
 # add its matching /guides/<id> line here too, or it will 404 on
