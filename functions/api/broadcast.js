@@ -120,7 +120,7 @@ function buildEmailHtml(message, buttonText, buttonUrl) {
             </td>
           </tr>` : '';
 
-  const iconUrl = 'https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-icon.png';
+  const iconUrl = 'https://wherewepraying.com/assets/email-icon.png';
 
   return `<html>
 <body style="margin:0; padding:24px 16px; background-color:#fbe4d8; font-family:'Manrope',Arial,sans-serif;">

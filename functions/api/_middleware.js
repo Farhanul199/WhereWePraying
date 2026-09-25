@@ -53,8 +53,7 @@
 //   - Action: Block for 5 minutes
 // This replaces exactly what the old KV code below used to do.
 //
-// KV is still used for: the honeypot ban check (a READ, cheap), and the
-// admin/sensitive/upload limiters below — all low-volume enough to stay
+// KV is still used for: the admin/sensitive/upload limiters below — all low-volume enough to stay
 // well under the 1,000-writes/day KV cap.
 
 import { isAdminRequest, isSyncRequest } from '../_lib/auth.js';
@@ -79,6 +78,7 @@ const SENSITIVE_RATE_LIMIT_WINDOW = 900; // per 15 minutes per IP
 const UPLOAD_RATE_LIMIT_MAX = 20;        // community photo uploads
 const UPLOAD_RATE_LIMIT_WINDOW = 3600;   // per hour per IP
 const SENSITIVE_PATHS = new Set(['/api/send-magic-link', '/api/subscribe']);
+const NO_DEVICE_TRACKING = new Set(['/api/mosques/plan', '/api/mosques/directory']);
 
 const DEVICE_UPDATE_THROTTLE_MS = 60 * 60 * 1000; // only update devices.last_seen once per hour per device
 
@@ -100,30 +100,8 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  // --- Honeypot ban check (cheapest check, runs first) ---
-  // If this IP tripped the /trap/ honeypot in the last 7 days, reject
-  // immediately — don't even bother with UA/Origin/rate-limit checks.
-  //
-  // This fails OPEN (continues processing) if the KV read itself throws
-  // — deliberately, not as an oversight. RATE_LIMIT having a transient
-  // hiccup shouldn't take the entire site down for every visitor; the
-  // honeypot ban is one supplementary layer among several (UA filter,
-  // Origin check, the per-IP rate limits below), not the only thing
-  // standing between the site and abuse, so degrading it in a rare
-  // outage is an acceptable trade against also degrading availability.
-  if (env.RATE_LIMIT && ip !== 'unknown') {
-    try {
-      const banned = await env.RATE_LIMIT.get(`banned:${ip}`);
-      if (banned) {
-        return new Response(JSON.stringify({ error: 'Forbidden' }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    } catch (e) {
-      console.error('honeypot ban check failed', e);
-    }
-  }
+  // (Honeypot ban check removed 25 Sep 2026: /trap/ no longer records
+  // bans, so this was a wasted KV read on every single API request.)
 
   // Admin-secret-protected routes: /api/admin/* by path, or anything
   // presenting the X-Broadcast-Key / X-Sync-Key header regardless of
@@ -153,6 +131,13 @@ export async function onRequest(context) {
   }
 
   if (url.pathname.startsWith('/api/auth/')) {
+    return next();
+  }
+
+  // Stripe webhook: server-to-server POST from Stripe, so it has no
+  // Origin or X-Device-Id. Protected by the Stripe-Signature check
+  // inside the handler instead (functions/api/supporter/webhook.js).
+  if (url.pathname === '/api/supporter/webhook') {
     return next();
   }
 
@@ -243,6 +228,12 @@ export async function onRequest(context) {
   }
 
   data.deviceId = deviceId;
+
+  // Public, read-only visitor endpoints: skip the devices-table bookkeeping
+  // so the busiest routes cost zero D1 reads/writes.
+  if (NO_DEVICE_TRACKING.has(url.pathname)) {
+    return next();
+  }
 
   const now = Date.now();
   try {

@@ -58,7 +58,7 @@ function buildFriendRequestEmailHtml(fromLabel, siteUrl) {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center">
-                          <img src="https://raw.githubusercontent.com/Farhanul199/WhereWePraying/main/assets/email-icon.png" alt="WhereWePraying" width="88" style="display:block; width:88px; height:auto; border-radius:20px;">
+                          <img src="https://wherewepraying.com/assets/email-icon.png" alt="WhereWePraying" width="88" style="display:block; width:88px; height:auto; border-radius:20px;">
                         </td>
                       </tr>
                       <tr>
