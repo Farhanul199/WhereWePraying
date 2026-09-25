@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v29';
+const CACHE_NAME = 'wwp-v30';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -15,7 +15,7 @@ const OFFLINE_URLS = [
 // actually visited, so a first-time offline visitor still gets a
 // working home + prayer-times experience without downloading everything.
 const CORE_ASSETS = [
-  '/assets/js/wwp-core.js?v=16',
+  '/assets/js/wwp-core.js?v=17',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=3',
   '/assets/js/features/prayer-times.js?v=7',
@@ -43,7 +43,9 @@ const DUA_IMAGES = [
   'assets/dua/banner/qurandua.webp','assets/dua/banner/istighfar.webp','assets/dua/banner/ummah.webp',
   'assets/dua/banner/names.webp','assets/dua/banner/other.webp'
 ];
-const ALL_URLS = [...OFFLINE_URLS, ...CORE_ASSETS, ...DUA_IMAGES];
+// DUA_IMAGES no longer precached (~800 KB every install); they're cached
+// on first view of the Du'a page by the stale-while-revalidate handler.
+const ALL_URLS = [...OFFLINE_URLS, ...CORE_ASSETS];
 
 // Precache an offline fallback set. This never blocks getting fresh content —
 // it's only used when the network is unavailable.
@@ -139,9 +141,13 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
+  // Qur'an recitation audio: let the browser handle it directly. The
+  // responses are opaque range requests that can never be cached here.
+  if (url.hostname === 'everyayah.com' || url.hostname === 'www.versebyversequran.com') return;
+
   // Live API data: network-first, cache as fallback for offline.
   // Fresh data wins; cached data is only the offline safety net.
-  if (url.hostname === 'api.aladhan.com' || url.hostname === 'api.alquran.cloud' || url.hostname === 'everyayah.com') {
+  if (url.hostname === 'api.aladhan.com' || url.hostname === 'api.alquran.cloud') {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       try {

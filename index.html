@@ -88,11 +88,6 @@ window.__wwpGoogleAuthResult = (function(){
 <script>
 setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 400);
 </script>
-<!-- Honeypot: never visible to real users, never linked from anywhere
-     a human would click. Bots that parse raw HTML instead of rendering
-     CSS will follow this and land in the /trap/ route, getting their
-     IP banned. Real browsers hide it via the inline style + aria/tabindex. -->
-<a href="/trap/bait" style="position:absolute!important;left:-9999px!important;top:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;" tabindex="-1" aria-hidden="true" rel="nofollow">directory</a>
 <script>
 (function(){
   // Restore the saved theme immediately (before the rest of the page
@@ -2038,27 +2033,11 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
   <img src="assets/mosque/coming-soon-backdrop.webp" alt="" aria-hidden="true" loading="lazy" decoding="async">
 </div>
 
-<div id="mqPreviewOverlay" class="mq-preview-overlay">
-  <div class="cs-card">
-    <div class="cs-art">
-      <img src="assets/coming-soon/find-a-mosque.webp" alt="Illustrated oasis with a mosque at sunset" width="900" height="770" loading="lazy" decoding="async">
-    </div>
-    <div class="cs-icon">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-    </div>
-    <span class="cs-badge"><span class="dot"></span>Coming Soon</span>
-    <h2>Find a Mosque</h2>
-    <p class="cs-desc">We're building a simple way to find nearby mosques and the next available Jama'ah.</p>
-    <button type="button" id="mqPeekBtn" class="mq-peek-btn">Sneak peek the live build</button>
-  </div>
-</div>
-
 <main class="page">
   <div class="mq-wrap">
     <div class="mq-header">
       <h1>Find a Mosque</h1>
       <p class="mq-sub">Real Jama'ah times set by each mosque's own committee — not an estimate.</p>
-      <button type="button" id="mqHideBtn" class="mq-hide-btn hidden">Hide preview</button>
     </div>
     <div id="mqPrayerHeader" class="mq-prayer-header"></div>
     <div id="mqLiveToggle" class="mq-live-toggle hidden">● Back to live</div>
@@ -2304,7 +2283,21 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 
 
 <div id="page-travel" class="app-page hidden">
-  <main class="tm-page">
+  <div class="cs-grid cs-grid-single" id="tmComingSoon">
+    <div class="cs-card">
+      <div class="cs-art">
+        <img src="/assets/travel/light-scene.webp" alt="Illustration of a plane flying over snowy mountains" width="1200" height="675" loading="lazy" decoding="async">
+      </div>
+      <div class="cs-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+      </div>
+      <span class="cs-badge"><span class="dot"></span>Coming Soon</span>
+      <h2>Travel Mode</h2>
+      <p class="cs-desc">Prayer times, Qiblah and mosques wherever your journey takes you. We're putting the finishing touches on it.</p>
+      <a data-page="prayertimes" href="/prayer-times" style="display:inline-block;background:var(--coral);color:#fff;border-radius:14px;padding:12px 22px;font-size:14px;font-weight:700;text-decoration:none;cursor:pointer;">See today's prayer times</a>
+    </div>
+  </div>
+  <main class="tm-page" hidden style="display:none">
     <section class="tm-shell" aria-label="Travel Mode dashboard">
       <div class="tm-hero" id="tmHero" data-bg="ocean">
         <div class="tm-twinkle" aria-hidden="true"></div>
@@ -2570,13 +2563,6 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p class="footer-newsletter-status" id="footerNewsletterStatus"></p>
       </div>
     </div>
-    <div class="footer-coming-soon" hidden style="display:none">
-      <img src="/assets/footer-coming-soon.webp" alt="Illustration preview of the upcoming mosque finder feature" width="120" height="120" loading="lazy">
-      <div>
-        <h4>Coming soon</h4>
-        <p><a data-page="mosque" style="color:var(--coral);font-weight:700;cursor:pointer;">Find a Mosque</a> — search nearby mosques, get directions, and see prayer rooms at a glance.</p>
-      </div>
-    </div>
   </div>
   <div class="footer-bottom">© 2026 WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a> · <a href="/terms.html" style="color:inherit;text-decoration:underline;">Terms of Service</a> · <a href="/support.html" style="color:inherit;text-decoration:underline;">Support</a></div>
 </footer>
@@ -2609,7 +2595,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 </div>
 
 <!-- Core: needed on every page (router, storage, auth, home, prayer times widgets). -->
-<script src="/assets/js/wwp-core.js?v=16" defer></script>
+<script src="/assets/js/wwp-core.js?v=17" defer></script>
 <script src="/assets/js/services/storage.js?v=2" defer></script>
 <script src="/assets/js/services/platform.js?v=3" defer></script>
 <script src="/assets/js/features/prayer-times.js?v=7" defer></script>
