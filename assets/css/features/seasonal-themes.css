@@ -31,7 +31,7 @@ body[data-event-theme="ramadan"]{
 }
 body[data-theme="light"][data-event-theme="ramadan"],
 body[data-theme="sepia"][data-event-theme="ramadan"]{
-  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('assets/theme/ramadan-bg.webp');
+  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('/assets/theme/ramadan-bg.webp');
   background-size:cover;
   background-position:center top;
   background-attachment:fixed;
