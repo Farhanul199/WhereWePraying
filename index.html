@@ -103,18 +103,78 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       document.body.setAttribute('data-theme', saved);
     }
   }catch(e){}
+
+  // ---- Status bar (theme-color) accent ----
+  // Three inputs decide the Android status bar colour:
+  //   1) which event theme is active — normal / jummah / ramadan
+  //      (read from body[data-event-theme], set by the event resolvers)
+  //   2) the base app theme — light/sepia vs dark vs amoled
+  //   3) the user's own Light/Dark accent preference (Settings > App
+  //      Display), which only matters on the light/sepia base theme —
+  //      dark and amoled always use their own dimmed/near-black variant
+  //      so the status bar never clashes with those dark backgrounds.
+  var WWP_ACCENT = {
+    light:  {normal:'#F5956A', jummah:'#A8C68F', ramadan:'#C4A0D9'}, // light peach / light sage / light plum
+    dark:   {normal:'#D85A38', jummah:'#5C7A59', ramadan:'#7E5182'}, // original darker tone
+    darkTheme:   {normal:'#6B4423', jummah:'#4D5C38', ramadan:'#6B4A5C'}, // dimmed, for body[data-theme=dark]
+    amoledTheme: {normal:'#3D2818', jummah:'#2D3E20', ramadan:'#4A2E52'}  // near-black, for body[data-theme=amoled]
+  };
+
+  window.WWP_applyThemeColor = function(){
+    try{
+      var baseTheme = document.body.getAttribute('data-theme') || 'light';
+      var eventTheme = document.body.getAttribute('data-event-theme'); // 'ramadan' | 'jummah' | null
+      var key = eventTheme === 'ramadan' ? 'ramadan' : (eventTheme === 'jummah' ? 'jummah' : 'normal');
+
+      var palette;
+      if(baseTheme === 'amoled'){ palette = WWP_ACCENT.amoledTheme; }
+      else if(baseTheme === 'dark'){ palette = WWP_ACCENT.darkTheme; }
+      else{
+        var pref = 'light';
+        try{ pref = localStorage.getItem('wwp:themeColorMode') || 'light'; }catch(e2){}
+        palette = (pref === 'dark') ? WWP_ACCENT.dark : WWP_ACCENT.light;
+      }
+
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if(tc) tc.setAttribute('content', palette[key]);
+    }catch(e){}
+  };
+
   // There are several setTheme()/cycleTheme() functions across the app
   // (topbar toggle, Qur'an reader, Journal, Du'a) that all just set
   // body[data-theme] directly. Rather than editing each one, watch the
   // attribute itself so every theme change — current and future — gets
   // saved the same way, from whichever section triggered it (including
-  // Travel Mode).
+  // Travel Mode) — and re-run the status bar colour alongside it. Also
+  // watches data-event-theme so Jummah/Ramadan switching (set elsewhere)
+  // updates the status bar too.
   try{
     new MutationObserver(function(){
       var val = document.body.getAttribute('data-theme');
       if(val){ try{ localStorage.setItem('wwp:theme', val); }catch(e){} }
-    }).observe(document.body, {attributes:true, attributeFilter:['data-theme']});
+      window.WWP_applyThemeColor();
+    }).observe(document.body, {attributes:true, attributeFilter:['data-theme','data-event-theme']});
   }catch(e){}
+
+  // User's Light/Dark status-bar-accent choice, set from Settings > App Display.
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.name === 'themeColorMode'){
+      try{ localStorage.setItem('wwp:themeColorMode', e.target.value); }catch(e2){}
+      window.WWP_applyThemeColor();
+    }
+  });
+
+  function wwpSyncThemeColorRadioUI(){
+    var pref = 'light';
+    try{ pref = localStorage.getItem('wwp:themeColorMode') || 'light'; }catch(e){}
+    var els = document.querySelectorAll('input[name="themeColorMode"]');
+    for(var i=0;i<els.length;i++){ els[i].checked = (els[i].value === pref); }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', wwpSyncThemeColorRadioUI);
+  }else{
+    wwpSyncThemeColorRadioUI();
+  }
 })();
 </script>
 <div id="offline-banner" class="offline-banner">
@@ -380,38 +440,33 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 
     if(forceEventTheme === 'ramadan' || forceEventTheme === 'jummah'){
       document.body.setAttribute('data-event-theme', forceEventTheme);
-      return;
+    }else if(forceEventTheme !== 'none'){
+      var d = new Date();
+      var todayKey = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+      var isFriday = d.getDay() === 5;
+
+      var ramadanActive = false;
+      try{
+        var raw = localStorage.getItem('wwp:ramadan:hijriCheck');
+        if(raw){
+          var cached = JSON.parse(raw);
+          if(cached && cached.dateKey === todayKey) ramadanActive = !!cached.isRamadan;
+        }
+      }catch(e){}
+
+      if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
+      else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
+
+      // Stash the computed values so the banner-visibility script just
+      // below the banners (they don't exist in the DOM yet at this point)
+      // can reuse them without recomputing.
+      window.__wwpEarlyEvent = {ramadanActive: ramadanActive, isFriday: isFriday, todayKey: todayKey};
     }
-    if(forceEventTheme === 'none'){ return; }
 
-    var d = new Date();
-    var todayKey = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
-    var isFriday = d.getDay() === 5;
-
-    var ramadanActive = false;
-    try{
-      var raw = localStorage.getItem('wwp:ramadan:hijriCheck');
-      if(raw){
-        var cached = JSON.parse(raw);
-        if(cached && cached.dateKey === todayKey) ramadanActive = !!cached.isRamadan;
-      }
-    }catch(e){}
-
-    if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
-    else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
-
-    // Match the Android status bar to whichever event theme is active —
-    // same dark accent variant each theme already defines for itself
-    // (sage green on Fridays, plum in Ramadan), not the bright default.
-    try{
-      var tc = document.querySelector('meta[name="theme-color"]');
-      if(tc) tc.setAttribute('content', ramadanActive ? '#7E5182' : (isFriday ? '#5C7A59' : '#D85A38'));
-    }catch(e){}
-
-    // Stash the computed values so the banner-visibility script just
-    // below the banners (they don't exist in the DOM yet at this point)
-    // can reuse them without recomputing.
-    window.__wwpEarlyEvent = {ramadanActive: ramadanActive, isFriday: isFriday, todayKey: todayKey};
+    // Match the Android status bar to whichever event theme + base theme
+    // + accent preference is active (see WWP_applyThemeColor, defined in
+    // the script above this one).
+    if(window.WWP_applyThemeColor) window.WWP_applyThemeColor();
   }catch(e){}
 })();
 </script>
@@ -583,6 +638,13 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
                 <input type="checkbox" id="safeAreaPaddingToggle">
                 <span>Add padding around the status bar &amp; gesture bar</span>
               </label>
+
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+              <p class="auth-popup-text" style="margin-bottom:8px;">Status bar accent colour (Light/Sepia mode only — Dark and AMOLED always use a dimmed accent to match).</p>
+              <div class="auth-settings-radio-group" id="themeColorModeGroup">
+                <label class="auth-settings-radio"><input type="radio" name="themeColorMode" value="light"><span>Light</span></label>
+                <label class="auth-settings-radio"><input type="radio" name="themeColorMode" value="dark"><span>Dark</span></label>
+              </div>
             </div>
           </details>
 
@@ -2552,7 +2614,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 <script src="/assets/js/services/platform.js?v=3" defer></script>
 <script src="/assets/js/features/prayer-times.js?v=7" defer></script>
 <script src="/assets/js/services/qibla-compass.js?v=1" defer></script>
-<script src="/assets/js/features/seasonal-themes.js?v=4" defer></script>
+<script src="/assets/js/features/seasonal-themes.js?v=5" defer></script>
 <script src="/assets/js/services/auth.js?v=4" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>
