@@ -50,9 +50,22 @@ const DEFAULT_COUNT = 3;
 const MAX_PINS = 12;
 const MAX_PIN_AREAS = 6;
 
-function londonNowParts() {
+// Which time zone "today" and "now" are worked out in. Was always
+// Europe/London - wrong for visitors abroad now mosques are worldwide.
+// Order: the browser's own zone (sent in the POST body) -> Cloudflare's
+// zone for the visitor's connection -> Europe/London.
+function pickTimeZone(context, requested) {
+  const candidates = [requested, context.request.cf && context.request.cf.timezone, "Europe/London"];
+  for (const tz of candidates) {
+    if (typeof tz !== "string" || !tz || tz.length > 64) continue;
+    try { new Intl.DateTimeFormat("en-GB", { timeZone: tz }); return tz; } catch (e) { /* invalid zone */ }
+  }
+  return "Europe/London";
+}
+
+function londonNowParts(timeZone) {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
+    timeZone: timeZone || "Europe/London",
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hour12: false,
   }).formatToParts(new Date());
@@ -169,9 +182,10 @@ function toEntry(c, lat, lon, nowMinutes) {
 }
 const strip = ({ _dist, ...e }) => e;
 
-async function buildPlanResponse(context, { lat, lon, count, pins, exclude, debug }) {
+async function buildPlanResponse(context, { lat, lon, count, pins, exclude, debug, tz }) {
   exclude = exclude || new Set();
-  const { dateIso, minutes: nowMinutes } = londonNowParts();
+  const timeZone = pickTimeZone(context, tz);
+  const { dateIso, minutes: nowMinutes } = londonNowParts(timeZone);
 
   let area;
   try {
@@ -228,7 +242,7 @@ async function buildPlanResponse(context, { lat, lon, count, pins, exclude, debu
   }
 
   const note = mosques.length ? null : "No mosques found near this location yet.";
-  const out = { date: dateIso, generatedAtMinutes: nowMinutes, count, mosques, pinned, note, source: area.from };
+  const out = { date: dateIso, generatedAtMinutes: nowMinutes, timeZone, count, mosques, pinned, note, source: area.from };
   if (debug) {
     out.debug = mosques.map((m) => ({ slug: m.slug, name: m.name, distanceMiles: m.distanceMiles, state: m.state,
       next: m.prayer ? `${m.prayer} ${m.time}${m.isTomorrow ? " (tomorrow)" : ""}` : null }));
@@ -354,7 +368,7 @@ export async function onRequestPost(context) {
   const lat = parseFloat(body && body.lat);
   const lon = parseFloat(body && body.lon);
   if (!validateCoords(lat, lon)) return badCoordsResponse();
-  return buildPlanResponse(context, { lat, lon, count: readCount(body.count), pins: readPins(body.pins), exclude: readExclude(body.exclude), debug: false });
+  return buildPlanResponse(context, { lat, lon, count: readCount(body.count), pins: readPins(body.pins), exclude: readExclude(body.exclude), debug: false, tz: body.tz });
 }
 
 // Direct testing: GET ?lat=..&lon=..&count=5&debug=1
