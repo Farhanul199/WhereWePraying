@@ -8,11 +8,11 @@
 @import url('features/glass-mode.css?v=1');
 @import url('features/seasonal-themes.css?v=1');
 @import url('layout.css?v=1');
-@import url('features/popups.css?v=1');
+@import url('features/popups.css?v=2');
 @import url('responsive-mobile.css?v=1');
 @import url('features/auth.css?v=1');
 @import url('features/leaderboard.css?v=1');
-@import url('features/notifications.css?v=2');
+@import url('features/notifications.css?v=3');
 
 /* Standalone Jummah (Friday) color override — deliberately duplicated
    here, independent of seasonal-themes.css, with !important, so this
