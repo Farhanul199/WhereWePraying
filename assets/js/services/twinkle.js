@@ -87,8 +87,19 @@ window.WWP_Twinkle = (function(){
   // Re-render whenever the page's own content height might have
   // changed (images loading, accordions opening, etc.) without a
   // full page switch — cheap enough to run on a slow interval.
+  // Only rebuild when the page actually got taller/shorter or a
+  // different page is showing - rebuilding every tick re-randomised the
+  // stars (visible jump) and forced a layout every 4s for nothing.
+  let lastPage = null, lastHeight = 0;
   setInterval(()=>{
-    if(document.body.getAttribute('data-twinkle') !== 'off') render();
+    if(document.hidden) return;
+    if(document.body.getAttribute('data-twinkle') === 'off') return;
+    const page = currentVisiblePage();
+    if(!page) return;
+    const h = Math.max(page.scrollHeight, window.innerHeight);
+    if(page === lastPage && Math.abs(h - lastHeight) < 40) return;
+    lastPage = page; lastHeight = h;
+    render();
   }, 4000);
 
   document.body.setAttribute('data-twinkle', getLevel());
