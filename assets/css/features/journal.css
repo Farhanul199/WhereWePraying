@@ -129,6 +129,12 @@ body #page-journal{font-family:'Manrope',sans-serif;background:var(--bg);color:v
 #page-journal .mistakes-box textarea{width:100%;}
 #page-journal .char-count{font-size:10.5px;color:var(--text-faint);text-align:right;margin-top:4px;}
 #page-journal .mistakes-actions{display:flex;justify-content:flex-end;margin-top:8px;}
+#page-journal .mistakes-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:260px;overflow-y:auto;}
+#page-journal .mistake-item{background:var(--surface-2,rgba(0,0,0,.035));border-radius:10px;padding:8px 10px;}
+#page-journal .mistake-item-text{font-size:12.5px;color:var(--text);white-space:pre-wrap;word-break:break-word;}
+#page-journal .mistake-item-meta{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:10.5px;color:var(--text-faint);}
+#page-journal .mistake-item-del{background:none;border:none;color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;padding:0 4px;}
+#page-journal .mistake-item-del:hover{color:var(--coral,#F4714E);}
 #page-journal .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 #page-journal .cal-nav{display:flex;align-items:center;gap:10px;}
 #page-journal .cal-nav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);color:var(--text-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;}
