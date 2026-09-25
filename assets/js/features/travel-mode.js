@@ -324,7 +324,9 @@ window.WWP_TravelHome = (function(){
     window.addEventListener('beforeunload',sub);
   }
   loadChecklist(); render();
-  setInterval(()=>{if(!page.classList.contains('hidden'))render();},1000);
+  // Only tick while the dashboard itself is on screen (it's behind a
+  // Coming Soon screen for now) and the app is in the foreground.
+  setInterval(()=>{const main=page.querySelector('.tm-page');if(!page.classList.contains('hidden')&&!document.hidden&&main&&main.style.display!=='none')render();},1000);
 
   // ---- Flight Tracker ----
   // Stores tracked flights locally (device-only, no account needed).

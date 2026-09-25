@@ -1049,28 +1049,5 @@
     onMosqueShown();
   }
 
-  // ---- "Screen protector" sneak-peek overlay ----
-  // The real plan loads in the background regardless (see above), so
-  // whichever state the overlay is in, revealing it just uncovers data
-  // that's already there. Choice persists across visits via localStorage.
-  const PEEK_KEY = 'wwp_mosque_preview_unlocked';
-  const overlay = document.getElementById('mqPreviewOverlay');
-  const peekBtn = document.getElementById('mqPeekBtn');
-  const hideBtn = document.getElementById('mqHideBtn');
-
-  function setPeekState(unlocked){
-    if(!overlay || !hideBtn) return;
-    overlay.classList.toggle('is-hidden', unlocked);
-    hideBtn.classList.toggle('hidden', !unlocked);
-    if(window.LocalCache){
-      if(unlocked) window.LocalCache.set(PEEK_KEY, true);
-      else window.LocalCache.remove(PEEK_KEY);
-    }
-  }
-
-  let alreadyUnlocked = window.LocalCache ? !!window.LocalCache.get(PEEK_KEY, false) : false;
-  setPeekState(alreadyUnlocked);
-
-  peekBtn?.addEventListener('click', ()=> setPeekState(true));
-  hideBtn?.addEventListener('click', ()=> setPeekState(false));
+  // (Coming Soon overlay removed 25 Sep 2026 - Find a Mosque is live.)
 })();
