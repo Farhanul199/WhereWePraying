@@ -133,6 +133,19 @@ window.WWP = (function(){
   // flags the section "pending" so it's retried automatically (see
   // the 'online' listener and startup flush below) rather than the
   // change just being lost.
+  // Background Sync: ask the SW to wake this section's retry even if the
+  // 'online' event never fires in this tab (backgrounded/suspended tab).
+  // Feature-detected — silently does nothing where unsupported (iOS,
+  // desktop browsers without SyncManager).
+  function registerBackgroundSync(){
+    try{
+      if(!('serviceWorker' in navigator) || !('SyncManager' in window)) return;
+      navigator.serviceWorker.ready.then(function(reg){
+        if(reg.sync) reg.sync.register('wwp-flush-pending').catch(function(){});
+      });
+    }catch(e){}
+  }
+
   function _persist(section, data){
     writeOfflineCache(section, data);
     return _put(section, data).then(function(res){
@@ -140,6 +153,7 @@ window.WWP = (function(){
       return res;
     }).catch(function(err){
       markPending(section);
+      registerBackgroundSync();
       throw err;
     });
   }
@@ -169,28 +183,25 @@ window.WWP = (function(){
     });
   }
 
-  // Retry any sections that failed to sync while offline, the moment
-  // the browser reports connectivity is back — instead of waiting for
-  // the user to make another edit before the next save attempt.
-  window.addEventListener('online', function(){
-    getPending().forEach(function(section){
-      const data = readOfflineCache(section);
-      if(data) _persist(section, data).catch(function(){});
-    });
-  });
-
-  // Covers the case the 'online' event above doesn't: the tab was
-  // closed (or never reloaded) while offline, so no online->offline
-  // transition ever fires in this session, even though the device is
-  // connected by the time the app is opened again.
-  if(getPending().length && navigator.onLine !== false){
+  // Retry any sections that failed to sync while offline. Shared by the
+  // 'online' listener below, the reopen-while-online check further down,
+  // and the SW's Background Sync 'FLUSH_PENDING' message (see index.html)
+  // for the case the tab was merely backgrounded, not closed.
+  function flushPending(){
     getPending().forEach(function(section){
       const data = readOfflineCache(section);
       if(data) _persist(section, data).catch(function(){});
     });
   }
+  window.addEventListener('online', flushPending);
 
-  return { deviceId: deviceId, get: get, save: save, saveNow: saveNow };
+  // Covers the case the 'online' event above doesn't: the tab was
+  // closed (or never reloaded) while offline, so no online->offline
+  // transition ever fires in this session, even though the device is
+  // connected by the time the app is opened again.
+  if(getPending().length && navigator.onLine !== false) flushPending();
+
+  return { deviceId: deviceId, get: get, save: save, saveNow: saveNow, flushPending: flushPending };
 })();
 
 /* Prayer Times module lives in assets/js/features/prayer-times.js */
@@ -247,11 +258,11 @@ function todayKey(){ return dkey(new Date()); }
    ============================================================ */
 const FEATURE_MODULES = {
   quran:   { js:['/assets/js/features/quran.js?v=6'],        css:['/assets/css/features/quran.css?v=1'] },
-  journal: { js:['/assets/js/features/journal.js?v=3'],      css:['/assets/css/features/journal.css?v=1'] },
+  journal: { js:['/assets/js/features/journal.js?v=4'],      css:['/assets/css/features/journal.css?v=2'] },
   dua:     { js:['/assets/js/features/dua.js?v=4'],          css:['/assets/css/features/dua.css?v=1'] },
   guides:  { js:['/assets/js/features/guides.js?v=4'],       css:['/assets/css/features/guides.css?v=2'] },
   mosque:  { js:['/assets/js/features/find-a-mosque.js?v=12'],css:['/assets/css/features/find-a-mosque.css?v=5'] },
-  travel:  { js:['/assets/js/features/travel-mode.js?v=4'],  css:['/assets/css/features/travel-mode.css?v=3'] },
+  travel:  { js:['/assets/js/features/travel-mode.js?v=5'],  css:['/assets/css/features/travel-mode.css?v=3'] },
   community:{js:['/assets/js/features/community.js?v=2'],    css:['/assets/css/features/community.css?v=1'] }
 };
 const loadedModules = new Set();
