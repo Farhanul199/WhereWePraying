@@ -7,7 +7,7 @@ body[data-event-theme="jummah"]{
 }
 body[data-theme="light"][data-event-theme="jummah"],
 body[data-theme="sepia"][data-event-theme="jummah"]{
-  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('assets/theme/jummah-bg.webp');
+  background-image:linear-gradient(rgba(251,243,230,.88),rgba(251,243,230,.88)),url('/assets/home/jummah-bg.webp');
   background-size:cover;
   background-position:center top;
   background-attachment:fixed;

@@ -35,7 +35,7 @@ button.nav-travel-icon{display:inline-flex!important;align-items:center;justify-
 #page-travel .tm-pin-icon{position:absolute;right:23px;top:23px;font-size:23px;}
 #page-travel .tm-grid{position:relative;z-index:2;display:grid;gap:16px;padding:16px 34px 0;}
 #page-travel .tm-grid-top{grid-template-columns:1fr 1.17fr 1.03fr 1.08fr;}
-#page-travel .tm-grid-bottom{grid-template-columns:1fr 1.17fr 1.03fr 1.08fr;padding-top:16px;}
+#page-travel .tm-grid-bottom{grid-template-columns:1.17fr 1.03fr 1.08fr;padding-top:16px;}
 #page-travel .tm-card{min-width:0;position:relative;border-radius:16px;padding:24px;}
 #page-travel .tm-grid-top .tm-card{height:290px;}
 #page-travel .tm-grid-bottom .tm-card{height:258px;}
