@@ -1,18 +1,8 @@
-/* app.css split by feature — imports preserve original cascade order.
-   Do not reorder these @import lines; source order = CSS specificity order.
-   Each import carries its own ?v= — bump the individual file's version
-   number here whenever that file's content changes, the same way the
-   <script src="...?v=N"> tags in index.html work, or Cloudflare's edge
-   cache will keep serving the old copy of that one file indefinitely. */
-@import url('base.css?v=2');
-@import url('features/glass-mode.css?v=1');
-@import url('features/seasonal-themes.css?v=2');
-@import url('layout.css?v=1');
-@import url('features/popups.css?v=2');
-@import url('responsive-mobile.css?v=1');
-@import url('features/auth.css?v=1');
-@import url('features/leaderboard.css?v=1');
-@import url('features/notifications.css?v=3');
+/* app.css — shared rules. The feature stylesheets that used to be
+   @import-ed here (a slow one-after-another download chain) are now
+   plain <link> tags in index.html, in the SAME order, placed just
+   before this file — so the cascade is unchanged. Bump each file's
+   ?v= in index.html (and sw.js CORE_ASSETS) when its content changes. */
 
 /* Standalone Jummah (Friday) color override — deliberately duplicated
    here, independent of seasonal-themes.css, with !important, so this
