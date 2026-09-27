@@ -50,7 +50,7 @@ export async function onRequestGet(context) {
 
     return json({ bugs: results || [] });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -97,6 +97,6 @@ export async function onRequestPost(context) {
 
     return json({ success: true, id: result.meta.last_row_id });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

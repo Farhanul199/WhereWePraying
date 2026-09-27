@@ -12,7 +12,10 @@
 import { resolveSession } from '../../_lib/session.js';
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+// HEIC/HEIF dropped (27 Sep 2026): their location/camera metadata can't be
+// stripped safely here. The app converts every photo to JPEG in the
+// browser before upload (community.js), so iPhone photos still work.
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function json(payload, status) {
   return new Response(JSON.stringify(payload), {
@@ -25,8 +28,90 @@ import { isAdminRequest } from '../../_lib/auth.js';
 const isAdmin = isAdminRequest;
 
 function extFromType(type) {
-  const map = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
+  const map = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
   return map[type] || 'jpg';
+}
+
+// ---- Privacy: strip photo metadata (27 Sep 2026) ----
+// Phone photos carry EXIF: GPS position (often the uploader's home),
+// phone model, serial numbers, timestamps. Approved photos are public,
+// so every upload is cleaned here before it is stored. Pixels are
+// untouched; only metadata blocks are removed.
+function stripJpeg(u8) {
+  if (u8[0] !== 0xff || u8[1] !== 0xd8) return null;
+  const out = [u8.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= u8.length) {
+    if (u8[i] !== 0xff) return null;
+    const marker = u8[i + 1];
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) { out.push(u8.subarray(i, i + 2)); i += 2; continue; }
+    if (marker === 0xff) { i += 1; continue; }
+    const len = (u8[i + 2] << 8) | u8[i + 3];
+    if (len < 2 || i + 2 + len > u8.length) return null;
+    if (marker === 0xda) { out.push(u8.subarray(i)); break; } // image data: copy rest as-is
+    // Drop APP1 (EXIF/XMP), APP3-APP13 (incl. Photoshop/IPTC), APP15 and
+    // comments. Keep APP0 (JFIF), APP2 (colour profile), APP14 (Adobe colour).
+    const drop = marker === 0xfe || marker === 0xe1 || (marker >= 0xe3 && marker <= 0xed) || marker === 0xef;
+    if (!drop) out.push(u8.subarray(i, i + 2 + len));
+    i += 2 + len;
+  }
+  return concatBytes(out);
+}
+
+function stripPng(u8) {
+  const DROP = new Set(['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME']);
+  const out = [u8.subarray(0, 8)];
+  let i = 8;
+  while (i + 12 <= u8.length) {
+    const len = ((u8[i] << 24) >>> 0) + (u8[i + 1] << 16) + (u8[i + 2] << 8) + u8[i + 3];
+    const type = String.fromCharCode(u8[i + 4], u8[i + 5], u8[i + 6], u8[i + 7]);
+    const end = i + 12 + len;
+    if (end > u8.length) return null;
+    if (!DROP.has(type)) out.push(u8.subarray(i, end));
+    i = end;
+    if (type === 'IEND') break;
+  }
+  return concatBytes(out);
+}
+
+function stripWebp(u8) {
+  const out = [];
+  let i = 12;
+  while (i + 8 <= u8.length) {
+    const type = String.fromCharCode(u8[i], u8[i + 1], u8[i + 2], u8[i + 3]);
+    const len = u8[i + 4] | (u8[i + 5] << 8) | (u8[i + 6] << 16) | (u8[i + 7] << 24);
+    const end = i + 8 + len + (len & 1);
+    if (len < 0 || end > u8.length + 1) return null;
+    if (type !== 'EXIF' && type !== 'XMP ') {
+      const chunk = u8.slice(i, Math.min(end, u8.length));
+      if (type === 'VP8X' && chunk.length > 8) chunk[8] &= ~0x0c; // clear EXIF + XMP flags
+      out.push(chunk);
+    }
+    i = end;
+  }
+  const body = concatBytes(out);
+  const header = u8.slice(0, 12);
+  const size = body.length + 4;
+  header[4] = size & 0xff; header[5] = (size >> 8) & 0xff; header[6] = (size >> 16) & 0xff; header[7] = (size >> 24) & 0xff;
+  return concatBytes([header, body]);
+}
+
+function concatBytes(parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+function stripMetadata(type, buf) {
+  const u8 = new Uint8Array(buf);
+  try {
+    if (type === 'image/jpeg') return stripJpeg(u8);
+    if (type === 'image/png') return stripPng(u8);
+    if (type === 'image/webp') return stripWebp(u8);
+  } catch (e) { /* fall through */ }
+  return null;
 }
 
 // The browser-supplied `file.type` is just a label the uploader's client
@@ -50,13 +135,6 @@ async function matchesClaimedType(file) {
     case 'image/webp':
       return bytesStartWith([0x52, 0x49, 0x46, 0x46]) &&
         head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50; // RIFF....WEBP
-    case 'image/heic':
-    case 'image/heif': {
-      // ISO-BMFF: bytes 4-7 are "ftyp", brand follows at 8-11.
-      if (!(head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70)) return false;
-      const brand = String.fromCharCode(head[8], head[9], head[10], head[11]);
-      return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
-    }
     default:
       return false;
   }
@@ -94,7 +172,7 @@ export async function onRequestGet(context) {
     const photos = (results || []).map((p) => ({ ...p, url: `/api/community/photo/${p.r2_key}` }));
     return json({ photos });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -121,7 +199,7 @@ export async function onRequestPost(context) {
         `UPDATE masjid_photos SET status = ?1, reviewed_at = ?2 WHERE id = ?3`
       ).bind(status, Date.now(), photoId).run();
     } catch (e) {
-      return json({ error: 'db_error', message: String(e) }, 500);
+      return json({ error: 'Something went wrong. Please try again.' }, 500);
     }
 
     return json({ success: true });
@@ -140,7 +218,7 @@ export async function onRequestPost(context) {
 
   const file = form.get('photo');
   if (!file || typeof file === 'string') return json({ error: 'No photo provided.' }, 400);
-  if (!ALLOWED_TYPES.includes(file.type)) return json({ error: 'Please upload a JPEG, PNG, WEBP, or HEIC photo.' }, 400);
+  if (!ALLOWED_TYPES.includes(file.type)) return json({ error: 'Please upload a JPEG, PNG or WEBP photo.' }, 400);
   if (file.size > MAX_BYTES) return json({ error: 'Photo is too large (max 8MB).' }, 400);
   if (!(await matchesClaimedType(file))) {
     return json({ error: "That file doesn't look like a valid image of the type it claims to be." }, 400);
@@ -149,11 +227,16 @@ export async function onRequestPost(context) {
   const masjidName = String(form.get('masjidName') || '').trim().slice(0, 120);
   const note = String(form.get('note') || '').trim().slice(0, 500);
 
-  const rand = crypto.randomUUID();
-  const key = `masjid/${session.userId}/${Date.now()}-${rand}.${extFromType(file.type)}`;
+  const clean = stripMetadata(file.type, await file.arrayBuffer());
+  if (!clean) return json({ error: "That photo couldn't be processed. Please try a different one." }, 400);
+
+  // Key no longer contains the user's account ID (it ended up in public
+  // photo URLs). Old keys keep working; the DB row still ties the photo
+  // to its uploader for review and account deletion.
+  const key = `masjid/${Date.now()}-${crypto.randomUUID()}.${extFromType(file.type)}`;
 
   try {
-    await env.MASJID_PHOTOS.put(key, await file.arrayBuffer(), {
+    await env.MASJID_PHOTOS.put(key, clean, {
       httpMetadata: { contentType: file.type },
     });
   } catch (e) {
@@ -172,6 +255,6 @@ export async function onRequestPost(context) {
     // The R2 object above is already uploaded but orphaned (no DB row) —
     // acceptable: better than crashing after a successful upload, and it
     // just won't show up anywhere since nothing references that key.
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
