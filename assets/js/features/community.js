@@ -301,8 +301,12 @@
     const btn = $('#cmSubmitPhotoBtn');
     btn.disabled = true; btn.textContent = 'Submitting…';
     try{
+      // Re-encode to JPEG in the browser: removes location/camera data
+      // (EXIF) and turns iPhone HEIC photos into something the server takes.
+      const cleanPhoto = await toCleanJpeg(selectedPhotoFile);
+      if(!cleanPhoto){ showToast('Couldn\'t read that photo. Try a different one.'); return; }
       const fd = new FormData();
-      fd.append('photo', selectedPhotoFile);
+      fd.append('photo', cleanPhoto, 'photo.jpg');
       fd.append('masjidName', $('#cmMasjidName').value.trim());
       fd.append('note', $('#cmPhotoNote').value.trim());
       const res = await fetch('/api/community/photos', {
@@ -326,6 +330,33 @@
       btn.disabled = false; btn.textContent = 'Submit for review';
     }
   });
+
+  // Draws the photo onto a canvas and exports a fresh JPEG (max 2048px).
+  // Browsers apply the photo's rotation when drawing, so it stays upright.
+  async function toCleanJpeg(file){
+    try{
+      let src;
+      if(window.createImageBitmap){
+        try{ src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }catch(_){ src = null; }
+      }
+      if(!src){
+        src = await new Promise((resolve, reject)=>{
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+          img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('decode')); };
+          img.src = url;
+        });
+      }
+      const w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
+      const scale = Math.min(1, 2048 / Math.max(w0, h0));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(w0 * scale); canvas.height = Math.round(h0 * scale);
+      canvas.getContext('2d').drawImage(src, 0, 0, canvas.width, canvas.height);
+      if(src.close) src.close();
+      return await new Promise((resolve)=> canvas.toBlob((b)=> resolve(b), 'image/jpeg', 0.88));
+    }catch(e){ return null; }
+  }
 
   async function loadMyPhotos(){
     if(!isSignedIn()) return;
