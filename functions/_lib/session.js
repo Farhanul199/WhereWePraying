@@ -32,6 +32,8 @@ export async function resolveSession(context) {
     if (!raw) return null;
     const session = JSON.parse(raw);
     if (new Date(session.expiresAt) < new Date()) return null;
+    // Account deleted on another device: this session is dead too.
+    if (session.userId && await context.env.SESSIONS.get(`deleted_user:${session.userId}`)) return null;
     // sessionId is included so callers that need to invalidate the
     // session (e.g. account deletion, logout) don't have to re-parse the
     // cookie themselves. Harmless extra field for everyone else.
