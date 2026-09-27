@@ -55,7 +55,7 @@ export async function onRequestGet(context) {
       sections,
     });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -103,7 +103,7 @@ export async function onRequestPost(context) {
       restored.push(section);
     }
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 
   if (!restored.length) {
