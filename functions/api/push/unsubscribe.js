@@ -13,7 +13,7 @@ export async function onRequestPost(context) {
   try {
     await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?1`).bind(endpoint).run();
   } catch (err) {
-    return json({ error: 'db_error', message: String(err) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
   return json({ ok: true });
 }

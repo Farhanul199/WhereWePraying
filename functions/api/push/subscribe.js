@@ -46,8 +46,10 @@ export async function onRequestPost(context) {
 
   const now = new Date().toISOString();
   const tz = body.tz || null;
-  const lat = typeof body.lat === 'number' ? body.lat : null;
-  const lon = typeof body.lon === 'number' ? body.lon : null;
+  // Rounded to ~1 km (27 Sep 2026): enough for prayer-time reminders,
+  // without storing anyone's exact position.
+  const lat = typeof body.lat === 'number' && Math.abs(body.lat) <= 90 ? Math.round(body.lat * 100) / 100 : null;
+  const lon = typeof body.lon === 'number' && Math.abs(body.lon) <= 180 ? Math.round(body.lon * 100) / 100 : null;
 
   try {
     await env.DB.prepare(
@@ -60,7 +62,7 @@ export async function onRequestPost(context) {
          lon=COALESCE(excluded.lon, push_subscriptions.lon), updated_at=excluded.updated_at`
     ).bind(deviceId, userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth, tz, lat, lon, now).run();
   } catch (err) {
-    return json({ error: 'db_error', message: String(err) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 
   return json({ ok: true });

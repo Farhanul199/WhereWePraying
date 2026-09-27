@@ -100,7 +100,7 @@ export async function onRequestPost(context) {
       .bind(session.userId, friendUserId)
       .first();
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
   if (!isFriend) return json({ error: 'Not friends with this user' }, 403);
 
@@ -119,7 +119,7 @@ export async function onRequestPost(context) {
     // A UNIQUE constraint violation means they were already poked today —
     // anything else is a real failure, not a "already poked" state.
     if (/unique/i.test(msg)) return json({ error: 'Already poked today' }, 409);
-    return json({ error: 'db_error', message: msg }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 
   let pokerName = 'A friend';
@@ -142,7 +142,7 @@ export async function onRequestPost(context) {
   } catch (e) {
     // The poke itself is already recorded at this point — a lookup failure
     // here just means we can't push-notify/email, not that the poke failed.
-    return json({ success: true, delivered: false, pushLookupError: String(e) });
+    return json({ success: true, delivered: false });
   }
 
   // Fire-and-forget — only for the first poke this person received today,
