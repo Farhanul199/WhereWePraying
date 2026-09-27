@@ -95,7 +95,7 @@ export async function onRequestGet(context) {
 
     return json({ events: out });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -190,7 +190,7 @@ export async function onRequestPost(context) {
 
     return json({ success: true, id: eventId });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -217,6 +217,6 @@ export async function onRequestDelete(context) {
 
     return json({ success: true });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

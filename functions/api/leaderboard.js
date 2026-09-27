@@ -41,7 +41,7 @@ export async function onRequestPost(context) {
       .bind(session.userId, score)
       .run();
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 
   return json({ success: true });
@@ -86,6 +86,6 @@ export async function onRequestGet(context) {
 
     return json({ entries });
   } catch (e) {
-    return json({ error: 'db_error', message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

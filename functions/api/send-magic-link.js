@@ -69,12 +69,9 @@ export async function onRequestPost(context) {
     });
 
     if (!emailRes.ok) {
-      const err = await emailRes.json();
+      console.error('Resend send failed', emailRes.status, await emailRes.text().catch(() => ''));
       return new Response(
-        JSON.stringify({
-          error: 'Email send failed',
-          details: err.message || 'Unknown error',
-        }),
+        JSON.stringify({ error: "Couldn't send the email. Please try again." }),
         {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
