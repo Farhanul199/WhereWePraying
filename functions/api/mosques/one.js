@@ -120,7 +120,7 @@ export async function onRequestGet(context) {
     return response;
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: "Failed to load mosque", detail: String(e) }),
+      JSON.stringify({ error: "Failed to load mosque" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

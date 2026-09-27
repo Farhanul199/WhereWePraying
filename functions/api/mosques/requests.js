@@ -36,7 +36,7 @@ export async function onRequestGet(context) {
     const { results } = await stmt.all();
     return json({ requests: results || [] });
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -58,7 +58,7 @@ export async function onRequestPost(context) {
         await db.prepare(`UPDATE mosque_requests SET status = ?1 WHERE id = ?2`).bind(status, requestId).run();
         return json({ ok: true });
       } catch (e) {
-        return json({ error: "db_error", message: String(e) }, 500);
+        return json({ error: 'Something went wrong. Please try again.' }, 500);
       }
     }
     return json({ error: "invalid action" }, 400);
@@ -90,6 +90,6 @@ export async function onRequestPost(context) {
     ).run();
     return json({ ok: true });
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

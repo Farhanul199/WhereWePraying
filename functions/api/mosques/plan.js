@@ -38,6 +38,7 @@
 // the visitor's location is stored.
 
 import { loadArea } from "../../_lib/area-times.js";
+import { isAdminRequest } from "../../_lib/auth.js";
 
 const PRAYER_ORDER = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 const WALK_MAX_MILES = 0.6;     // below this distance, assume walking
@@ -191,7 +192,7 @@ async function buildPlanResponse(context, { lat, lon, count, pins, exclude, debu
   try {
     area = await loadArea(context, lat, lon, dateIso);
   } catch (e) {
-    return new Response(JSON.stringify({ error: "Failed to load mosque data", detail: String(e) }),
+    return new Response(JSON.stringify({ error: "Failed to load mosque data" }),
       { status: 500, headers: { "Content-Type": "application/json" } });
   }
 
@@ -379,6 +380,8 @@ export async function onRequestGet(context) {
   if (!validateCoords(lat, lon)) return badCoordsResponse();
   return buildPlanResponse(context, {
     lat, lon, count: readCount(url.searchParams.get("count")), pins: [],
-    debug: url.searchParams.get("debug") === "1",
+    // debug=1 runs extra database queries and shows internal source data,
+    // so it is admin-only (27 Sep 2026) - send X-Broadcast-Key to use it.
+    debug: url.searchParams.get("debug") === "1" && isAdminRequest(context),
   });
 }

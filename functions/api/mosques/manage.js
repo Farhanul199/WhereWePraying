@@ -208,7 +208,7 @@ export async function onRequestGet(context) {
     }
     return json({ locations: results || [] });
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -537,6 +537,6 @@ export async function onRequestPost(context) {
 
     return json({ error: "Unknown action." }, 400);
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

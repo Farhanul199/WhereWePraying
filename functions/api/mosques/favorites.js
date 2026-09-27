@@ -25,7 +25,7 @@ export async function onRequestGet(context) {
       .all();
     return json({ slugs: (results || []).map((r) => r.mosque) });
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }
 
@@ -60,6 +60,6 @@ export async function onRequestPost(context) {
       .run();
     return json({ favorited: true });
   } catch (e) {
-    return json({ error: "db_error", message: String(e) }, 500);
+    return json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 }

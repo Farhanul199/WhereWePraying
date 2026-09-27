@@ -148,7 +148,7 @@ export async function onRequestGet(context) {
     candidates = area.rows.map((row) => buildRow(row, dateIso, isToday, nowMinutes));
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: "Failed to load nearby mosques", detail: String(e) }),
+      JSON.stringify({ error: "Failed to load nearby mosques" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
