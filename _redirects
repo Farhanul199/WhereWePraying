@@ -17,6 +17,12 @@
 /.github/*            /   301
 /functions/*          /   301
 
+# ---- Real 404s (27 Sep 2026) ----
+# /404.html now exists, so Cloudflare Pages stops serving index.html for
+# every unknown path (that made scanners think files like /config.php.bak
+# existed). Every app URL must therefore be listed below — including
+# /verify (magic-link sign-in) and /share-target (PWA share sheet).
+
 # Guide routes below are generated from the GUIDES array in
 # assets/js/features/guides.js — when a new guide is added there,
 # add its matching /guides/<id> line here too, or it will 404 on
@@ -31,6 +37,8 @@
 /guides               /index.html   200
 /travel-mode          /index.html   200
 /community-ideas      /index.html   200
+/verify               /index.html   200
+/share-target         /index.html   200
 
 /guides/actions-during-prayer        /index.html   200
 /guides/adhan                        /index.html   200

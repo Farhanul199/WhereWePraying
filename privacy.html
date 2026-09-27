@@ -29,7 +29,7 @@
 <div class="wrap">
   <a class="back" href="/">&larr; Back to WhereWePraying?</a>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: 25 September 2026</p>
+  <p class="updated">Last updated: 27 September 2026</p>
 
   <p>WhereWePraying? ("the app", "we", "us") helps Muslims find mosque Jama'ah times and use Islamic prayer tools, on the web and in our Android app. This page explains what data we collect, why, and how you can control or delete it.</p>
 
@@ -38,8 +38,8 @@
     <li><strong>Anonymous device ID.</strong> A random identifier stored on your device so your settings, journal and progress can sync without an account. It is not linked to your name unless you sign in.</li>
     <li><strong>Account info (only if you sign in).</strong> Email address, and optionally a username, recovery email and avatar. Used for sign-in, Friends and leaderboards.</li>
     <li><strong>Location (optional).</strong> See "How we use your location" below.</li>
-    <li><strong>Notification subscription.</strong> If you turn on notifications, we store a push subscription for your device so we can deliver them.</li>
-    <li><strong>Content you submit.</strong> Journal entries, Community Ideas posts, bug reports, mosque photos, and any reports or blocks you make.</li>
+    <li><strong>Notification subscription.</strong> If you turn on notifications, we store a push subscription for your device, your time zone and an approximate area (rounded to about 1 km) so reminders match your local prayer times.</li>
+    <li><strong>Content you submit.</strong> Journal entries, Community Ideas posts, bug reports and mosque photos. Location and camera details (EXIF data) are removed from photos before they are stored.</li>
   </ul>
 
   <h2>How we use your location</h2>
@@ -47,7 +47,7 @@
     <li>Location is optional. You can type a postcode or place instead of sharing your device location.</li>
     <li>When finding mosques, your location is rounded to roughly 100 metres before it leaves your device, and sent to our server only to find the nearest mosques and their Jama'ah times.</li>
     <li>For prayer times and weather, the location is sent to AlAdhan and Open-Meteo (see below).</li>
-    <li>We do not store your location or keep a location history on our servers.</li>
+    <li>We do not keep a location history. The only locations we store are the approximate area for notifications (above) and, if you use the TV app, the location you set for that TV (rounded to about 100 metres).</li>
     <li>If you don't share your location, we may use the approximate area of your internet connection (city level, provided by our host Cloudflare) to show nearby results. This is not stored either.</li>
     <li>Your last-used location may be saved on your device only, so the app opens faster next time.</li>
   </ul>
@@ -61,7 +61,7 @@
   </ul>
 
   <h2>How data is stored</h2>
-  <p>Data is stored on Cloudflare's infrastructure (D1 database, KV storage, R2 for photos). All connections are encrypted (HTTPS). Sessions expire automatically after 7 days of inactivity.</p>
+  <p>Data is stored on Cloudflare's infrastructure (D1 database, KV storage, R2 for photos). All connections are encrypted (HTTPS). Sign-in sessions expire automatically 7 days after you sign in.</p>
 
   <h2>Services we rely on</h2>
   <p>To make certain features work, your device connects directly to these services. They receive only what's needed for that feature (for example, a location or search term) plus your IP address, as with any website.</p>
@@ -72,17 +72,18 @@
     <li><strong>AlAdhan</strong> — prayer-time calculation; receives the location you're viewing times for.</li>
     <li><strong>Open-Meteo</strong> — weather and place-name lookup.</li>
     <li><strong>postcodes.io and Photon (OpenStreetMap)</strong> — turn a postcode or place you type into a map position.</li>
-    <li><strong>Al Quran Cloud, jsDelivr, EveryAyah, VerseByVerseQuran</strong> — Qur'an text, tafsir and recitation audio.</li>
+    <li><strong>Al Quran Cloud, jsDelivr, UmmahAPI, EveryAyah, VerseByVerseQuran</strong> — Qur'an text, tafsir and recitation audio.</li>
+    <li><strong>YouTube (Google)</strong> — only in the TV app, to play Islamic reminder videos. Uses YouTube's privacy-enhanced mode.</li>
     <li><strong>Stripe</strong> — only if you choose to become a Supporter. Payment details are handled entirely by Stripe and never touch our servers.</li>
   </ul>
 
   <h2>Community content &amp; safety</h2>
-  <p>Posts and photos you submit may be visible to other users. You can report content or block users at any time. Reported content is reviewed and removed if it breaks our <a href="/terms.html">Terms of Service</a>.</p>
+  <p>Posts and photos you submit may be visible to other users. Moderators review community content and remove anything that breaks our <a href="/terms.html">Terms of Service</a>. To report a post, photo or user, email <a href="mailto:support@wherewepraying.com">support@wherewepraying.com</a>.</p>
 
   <h2>Your controls</h2>
   <ul>
     <li><strong>Export your data</strong> anytime via Settings &rarr; Backup &amp; Restore.</li>
-    <li><strong>Delete your account</strong> anytime via Settings &rarr; Danger Zone, or from the web at <a href="/delete-account.html">wherewepraying.com/delete-account.html</a>. This permanently removes your account, journal and submitted content from our servers. It cannot be undone.</li>
+    <li><strong>Delete your account</strong> anytime via Settings &rarr; Danger Zone, or from the web at <a href="/delete-account.html">wherewepraying.com/delete-account.html</a>. This permanently removes your account, journal, synced data, friends, streaks, notification subscriptions, submitted posts and photos from our servers and signs you out on every device. It cannot be undone.</li>
     <li><strong>Turn off notifications or location</strong> anytime in Settings or your device settings.</li>
   </ul>
 
