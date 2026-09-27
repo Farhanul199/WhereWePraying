@@ -23,6 +23,9 @@ const PrayerTimes = (function(){
   const GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
   const REVERSE_GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/reverse';
   const LOC_KEY = 'wwp:prayertimes:location';
+  // Shared with Find a Mosque (27 Sep 2026): whichever page finds your
+  // real location first, the other one (and the Qiblah) uses it too.
+  const SHARED_LOC_KEY = 'wwp:shared:location';
   const METHOD_KEY = 'wwp:prayertimes:method';
   const CACHE_PREFIX = 'wwp:prayertimes:cache:';
 
@@ -71,6 +74,42 @@ const PrayerTimes = (function(){
     saveLocation(loc);
     notify();
     fetchTimings();
+  }
+
+  // Takes a location found elsewhere in the app (Find a Mosque).
+  // userChose = the person tapped "precise location" or typed a place.
+  // A place picked by hand here (e.g. checking Makkah's times) is never
+  // replaced by an automatic GPS fix from another page — only by another
+  // deliberate choice.
+  function adoptSharedLocation(shared, userChose){
+    if(!shared || typeof shared.lat !== 'number' || typeof shared.lon !== 'number') return false;
+    const cur = state.location;
+    const curPicked = cur && (cur.source === 'manual' || cur.source === 'preset');
+    if(curPicked && !userChose) return false;
+    if(cur && Math.abs(cur.lat - shared.lat) < 0.002 && Math.abs(cur.lon - shared.lon) < 0.002) return false;
+    const sharedSource = (shared.source === 'manual' || shared.source === 'preset') ? 'manual' : 'geo';
+    if(!userChose && cur && locationSourceRank(cur.source) > locationSourceRank(sharedSource)) return false;
+    if(!userChose && cur && cur.source === 'geo' && (cur.at || 0) >= (shared.at || 0)) return false;
+    let tz = null;
+    try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+    const loc = {
+      lat: shared.lat, lon: shared.lon,
+      label: shared.label || (shared.lat.toFixed(2)+', '+shared.lon.toFixed(2)),
+      tz: tz, source: sharedSource, at: shared.at || Date.now()
+    };
+    saveLocation(loc, {skipShare:true});
+    notify();
+    fetchTimings();
+    if(!shared.label){
+      reverseGeocodeLabel(loc.lat, loc.lon).then(label=>{
+        if(state.location === loc){ loc.label = label; saveLocation(loc, {skipShare:true}); notify(); }
+      }).catch(()=>{});
+    }
+    return true;
+  }
+
+  function readSharedLocation(){
+    return window.LocalCache ? window.LocalCache.get(SHARED_LOC_KEY, null) : null;
   }
 
   async function loadSavedLocation(){
@@ -155,9 +194,16 @@ const PrayerTimes = (function(){
     }
   }
 
-  function saveLocation(loc){
+  function saveLocation(loc, opts){
+    if(loc && !loc.at) loc.at = Date.now();
     state.location = loc;
     if(window.LocalCache) window.LocalCache.set(LOC_KEY, loc);
+    // Share real fixes and places the person picked — never the London
+    // default or a rough IP guess.
+    if(window.LocalCache && loc && !(opts && opts.skipShare) &&
+       (loc.source === 'geo' || loc.source === 'manual' || loc.source === 'preset')){
+      window.LocalCache.set(SHARED_LOC_KEY, {lat:loc.lat, lon:loc.lon, label:loc.label || null, source:loc.source, at:loc.at});
+    }
     WWP.save('prayertimes', {location: state.location, method: state.method});
     // Offline pre-cache is deliberately deferred. It used to fire 14
     // network requests immediately on a fresh visit, competing with the
@@ -528,6 +574,9 @@ const PrayerTimes = (function(){
       state.location = {lat:51.5074, lon:-0.1278, label:'London, UK', tz:'Europe/London', source:'default'};
       saveLocation(state.location);
     }
+    // Find a Mosque may already know where you are — use it straight
+    // away instead of waiting on GPS or asking again.
+    adoptSharedLocation(readSharedLocation(), false);
     notify();
     fetchTimings();
 
@@ -550,7 +599,7 @@ const PrayerTimes = (function(){
   }
 
   return {
-    subscribe, init, updateLocationAccuracyBadge,
+    subscribe, init, updateLocationAccuracyBadge, adoptSharedLocation,
     useGeolocation, useManualLocation, usePresetCity, setMethod, fetchTimings,
     getNextPrayer, formatRemaining, to12h,
     getState: ()=> state,

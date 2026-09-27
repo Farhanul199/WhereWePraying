@@ -98,7 +98,7 @@ export async function onRequestPost(context) {
            data = excluded.data,
            updated_at = excluded.updated_at,
            user_id = excluded.user_id`
-      ).bind(data.deviceId, section, serialized, now, session.userId).run();
+      ).bind(`u:${session.userId}`, section, serialized, now, session.userId).run(); // account's own row (27 Sep 2026)
 
       restored.push(section);
     }

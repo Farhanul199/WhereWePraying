@@ -182,7 +182,7 @@ export async function onRequestPost(context) {
     const db = env.DB;
 
     // Find or create user (same users table Google/magic-link sign-in use).
-    let user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    let user = await db.prepare('SELECT id FROM users WHERE lower(email) = lower(?)').bind(email).first();
 
     if (!user) {
       const userId = crypto.randomUUID();

@@ -16,6 +16,37 @@ function json(payload, status) {
   });
 }
 
+// An idea/comment with this many open reports is hidden from everyone
+// until reviewed in /admin/reports.html.
+const HIDE_AFTER_REPORTS = 3;
+
+async function viewerId(context) {
+  const session = await resolveSession(context);
+  return (session && session.userId) || '-';
+}
+
+// Runs the filtered query (blocks + auto-hide). If the tables from
+// migrations/008_reports_blocks.sql aren't there yet, falls back to the
+// plain query so the feed never breaks.
+async function queryWithFallback(filtered, plain) {
+  try {
+    return (await filtered.all()).results || [];
+  } catch (e) {
+    if (!/no such (table|column)/i.test(String(e))) throw e;
+    console.warn('community: run migrations/008_reports_blocks.sql', String(e));
+    return (await plain.all()).results || [];
+  }
+}
+
+async function isBanned(db, userId) {
+  try {
+    const row = await db.prepare(`SELECT banned_at FROM users WHERE id = ?1`).bind(userId).first();
+    return !!(row && row.banned_at);
+  } catch (e) {
+    return false; // column not added yet
+  }
+}
+
 async function isModerator(context, userId) {
   try {
     const row = await context.env.DB.prepare(`SELECT role FROM users WHERE id = ?1`).bind(userId).first();
@@ -36,38 +67,62 @@ export async function onRequestGet(context) {
       const ideaId = parseInt(commentsFor, 10);
       if (!Number.isInteger(ideaId)) return json({ error: 'Invalid idea id' }, 400);
 
-      const { results } = await db.prepare(
-        `SELECT c.id, c.parent_id, c.body, c.created_at, u.username
-         FROM community_comments c
-         LEFT JOIN users u ON u.id = c.user_id
-         WHERE c.idea_id = ?1
-         ORDER BY c.created_at ASC`
-      ).bind(ideaId).all();
-
-      const rows = results || [];
+      const viewer = await viewerId(context);
+      const rows = await queryWithFallback(
+        db.prepare(
+          `SELECT c.id, c.parent_id, c.body, c.created_at, u.username, (c.user_id = ?2) AS mine
+           FROM community_comments c
+           LEFT JOIN users u ON u.id = c.user_id
+           WHERE c.idea_id = ?1
+             AND COALESCE(c.user_id, '') NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?2)
+             AND (SELECT COUNT(*) FROM content_reports r
+                  WHERE r.target_type = 'comment' AND r.target_id = c.id AND r.status = 'open') < ${HIDE_AFTER_REPORTS}
+           ORDER BY c.created_at ASC`
+        ).bind(ideaId, viewer),
+        db.prepare(
+          `SELECT c.id, c.parent_id, c.body, c.created_at, u.username, (c.user_id = ?2) AS mine
+           FROM community_comments c
+           LEFT JOIN users u ON u.id = c.user_id
+           WHERE c.idea_id = ?1
+           ORDER BY c.created_at ASC`
+        ).bind(ideaId, viewer)
+      );
       const topLevel = rows.filter((r) => !r.parent_id);
       const repliesByParent = {};
       rows.filter((r) => r.parent_id).forEach((r) => {
         (repliesByParent[r.parent_id] = repliesByParent[r.parent_id] || []).push(r);
       });
-      const comments = topLevel.map((c) => ({ ...c, replies: repliesByParent[c.id] || [] }));
+      const comments = topLevel.map((c) => ({ ...c, mine: !!c.mine,
+        replies: (repliesByParent[c.id] || []).map((r) => ({ ...r, mine: !!r.mine })) }));
       return json({ comments });
     }
 
-    const session = await resolveSession(context);
-    const userId = session ? session.userId : null;
-
-    const { results } = await db.prepare(
-      `SELECT i.id, i.title, i.body, i.votes, i.status, i.created_at, u.username,
+    const viewer = await viewerId(context);
+    const cols = `i.id, i.title, i.body, i.votes, i.status, i.created_at, u.username,
          (SELECT COUNT(*) FROM community_comments c WHERE c.idea_id = i.id) AS commentCount,
-         EXISTS(SELECT 1 FROM community_votes v WHERE v.idea_id = i.id AND v.user_id = ?1) AS voted
-       FROM community_ideas i
-       LEFT JOIN users u ON u.id = i.user_id
-       ORDER BY i.votes DESC, i.created_at DESC
-       LIMIT 100`
-    ).bind(userId || -1).all();
+         EXISTS(SELECT 1 FROM community_votes v WHERE v.idea_id = i.id AND v.user_id = ?1) AS voted,
+         (i.user_id = ?1) AS mine`;
+    const results = await queryWithFallback(
+      db.prepare(
+        `SELECT ${cols}
+         FROM community_ideas i
+         LEFT JOIN users u ON u.id = i.user_id
+         WHERE COALESCE(i.user_id, '') NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?1)
+           AND (SELECT COUNT(*) FROM content_reports r
+                WHERE r.target_type = 'idea' AND r.target_id = i.id AND r.status = 'open') < ${HIDE_AFTER_REPORTS}
+         ORDER BY i.votes DESC, i.created_at DESC
+         LIMIT 100`
+      ).bind(viewer),
+      db.prepare(
+        `SELECT ${cols}
+         FROM community_ideas i
+         LEFT JOIN users u ON u.id = i.user_id
+         ORDER BY i.votes DESC, i.created_at DESC
+         LIMIT 100`
+      ).bind(viewer)
+    );
 
-    const ideas = (results || []).map((r) => ({ ...r, voted: !!r.voted }));
+    const ideas = results.map((r) => ({ ...r, voted: !!r.voted, mine: !!r.mine }));
     return json({ ideas });
   } catch (e) {
     return json({ error: 'Something went wrong. Please try again.' }, 500);
@@ -90,6 +145,11 @@ export async function onRequestPost(context) {
   }
 
   const action = body.action;
+
+  // Banned accounts can still read, but can't post ideas or comments.
+  if ((action === 'comment' || !action) && await isBanned(db, userId)) {
+    return json({ error: 'Your account can no longer post in Community.' }, 403);
+  }
 
   try {
     // ---- Toggle vote ----

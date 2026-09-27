@@ -106,6 +106,133 @@
     }
   });
 
+  // ---- Report / block (27 Sep 2026) ----
+  // "⋯" on anything someone else wrote -> Report or Block. The server
+  // works out the author from the post, so no user IDs reach the browser.
+  function moreBtn(type, id, mine){
+    if(mine) return '';
+    return `<button class="cm-more-btn" data-action="more" data-type="${type}" data-target="${id}" aria-label="Report or block">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>`;
+  }
+
+  const REPORT_REASONS = [
+    ['spam', 'Spam or advertising'],
+    ['abuse', 'Harassment or bullying'],
+    ['hate', 'Hate speech'],
+    ['sexual', 'Sexual content'],
+    ['violence', 'Violence or threats'],
+    ['misinformation', 'False or misleading'],
+    ['other', 'Something else'],
+  ];
+
+  function closeSheet(){ document.getElementById('cmSheet')?.remove(); }
+
+  function openSheet(inner){
+    closeSheet();
+    const wrap = document.createElement('div');
+    wrap.id = 'cmSheet';
+    wrap.className = 'cm-sheet-backdrop';
+    wrap.innerHTML = `<div class="cm-sheet" role="dialog" aria-modal="true">${inner}</div>`;
+    wrap.addEventListener('click', (e)=>{ if(e.target === wrap || e.target.closest('[data-sheet="close"]')) closeSheet(); });
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+
+  async function reportApi(payload){
+    const res = await fetch('/api/community/report', {
+      method: 'POST', credentials: 'include',
+      headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(()=> ({}));
+    if(!res.ok) throw new Error(data.error || 'Something went wrong.');
+    return data;
+  }
+
+  function openMoreSheet(type, id){
+    if(!isSignedIn()){ openSignIn(); return; }
+    const noun = type === 'idea' ? 'idea' : 'comment';
+    const sheet = openSheet(`
+      <button class="cm-sheet-item" data-sheet="report">Report this ${noun}</button>
+      <button class="cm-sheet-item danger" data-sheet="block">Block this person</button>
+      <button class="cm-sheet-item muted" data-sheet="close">Cancel</button>`);
+    sheet.querySelector('[data-sheet="report"]').addEventListener('click', ()=> openReportSheet(type, id));
+    sheet.querySelector('[data-sheet="block"]').addEventListener('click', async ()=>{
+      if(!confirm("Block this person? You won't see their ideas or comments any more. You can unblock them later.")) return;
+      try{
+        await reportApi({ action: 'block', targetType: type, targetId: id });
+        closeSheet();
+        showToast('Blocked. You won\'t see their posts.');
+        loadIdeas();
+      }catch(e){ showToast(e.message); }
+    });
+  }
+
+  function openReportSheet(type, id){
+    const sheet = openSheet(`
+      <div class="cm-sheet-title">Why are you reporting this?</div>
+      ${REPORT_REASONS.map(([v, label], i)=> `
+        <label class="cm-sheet-radio"><input type="radio" name="cmReason" value="${v}" ${i===0?'checked':''}> ${label}</label>`).join('')}
+      <textarea class="cm-sheet-notes" maxlength="500" placeholder="Anything else we should know? (optional)"></textarea>
+      <div class="cm-sheet-row">
+        <button class="cm-sheet-item muted" data-sheet="close">Cancel</button>
+        <button class="cm-btn" data-sheet="send">Send report</button>
+      </div>`);
+    sheet.querySelector('[data-sheet="send"]').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try{
+        await reportApi({
+          action: 'report', targetType: type, targetId: id,
+          reason: sheet.querySelector('input[name="cmReason"]:checked')?.value,
+          details: sheet.querySelector('.cm-sheet-notes').value.trim()
+        });
+        closeSheet();
+        showToast('Thanks — we\'ll review it. You can also block this person from the ⋯ menu.');
+      }catch(err){ showToast(err.message); btn.disabled = false; }
+    });
+  }
+
+  async function openBlockedList(){
+    if(!isSignedIn()){ openSignIn(); return; }
+    const sheet = openSheet(`<div class="cm-sheet-title">Blocked people</div><div class="cm-block-list">Loading…</div>
+      <button class="cm-sheet-item muted" data-sheet="close">Close</button>`);
+    const holder = sheet.querySelector('.cm-block-list');
+    try{
+      const res = await fetch('/api/community/report', { credentials: 'include', headers: deviceHeaders() });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'Could not load.');
+      const blocks = data.blocks || [];
+      holder.innerHTML = blocks.length
+        ? blocks.map(b => `<div class="cm-block-row"><span>${escapeHtml(b.username || 'Someone')}</span>
+            <button class="cm-sheet-mini" data-unblock="${b.id}">Unblock</button></div>`).join('')
+        : `<div class="cm-block-empty">You haven't blocked anyone.</div>`;
+      holder.addEventListener('click', async (e)=>{
+        const btn = e.target.closest('[data-unblock]');
+        if(!btn) return;
+        btn.disabled = true;
+        try{
+          await reportApi({ action: 'unblock', blockId: btn.dataset.unblock });
+          btn.closest('.cm-block-row').remove();
+          if(!holder.children.length) holder.innerHTML = `<div class="cm-block-empty">You haven't blocked anyone.</div>`;
+          loadIdeas();
+        }catch(err){ showToast(err.message); btn.disabled = false; }
+      });
+    }catch(e){ holder.textContent = e.message; }
+  }
+
+  (function addBlockedLink(){
+    const list = $('#cmIdeasList');
+    if(!list || $('#cmBlockedLink')) return;
+    const link = document.createElement('button');
+    link.id = 'cmBlockedLink';
+    link.className = 'cm-blocked-link';
+    link.textContent = 'Blocked people';
+    link.addEventListener('click', openBlockedList);
+    list.insertAdjacentElement('afterend', link);
+  })();
+
   // ---- Ideas list ----
   function ideaCardHTML(idea){
     const voted = !!idea.voted;
@@ -123,6 +250,7 @@
           <span data-role="commentcount">${idea.commentCount || 0}</span> comments
         </button>
         <span class="cm-author">${escapeHtml(idea.username || 'Someone')} · ${timeAgo(idea.created_at)}</span>
+        ${moreBtn('idea', idea.id, idea.mine)}
       </div>
       <div class="cm-comments" id="cmComments-${idea.id}">
         <div class="cm-comment-list" id="cmCommentList-${idea.id}"><span style="font-size:12.5px;color:var(--text-dim);">Loading…</span></div>
@@ -166,7 +294,7 @@
   function commentHTML(c, ideaId){
     return `
     <div class="cm-comment" data-comment-id="${c.id}">
-      <div class="cm-comment-author">${escapeHtml(c.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(c.created_at)}</span>${modDeleteBtn(c.id)}</div>
+      <div class="cm-comment-author">${escapeHtml(c.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(c.created_at)}</span>${modDeleteBtn(c.id)}${moreBtn('comment', c.id, c.mine)}</div>
       <div class="cm-comment-body">${escapeHtml(c.body)}</div>
       <button class="cm-reply-btn" data-action="show-reply" data-id="${ideaId}" data-parent="${c.id}">Reply</button>
       <div class="cm-reply-row hidden" id="cmReplyRow-${c.id}">
@@ -178,7 +306,7 @@
       <div class="cm-reply-row" data-role="replies-${c.id}">
         ${(c.replies || []).map(r => `
           <div class="cm-comment">
-            <div class="cm-comment-author">${escapeHtml(r.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(r.created_at)}</span>${modDeleteBtn(r.id)}</div>
+            <div class="cm-comment-author">${escapeHtml(r.username || 'Someone')} <span style="font-weight:400;color:var(--text-dim);">· ${timeAgo(r.created_at)}</span>${modDeleteBtn(r.id)}${moreBtn('comment', r.id, r.mine)}</div>
             <div class="cm-comment-body">${escapeHtml(r.body)}</div>
           </div>`).join('')}
       </div>
@@ -227,6 +355,8 @@
   }
 
   $('#cmIdeasList')?.addEventListener('click', (e)=>{
+    const more = e.target.closest('[data-action="more"]');
+    if(more){ openMoreSheet(more.dataset.type, more.dataset.target); return; }
     const voteBtn = e.target.closest('[data-action="vote"]');
     if(voteBtn){
       if(!isSignedIn()){ window.WWP_promptSignIn && window.WWP_promptSignIn(); return; }

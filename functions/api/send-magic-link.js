@@ -1,6 +1,20 @@
 // functions/api/send-magic-link.js
 // POST /api/send-magic-link
-// Generates a magic link token and emails it via Resend
+// Generates a magic link token and emails it via Resend.
+//
+// Hardened 27 Sep 2026:
+//  - link lasts 30 minutes (was 24 hours)
+//  - only a SHA-256 hash of the token is stored, in KV, never the token
+//    itself — a database leak can't be turned into sign-ins
+//  - no account is created until the link is actually clicked, so nobody
+//    can fill the users table with made-up emails
+//  - emails are trimmed + lowercased so "Me@X.com" and "me@x.com" are the
+//    same account
+// verify-token.js finishes the job (finds or creates the user).
+
+import { sha256Hex } from '../_lib/hash.js';
+
+const MAGIC_LINK_TTL_SECONDS = 30 * 60;
 
 function generateToken() {
   const bytes = new Uint8Array(24);
@@ -8,50 +22,32 @@ function generateToken() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function getExpiryTime() {
-  const expiryDate = new Date();
-  expiryDate.setHours(expiryDate.getHours() + 24); // 24-hour expiry
-  return expiryDate.toISOString();
-}
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 
 export async function onRequestPost(context) {
   try {
-    const { email } = await context.request.json();
+    let body = {};
+    try { body = await context.request.json(); } catch (e) { /* handled below */ }
+    const email = String((body && body.email) || '').trim().toLowerCase();
 
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
+    if (!EMAIL_RE.test(email) || email.length > 254) {
       return new Response(JSON.stringify({ error: 'Valid email required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const db = context.env.DB;
     const token = generateToken();
-    const expiresAt = getExpiryTime();
-
-    // Check if the address matches a primary OR recovery email; if
-    // neither, treat it as a brand-new signup on the primary email.
-    let user = await db
-      .prepare('SELECT id FROM users WHERE email = ?1 OR recovery_email = ?1')
-      .bind(email)
-      .first();
-
-    if (!user) {
-      const userId = crypto.randomUUID();
-      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(userId, email).run();
-      user = { id: userId };
-    }
-
-    // Insert magic token
-    await db
-      .prepare('INSERT INTO magic_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), user.id, token, expiresAt)
-      .run();
+    await context.env.SESSIONS.put(
+      `ml:${await sha256Hex(token)}`,
+      JSON.stringify({ email, createdAt: Date.now() }),
+      { expirationTtl: MAGIC_LINK_TTL_SECONDS }
+    );
 
     // Send email via Resend — branded template matching broadcast emails
     const magicLink = `${new URL(context.request.url).origin}/verify?token=${token}`;
     const html = buildMagicLinkHtml(magicLink);
-    const text = `Assalamu alaikum,\n\nClick the link below to sign in to your WhereWePraying? account:\n${magicLink}\n\nThis link expires in 24 hours. If you didn't request this, you can safely ignore this email.`;
+    const text = `Assalamu alaikum,\n\nClick the link below to sign in to your WhereWePraying? account:\n${magicLink}\n\nThis link expires in 30 minutes. If you didn't request this, you can safely ignore this email.`;
 
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -142,7 +138,7 @@ function buildMagicLinkHtml(magicLink) {
                       <!-- expiry note -->
                       <tr>
                         <td align="center" style="padding-top:24px;">
-                          <p style="margin:0; font-size:13px; color:#a88f7d; line-height:1.6;">This link expires in 24 hours.<br>If you didn't request this, you can safely ignore this email.</p>
+                          <p style="margin:0; font-size:13px; color:#a88f7d; line-height:1.6;">This link expires in 30 minutes.<br>If you didn't request this, you can safely ignore this email.</p>
                         </td>
                       </tr>
 

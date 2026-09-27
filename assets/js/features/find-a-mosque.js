@@ -84,7 +84,28 @@
   // current one if it's strictly higher rank (or the person just
   // explicitly asked for a fresh fix) — a fast-but-coarse source can
   // never clobber a slow-but-precise one that already landed.
-  const LOCATION_RANK = { manual: 5, geo: 4, edge: 2, ip: 2, cached: 1 };
+  // 'shared' = a location Prayer Times already found (27 Sep 2026). Ranked
+  // below a fresh GPS fix so moving somewhere new still upgrades it.
+  const LOCATION_RANK = { manual: 5, geo: 4, shared: 3, edge: 2, ip: 2, cached: 1 };
+  const SHARED_LOC_KEY = 'wwp:shared:location';
+  const SHARED_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+  // Shares a real fix / typed place with Prayer Times + Qiblah.
+  function shareLocation(loc, userChose){
+    if (!loc || (loc.source !== 'geo' && loc.source !== 'manual')) return;
+    const shared = { lat: loc.lat, lon: loc.lon, label: loc.label || null, source: loc.source, at: Date.now() };
+    if (window.LocalCache) window.LocalCache.set(SHARED_LOC_KEY, shared);
+    try {
+      if (window.PrayerTimes && window.PrayerTimes.adoptSharedLocation) window.PrayerTimes.adoptSharedLocation(shared, !!userChose);
+    } catch (e) { /* prayer times not ready — it reads the shared key on start */ }
+  }
+
+  function readSharedLocation(){
+    const s = window.LocalCache ? window.LocalCache.get(SHARED_LOC_KEY, null) : null;
+    if (!s || typeof s.lat !== 'number' || typeof s.lon !== 'number') return null;
+    if (!s.at || Date.now() - s.at > SHARED_MAX_AGE_MS) return null;
+    return { lat: roundCoord(s.lat), lon: roundCoord(s.lon), label: s.label || null, source: 'shared' };
+  }
 
   let mqTimer = null;
   let mqLocation = null; // {lat, lon, source, label} once known
@@ -940,6 +961,7 @@
     mqLocation = loc;
     renderLocationLabel();
     loadPlanForLocation(loc);
+    shareLocation(loc, force);
     // Best-effort place name for auto-detected fixes — fills in the
     // label a moment later without blocking anything above.
     if ((loc.source === 'geo' || loc.source === 'edge' || loc.source === 'ip') && !loc.label) {
@@ -963,6 +985,9 @@
     } else {
       renderSkeleton();
     }
+
+    // Prayer Times may already have your location — use it right away.
+    applyLocation(readSharedLocation(), false);
 
     const sources = [gpsLocation(), edgeGeoLocation()];
     sources.forEach(p => p.then(loc => applyLocation(loc, false)));

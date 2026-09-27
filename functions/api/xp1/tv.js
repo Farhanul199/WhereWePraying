@@ -81,6 +81,18 @@ function cleanSettings(s) {
   return out;
 }
 
+async function claimAllowed(env, request) {
+  if (!env.RATE_LIMIT) return true;
+  try {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const key = `rl:tvclaim:${ip}:${Math.floor(Date.now() / 600000)}`;
+    const n = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
+    if (n >= 10) return false;
+    await env.RATE_LIMIT.put(key, String(n + 1), { expirationTtl: 1200 });
+  } catch (e) { /* never block on a limiter failure */ }
+  return true;
+}
+
 function parseSettings(text) {
   try { return JSON.parse(text || '{}'); } catch (e) { return {}; }
 }
@@ -173,6 +185,10 @@ export async function onRequestPost(context) {
 
     // ---------- Phone ----------
     if (action === 'claim') {
+      // Brute-force guard (27 Sep 2026): 10 code tries per IP per 10 min.
+      if (!(await claimAllowed(env, request))) {
+        return json({ error: 'Too many tries. Wait a few minutes and scan the QR code again.' }, 429);
+      }
       const code = String(body.code || '').toUpperCase().replace(/\s+/g, '');
       if (!CODE_RE.test(code)) return json({ error: 'That code doesn\u2019t look right.' }, 400);
       const row = await env.DB.prepare(

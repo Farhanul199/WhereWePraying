@@ -59,13 +59,15 @@ export async function onRequestGet(context) {
     // No account-linked data yet — fall back to this device's local
     // (still-anonymous) row, and claim it for the account so it's
     // linked going forward.
+    // Only an unowned row can be claimed — never another account's data
+    // left on a shared device (27 Sep 2026).
     const localRow = await env.DB.prepare(
-      `SELECT data FROM app_state WHERE device_id = ?1 AND section = ?2`
+      `SELECT data FROM app_state WHERE device_id = ?1 AND section = ?2 AND user_id IS NULL`
     ).bind(data.deviceId, section).first();
 
     if (localRow) {
       await env.DB.prepare(
-        `UPDATE app_state SET user_id = ?1 WHERE device_id = ?2 AND section = ?3`
+        `UPDATE app_state SET user_id = ?1 WHERE device_id = ?2 AND section = ?3 AND user_id IS NULL`
       ).bind(userId, data.deviceId, section).run();
 
       try {
@@ -78,9 +80,10 @@ export async function onRequestGet(context) {
     return json({ data: null });
   }
 
-  // Anonymous — unchanged, device-scoped only.
+  // Anonymous — device-scoped, and never a row that belongs to an account
+  // (e.g. after someone signs out on a shared device).
   const row = await env.DB.prepare(
-    `SELECT data FROM app_state WHERE device_id = ?1 AND section = ?2`
+    `SELECT data FROM app_state WHERE device_id = ?1 AND section = ?2 AND user_id IS NULL`
   ).bind(data.deviceId, section).first();
 
   if (!row) return json({ data: null });
@@ -111,13 +114,18 @@ export async function onRequestPut(context) {
   const userId = await resolveUserId(context);
   const now = Date.now();
 
+  // Signed in: saved to the account's own row ("u:<userId>"), so it can
+  // never overwrite someone else's data on a shared device.
+  // Signed out: saved to this device's row, but only if no account owns it
+  // — an anonymous request can't overwrite account data. (27 Sep 2026)
+  const rowKey = userId ? `u:${userId}` : data.deviceId;
   await env.DB.prepare(
     `INSERT INTO app_state (device_id, section, data, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?5)
      ON CONFLICT(device_id, section) DO UPDATE SET
        data = excluded.data,
-       updated_at = excluded.updated_at,
-       user_id = COALESCE(excluded.user_id, app_state.user_id)`
-  ).bind(data.deviceId, section, JSON.stringify(body.data), now, userId).run();
+       updated_at = excluded.updated_at
+     WHERE app_state.user_id IS excluded.user_id`
+  ).bind(rowKey, section, JSON.stringify(body.data), now, userId).run();
 
   return json({ ok: true });
 }

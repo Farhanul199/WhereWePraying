@@ -282,7 +282,7 @@ function renderDeeds(){
   state.deeds[activeKey].forEach(deed=>{
     const pill = document.createElement('div');
     pill.className = 'deed-pill'+(deed.done?' done':'')+(isFutureActive?' disabled-row':'');
-    pill.innerHTML = `<span class="deed-check">${deed.done?'✓':''}</span>${deed.label}`;
+    pill.innerHTML = `<span class="deed-check">${deed.done?'✓':''}</span>${escapeHtml(deed.label)}`;
     if(isFutureActive){
       pill.addEventListener('click', ()=> showToast('Good deeds can only be logged for today or past days.'));
     } else {
@@ -387,7 +387,7 @@ function renderRoutines(){
     card.innerHTML = `
       <div class="routine-top">
         <span class="routine-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${icons[r.icon]||icons.sun}"/></svg></span>
-        <span class="routine-name">${r.name}</span>
+        <span class="routine-name">${escapeHtml(r.name)}</span>
         <span class="routine-edit-link" data-id="${r.id}">Edit</span>
       </div>
       <div class="routine-steps">${r.steps.map(s=>`<span class="step-chip">${s}</span>`).join('')}</div>

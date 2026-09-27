@@ -1,3 +1,4 @@
+import { sha256Hex } from '../_lib/hash.js';
 // functions/api/verify-token.js
 // POST /api/verify-token   body: { token }
 // Verifies the magic link token and returns session info.
@@ -41,72 +42,49 @@ export async function onRequestPost(context) {
 
     const db = context.env.DB;
     const now = new Date().toISOString();
+    const fail = (msg) => new Response(JSON.stringify({ error: msg }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-    // Atomically claim the token: this single UPDATE only affects a row
-    // if it exists, hasn't been used, and hasn't expired — all three
-    // conditions are checked by the database as part of the same write,
-    // not by JS in a separate step beforehand. If the same link is
-    // opened twice at nearly the same instant (two tabs, a flaky
-    // network causing a retry, etc.), SQLite/D1 serializes the two
-    // UPDATEs: exactly one of them flips used 0 -> 1 and reports
-    // meta.changes === 1, the other reports 0 and is rejected below.
-    // The old code did SELECT (check used) then UPDATE as two separate
-    // steps, which left a gap both requests could pass through before
-    // either had written anything — that's what let two sessions get
-    // created from one single-use link.
-    const claim = await db
-      .prepare(`UPDATE magic_tokens SET used = 1 WHERE token = ?1 AND used = 0 AND expires_at > ?2`)
-      .bind(token, now)
-      .run();
+    // New links (27 Sep 2026): KV holds only a hash of the token plus the
+    // email, for 30 minutes. The account is found or created only now.
+    let userRow = null;
+    const kvKey = typeof token === 'string' && /^[a-f0-9]{48}$/.test(token)
+      ? `ml:${await sha256Hex(token)}` : null;
+    const pending = kvKey ? await context.env.SESSIONS.get(kvKey) : null;
 
-    if (!claim.meta || claim.meta.changes !== 1) {
-      // Wasn't claimed — figure out why, just for a clearer error message.
-      // This SELECT runs after the fact, purely for messaging; it can't
-      // reopen the race since the atomic UPDATE above already decided
-      // the outcome.
-      const existing = await db
-        .prepare(`SELECT expires_at, used FROM magic_tokens WHERE token = ?1`)
-        .bind(token)
+    if (pending) {
+      await context.env.SESSIONS.delete(kvKey); // single use
+      const email = String(JSON.parse(pending).email || '').toLowerCase();
+      if (!email) return fail('Invalid or expired token');
+      userRow = await db
+        .prepare('SELECT id, email FROM users WHERE lower(email) = ?1 OR lower(recovery_email) = ?1 LIMIT 1')
+        .bind(email)
         .first();
-
-      if (!existing) {
-        return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        });
+      if (!userRow) {
+        const newId = crypto.randomUUID();
+        await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(newId, email).run();
+        userRow = { id: newId, email };
       }
-      if (existing.used) {
-        return new Response(JSON.stringify({ error: 'Token already used' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      return new Response(JSON.stringify({ error: 'Token expired' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    } else {
+      // Links sent before the change still work until they expire.
+      const claim = await db
+        .prepare(`UPDATE magic_tokens SET used = 1 WHERE token = ?1 AND used = 0 AND expires_at > ?2`)
+        .bind(token, now)
+        .run();
+      if (!claim.meta || claim.meta.changes !== 1) return fail('This sign-in link has expired or was already used. Please request a new one.');
+      const tokenRecord = await db.prepare(`SELECT user_id FROM magic_tokens WHERE token = ?1`).bind(token).first();
+      userRow = tokenRecord
+        ? await db.prepare('SELECT id, email FROM users WHERE id = ?').bind(tokenRecord.user_id).first()
+        : null;
+      if (!userRow) return fail('Invalid or expired token');
     }
 
-    const tokenRecord = await db
-      .prepare(`SELECT id, user_id FROM magic_tokens WHERE token = ?1`)
-      .bind(token)
-      .first();
-    await db
-      .prepare('UPDATE users SET last_login = ? WHERE id = ?')
-      .bind(now, tokenRecord.user_id)
-      .run();
+    await db.prepare('UPDATE users SET last_login = ? WHERE id = ?').bind(now, userRow.id).run();
+    const tokenRecord = { user_id: userRow.id };
+    const user = { email: userRow.email };
 
-    // Fetch user
-    const user = await db.prepare('SELECT email FROM users WHERE id = ?').bind(tokenRecord.user_id).first();
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Create session
     const sessionId = generateSessionId();
     const sessionExpiry = new Date();
     sessionExpiry.setDate(sessionExpiry.getDate() + 7); // 7-day session

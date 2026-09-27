@@ -95,7 +95,7 @@ export async function onRequestGet(context) {
     const picture = claims.picture || null;
 
     // Find or create user (same users table magic-link sign-in uses).
-    let user = await db.prepare('SELECT id, avatar_url FROM users WHERE email = ?').bind(email).first();
+    let user = await db.prepare('SELECT id, avatar_url FROM users WHERE lower(email) = lower(?)').bind(email).first();
 
     if (!user) {
       const userId = crypto.randomUUID();

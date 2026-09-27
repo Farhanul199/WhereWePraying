@@ -208,6 +208,10 @@ export async function onRequestPost(context) {
   // ---- Signed-in user uploading a photo (multipart/form-data) ----
   const session = await resolveSession(context);
   if (!session || !session.userId) return json({ error: 'Sign in required.' }, 401);
+  try {
+    const u = await db.prepare(`SELECT banned_at FROM users WHERE id = ?1`).bind(session.userId).first();
+    if (u && u.banned_at) return json({ error: 'Your account can no longer submit photos.' }, 403);
+  } catch (e) { /* banned_at column not added yet */ }
 
   let form;
   try {
