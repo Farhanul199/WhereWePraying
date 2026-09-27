@@ -217,6 +217,6 @@ export async function onRequestPost(context) {
 
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
-    return json({ error: 'Request failed', detail: String(e) }, 500);
+    return json({ error: 'Request failed' }, 500);
   }
 }

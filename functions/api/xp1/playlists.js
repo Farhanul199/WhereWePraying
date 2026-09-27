@@ -52,7 +52,7 @@ export async function onRequestGet(context) {
     const { results } = await env.DB.prepare(query).all();
     return json({ playlists: results || [] });
   } catch (e) {
-    return json({ error: "Failed to load playlists", detail: String(e) }, 500);
+    return json({ error: "Failed to load playlists" }, 500);
   }
 }
 
@@ -123,6 +123,6 @@ export async function onRequestPost(context) {
 
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
-    return json({ error: "Request failed", detail: String(e) }, 500);
+    return json({ error: "Request failed" }, 500);
   }
 }
