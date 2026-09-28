@@ -21,7 +21,11 @@
 const PrayerTimes = (function(){
   const API_BASE = 'https://api.aladhan.com/v1';
   const GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
-  const REVERSE_GEOCODE_BASE = 'https://geocoding-api.open-meteo.com/v1/reverse';
+  // Open-Meteo has no reverse-geocoding endpoint (the old /v1/reverse URL
+  // 404'd with no CORS header, so every GPS fix logged a console error and
+  // fell back to a coordinate label). Photon (OpenStreetMap) does reverse
+  // lookups and is already allowed in the CSP. Fixed 28 Sep 2026.
+  const REVERSE_GEOCODE_BASE = 'https://photon.komoot.io/reverse';
   const LOC_KEY = 'wwp:prayertimes:location';
   // Shared with Find a Mosque (27 Sep 2026): whichever page finds your
   // real location first, the other one (and the Qiblah) uses it too.
@@ -253,12 +257,16 @@ const PrayerTimes = (function(){
 
   async function reverseGeocodeLabel(lat, lon){
     try{
-      const url = REVERSE_GEOCODE_BASE+'?latitude='+lat+'&longitude='+lon+'&count=1&language=en&format=json';
+      const url = REVERSE_GEOCODE_BASE+'?lat='+lat+'&lon='+lon+'&lang=en&limit=1&layer=city&layer=district&layer=locality';
       const res = await fetchWithTimeout(url, null, 4000);
       if(!res.ok) throw new Error('reverse geocode failed');
       const data = await res.json();
-      const r = data && data.results && data.results[0];
-      if(r) return [r.name, r.admin1, r.country].filter(Boolean).join(', ');
+      const p = data && data.features && data.features[0] && data.features[0].properties;
+      if(p){
+        const parts = [p.name || p.district || p.locality, p.city, p.state, p.country].filter(Boolean);
+        const label = parts.filter((v,i)=>parts.indexOf(v)===i).slice(0,3).join(', ');
+        if(label) return label;
+      }
     }catch(e){ /* fall through to coordinate label */ }
     return lat.toFixed(2)+', '+lon.toFixed(2);
   }
