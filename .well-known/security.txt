@@ -1,0 +1,8 @@
+# Security contact for WhereWePraying? (wherewepraying.com)
+# Found a security problem? Please tell us privately first — thank you.
+Contact: https://github.com/Farhanul199/WhereWePraying/security/advisories/new
+Contact: mailto:support@wherewepraying.com
+Expires: 2027-09-28T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://wherewepraying.com/.well-known/security.txt
+Policy: https://wherewepraying.com/privacy.html
