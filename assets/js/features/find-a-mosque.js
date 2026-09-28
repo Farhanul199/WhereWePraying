@@ -160,9 +160,65 @@
   function gpsLocation(){
     if (!window.Platform || typeof window.Platform.getLocation !== 'function') return Promise.resolve(null);
     return window.Platform.getLocation(LOCATION_OPTS)
-      .then(loc => ({ lat: roundCoord(loc.lat), lon: roundCoord(loc.lon), source: 'geo' }))
+      .then(loc => ({ lat: roundCoord(loc.lat), lon: roundCoord(loc.lon), source: 'geo', accuracy: roundAccuracy(loc.accuracy) }))
       .catch(() => null);
   }
+
+  // Accuracy (metres) rounded so the label reads naturally: "about 40 m",
+  // "about 1.2 km". null when the browser didn't report one.
+  function roundAccuracy(a){
+    if (typeof a !== 'number' || !isFinite(a) || a <= 0) return null;
+    return a < 1000 ? Math.max(10, Math.round(a / 10) * 10) : Math.round(a / 100) * 100;
+  }
+  function accuracyText(a){
+    if (a == null) return '';
+    return a < 1000 ? ' (accurate to about ' + a + ' m)' : ' (accurate to about ' + (a / 1000).toFixed(1) + ' km)';
+  }
+
+  // ---- Live updates while Find a Mosque is open (28 Sep 2026) ----
+  // Only runs when location permission is ALREADY granted (never prompts),
+  // only while this page is on screen and the app is in the foreground,
+  // and low-power (network/cell location, fixes up to 1 min old). Each
+  // update waits 500 ms for the position to settle, and the list is only
+  // re-fetched if you've moved more than MOVE_THRESHOLD_M.
+  const MOVE_THRESHOLD_M = 150;
+  const WATCH_OPTS = { enableHighAccuracy: false, maximumAge: 60000, timeout: 20000 };
+  let stopWatch = null;
+  let watchDebounce = null;
+  let watchStarting = false;
+
+  function mosquePageVisible(){
+    const el = document.getElementById('page-mosque');
+    return !!el && !el.classList.contains('hidden') && !document.hidden;
+  }
+
+  async function startLocationWatch(){
+    if (stopWatch || watchStarting || !window.Platform || !window.Platform.watchLocation) return;
+    watchStarting = true;
+    try {
+      const perm = window.Platform.locationPermission ? await window.Platform.locationPermission() : 'unknown';
+      if (perm !== 'granted' || !mosquePageVisible() || stopWatch) return;
+      stopWatch = window.Platform.watchLocation(fix => {
+        clearTimeout(watchDebounce);
+        watchDebounce = setTimeout(() => {
+          applyLocation({ lat: roundCoord(fix.lat), lon: roundCoord(fix.lon), source: 'geo', accuracy: roundAccuracy(fix.accuracy) }, false);
+        }, 500);
+      }, WATCH_OPTS);
+    } finally {
+      watchStarting = false;
+    }
+  }
+
+  function stopLocationWatch(){
+    clearTimeout(watchDebounce);
+    watchDebounce = null;
+    if (stopWatch) { stopWatch(); stopWatch = null; }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopLocationWatch();
+    else if (mosquePageVisible()) startLocationWatch();
+  });
 
   // ---- Source 2: same-origin Cloudflare edge geo ----
   async function edgeGeoLocation(){
@@ -327,7 +383,7 @@
     if (!loc) return '';
     if (loc.source === 'manual') return 'Showing mosques near ' + (loc.label || 'your search') + '.';
     if (loc.source === 'cached') return 'Last known location — updating…';
-    if (loc.source === 'geo') return loc.label ? 'Using your precise location near ' + loc.label + '.' : 'Using your precise location.';
+    if (loc.source === 'geo') return (loc.label ? 'Using your precise location near ' + loc.label : 'Using your precise location') + accuracyText(loc.accuracy) + '.';
     return loc.label ? 'Using your approximate area near ' + loc.label + '.' : 'Using your approximate area.';
   }
 
@@ -719,11 +775,16 @@
     return 3958.8 * 2 * Math.asin(Math.sqrt(h));
   }
 
+  let distKey = null;
   function searchDirectory(q){
     const words = q.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
     if (!words.length || !directory) return [];
     const hits = directory.filter(m => words.every(w => m.key.includes(w)));
-    if (mqLocation) hits.forEach(m => { m.dist = milesBetween(mqLocation.lat, mqLocation.lon, m.lat, m.lon); });
+    // Distances are worked out once per location and reused on every
+    // keystroke, instead of recalculated for each search.
+    const key = mqLocation ? mqLocation.lat + ',' + mqLocation.lon : null;
+    if (key !== distKey) { directory.forEach(m => { m.dist = undefined; }); distKey = key; }
+    if (key) hits.forEach(m => { if (m.dist === undefined) m.dist = milesBetween(mqLocation.lat, mqLocation.lon, m.lat, m.lon); });
     hits.sort((a, b) => (a.dist ?? 0) - (b.dist ?? 0) || a.name.localeCompare(b.name));
     return hits.slice(0, 12);
   }
@@ -957,10 +1018,33 @@
     if (!loc) return;
     const rank = LOCATION_RANK[loc.source] || 0;
     const currentRank = mqLocation ? (LOCATION_RANK[mqLocation.source] || 0) : -1;
-    if (!force && rank <= currentRank) return;
+    let refetch = true;
+    if (!force && mqLocation) {
+      if (rank < currentRank) return;
+      const moved = milesBetween(mqLocation.lat, mqLocation.lon, loc.lat, loc.lon) * 1609.344;
+      if (moved < MOVE_THRESHOLD_M) {
+        // Same kind of fix, same spot: nothing to do but refresh the
+        // accuracy note. (Before 28 Sep 2026 a same-kind fix was ALWAYS
+        // ignored — even after moving miles — so the list stayed on the
+        // old spot for the rest of the session. Moving >150 m now counts.)
+        if (rank === currentRank) {
+          if (loc.accuracy != null && mqLocation.source === loc.source && mqLocation.accuracy !== loc.accuracy) {
+            mqLocation.accuracy = loc.accuracy;
+            renderLocationLabel();
+          }
+          return;
+        }
+        // A better kind of fix for (almost) the same spot, e.g. GPS
+        // confirming the location Prayer Times shared: upgrade the label
+        // but keep the list already loading/showing — saves a duplicate
+        // /api/mosques/plan call on every page open. A list painted from
+        // the saved copy still gets refreshed.
+        if (mqLocation.source !== 'cached') refetch = false;
+      }
+    }
     mqLocation = loc;
     renderLocationLabel();
-    loadPlanForLocation(loc);
+    if (refetch) loadPlanForLocation(loc);
     shareLocation(loc, force);
     // Best-effort place name for auto-detected fixes — fills in the
     // label a moment later without blocking anything above.
@@ -1022,11 +1106,15 @@
     usePreciseBtn.textContent = 'Locating…';
     // A real tap, so this reliably shows the permission prompt on every
     // platform including iOS Safari — not gated behind any prior state.
+    usePreciseBtn.setAttribute('aria-busy', 'true');
     const loc = await gpsLocation();
     usePreciseBtn.disabled = false;
+    usePreciseBtn.removeAttribute('aria-busy');
     usePreciseBtn.textContent = originalText;
     if (loc) {
       applyLocation(loc, true);
+      if (manualStatus) manualStatus.textContent = 'Location updated' + accuracyText(loc.accuracy) + '.';
+      startLocationWatch();
     } else if (manualStatus) {
       manualStatus.textContent = "Couldn't get a precise location — check your device's location permission, or enter a postcode below.";
     }
@@ -1066,11 +1154,12 @@
     clearInterval(mqTimer);
     kickOffLocationDetection();
     mqTimer = setInterval(refreshPlan, REFRESH_MS);
+    startLocationWatch();
   }
 
   window.addEventListener('wwp-page-shown', (e)=>{
     if(e.detail && e.detail.id === 'mosque') onMosqueShown();
-    else { clearInterval(mqTimer); mqTimer = null; } // left the page: stop refreshing
+    else { clearInterval(mqTimer); mqTimer = null; stopLocationWatch(); } // left the page: stop refreshing + location updates
   });
   document.querySelectorAll('a[data-page="mosque"]').forEach(a=>{
     a.addEventListener('click', onMosqueShown);

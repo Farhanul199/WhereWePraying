@@ -222,13 +222,23 @@ const PrayerTimes = (function(){
     return CACHE_PREFIX+todayKey()+':'+lat+','+lon+':'+state.method;
   }
 
+  // Two tries (28 Sep 2026): first a recent fix (up to 5 min old), so
+  // "Use my location" after travelling doesn't return where you were this
+  // morning. Only if that fails or times out, accept an older cached fix
+  // (up to 6h) so underground / no-signal still resolves. A permission
+  // refusal is final — no second try.
   function detectGeolocation(opts){
-    const options = Object.assign({
+    if(opts){
+      return Platform.getLocation(Object.assign({enableHighAccuracy:false, timeout:12000, maximumAge:21600000}, opts));
+    }
+    return Platform.getLocation({
       enableHighAccuracy:false,   // network/cell-assisted — works far better indoors & underground than raw GPS
-      timeout:12000,
-      maximumAge:21600000         // accept a fix up to 6h old rather than block waiting for a fresh one that may never arrive underground
-    }, opts||{});
-    return Platform.getLocation(options);
+      timeout:8000,
+      maximumAge:300000
+    }).catch(err=>{
+      if(err && err.code === 1) throw err; // PERMISSION_DENIED
+      return Platform.getLocation({enableHighAccuracy:false, timeout:4000, maximumAge:21600000});
+    });
   }
 
   // Caps how long any single network call in the location chain can
@@ -1497,7 +1507,7 @@ window.PrayerTimesAPI = { fetchTimings: ()=> PrayerTimes.fetchTimings() };
     const q = (filter||'').trim().toLowerCase();
     const matches = PT_CITY_LIST.filter(c => !q || (c.label+' '+c.country).toLowerCase().includes(q));
     if(!matches.length){
-      list.innerHTML = '<div class="pt-city-empty">No cities match “'+filter+'”.</div>';
+      list.innerHTML = '<div class="pt-city-empty">No cities match “'+escapeHtml(filter)+'”.</div>';
       return;
     }
     list.innerHTML = matches.map(c=>

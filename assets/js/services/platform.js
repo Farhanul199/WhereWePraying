@@ -37,18 +37,42 @@ window.Platform = (function(){
     return Promise.resolve();
   }
 
+  // `accuracy` (metres, 68% confidence radius) added 28 Sep 2026 so the
+  // UI can say how precise a fix is. Existing callers only read lat/lon.
   function getLocation(opts){
     return new Promise((resolve, reject)=>{
       if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
       navigator.geolocation.getCurrentPosition(
-        pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
+        pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy}),
         err => reject(err),
         opts || {}
       );
     });
   }
 
-  return { share, copyToClipboard, getLocation };
+  // Continuous location updates. Returns a stop() function. Callers must
+  // stop it when their page is hidden — it keeps the location hardware
+  // awake while it runs.
+  function watchLocation(onFix, opts){
+    if(!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') return function(){};
+    const id = navigator.geolocation.watchPosition(
+      pos => onFix({lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy}),
+      () => {},
+      opts || {}
+    );
+    return function(){ try{ navigator.geolocation.clearWatch(id); }catch(e){} };
+  }
+
+  // 'granted' | 'denied' | 'prompt' | 'unknown' — never shows a prompt.
+  async function locationPermission(){
+    try{
+      if(!navigator.permissions || !navigator.permissions.query) return 'unknown';
+      const status = await navigator.permissions.query({name:'geolocation'});
+      return status.state || 'unknown';
+    }catch(e){ return 'unknown'; }
+  }
+
+  return { share, copyToClipboard, getLocation, watchLocation, locationPermission };
 })();
 
 /* ============================================================

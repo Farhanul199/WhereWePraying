@@ -3,37 +3,7 @@
 <head>
 <meta name="robots" content="noai, noimageai">
 <link rel="tdm-reservation" href="/.well-known/tdmrep.json">
-<script>
-// Capture ?previewTheme= / ?previewEvent= before the router's
-// history.replaceState (later in the page) wipes the query string.
-// ==> CONNECT: read by admin/theme-preview.html's forced-theme logic
-// further down the page — see window.__wwpPreview.
-window.__wwpPreview = (function(){
-  try{
-    var p = new URLSearchParams(location.search);
-    return { theme: p.get('previewTheme'), event: p.get('previewEvent') };
-  }catch(e){ return { theme:null, event:null }; }
-})();
 
-// Capture ?token= (magic link sign-in) before the router's
-// history.replaceState wipes the query string — see window.__wwpAuthToken,
-// read by the auth system script further down the page.
-window.__wwpAuthToken = (function(){
-  try{
-    var p = new URLSearchParams(location.search);
-    return p.get('token');
-  }catch(e){ return null; }
-})();
-
-// Same early-capture for the Google sign-in redirect (?signed_in=1 or
-// ?auth_error=...), which lands here after /api/auth/google/callback.
-window.__wwpGoogleAuthResult = (function(){
-  try{
-    var p = new URLSearchParams(location.search);
-    return { signedIn: p.get('signed_in') === '1', error: p.get('auth_error') };
-  }catch(e){ return { signedIn:false, error:null }; }
-})();
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WhereWePraying? — Find a Mosque, Prayer Times, Qur'an & More</title>
@@ -57,7 +27,7 @@ window.__wwpGoogleAuthResult = (function(){
 
 
 <!-- Critical CSS: needed for first paint on every page (home + prayer times widgets appear on the home page itself). -->
-<link rel="stylesheet" href="/assets/css/base.css?v=2">
+<link rel="stylesheet" href="/assets/css/base.css?v=3">
 <link rel="stylesheet" href="/assets/css/features/glass-mode.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/seasonal-themes.css?v=3">
 <link rel="stylesheet" href="/assets/css/layout.css?v=1">
@@ -68,7 +38,7 @@ window.__wwpGoogleAuthResult = (function(){
 <link rel="stylesheet" href="/assets/css/features/notifications.css?v=3">
 <link rel="stylesheet" href="/assets/css/app.css?v=13">
 <link rel="stylesheet" href="/assets/css/features/home.css?v=3">
-<link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=2">
+<link rel="stylesheet" href="/assets/css/features/prayer-times.css?v=3">
 <link rel="stylesheet" href="/assets/css/services/twinkle.css?v=2">
 <!-- Deferred CSS: only needed on their own page. Loaded on-demand by the
      feature loader in wwp-core.js (WWP_loadFeature) as soon as that page
@@ -92,93 +62,8 @@ window.__wwpGoogleAuthResult = (function(){
 </head>
 <body data-theme="light" data-mobile-pane="categories">
 <div id="bootLoader"><img src="/assets/logo.png" alt="" width="56" height="56"></div>
-<script>
-setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.classList.add('hide'); setTimeout(function(){l.remove();},300);} }, 400);
-</script>
-<script>
-(function(){
-  // Restore the saved theme immediately (before the rest of the page
-  // parses) to avoid a flash of the default theme on load.
-  try{
-    var saved = localStorage.getItem('wwp:theme');
-    if(saved && ['light','sepia','dark','amoled'].indexOf(saved) !== -1){
-      document.body.setAttribute('data-theme', saved);
-    }
-  }catch(e){}
+<script src="/assets/js/boot/early.js?v=1"></script>
 
-  // ---- Status bar (theme-color) accent ----
-  // Three inputs decide the Android status bar colour:
-  //   1) which event theme is active — normal / jummah / ramadan
-  //      (read from body[data-event-theme], set by the event resolvers)
-  //   2) the base app theme — light/sepia vs dark vs amoled
-  //   3) the user's own Light/Dark accent preference (Settings > App
-  //      Display), which only matters on the light/sepia base theme —
-  //      dark and amoled always use their own dimmed/near-black variant
-  //      so the status bar never clashes with those dark backgrounds.
-  var WWP_ACCENT = {
-    light:  {normal:'#F5956A', jummah:'#A8C68F', ramadan:'#C4A0D9'}, // light peach / light sage / light plum
-    dark:   {normal:'#D85A38', jummah:'#5C7A59', ramadan:'#7E5182'}, // original darker tone
-    darkTheme:   {normal:'#6B4423', jummah:'#4D5C38', ramadan:'#6B4A5C'}, // dimmed, for body[data-theme=dark]
-    amoledTheme: {normal:'#3D2818', jummah:'#2D3E20', ramadan:'#4A2E52'}  // near-black, for body[data-theme=amoled]
-  };
-
-  window.WWP_applyThemeColor = function(){
-    try{
-      var baseTheme = document.body.getAttribute('data-theme') || 'light';
-      var eventTheme = document.body.getAttribute('data-event-theme'); // 'ramadan' | 'jummah' | null
-      var key = eventTheme === 'ramadan' ? 'ramadan' : (eventTheme === 'jummah' ? 'jummah' : 'normal');
-
-      var palette;
-      if(baseTheme === 'amoled'){ palette = WWP_ACCENT.amoledTheme; }
-      else if(baseTheme === 'dark'){ palette = WWP_ACCENT.darkTheme; }
-      else{
-        var pref = 'light';
-        try{ pref = localStorage.getItem('wwp:themeColorMode') || 'light'; }catch(e2){}
-        palette = (pref === 'dark') ? WWP_ACCENT.dark : WWP_ACCENT.light;
-      }
-
-      var tc = document.querySelector('meta[name="theme-color"]');
-      if(tc) tc.setAttribute('content', palette[key]);
-    }catch(e){}
-  };
-
-  // There are several setTheme()/cycleTheme() functions across the app
-  // (topbar toggle, Qur'an reader, Journal, Du'a) that all just set
-  // body[data-theme] directly. Rather than editing each one, watch the
-  // attribute itself so every theme change — current and future — gets
-  // saved the same way, from whichever section triggered it (including
-  // Travel Mode) — and re-run the status bar colour alongside it. Also
-  // watches data-event-theme so Jummah/Ramadan switching (set elsewhere)
-  // updates the status bar too.
-  try{
-    new MutationObserver(function(){
-      var val = document.body.getAttribute('data-theme');
-      if(val){ try{ localStorage.setItem('wwp:theme', val); }catch(e){} }
-      window.WWP_applyThemeColor();
-    }).observe(document.body, {attributes:true, attributeFilter:['data-theme','data-event-theme']});
-  }catch(e){}
-
-  // User's Light/Dark status-bar-accent choice, set from Settings > App Display.
-  document.addEventListener('change', function(e){
-    if(e.target && e.target.name === 'themeColorMode'){
-      try{ localStorage.setItem('wwp:themeColorMode', e.target.value); }catch(e2){}
-      window.WWP_applyThemeColor();
-    }
-  });
-
-  function wwpSyncThemeColorRadioUI(){
-    var pref = 'light';
-    try{ pref = localStorage.getItem('wwp:themeColorMode') || 'light'; }catch(e){}
-    var els = document.querySelectorAll('input[name="themeColorMode"]');
-    for(var i=0;i<els.length;i++){ els[i].checked = (els[i].value === pref); }
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', wwpSyncThemeColorRadioUI);
-  }else{
-    wwpSyncThemeColorRadioUI();
-  }
-})();
-</script>
 <div id="offline-banner" class="offline-banner">
   <span>📡</span><span>Internet took a break. We'll auto-refresh soon.</span><button type="button" class="offline-banner-close" id="offlineBannerClose" aria-label="Dismiss">✕</button>
 </div>
@@ -212,266 +97,9 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 
 
 
-<script>
-(function OfflineDetection(){
-  const b=document.getElementById('offline-banner');
-  const closeBtn=document.getElementById('offlineBannerClose');
-  let touchStart=0;
-  let autoDismissTimer=null;
-  const clearAutoDismiss=()=>{ if(autoDismissTimer){ clearTimeout(autoDismissTimer); autoDismissTimer=null; } };
-  const dismiss=()=>{clearAutoDismiss();b.classList.add('hide');setTimeout(()=>{b.classList.remove('show','hide');},300);};
-  const show=()=>{
-    b.classList.remove('hide');b.classList.add('show');
-    clearAutoDismiss();
-    // Small/non-blocking notice — don't leave it sitting there forever
-    // even if we never actually come back online (e.g. airplane mode).
-    autoDismissTimer=setTimeout(dismiss,12000);
-  };
-  closeBtn.addEventListener('click',dismiss);
-  b.addEventListener('click',dismiss);
-  b.addEventListener('touchstart',(e)=>{touchStart=e.touches[0].clientY;},{passive:true});
-  b.addEventListener('touchend',(e)=>{const touchEnd=e.changedTouches[0].clientY;if(touchEnd-touchStart>50){dismiss();}},{passive:true});
-  window.addEventListener('offline',show);
-  window.addEventListener('online',()=>{
-    dismiss();
-    // Auto-refresh prayer times when reconnecting
-    if(window.PrayerTimesAPI && window.PrayerTimesAPI.fetchTimings){
-      window.PrayerTimesAPI.fetchTimings().catch(()=>0);
-    }
-  });
-  if('serviceWorker' in navigator){window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/sw.js').then((reg)=>{
-      // Check for a newer sw.js whenever the app is opened/foregrounded.
-      reg.update().catch(()=>0);
-      document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>0)});
-      // If an update is already waiting, activate it immediately.
-      if(reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
-      reg.addEventListener('updatefound',()=>{
-        const nw=reg.installing;
-        if(!nw)return;
-        nw.addEventListener('statechange',()=>{
-          if(nw.state==='installed' && navigator.serviceWorker.controller) nw.postMessage('SKIP_WAITING');
-        });
-      });
 
-      // Periodic Background Sync: on Android/Chrome, ask permission to
-      // refresh cached prayer-time/mosque data in the background every
-      // ~12h so offline opens are never more than half a day stale.
-      // Silently a no-op anywhere unsupported (iOS Safari, desktop) —
-      // feature-detected end to end, nothing else depends on it.
-      (async ()=>{
-        try{
-          if(!('periodicSync' in reg)) return;
-          const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
-          if(status.state !== 'granted') return;
-          const tags = await reg.periodicSync.getTags();
-          if(!tags.includes('wwp-refresh-data')){
-            await reg.periodicSync.register('wwp-refresh-data', { minInterval: 12 * 60 * 60 * 1000 });
-          }
-        }catch(_){}
-      })();
-    }).catch(()=>0);
-    // Once the new SW takes control, reload once so the fresh app shell renders.
-    let refreshed=false;
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      if(refreshed)return; refreshed=true; window.location.reload();
-    });
-    // Background Sync: when the SW wakes up on reconnect (tag registered
-    // from wwp-core.js whenever an offline save fails), it messages this
-    // page to flush any pending saves — covers the case where the tab is
-    // backgrounded rather than closed, which the plain 'online' listener
-    // in wwp-core.js doesn't catch.
-    navigator.serviceWorker.addEventListener('message', (e)=>{
-      if(e.data === 'FLUSH_PENDING' && window.WWP && window.WWP.flushPending) window.WWP.flushPending();
-    });
-  })}
-})();
-</script>
-<script>
-// ---- Install banner (custom "Add to Home Screen") ----
-(function(){
-  var deferredPrompt = null;
-  var banner = document.getElementById('installBanner');
-  var actionBtn = document.getElementById('installBannerAction');
-  var closeBtn = document.getElementById('installBannerClose');
-  var DISMISS_KEY = 'wwp_install_dismissed_at';
-
-  function alreadyInstalled(){
-    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  }
-  function recentlyDismissed(){
-    var t = localStorage.getItem(DISMISS_KEY);
-    if(!t) return false;
-    return (Date.now() - Number(t)) < 1000*60*60*24*14; // 14 days
-  }
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    deferredPrompt = e;
-    if(!alreadyInstalled() && !recentlyDismissed() && banner){
-      setTimeout(function(){ banner.style.display='flex'; banner.classList.add('show'); }, 2500);
-    }
-  });
-  if(actionBtn) actionBtn.addEventListener('click', function(){
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.finally(function(){
-      deferredPrompt = null;
-      banner.classList.add('hide');
-      setTimeout(function(){ banner.style.display='none'; }, 300);
-    });
-  });
-  if(closeBtn) closeBtn.addEventListener('click', function(){
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    banner.classList.add('hide');
-    setTimeout(function(){ banner.style.display='none'; }, 300);
-  });
-  window.addEventListener('appinstalled', function(){
-    if(banner){ banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
-    deferredPrompt = null;
-  });
-})();
-
-// ---- Share target receiver (manifest share_target -> /share-target) ----
-(function(){
-  if(location.pathname !== '/share-target') return;
-  var p = new URLSearchParams(location.search);
-  var title = p.get('title')||'', text = p.get('text')||'', url = p.get('url')||'';
-  var content = [title, text, url].filter(Boolean).join('\n');
-  if(!content) return;
-  window.addEventListener('DOMContentLoaded', function(){
-    var box = document.createElement('div');
-    box.setAttribute('style','position:fixed;inset:0;z-index:99999;background:rgba(20,15,10,.45);display:flex;align-items:center;justify-content:center;padding:20px;');
-    box.innerHTML = '<div style="background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);border-radius:18px;max-width:420px;width:100%;padding:20px;box-shadow:var(--shadow);">'
-      + '<div style="font-weight:700;font-size:15px;margin-bottom:8px;color:var(--text);">Shared to WhereWePraying?</div>'
-      + '<div style="font-size:13px;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;margin-bottom:14px;">'+content.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</div>'
-      + '<button id="shareTargetClose" style="background:var(--coral);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;">Close</button></div>';
-    document.body.appendChild(box);
-    document.getElementById('shareTargetClose').addEventListener('click', function(){
-      box.remove();
-      history.replaceState({}, '', '/');
-    });
-  });
-})();
-
-// ---- Push notification opt-in (foundation) ----
-(function(){
-  var VAPID_PUBLIC_KEY = 'BEGcvPtMd1YMXHZBml_Ugb5_mUHmAmP-o3p_WJxqyELkxIoRMM5yFQIMQ8o-u0Fm3uzM9jr0xMMji2SbyH_aWQs';
-  var banner = document.getElementById('pushBanner');
-  var actionBtn = document.getElementById('pushBannerAction');
-  var closeBtn = document.getElementById('pushBannerClose');
-  var DISMISS_KEY = 'wwp_push_dismissed_at';
-
-  function urlBase64ToUint8Array(base64String){
-    var padding = '='.repeat((4 - base64String.length % 4) % 4);
-    var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
-    var raw = atob(base64);
-    var out = new Uint8Array(raw.length);
-    for(var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
-    return out;
-  }
-  function recentlyDismissed(){
-    var t = localStorage.getItem(DISMISS_KEY);
-    if(!t) return false;
-    return (Date.now() - Number(t)) < 1000*60*60*24*14;
-  }
-  function maybeShowBanner(){
-    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if(Notification.permission !== 'default') return;
-    if(recentlyDismissed()) return;
-    navigator.serviceWorker.ready.then(function(reg){
-      return reg.pushManager.getSubscription();
-    }).then(function(sub){
-      if(sub) return;
-      setTimeout(function(){ if(banner){ banner.style.display='flex'; banner.classList.add('show'); } }, 6000);
-    }).catch(function(){});
-  }
-  function subscribe(){
-    navigator.serviceWorker.ready.then(function(reg){
-      return reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
-    }).then(function(sub){
-      var deviceId = (window.WWP && window.WWP.deviceId) ? window.WWP.deviceId : null;
-      function send(lat, lon){
-        return fetch('/api/push/subscribe', {
-          method:'POST',
-          headers:Object.assign({'Content-Type':'application/json'}, deviceId?{'X-Device-Id':deviceId}:{}),
-          body: JSON.stringify({
-            subscription: sub,
-            tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            lat: lat, lon: lon
-          })
-        });
-      }
-      if('geolocation' in navigator){
-        Platform.getLocation({ timeout: 6000, maximumAge: 600000 }).then(
-          function(loc){ send(loc.lat, loc.lon); },
-          function(){ send(null, null); }
-        );
-      } else { send(null, null); }
-    }).catch(function(){}).finally(function(){
-      if(banner){ banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
-    });
-  }
-  if(actionBtn) actionBtn.addEventListener('click', function(){
-    Notification.requestPermission().then(function(perm){
-      if(perm === 'granted') subscribe();
-      else { banner.classList.add('hide'); setTimeout(function(){ banner.style.display='none'; },300); }
-    });
-  });
-  if(closeBtn) closeBtn.addEventListener('click', function(){
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    banner.classList.add('hide');
-    setTimeout(function(){ banner.style.display='none'; }, 300);
-  });
-  window.addEventListener('load', maybeShowBanner);
-})();
-</script>
-<script>
-
-// Early event-theme resolver — runs before any header/content is painted,
-// so Jummah/Ramadan styling is already in place on first paint instead of
-// flashing standard theme first. Mirrors the cache/Friday logic in the
-// full resolver further down the page; that block re-verifies via the
-// live Hijri API afterward and corrects this if the cache was stale.
-(function(){
-  try{
-    var preview = window.__wwpPreview || {theme:null, event:null};
-    var forceEventTheme = preview.event;
-
-    if(forceEventTheme === 'ramadan' || forceEventTheme === 'jummah'){
-      document.body.setAttribute('data-event-theme', forceEventTheme);
-    }else if(forceEventTheme !== 'none'){
-      var d = new Date();
-      var todayKey = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
-      var isFriday = d.getDay() === 5;
-
-      var ramadanActive = false;
-      try{
-        var raw = localStorage.getItem('wwp:ramadan:hijriCheck');
-        if(raw){
-          var cached = JSON.parse(raw);
-          if(cached && cached.dateKey === todayKey) ramadanActive = !!cached.isRamadan;
-        }
-      }catch(e){}
-
-      if(ramadanActive){ document.body.setAttribute('data-event-theme', 'ramadan'); }
-      else if(isFriday){ document.body.setAttribute('data-event-theme', 'jummah'); }
-
-      // Stash the computed values so the banner-visibility script just
-      // below the banners (they don't exist in the DOM yet at this point)
-      // can reuse them without recomputing.
-      window.__wwpEarlyEvent = {ramadanActive: ramadanActive, isFriday: isFriday, todayKey: todayKey};
-    }
-
-    // Match the Android status bar to whichever event theme + base theme
-    // + accent preference is active (see WWP_applyThemeColor, defined in
-    // the script above this one).
-    if(window.WWP_applyThemeColor) window.WWP_applyThemeColor();
-  }catch(e){}
-})();
-</script>
+<script src="/assets/js/boot/shell.js?v=1"></script>
+<script src="/assets/js/boot/event-theme.js?v=1"></script>
 
 <header class="topbar">
 
@@ -888,26 +516,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
   </div>
 </div>
 
-<script>
-// Early banner-visibility resolver — runs right after the banners exist
-// in the DOM but before the hero content below is parsed/painted, so a
-// banner appearing doesn't push the hero image down after first paint.
-(function(){
-  try{
-    var early = window.__wwpEarlyEvent;
-    if(!early) return; // preview mode or resolver bailed out — leave as-is
-
-    if(!early.ramadanActive && early.isFriday){
-      var jb = document.getElementById('jummah-banner');
-      if(jb) jb.classList.remove('hidden');
-    }
-    if(early.ramadanActive){
-      var rb = document.getElementById('ramadan-banner');
-      if(rb) rb.classList.remove('hidden');
-    }
-  }catch(e){}
-})();
-</script>
+<script src="/assets/js/boot/event-banners.js?v=1"></script>
 
 <div id="page-home" class="app-page">
 <main class="page">
@@ -1092,7 +701,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Locate nearby mosques and find the next available Jama'ah.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/find-a-mosque.webp" alt="" loading="lazy">
+        <img src="assets/home/find-a-mosque.webp" alt="" width="750" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
       </div>
     </div>
@@ -1103,7 +712,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Accurate times, Jama'ah info and smart reminders for your day.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/prayer-times.webp" alt="" loading="lazy">
+        <img src="assets/home/prayer-times.webp" alt="" width="750" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 3.5"/></svg></span>
       </div>
     </div>
@@ -1114,7 +723,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Read, listen and reflect with translations and recitations.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/quran.webp" alt="" loading="lazy">
+        <img src="assets/home/quran.webp" alt="" width="750" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg></span>
       </div>
     </div>
@@ -1125,7 +734,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Track your prayers, good deeds and daily reflections.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/journal.webp" alt="" loading="lazy">
+        <img src="assets/home/journal.webp" alt="" width="750" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21 12 17l-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg></span>
       </div>
     </div>
@@ -1136,7 +745,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Timeless supplications and adhkar for every moment.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/dua-dhikr.webp" alt="" loading="lazy">
+        <img src="assets/home/dua-dhikr.webp" alt="" width="624" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11V7a3 3 0 0 1 6 0M11 11V6a3 3 0 0 1 6 0v9a6 6 0 0 1-6 6H9a4 4 0 0 1-3.5-2L3 13.5c-.5-1 0-2.2 1.2-2.4 1-.2 1.9.4 2.3 1.3L7 14"/></svg></span>
       </div>
     </div>
@@ -1147,7 +756,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
         <p>Step-by-step guides for daily acts of worship made simple.</p>
       </div>
       <div class="home-feature-art">
-        <img src="assets/home/guides.webp" alt="" loading="lazy">
+        <img src="assets/home/guides.webp" alt="" width="750" height="500" loading="lazy" decoding="async">
         <span class="home-feature-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21 12 17l-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg></span>
       </div>
     </div>
@@ -2059,7 +1668,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       <input type="text" id="mqManualLocationInput" class="mq-manual-location-input" placeholder="e.g. E1 4NS or Whitechapel" autocomplete="off">
       <button type="submit" class="mq-manual-location-submit">Go</button>
     </form>
-    <div id="mqManualLocationStatus" class="mq-manual-location-status"></div>
+    <div id="mqManualLocationStatus" class="mq-manual-location-status" aria-live="polite"></div>
     <div id="mqList" class="mq-list"></div>
     <button type="button" id="mqResetAllBtn" class="mq-reset-all-btn">Reset usual mosque &amp; favourites</button>
   </div>
@@ -2116,14 +1725,14 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
       <button type="button" class="pt-qibla-card wwp-qibla-card wwp-qibla-trigger" id="ptQiblaCard">
         <div class="pt-qibla-header"><span class="pt-qibla-title">Qiblah Direction</span></div>
         <div class="pt-qibla-compass">
-          <span class="pqc-n">▲</span><span class="pqc-e">+</span><span class="pqc-s">◦</span><span class="pqc-w">+</span>
-          <div class="pt-qibla-needle wwp-qc-needle" id="ptQcNeedle">
+          <span class="pqc-n" aria-hidden="true">▲</span><span class="pqc-e" aria-hidden="true">+</span><span class="pqc-s" aria-hidden="true">◦</span><span class="pqc-w" aria-hidden="true">+</span>
+          <div class="pt-qibla-needle wwp-qc-needle" id="ptQcNeedle" aria-hidden="true">
             <span class="qc-tip"></span>
             <span class="qc-tail"></span>
           </div>
           <div class="pt-qibla-readout"><strong id="ptQiblaDeg">—°</strong><b id="ptQiblaDir">—</b></div>
         </div>
-        <span class="pt-qibla-status wwp-qibla-status" id="ptQiblaStatusLine">Turning on…</span>
+        <span class="pt-qibla-status wwp-qibla-status" id="ptQiblaStatusLine" aria-live="polite">Turning on…</span>
       </button>
 
       <div id="ptNextCard" class="pt-next-card pt-loading-state" aria-busy="true">
@@ -2334,15 +1943,15 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
 
         <button class="tm-card tm-qibla-card wwp-qibla-card wwp-qibla-trigger" id="tmQiblaBtn" type="button">
           <div class="tm-card-title">Qiblah Direction</div>
-          <div class="tm-compass" aria-hidden="true">
-            <span class="tm-compass-n">▲</span><span class="tm-compass-e">+</span><span class="tm-compass-s">◦</span><span class="tm-compass-w">+</span>
-            <div class="tm-compass-needle wwp-qc-needle" id="tmQcNeedle">
+          <div class="tm-compass">
+            <span class="tm-compass-n" aria-hidden="true">▲</span><span class="tm-compass-e" aria-hidden="true">+</span><span class="tm-compass-s" aria-hidden="true">◦</span><span class="tm-compass-w" aria-hidden="true">+</span>
+            <div class="tm-compass-needle wwp-qc-needle" id="tmQcNeedle" aria-hidden="true">
               <span class="tm-qc-tip"></span>
               <span class="tm-qc-tail"></span>
             </div>
             <div class="tm-compass-inner"><strong id="tmQiblaDeg">—°</strong><b id="tmQiblaDir">—</b></div>
           </div>
-          <span class="tm-link wwp-qibla-status" id="tmQiblaStatusLine">Turning on…</span>
+          <span class="tm-link wwp-qibla-status" id="tmQiblaStatusLine" aria-live="polite">Turning on…</span>
         </button>
 
         <article class="tm-card tm-guide-card">
@@ -2574,7 +2183,7 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
   </div>
   <div class="footer-bottom">© <span id="footerYear">2026</span> WhereWePraying? · Built with care, one section at a time. · <a href="/privacy.html" style="color:inherit;text-decoration:underline;">Privacy Policy</a> · <a href="/terms.html" style="color:inherit;text-decoration:underline;">Terms of Service</a> · <a href="/support.html" style="color:inherit;text-decoration:underline;">Support</a></div>
 </footer>
-<script>try{document.getElementById('footerYear').textContent=new Date().getFullYear();}catch(e){}</script>
+
 
 <div class="toast" id="toast"></div>
 
@@ -2599,18 +2208,18 @@ setTimeout(function(){ var l=document.getElementById('bootLoader'); if(l){ l.cla
     </form>
     <p class="welcome-status" id="welcomeStatus"></p>
 
-    <a href="javascript:void(0)" class="welcome-skip" id="welcomeSkip">Or you can just explore. You're already part of the early crew. 🤍</a>
+    <a href="#" role="button" class="welcome-skip" id="welcomeSkip">Or you can just explore. You're already part of the early crew. 🤍</a>
   </div>
 </div>
 
 <!-- Core: needed on every page (router, storage, auth, home, prayer times widgets). -->
-<script src="/assets/js/wwp-core.js?v=20" defer></script>
+<script src="/assets/js/wwp-core.js?v=21" defer></script>
 <script src="/assets/js/services/storage.js?v=2" defer></script>
-<script src="/assets/js/services/platform.js?v=3" defer></script>
-<script src="/assets/js/features/prayer-times.js?v=9" defer></script>
-<script src="/assets/js/services/qibla-compass.js?v=1" defer></script>
+<script src="/assets/js/services/platform.js?v=4" defer></script>
+<script src="/assets/js/features/prayer-times.js?v=10" defer></script>
+<script src="/assets/js/services/qibla-compass.js?v=2" defer></script>
 <script src="/assets/js/features/seasonal-themes.js?v=5" defer></script>
-<script src="/assets/js/services/auth.js?v=5" defer></script>
+<script src="/assets/js/services/auth.js?v=6" defer></script>
 <script src="/assets/js/features/backup-restore.js?v=3" defer></script>
 <script src="/assets/js/features/supporter-checkout.js?v=2" defer></script>
 <script src="/assets/js/services/twinkle.js?v=3" defer></script>

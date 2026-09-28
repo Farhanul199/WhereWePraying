@@ -388,12 +388,12 @@ function renderRoutines(){
       <div class="routine-top">
         <span class="routine-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${icons[r.icon]||icons.sun}"/></svg></span>
         <span class="routine-name">${escapeHtml(r.name)}</span>
-        <span class="routine-edit-link" data-id="${r.id}">Edit</span>
+        <span class="routine-edit-link" data-id="${escapeHtml(r.id)}">Edit</span>
       </div>
-      <div class="routine-steps">${r.steps.map(s=>`<span class="step-chip">${s}</span>`).join('')}</div>
-      <div class="routine-edit-row" style="display:none;" data-edit-for="${r.id}">
-        <input type="text" placeholder="Add a step…" data-new-step="${r.id}">
-        <button data-add-step="${r.id}">Add</button>
+      <div class="routine-steps">${r.steps.map(s=>`<span class="step-chip">${escapeHtml(s)}</span>`).join('')}</div>
+      <div class="routine-edit-row" style="display:none;" data-edit-for="${escapeHtml(r.id)}">
+        <input type="text" placeholder="Add a step…" data-new-step="${escapeHtml(r.id)}">
+        <button data-add-step="${escapeHtml(r.id)}">Add</button>
       </div>
     `;
     list.appendChild(card);

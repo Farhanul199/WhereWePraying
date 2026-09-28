@@ -237,7 +237,8 @@ function escapeHtml(str){
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Shared local-date-key formatter ("YYYY-MM-DD"), used for day-scoped
@@ -258,11 +259,11 @@ function todayKey(){ return dkey(new Date()); }
    ============================================================ */
 const FEATURE_MODULES = {
   quran:   { js:['/assets/js/features/quran.js?v=6'],        css:['/assets/css/features/quran.css?v=1'] },
-  journal: { js:['/assets/js/features/journal.js?v=5'],      css:['/assets/css/features/journal.css?v=2'] },
+  journal: { js:['/assets/js/features/journal.js?v=6'],      css:['/assets/css/features/journal.css?v=2'] },
   dua:     { js:['/assets/js/features/dua.js?v=4'],          css:['/assets/css/features/dua.css?v=1'] },
   guides:  { js:['/assets/js/features/guides.js?v=4'],       css:['/assets/css/features/guides.css?v=2'] },
-  mosque:  { js:['/assets/js/features/find-a-mosque.js?v=16'],css:['/assets/css/features/find-a-mosque.css?v=5'] },
-  travel:  { js:['/assets/js/features/travel-mode.js?v=6'],  css:['/assets/css/features/travel-mode.css?v=5'] },
+  mosque:  { js:['/assets/js/features/find-a-mosque.js?v=17'],css:['/assets/css/features/find-a-mosque.css?v=5'] },
+  travel:  { js:['/assets/js/features/travel-mode.js?v=6'],  css:['/assets/css/features/travel-mode.css?v=6'] },
   community:{js:['/assets/js/features/community.js?v=4'],    css:['/assets/css/features/community.css?v=2'] }
 };
 const loadedModules = new Set();
@@ -928,7 +929,7 @@ document.addEventListener('click', (e) => {
   const closeBtn = document.getElementById('welcomeClose');
   const skipLink = document.getElementById('welcomeSkip');
   if(closeBtn) closeBtn.addEventListener('click', closeWelcome);
-  if(skipLink) skipLink.addEventListener('click', closeWelcome);
+  if(skipLink) skipLink.addEventListener('click', function(e){ e.preventDefault(); closeWelcome(); });
   backdrop.addEventListener('click', function(e){ if(e.target === backdrop) closeWelcome(); });
 
   const form = document.getElementById('welcomeForm');

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v35';
+const CACHE_NAME = 'wwp-v36';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -15,12 +15,19 @@ const OFFLINE_URLS = [
 // actually visited, so a first-time offline visitor still gets a
 // working home + prayer-times experience without downloading everything.
 const CORE_ASSETS = [
-  '/assets/js/wwp-core.js?v=20',
+  // Boot scripts (were inline in index.html until 28 Sep 2026). early.js
+  // hides the boot loader — if it isn't cached, an offline start would
+  // sit on the loader forever, so these MUST stay in this list.
+  '/assets/js/boot/early.js?v=1',
+  '/assets/js/boot/shell.js?v=1',
+  '/assets/js/boot/event-theme.js?v=1',
+  '/assets/js/boot/event-banners.js?v=1',
+  '/assets/js/wwp-core.js?v=21',
   '/assets/js/services/storage.js?v=2',
-  '/assets/js/services/platform.js?v=3',
-  '/assets/js/features/prayer-times.js?v=9',
-  '/assets/js/services/qibla-compass.js?v=1',
-  '/assets/js/services/auth.js?v=5',
+  '/assets/js/services/platform.js?v=4',
+  '/assets/js/features/prayer-times.js?v=10',
+  '/assets/js/services/qibla-compass.js?v=2',
+  '/assets/js/services/auth.js?v=6',
   '/assets/js/services/twinkle.js?v=3',
   '/assets/js/features/seasonal-themes.js?v=5',
   '/assets/js/features/glass-mode.js?v=3',
@@ -29,7 +36,7 @@ const CORE_ASSETS = [
   '/assets/js/features/supporter-checkout.js?v=2',
   '/assets/css/fonts.css?v=1',
   '/assets/fonts/manrope-latin-wght-normal.woff2',
-  '/assets/css/base.css?v=2',
+  '/assets/css/base.css?v=3',
   '/assets/css/features/glass-mode.css?v=1',
   '/assets/css/features/seasonal-themes.css?v=3',
   '/assets/css/layout.css?v=1',
@@ -40,7 +47,7 @@ const CORE_ASSETS = [
   '/assets/css/features/notifications.css?v=3',
   '/assets/css/app.css?v=13',
   '/assets/css/features/home.css?v=3',
-  '/assets/css/features/prayer-times.css?v=2',
+  '/assets/css/features/prayer-times.css?v=3',
   '/assets/css/services/twinkle.css?v=2',
   '/assets/logo.png',
   '/assets/icons/icon-192.png',
@@ -103,7 +110,13 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const target = (e.notification.data && e.notification.data.url) || '/';
+  // Only ever open pages on this site — a push payload can't send the
+  // person to an outside URL (28 Sep 2026).
+  let target = '/';
+  try {
+    const u = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin);
+    if (u.origin === self.location.origin) target = u.href;
+  } catch (_) { /* malformed — fall back to home */ }
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) { if ('focus' in c) { c.navigate(target).catch(()=>0); return c.focus(); } }
@@ -148,6 +161,34 @@ self.addEventListener('sync', (e) => {
   })());
 });
 
+// Network-first, but don't hang on a weak signal (28 Sep 2026): if a
+// cached copy exists and the network hasn't answered within `waitMs`, show
+// the cached copy now and let the network finish in the background to
+// refresh the cache for next time. With no cached copy, waits for the
+// network as before. `networkFn` returns a fetch promise.
+async function networkFirst(e, networkFn, waitMs, fallback) {
+  const cache = await caches.open(CACHE_NAME);
+  const network = networkFn().then((resp) => {
+    if (resp && resp.ok) cache.put(e.request, resp.clone()).catch(() => 0);
+    return resp;
+  });
+  e.waitUntil(network.then(() => 0, () => 0));
+  const cached = await cache.match(e.request);
+  if (!cached) {
+    try { return await network; } catch (_) { return fallback ? fallback(cache) : new Response('', { status: 503 }); }
+  }
+  let timer;
+  const timeout = new Promise((res) => { timer = setTimeout(() => res(null), waitMs); });
+  try {
+    const winner = await Promise.race([network, timeout]);
+    return winner || cached;
+  } catch (_) {
+    return cached;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
@@ -159,16 +200,7 @@ self.addEventListener('fetch', (e) => {
   // Live API data: network-first, cache as fallback for offline.
   // Fresh data wins; cached data is only the offline safety net.
   if (url.hostname === 'api.aladhan.com' || url.hostname === 'api.alquran.cloud') {
-    e.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      try {
-        const response = await fetch(e.request);
-        if (response.ok) await cache.put(e.request, response.clone());
-        return response;
-      } catch (_) {
-        return (await cache.match(e.request)) || new Response('', { status: 503 });
-      }
-    })());
+    e.respondWith(networkFirst(e, () => fetch(e.request), 4000));
     return;
   }
 
@@ -177,18 +209,13 @@ self.addEventListener('fetch', (e) => {
   // to the cached copy only when offline.
   const isAppShell = e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
   if (isAppShell) {
-    e.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      try {
-        // Navigation preload can start while the service worker boots.
-        const preload = e.preloadResponse ? await e.preloadResponse : null;
-        const response = preload || await fetch(e.request);
-        if (response.ok) cache.put(e.request, response.clone()).catch(() => 0);
-        return response;
-      } catch (_) {
-        return (await cache.match(e.request)) || (await cache.match('/index.html')) || (await cache.match('/offline.html')) || new Response('Offline', { status: 503 });
-      }
-    })());
+    e.respondWith(networkFirst(
+      e,
+      // Navigation preload can start while the service worker boots.
+      async () => (e.preloadResponse ? await e.preloadResponse : null) || fetch(e.request),
+      3500,
+      async (cache) => (await cache.match('/index.html')) || (await cache.match('/offline.html')) || new Response('Offline', { status: 503 })
+    ));
     return;
   }
 
@@ -199,16 +226,7 @@ self.addEventListener('fetch', (e) => {
   // This must be checked before the generic /api/ branch below, since that
   // branch would otherwise catch these same paths and skip caching them.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/mosques/')) {
-    e.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      try {
-        const response = await fetch(e.request);
-        if (response.ok) await cache.put(e.request, response.clone());
-        return response;
-      } catch (_) {
-        return (await cache.match(e.request)) || new Response('', { status: 503 });
-      }
-    })());
+    e.respondWith(networkFirst(e, () => fetch(e.request), 5000));
     return;
   }
 

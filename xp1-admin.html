@@ -139,12 +139,15 @@ async function loadList(){
   var html = list.map(function(p, idx){
     return '<div class="prow' + (p.active ? '' : ' inactive') + '">' +
       '<div class="order-btns">' +
-        '<button ' + (idx === 0 ? 'disabled' : '') + ' onclick="move(' + p.id + ',-1)">▲</button>' +
-        '<button ' + (idx === list.length - 1 ? 'disabled' : '') + ' onclick="move(' + p.id + ',1)">▼</button>' +
+        '<button ' + (idx === 0 ? 'disabled' : '') + ' onclick="move(' + Number(p.id) + ',-1)">▲</button>' +
+        '<button ' + (idx === list.length - 1 ? 'disabled' : '') + ' onclick="move(' + Number(p.id) + ',1)">▼</button>' +
       '</div>' +
       '<div class="info"><div class="t">' + escapeHtml(p.title) + '</div><div class="u">' + escapeHtml(p.youtube_url) + '</div></div>' +
-      '<label class="toggle"><input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setActive(' + p.id + ', this.checked)"><span class="track"></span></label>' +
-      '<button class="btn danger small" onclick="removePlaylist(' + p.id + ', \'' + escapeHtml(p.title).replace(/'/g,"\\'") + '\')">Delete</button>' +
+      '<label class="toggle"><input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setActive(' + Number(p.id) + ', this.checked)"><span class="track"></span></label>' +
+      // Title travels in a data attribute, not inside the JS string: an
+      // escaped quote (&#39;) is decoded back to ' before the onclick runs,
+      // so the old in-string escaping could be broken out of. 28 Sep 2026.
+      '<button class="btn danger small" data-title="' + escapeHtml(p.title) + '" onclick="removePlaylist(' + Number(p.id) + ', this.dataset.title)">Delete</button>' +
     '</div>';
   }).join('');
   document.getElementById('plist').innerHTML = html;

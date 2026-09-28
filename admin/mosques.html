@@ -265,7 +265,7 @@
   async function search(q){
     $('results').innerHTML = '<p class="hint">Searching…</p>';
     var data = await api({ url: '/api/mosques/manage?q=' + encodeURIComponent(q), init: { headers: headers() } });
-    if (data.error) { $('results').innerHTML = '<p class="hint">' + data.error + '</p>'; return; }
+    if (data.error) { $('results').innerHTML = '<p class="hint">' + esc(data.error) + '</p>'; return; }
     var list = data.locations || [];
     if (!list.length) { $('results').innerHTML = '<p class="hint">Nothing matched. Try fewer words, or add it as new.</p>'; return; }
     $('results').innerHTML = '';

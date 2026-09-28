@@ -5,17 +5,27 @@
    page and Travel Mode get a live compass independently of each
    other and of which page (if any) the person has opened.
 
-   Drives every element carrying these shared classes, on
-   whichever page(s) they currently exist in the DOM:
-     .wwp-qibla-card     the tappable card/button
-     .wwp-qc-needle       the rotating needle
-     .wwp-qibla-status    the status/instruction line
+   Drives every element carrying these shared classes:
+     .wwp-qibla-card      the tappable card/button
+     .wwp-qc-needle       the rotating needle (inside a card)
+     .wwp-qibla-status    the status/instruction line (inside a card)
      .wwp-qibla-trigger   anything that should also request iOS
                           motion permission on tap
-   Both the Prayer Times card (#ptQiblaCard) and the Travel Mode
-   card (#tmQiblaBtn) already carry these classes, so one listener
-   updates both at once — no per-page wiring needed, and neither
-   page has to load the other's module to get a live needle.
+
+   PERFORMANCE (rewritten 28 Sep 2026):
+   - The motion sensor only runs while a compass card is actually on
+     screen (IntersectionObserver) and the app is in the foreground.
+     It used to run on every page from app start, 60+ times a second.
+   - Screen updates are batched to one per animation frame, and only
+     touch the DOM when something visibly changed (needle moved by
+     ≥0.3°, status text or aligned state flipped). Element lookups are
+     cached per card instead of 3 document-wide queries per sensor event.
+   - The needle angle is "unwrapped", so crossing 359°→0° turns the
+     needle a couple of degrees instead of spinning it a full circle.
+   - The iOS tap-to-allow wiring uses one delegated click listener
+     instead of a MutationObserver watching the whole page.
+   - When a card comes back on screen, the last known heading is drawn
+     immediately — no blank "Turning on…" wait.
    ============================================================ */
 window.WWP_QiblaCompass = (function(){
   const KAABA_LAT = 21.4225, KAABA_LON = 39.8262;
@@ -28,152 +38,228 @@ window.WWP_QiblaCompass = (function(){
     return (Math.atan2(y, x) * 180/Math.PI + 360) % 360;
   }
 
-  // ---- Live device-orientation compass: real heading, popup-free ----
-  // The one thing no web or native app can skip is iOS's own one-time
-  // system permission dialog for motion sensors — that's Apple's OS
-  // prompt, not ours, and it only ever appears once per browser. We
-  // trigger it directly from the person's first tap anywhere so there's
-  // no extra step, modal, or toast in between.
-  let qcWatching=false, qcCurrentQibla=0, qcGotReading=false, qcWatchdog=null, qcSmoothedHeading=null;
+  const hasSensor = typeof window.DeviceOrientationEvent !== 'undefined';
+  const needsIOSPermission = hasSensor && typeof DeviceOrientationEvent.requestPermission === 'function';
+  const SENSOR_EVENT = ('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
 
-  function qcApplyHeading(heading){
-    const rel=((qcCurrentQibla-heading)%360+360)%360;
-    // Signed offset in (-180, 180]: positive = Qiblah is to the
-    // right of where the phone's currently facing, negative = left.
-    const diff = rel > 180 ? rel - 360 : rel;
-    const aligned=Math.abs(diff)<5;
-    document.querySelectorAll('.wwp-qc-needle').forEach(n=>{ n.style.transform='rotate('+rel+'deg)'; });
-    const statusHtml = aligned
-      ? 'Aligned — facing the Qiblah'
-      : 'Turn to your <b>'+(diff>0?'right':'left')+'</b>';
-    document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.innerHTML = statusHtml; });
-    document.querySelectorAll('.wwp-qibla-card').forEach(c=>{ c.classList.toggle('tm-qc-aligned',aligned); });
+  // Fixed status strings. Only these (never data) go through innerHTML.
+  const STATUS_ALIGNED = 'Aligned — facing the Qiblah';
+  const STATUS_RIGHT = 'Turn to your <b>right</b>';
+  const STATUS_LEFT = 'Turn to your <b>left</b>';
+
+  let qibla = 0;               // bearing to the Kaaba from the current location
+  let smoothed = null;         // smoothed device heading, degrees from north
+  let gotReading = false;
+  let listening = false;
+  let sensorAllowed = hasSensor && !needsIOSPermission; // iOS flips this after its prompt
+  let iosSettled = false;      // true once iOS gave a real answer (granted/denied)
+  let message = null;          // plain-text message that replaces the status (no sensor, denied…)
+  let watchdog = null;
+  let rafId = 0;
+  let needleAngle = null;      // unwrapped needle angle (can go past 360 / below 0)
+
+  const visibleCards = new Set();
+  const partsCache = new WeakMap();
+  function parts(card){
+    let p = partsCache.get(card);
+    if(!p){
+      p = {
+        needle: card.querySelector('.wwp-qc-needle'),
+        status: card.querySelector('.wwp-qibla-status'),
+        angle: null, statusKey: null, aligned: null
+      };
+      partsCache.set(card, p);
+    }
+    return p;
   }
 
-  function qcOnOrientation(e){
-    let heading=null;
-    if(typeof e.webkitCompassHeading==='number'){
-      heading=e.webkitCompassHeading; // iOS: already a true, north-referenced compass heading
-    }else if(typeof e.alpha==='number' && e.absolute===true){
+  // ---- Rendering: at most once per frame, only for on-screen cards ----
+  function scheduleRender(){
+    if(!rafId) rafId = requestAnimationFrame(render);
+  }
+
+  function render(){
+    rafId = 0;
+    if(!visibleCards.size) return;
+
+    let statusKey = null, statusHtml = null, aligned = false;
+    if(smoothed !== null){
+      const rel = ((qibla - smoothed) % 360 + 360) % 360;
+      if(needleAngle === null){
+        needleAngle = rel;
+      }else{
+        let d = rel - ((needleAngle % 360) + 360) % 360;
+        if(d > 180) d -= 360; else if(d < -180) d += 360;
+        needleAngle += d;
+      }
+      // Signed offset in (-180, 180]: positive = Qiblah is to the right.
+      const diff = rel > 180 ? rel - 360 : rel;
+      aligned = Math.abs(diff) < 5;
+      statusHtml = aligned ? STATUS_ALIGNED : (diff > 0 ? STATUS_RIGHT : STATUS_LEFT);
+      statusKey = statusHtml;
+    }else if(message){
+      statusKey = 'msg:' + message;
+    }
+
+    visibleCards.forEach(card => {
+      const p = parts(card);
+      if(p.needle && needleAngle !== null && (p.angle === null || Math.abs(p.angle - needleAngle) >= 0.3)){
+        p.angle = needleAngle;
+        p.needle.style.transform = 'rotate(' + needleAngle.toFixed(1) + 'deg)';
+      }
+      if(p.status && statusKey !== null && p.statusKey !== statusKey){
+        p.statusKey = statusKey;
+        if(statusHtml !== null) p.status.innerHTML = statusHtml;
+        else p.status.textContent = message;
+      }
+      if(p.aligned !== aligned){
+        p.aligned = aligned;
+        card.classList.toggle('tm-qc-aligned', aligned);
+      }
+    });
+  }
+
+  function showMessage(text){
+    if(gotReading || message === text) return; // a live heading always wins over a message
+    message = text;
+    scheduleRender();
+  }
+
+  // ---- Sensor ----
+  function onOrientation(e){
+    let heading = null;
+    if(typeof e.webkitCompassHeading === 'number'){
+      heading = e.webkitCompassHeading; // iOS: already a true, north-referenced heading
+    }else if(typeof e.alpha === 'number' && e.absolute === true){
       // Only trust alpha as a true heading when the browser confirms the
       // reading is absolute (north-referenced). Plain `deviceorientation`
       // on many Android browsers fires with absolute:false — alpha there
-      // is relative to an arbitrary starting angle, not north, so using
-      // it unconditionally silently points somewhere confidently wrong
-      // rather than just being unavailable.
-      heading=(360-e.alpha)%360;
+      // is relative to an arbitrary starting angle, not north.
+      heading = (360 - e.alpha) % 360;
     }
-    if(heading===null||isNaN(heading)){
-      if(!qcGotReading){
-        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent='This device can\'t give a true compass heading — try a dedicated compass app.'; });
-      }
+    if(heading === null || isNaN(heading)){
+      showMessage('This device can\'t give a true compass heading — try a dedicated compass app.');
       return;
     }
-    qcGotReading=true;
-    if(qcWatchdog){clearTimeout(qcWatchdog);qcWatchdog=null;}
-
-    // Smooth noisy raw sensor readings with a circular exponential moving
-    // average — naive numeric averaging breaks at the 0°/360° wrap (e.g.
-    // 350° and 10° would naively average to 180°, the opposite direction).
-    if(qcSmoothedHeading===null){
-      qcSmoothedHeading=heading;
-    }else{
-      const rad=Math.PI/180;
-      const sx=Math.sin(qcSmoothedHeading*rad)*0.8 + Math.sin(heading*rad)*0.2;
-      const cx=Math.cos(qcSmoothedHeading*rad)*0.8 + Math.cos(heading*rad)*0.2;
-      qcSmoothedHeading=(Math.atan2(sx,cx)*180/Math.PI+360)%360;
+    if(!gotReading){
+      gotReading = true;
+      message = null;
+      if(watchdog){ clearTimeout(watchdog); watchdog = null; }
     }
-    qcApplyHeading(qcSmoothedHeading);
+
+    // Circular exponential moving average — plain numeric averaging breaks
+    // at the 0°/360° wrap (350° and 10° would average to 180°).
+    if(smoothed === null){
+      smoothed = heading;
+    }else{
+      const rad = Math.PI/180;
+      const sx = Math.sin(smoothed*rad)*0.8 + Math.sin(heading*rad)*0.2;
+      const cx = Math.cos(smoothed*rad)*0.8 + Math.cos(heading*rad)*0.2;
+      smoothed = (Math.atan2(sx, cx)*180/Math.PI + 360) % 360;
+    }
+    scheduleRender();
   }
 
-  function qcBeginListening(){
-    if(qcWatching) return;
-    qcGotReading=false;
-    qcSmoothedHeading=null;
-    const evt=('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
-    window.addEventListener(evt,qcOnOrientation,true);
-    qcWatching=true;
-    if(qcWatchdog) clearTimeout(qcWatchdog);
-    qcWatchdog=setTimeout(()=>{
-      if(!qcGotReading){
-        const msg = location.protocol!=='https:'
-          ? 'Compass needs https to work.'
-          : 'No compass sensor found on this device.';
-        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent=msg; });
-      }
-    },2500);
+  function startSensor(){
+    if(listening) return;
+    window.addEventListener(SENSOR_EVENT, onOrientation, true);
+    listening = true;
+    if(!gotReading && !watchdog){
+      watchdog = setTimeout(() => {
+        watchdog = null;
+        if(!gotReading){
+          showMessage(location.protocol !== 'https:' ? 'Compass needs https to work.' : 'No compass sensor found on this device.');
+        }
+      }, 2500);
+    }
   }
 
-  function qcRefreshBearing(){
-    const st=window.PrayerTimes?.getState?.()||{};
-    const loc=st.location||{};
-    qcCurrentQibla=bearing(Number(loc.lat||51.5074),Number(loc.lon||-0.1278));
+  function stopSensor(){
+    if(!listening) return;
+    window.removeEventListener(SENSOR_EVENT, onOrientation, true);
+    listening = false;
+    if(watchdog){ clearTimeout(watchdog); watchdog = null; }
   }
 
-  // Runs once, automatically, no tap required — works immediately on
-  // Android/desktop browsers that don't gate the sensor behind permission.
-  function qcAutoStart(){
-    qcRefreshBearing();
-    if(typeof window.DeviceOrientationEvent==='undefined') return;
-    if(typeof DeviceOrientationEvent.requestPermission==='function') return; // iOS: needs a tap (below)
-    qcBeginListening();
+  // Sensor runs only when it's allowed, a compass is on screen, and the
+  // app is in the foreground. Everything else is battery for nothing.
+  function updateSensor(){
+    const want = sensorAllowed && visibleCards.size > 0 && !document.hidden;
+    if(want) startSensor(); else stopSensor();
+    if(visibleCards.size) scheduleRender();
   }
 
+  // ---- Which cards are on screen ----
+  const io = ('IntersectionObserver' in window) ? new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if(en.isIntersecting) visibleCards.add(en.target);
+      else visibleCards.delete(en.target);
+    });
+    updateSensor();
+  }, { rootMargin: '200px 0px' }) : null; // start just before the card scrolls into view
+
+  const observed = new WeakSet();
+  function scanCards(){
+    document.querySelectorAll('.wwp-qibla-card').forEach(card => {
+      if(observed.has(card)) return;
+      observed.add(card);
+      if(io) io.observe(card);
+      else visibleCards.add(card); // very old browsers: behave like before (always on)
+    });
+    if(!io) updateSensor();
+  }
+
+  document.addEventListener('visibilitychange', updateSensor);
+  // Pages are swapped in by the SPA router — pick up any compass card
+  // that wasn't in the DOM yet (cheap: only runs on page change).
+  window.addEventListener('wwp-page-shown', scanCards);
+
+  // ---- Bearing from the person's location ----
+  function refreshBearing(){
+    const st = window.PrayerTimes?.getState?.() || {};
+    const loc = st.location || {};
+    const q = bearing(Number(loc.lat || 51.5074), Number(loc.lon || -0.1278));
+    if(q !== qibla){ qibla = q; scheduleRender(); }
+  }
+
+  // ---- iOS motion permission ----
   // iOS Safari gates the motion sensor behind its own one-time system
-  // prompt, and that prompt can only be triggered from inside a real,
-  // synchronous tap — that's an OS rule, not something this app can turn
-  // off. But the tap doesn't have to land on the compass itself: the
-  // person's location is already in use the moment they open the app, so
-  // we ask for motion access on their FIRST tap anywhere, whatever they
-  // were already tapping (a nav icon, a button — anything). By the time
-  // they actually open Qiblah it's normally already live, with nothing
-  // for them to press. The compass card's own tap handler stays as a
-  // fallback for the rare case that first tap didn't count (e.g. it hit
-  // an element mid-navigation) or the person dismissed the system prompt
-  // and wants to retry.
-  let qcPermissionSettled=false; // true once we have a real answer: granted, or the person said no
-  async function qcRequestIOSPermission(){
-    if(qcPermissionSettled || qcWatching) return;
-    if(typeof window.DeviceOrientationEvent==='undefined' || typeof DeviceOrientationEvent.requestPermission!=='function') return;
+  // prompt, which can only be triggered from inside a real tap. We ask on
+  // the person's FIRST tap anywhere, so by the time they open Qiblah it's
+  // normally already live. Tapping a compass card also retries.
+  async function requestIOSPermission(){
+    if(!needsIOSPermission || iosSettled) return;
     try{
-      qcRefreshBearing();
-      const res=await DeviceOrientationEvent.requestPermission(); // must be the first await after the tap - it is
-      if(res==='granted'){ qcPermissionSettled=true; qcBeginListening(); }
-      else if(res==='denied'){
-        qcPermissionSettled=true;
-        document.querySelectorAll('.wwp-qibla-status').forEach(l=>{ l.textContent='Compass access is off for this site — turn on Motion & Orientation Access in Settings ▸ Safari, then reopen the app.'; });
+      const res = await DeviceOrientationEvent.requestPermission(); // must be the first await after the tap
+      if(res === 'granted'){
+        iosSettled = true;
+        sensorAllowed = true;
+        message = 'Turning on…';
+        updateSensor();
+      }else if(res === 'denied'){
+        iosSettled = true;
+        showMessage('Compass access is off for this site — turn on Motion & Orientation Access in Settings ▸ Safari, then reopen the app.');
       }
-      // any other result (e.g. the browser silently ignored an untrusted
-      // event): leave qcPermissionSettled false so the next real tap,
-      // including the card itself, gets another try.
-    }catch(err){ /* not treated as settled — the compass card can still be tapped directly */ }
+      // Any other result (browser ignored an untrusted event): not settled,
+      // so the next real tap — including the card itself — tries again.
+    }catch(err){ /* not settled — the compass card can still be tapped */ }
   }
-  // Capture phase + {once:true}: fires on the very next real tap anywhere
-  // in the document, ahead of that element's own click handler, and only
-  // ever once — it unregisters itself whether or not it succeeded, so a
-  // denial or an unrelated click never asks twice.
-  document.addEventListener('click', qcRequestIOSPermission, {capture:true, once:true});
-
-  function wireTapTargets(){
-    document.querySelectorAll('.wwp-qibla-trigger').forEach(btn=>{
-      if(btn.__wwpQcWired) return;
-      btn.__wwpQcWired = true;
-      btn.addEventListener('click', ()=>{ qcRequestIOSPermission(); });
+  if(needsIOSPermission){
+    document.addEventListener('click', requestIOSPermission, {capture:true, once:true});
+    document.addEventListener('click', e => {
+      if(e.target && e.target.closest && e.target.closest('.wwp-qibla-trigger')) requestIOSPermission();
     });
   }
-  wireTapTargets();
-  // The Travel Mode card is injected later (lazy feature bundle), so
-  // re-wire whenever new DOM shows up carrying the trigger class.
-  new MutationObserver(wireTapTargets).observe(document.body, {childList:true, subtree:true});
 
-  qcAutoStart();
+  refreshBearing();
+  if(!hasSensor) message = 'No compass sensor found on this device.';
+  else if(needsIOSPermission) message = 'Tap to turn on the compass.';
+  scanCards();
 
-  // Keep the live bearing fresh whenever location/method/etc. changes —
-  // e.g. the person corrects their location while Qiblah is already
-  // live — without needing a page-specific render loop to push updates.
+  // Keep the bearing fresh whenever location changes.
   if(window.PrayerTimes && typeof window.PrayerTimes.subscribe === 'function'){
-    window.PrayerTimes.subscribe(qcRefreshBearing);
+    window.PrayerTimes.subscribe(refreshBearing);
   }
 
-  return { bearing: bearing, refreshBearing: qcRefreshBearing };
+  return { bearing: bearing, refreshBearing: refreshBearing };
 })();

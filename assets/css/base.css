@@ -110,4 +110,8 @@ svg{display:block;}
 }
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{scroll-behavior:auto !important;}
+  /* 28 Sep 2026: also stop decorative animations/transitions for people
+     who ask their device for less motion. Durations become near-zero
+     (not 0) so any JS waiting on animationend/transitionend still runs. */
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
 }

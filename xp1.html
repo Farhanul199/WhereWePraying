@@ -294,6 +294,10 @@
 </style>
 <!-- QR code generator (kazuhikoarase/qrcode-generator, MIT) — built in so Settings never waits on a download -->
 <script>
+// HTML-escape any text from the network before it goes into innerHTML
+// (mosque names/times come from third-party scraped sources). 28 Sep 2026.
+function xpEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
 //---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript
@@ -3232,13 +3236,13 @@ window.XP1Weather = (function(){
     // Meteocons animate forever. On a weak TV, show one still frame instead.
     if(window.XP1 && XP1.lite) freezeIcon(iconSrc, iconEl); else iconEl.src = iconSrc;
     iconEl.alt = w.cond.text;
-    document.getElementById('weatherHiLo').innerHTML = 'H: ' + (w.hi != null ? w.hi + '°' : '--°') + '<br>L: ' + (w.lo != null ? w.lo + '°' : '--°');
+    document.getElementById('weatherHiLo').innerHTML = 'H: ' + (w.hi != null ? xpEsc(w.hi) + '°' : '--°') + '<br>L: ' + (w.lo != null ? xpEsc(w.lo) + '°' : '--°');
     var hourlyEl = document.getElementById('weatherHourly');
     hourlyEl.innerHTML = '';
     w.hourly.forEach(function(h){
       var div = document.createElement('div');
       div.className = 'h';
-      div.innerHTML = h.label + '<div class="t">' + h.temp + '°</div>';
+      div.innerHTML = xpEsc(h.label) + '<div class="t">' + xpEsc(h.temp) + '°</div>';
       hourlyEl.appendChild(div);
     });
     var banner = document.getElementById('umbrellaBanner');
@@ -3617,15 +3621,15 @@ window.XP1Mosques = (function(){
     var nextHtml;
     if(m.next){
       var label = { fajr:'Fajr', zuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }[m.next.prayer] || m.next.prayer;
-      nextHtml = '<div class="next">' + label + ' ' + m.next.time + '</div>';
+      nextHtml = '<div class="next">' + xpEsc(label) + ' ' + xpEsc(m.next.time) + '</div>';
     } else {
       nextHtml = '<div class="next unconfirmed">Jama\u2019ah not confirmed</div>';
     }
     el.innerHTML =
       (isBackup ? '<div class="mymosque-badge backup">BACK UP</div>' : '<div class="mymosque-badge">★ MAIN MOSQUE</div>') +
       '<div class="m-body">' +
-        '<div class="name">' + m.name + '</div>' +
-        '<div class="dist">' + m.distanceMiles + ' mi · ' + (function(t){ return (t.mode === 'walk' ? '🚶 ' : '🚗 ') + t.minutes + ' min'; })(travelEstimate(m.distanceMiles)) + '</div>' +
+        '<div class="name">' + xpEsc(m.name) + '</div>' +
+        '<div class="dist">' + xpEsc(m.distanceMiles) + ' mi · ' + (function(t){ return (t.mode === 'walk' ? '🚶 ' : '🚗 ') + t.minutes + ' min'; })(travelEstimate(m.distanceMiles)) + '</div>' +
       '</div>' +
       nextHtml +
       leaveByHtml(m);

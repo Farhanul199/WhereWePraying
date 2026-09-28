@@ -682,8 +682,8 @@
 
     $('sourceTabs').innerHTML = sources.map(function(s){
       var label = (SOURCE_CONFIG[s.source] && SOURCE_CONFIG[s.source].label) || s.source;
-      return '<button class="tab' + (s.source === SOURCE ? ' on' : '') + '" data-src="' + s.source + '">' +
-             label + ' · ' + (s.total || 0) + '</button>';
+      return '<button class="tab' + (s.source === SOURCE ? ' on' : '') + '" data-src="' + esc(s.source) + '">' +
+             esc(label) + ' · ' + esc(s.total || 0) + '</button>';
     }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
       b.addEventListener('click', function(){ SOURCE = b.dataset.src; refresh(); });
@@ -766,19 +766,19 @@
       '<tr><th>Country</th><th>Mosques</th><th>With times</th></tr>' +
       (countries.length
         ? countries.map(function(c){
-            return '<tr><td>' + c.country + '</td><td>' + c.total + '</td><td>' + c.with_times + '</td></tr>';
+            return '<tr><td>' + esc(c.country) + '</td><td>' + esc(c.total) + '</td><td>' + esc(c.with_times) + '</td></tr>';
           }).join('')
         : '<tr><td colspan="3" class="hint">Nothing collected yet.</td></tr>');
 
     var keepCc = $('promoteCountry').dataset.src === SOURCE ? $('promoteCountry').value : (SOURCE === 'mawaqit' ? 'GB' : '');
     $('promoteCountry').dataset.src = SOURCE;
     $('promoteCountry').innerHTML = '<option value="">All countries</option>' +
-      countries.map(function(c){ return '<option value="' + c.country + '">' + c.country + ' (' + c.total + ')</option>'; }).join('');
+      countries.map(function(c){ return '<option value="' + esc(c.country) + '">' + esc(c.country) + ' (' + esc(c.total) + ')</option>'; }).join('');
     if (keepCc && countries.some(function(c){ return c.country === keepCc; })) $('promoteCountry').value = keepCc;
     $('promoteCountryRow').style.display = countries.length > 1 ? '' : 'none';
 
     $('dlCountry').innerHTML = '<option value="">All countries</option>' +
-      countries.map(function(c){ return '<option value="' + c.country + '">' + c.country + ' (' + c.total + ')</option>'; }).join('');
+      countries.map(function(c){ return '<option value="' + esc(c.country) + '">' + esc(c.country) + ' (' + esc(c.total) + ')</option>'; }).join('');
 
     var pct = s.total ? Math.round((s.with_times / s.total) * 100) : 0;
     $('bar').style.width = pct + '%';
@@ -1231,7 +1231,7 @@
     manual: 'Manual (fallback)', ditib: 'DITIB', muslimsinbritain: 'MuslimsInBritain', calculated: 'Calculated (estimated)'
   };
   function srcLabel(s){ return SOURCE_LABELS[s] || s; }
-  function prayerCell(v){ return '<td class="prayer-cell' + (v ? '' : ' blank') + '">' + (v || '\u2014') + '</td>'; }
+  function prayerCell(v){ return '<td class="prayer-cell' + (v ? '' : ' blank') + '">' + (v ? esc(v) : '\u2014') + '</td>'; }
 
   async function searchInspect(){
     var q = $('inspectSearch').value.trim();
@@ -1841,8 +1841,8 @@
     t.querySelector('tbody').innerHTML =
       '<tr><th>Name</th><th>ID</th><th>Country</th><th>Error</th><th>Last checked</th></tr>' +
       (rows.length ? rows.map(function(r){
-        return '<tr><td>' + (r.name || '—') + '</td><td>' + r.source_ref + '</td><td>' + (r.country || '') + '</td><td>' +
-               (r.error || '—') + '</td><td>' + relTime(r.last_seen) + '</td></tr>';
+        return '<tr><td>' + esc(r.name || '—') + '</td><td>' + esc(r.source_ref) + '</td><td>' + esc(r.country || '') + '</td><td>' +
+               esc(r.error || '—') + '</td><td>' + esc(relTime(r.last_seen)) + '</td></tr>';
       }).join('') : '<tr><td colspan="5" class="hint">No failed rows right now.</td></tr>');
     say($('failedStatus'), 'Showing ' + rows.length + ' failed ' + (rows.length === 1 ? 'mosque' : 'mosques') +
       (rows.length >= 1000 ? ' (capped at 1,000 — download the CSV for the full set)' : '') + '.');
@@ -1974,9 +1974,9 @@
     t.querySelector('tbody').innerHTML =
       '<tr><th>Name</th><th>City</th><th>Coordinates</th><th>Times</th></tr>' +
       (rows.length ? rows.map(function(r){
-        return '<tr><td>' + (r.name || r.source_ref) + '</td><td>' + (r.city || '') + '</td><td>' +
+        return '<tr><td>' + esc(r.name || r.source_ref) + '</td><td>' + esc(r.city || '') + '</td><td>' +
                (r.lat != null ? r.lat.toFixed(4) + ', ' + r.lon.toFixed(4) : '—') + '</td><td>' +
-               (r.times_status === 'ok' ? (r.iqama_enabled ? 'jama\'ah' : 'adhan only') : r.times_status) + '</td></tr>';
+               (r.times_status === 'ok' ? (r.iqama_enabled ? 'jama\'ah' : 'adhan only') : esc(r.times_status)) + '</td></tr>';
       }).join('') : '<tr><td colspan="4" class="hint">Nothing yet.</td></tr>');
     say($('dlStatus'), 'Showing ' + rows.length + ' of them.');
   });

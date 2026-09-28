@@ -639,7 +639,7 @@
     // email addresses shouldn't show up in a name label regardless of
     // which list this is rendering.
     const label = escapeHtml(entry.username || 'Someone') + (extraLabel || '');
-    return `<img src="${src}" class="${avatarClass}" alt=""><span class="${nameClass}">${label}</span>`;
+    return `<img src="${escapeHtml(src)}" class="${avatarClass}" alt=""><span class="${nameClass}">${label}</span>`;
   }
 
   async function addFriend() {
