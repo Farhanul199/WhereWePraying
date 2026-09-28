@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v36';
+const CACHE_NAME = 'wwp-v37';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -25,7 +25,7 @@ const CORE_ASSETS = [
   '/assets/js/wwp-core.js?v=21',
   '/assets/js/services/storage.js?v=2',
   '/assets/js/services/platform.js?v=4',
-  '/assets/js/features/prayer-times.js?v=10',
+  '/assets/js/features/prayer-times.js?v=11',
   '/assets/js/services/qibla-compass.js?v=2',
   '/assets/js/services/auth.js?v=6',
   '/assets/js/services/twinkle.js?v=3',
@@ -246,12 +246,17 @@ self.addEventListener('fetch', (e) => {
   // Serve the cached copy instantly, then refresh the cache in the
   // background so the *next* load auto-picks up any change — no manual
   // cache-name bump ever needed.
+  // Cross-origin requests not handled above (geocoders, postcodes.io,
+  // weather…) are left to the browser: routing them through here turned a
+  // failed/CORS-blocked request into "Failed to convert value to
+  // 'Response'" because the fallback was `undefined`. (28 Sep 2026)
+  if (url.origin !== self.location.origin && !url.hostname.endsWith('fonts.gstatic.com') && !url.hostname.endsWith('fonts.googleapis.com')) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request).then(resp => {
         if (resp.status === 200) caches.open(CACHE_NAME).then(c => c.put(e.request, resp.clone()));
         return resp;
-      }).catch(() => cached);
+      }).catch(() => cached || Response.error());
       return cached || network;
     })
   );
