@@ -56,3 +56,5 @@
   X-Robots-Tag: noindex
 /404.html
   X-Robots-Tag: noindex
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8

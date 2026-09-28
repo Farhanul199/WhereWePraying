@@ -5,6 +5,8 @@
 // GET  ?status=open|actioned|dismissed|all   (default open)
 //      -> { reports: [...] } grouped per reported item, newest first,
 //         with how many people reported it and whether it still exists.
+// GET  ?status=banned -> { banned: [{ id, username, email, banned_at }] }
+// POST { action:'unban', userId }
 // POST { targetType, targetId, decision }
 //      decision: 'dismiss'    -> keep the post, close its reports
 //                'remove'     -> delete the post, close its reports
@@ -27,6 +29,19 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const status = url.searchParams.get('status') || 'open';
   const db = context.env.DB;
+
+  // Banned accounts list (28 Sep 2026).
+  if (status === 'banned') {
+    try {
+      const { results } = await db.prepare(
+        `SELECT id, username, email, banned_at FROM users WHERE banned_at IS NOT NULL ORDER BY banned_at DESC LIMIT 500`
+      ).all();
+      return json({ banned: results || [] });
+    } catch (e) {
+      console.error('banned list failed', e);
+      return json({ error: 'Failed to load banned accounts.' }, 500);
+    }
+  }
 
   try {
     const where = status === 'all' ? '' : 'WHERE r.status = ?1';
@@ -74,6 +89,19 @@ export async function onRequestPost(context) {
 
   let body;
   try { body = await context.request.json(); } catch (e) { return json({ error: 'Invalid body' }, 400); }
+
+  if (body.action === 'unban') {
+    const userId = String(body.userId || '');
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(userId)) return json({ error: 'Invalid user' }, 400);
+    try {
+      await db.prepare(`UPDATE users SET banned_at = NULL WHERE id = ?1`).bind(userId).run();
+      return json({ success: true });
+    } catch (e) {
+      console.error('unban failed', e);
+      return json({ error: 'Failed to unban.' }, 500);
+    }
+  }
+
   const table = TABLES[body.targetType];
   const targetId = parseInt(body.targetId, 10);
   const decision = body.decision;

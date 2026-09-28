@@ -55,6 +55,7 @@
       <button data-status="actioned">Removed</button>
       <button data-status="dismissed">Dismissed</button>
       <button data-status="all">All</button>
+      <button data-status="banned">Banned</button>
       <button id="refreshBtn">Refresh</button>
     </div>
     <div id="list"><p class="empty">Loading…</p></div>
@@ -97,6 +98,11 @@
       var data = await res.json();
       if(res.status === 401){ list.innerHTML = '<p class="empty">Wrong key. Reload the page and try again.</p>'; return; }
       if(!res.ok){ list.innerHTML = '<p class="empty">' + esc(data.error || 'Failed to load.') + '</p>'; return; }
+      if(STATUS === 'banned'){
+        var bans = data.banned || [];
+        list.innerHTML = bans.length ? bans.map(bannedCard).join('') : '<p class="empty">No banned accounts.</p>';
+        return;
+      }
       var rows = data.reports || [];
       if(!rows.length){ list.innerHTML = '<p class="empty">Nothing here. 🎉</p>'; return; }
       list.innerHTML = rows.map(card).join('');
@@ -124,7 +130,32 @@
     '</div>';
   }
 
+  function bannedCard(u){
+    return '<div class="box" data-user="' + esc(u.id) + '"><div class="head"><div>' +
+      '<b>' + esc(u.username || '(no username)') + '</b><div class="meta">' + esc(u.email) + '</div></div>' +
+      '<div class="meta">Banned ' + esc(when(u.banned_at)) + '</div></div>' +
+      '<div class="actions"><button data-unban="1">Unban</button></div></div>';
+  }
+
   $('list').addEventListener('click', async function(e){
+    var unban = e.target.closest('[data-unban]');
+    if(unban){
+      var ubox = unban.closest('.box');
+      if(!confirm('Let this person post again?')) return;
+      unban.disabled = true;
+      try{
+        var ures = await fetch('/api/admin/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Broadcast-Key': KEY },
+          body: JSON.stringify({ action: 'unban', userId: ubox.dataset.user })
+        });
+        var udata = await ures.json();
+        if(!ures.ok){ alert(udata.error || 'Failed.'); unban.disabled = false; return; }
+        ubox.remove();
+        if(!$('list').children.length) $('list').innerHTML = '<p class="empty">No banned accounts.</p>';
+      }catch(err){ alert('Network error.'); unban.disabled = false; }
+      return;
+    }
     var btn = e.target.closest('[data-decision]');
     if(!btn) return;
     var box = btn.closest('.box');

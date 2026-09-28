@@ -1,38 +1,19 @@
 // functions/api/session.js
 // GET /api/session — fetch current session
 // POST /api/session — signout (delete session)
+//      body { all: true } — sign out on every device (28 Sep 2026)
 
-import { getCookie } from '../_lib/session.js';
+import { getCookie, resolveSession, revokeAllSessions } from '../_lib/session.js';
 
 export async function onRequestGet(context) {
   try {
-    const cookies = context.request.headers.get('cookie') || '';
-    const sessionId = getCookie(cookies, 'wwp_session');
-
-    if (!sessionId) {
+    // resolveSession also rejects expired and signed-out-everywhere
+    // sessions (28 Sep 2026 — this used to read KV directly and skip that).
+    const session = await resolveSession(context);
+    if (!session || !session.userId) {
       return new Response(JSON.stringify({ authenticated: false }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const sessionData = await context.env.SESSIONS.get(sessionId);
-
-    if (!sessionData) {
-      return new Response(JSON.stringify({ authenticated: false }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const session = JSON.parse(sessionData);
-
-    // Check expiry
-    if (new Date(session.expiresAt) < new Date()) {
-      await context.env.SESSIONS.delete(sessionId);
-      return new Response(JSON.stringify({ authenticated: false }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
 
@@ -73,6 +54,13 @@ export async function onRequestPost(context) {
   try {
     const cookies = context.request.headers.get('cookie') || '';
     const sessionId = getCookie(cookies, 'wwp_session');
+
+    let all = false;
+    try { all = !!((await context.request.json()) || {}).all; } catch (e) { /* plain sign-out has no body */ }
+    if (all) {
+      const session = await resolveSession(context);
+      if (session && session.userId) await revokeAllSessions(context.env, session.userId);
+    }
 
     if (sessionId) {
       await context.env.SESSIONS.delete(sessionId);

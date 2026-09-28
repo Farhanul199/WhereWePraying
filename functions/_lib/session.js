@@ -23,6 +23,22 @@ export function getCookie(cookieHeader, name) {
   return null;
 }
 
+// Sessions can't be looked up by user, so revoking works by time: the
+// KV key revoke:<userId> holds a timestamp, and any session created at or
+// before it is rejected. Kept 8 days (sessions last 7).
+export const REVOKE_TTL_SECONDS = 8 * 24 * 60 * 60;
+
+export async function revokeAllSessions(env, userId) {
+  await env.SESSIONS.put(`revoke:${userId}`, String(Date.now()), { expirationTtl: REVOKE_TTL_SECONDS });
+}
+
+async function isRevoked(env, session) {
+  const at = await env.SESSIONS.get(`revoke:${session.userId}`);
+  if (!at) return false;
+  const created = Date.parse(session.createdAt || '');
+  return !Number.isFinite(created) || created <= parseInt(at, 10);
+}
+
 export async function resolveSession(context) {
   try {
     const cookieHeader = context.request.headers.get('cookie') || '';
@@ -32,8 +48,9 @@ export async function resolveSession(context) {
     if (!raw) return null;
     const session = JSON.parse(raw);
     if (new Date(session.expiresAt) < new Date()) return null;
-    // Account deleted on another device: this session is dead too.
-    if (session.userId && await context.env.SESSIONS.get(`deleted_user:${session.userId}`)) return null;
+    // "Sign out everywhere" or account deletion: every session created
+    // before that moment is dead, on every device (28 Sep 2026).
+    if (session.userId && await isRevoked(context.env, session)) return null;
     // sessionId is included so callers that need to invalidate the
     // session (e.g. account deletion, logout) don't have to re-parse the
     // cookie themselves. Harmless extra field for everyone else.

@@ -142,6 +142,11 @@
 
     const signOutBtn = document.getElementById(SIGN_OUT_BTN_ID);
     if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+    const signOutAllBtn = document.getElementById('signOutAllBtn');
+    if (signOutAllBtn) signOutAllBtn.addEventListener('click', () => {
+      if (!confirm('Sign out on every phone, tablet and computer, including this one?')) return;
+      signOut(true);
+    });
     wireDeleteAccountUI();
 
     const closeBtn = document.getElementById(CLOSE_POPUP_BTN_ID);
@@ -878,12 +883,13 @@
     }
   }
 
-  async function signOut() {
+  async function signOut(everywhere) {
     try {
       const res = await fetch('/api/session', {
         method: 'POST',
-        headers: { 'X-Device-Id': window.WWP?.deviceId || '' },
+        headers: { 'X-Device-Id': window.WWP?.deviceId || '', 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ all: everywhere === true }),
       });
 
       if (res.ok) {

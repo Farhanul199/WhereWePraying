@@ -11,10 +11,10 @@
 //
 // Each delete runs on its own so one missing/renamed table can't stop the
 // rest. The users row goes last. Photo files are removed from R2 too.
-// Every other signed-in device is logged out via a "deleted" marker that
-// _lib/session.js checks (sessions can't be looked up by user).
+// Every other signed-in device is logged out via revokeAllSessions()
+// in _lib/session.js (sessions can't be looked up by user).
 
-import { resolveSession } from '../../_lib/session.js';
+import { resolveSession, revokeAllSessions } from '../../_lib/session.js';
 
 function json(payload, status, extraHeaders) {
   return new Response(JSON.stringify(payload), {
@@ -99,7 +99,7 @@ export async function onRequestPost(context) {
   // 3) Log out this device and every other one.
   try {
     if (session.sessionId) await env.SESSIONS.delete(session.sessionId);
-    await env.SESSIONS.put(`deleted_user:${userId}`, '1', { expirationTtl: 8 * 24 * 60 * 60 });
+    await revokeAllSessions(env, userId);
   } catch (e) {
     // non-fatal — account rows are already gone
   }
