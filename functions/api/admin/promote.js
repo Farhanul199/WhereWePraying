@@ -329,7 +329,8 @@ async function overview(db) {
                              OR (times_updated_at IS NOT NULL AND (compiled_at IS NULL OR compiled_at < times_updated_at)))
                        THEN 1 ELSE 0 END) AS times_waiting,
               MAX(promoted_at) AS last_promoted_at,
-              MAX(compiled_at) AS last_times_at
+              MAX(compiled_at) AS last_times_at,
+              MAX(times_updated_at) AS last_collected_at
          FROM source_discoveries GROUP BY source ORDER BY source`
     ).bind(soon),
     db.prepare(
@@ -351,9 +352,20 @@ async function overview(db) {
                   WHERE t.date = ?1)) AS with_times_today`
     ).bind(today, today.slice(0, 7)),
   ]);
+  // MasjidBox / MyMasjid sync into jamaah_raw under their own source names,
+  // so source_discoveries never sees their collection time - read it there.
+  const sources = bySource.results || [];
+  for (const r of sources) {
+    const alias = DAILY_SYNC_SOURCE[r.source];
+    if (!alias) continue;
+    try {
+      const x = await db.prepare(`SELECT MAX(updated_at) AS t FROM jamaah_raw WHERE source = ?1`).bind(alias).first();
+      if (x && x.t && (!r.last_collected_at || x.t > r.last_collected_at)) r.last_collected_at = x.t;
+    } catch (e) { /* leave as is */ }
+  }
   return {
     today,
-    sources: (bySource.results || []).map((r) => ({
+    sources: sources.map((r) => ({
       ...r,
       promote_done: (r.ready || 0) === 0 && ((r.promoted || 0) + (r.linked || 0)) > 0,
       times_done: (r.times_waiting || 0) === 0 && (r.times_sent || 0) > 0,

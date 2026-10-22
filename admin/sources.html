@@ -1439,7 +1439,7 @@
       html += '<div class="pg-issue' + (i.info ? ' info' : '') + '" style="--c:' + i.color + '"><div class="txt"><div class="ttl">' + esc(i.title) + '</div><div class="fix">' + i.fix + '</div></div>' +
               (act ? '<div class="act">' + act + '</div>' : '') + '</div>';
     });
-    html += '<div class="pg-foot"><span class="pg-when">' + (busy ? 'Working… keep this tab open.' : '') + '</span>' +
+    html += '<div class="pg-foot"><span class="pg-when">' + (busy ? 'Working… keep this tab open.' : 'Last put live: ' + (r.last_promoted_at ? relTime(r.last_promoted_at) : 'never') + ' · Times last prepared: ' + (r.last_times_at ? relTime(r.last_times_at) : 'never')) + '</span>' +
             (r.promoted ? '<button data-do="undo" data-src="' + esc(src) + '"' + (busy ? ' disabled' : '') + '>Undo last batch</button>' : '') + '</div>';
     return html + '</div>';
   }
@@ -1597,7 +1597,7 @@
 
       return '<div class="pg-card' + (r.source === SOURCE ? ' cur' : '') + (isOpen ? ' open' : '') + '" data-card="' + esc(r.source) + '">' +
         '<div class="pg-head pg-click" data-src="' + esc(r.source) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"><span class="pg-name">' + esc(label) + '<span class="pg-chev">\u25BC</span></span>' + badge +
-          '<span class="pg-when">' + (isOpen ? '' : '<span class="pg-tap">' + (issuesFor(r).some(function(i){ return i.act; }) ? 'Tap to fix' : 'Tap for details') + '</span> \u00B7 ') + 'Last action: ' + (r.last_promoted_at ? relTime(r.last_promoted_at) : 'never') + '</span></div>' +
+          '<span class="pg-when">' + (isOpen ? '' : '<span class="pg-tap">' + (issuesFor(r).some(function(i){ return i.act; }) ? 'Tap to fix' : 'Tap for details') + '</span> \u00B7 ') + (r.last_collected_at ? 'Data refreshed ' + relTime(r.last_collected_at) : 'No data collected yet') + '</span></div>' +
         '<div class="pg-row"><div class="pg-lab"><span>Mosques live</span><b>' + fmt(promoted + linked) + ' of ' + fmt(total) + ' (' + listPct + '%)</b></div>' +
           '<div class="pg-bar">' + seg('g', promoted, total, 'New mosques live') + seg('l', linked, total, 'Linked to an existing mosque') +
             seg('a', ready, total, 'Ready, waiting to go live') + seg('r', geo, total, 'Need coordinates') + seg('n', other, total, 'Unusable / excluded') + '</div>' +
