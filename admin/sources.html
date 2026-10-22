@@ -171,6 +171,31 @@
   .pg-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;color:var(--muted);}
   .pg-key span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--c);}
   .pg-key b{color:var(--text);}
+  /* ---- clickable source cards + fix panel ---- */
+  .pg-click{cursor:pointer;border-radius:12px;margin:-6px -8px 0;padding:6px 8px;position:relative;}
+  .pg-click:hover{background:#FBF6F1;}
+  .pg-click:focus-visible{outline:2px solid var(--coral);outline-offset:1px;}
+  .pg-chev{display:inline-block;transition:transform .2s;color:var(--muted);margin-left:6px;font-size:12px;}
+  .pg-card.open .pg-chev{transform:rotate(180deg);}
+  .pg-tap{font-size:12px;color:var(--coral);font-weight:700;}
+  .pg-panel{margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;display:grid;gap:10px;}
+  .pg-issue{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:#FFFCFA;flex-wrap:wrap;}
+  .pg-issue .txt{flex:1 1 260px;min-width:0;}
+  .pg-issue .ttl{font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;}
+  .pg-issue .ttl::before{content:'';width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;}
+  .pg-issue .fix{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45;}
+  .pg-issue .fix b{color:var(--text);}
+  .pg-issue .act{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:170px;}
+  .pg-issue .act select{font-size:13px;padding:7px 8px;}
+  .pg-issue .act button{padding:9px 14px;font-size:13px;}
+  .pg-issue.info{background:#fff;}
+  .pg-issue.fine{border-color:var(--ok);background:#F6FBF8;}
+  .pg-msg{font-size:13px;border-radius:10px;padding:9px 12px;}
+  .pg-msg.ok{background:#F6FBF8;color:var(--ok);border:1px solid var(--ok);}
+  .pg-msg.err{background:#FFF1EE;color:var(--warn);border:1px solid var(--warn);}
+  .pg-msg.run{background:#FFF6EE;color:var(--text);border:1px solid #E8A24A;}
+  .pg-foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;}
+  .pg-foot button{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0;}
 </style>
 </head>
 <body>
@@ -706,6 +731,7 @@
       }
     });
 
+    SUMMARY_SOURCES = sources;
     $('sourceTabs').innerHTML = sources.map(function(s){
       var label = (SOURCE_CONFIG[s.source] && SOURCE_CONFIG[s.source].label) || s.source;
       return '<button class="tab' + (s.source === SOURCE ? ' on' : '') + '" data-src="' + esc(s.source) + '">' +
@@ -1346,22 +1372,185 @@
 
   function tick(done){ return done ? ' \u2713' : ''; }
 
-  async function loadOverview(){
-    var d = await api('/api/admin/promote?action=overview');
-    if (d.error) { $('progressCards').innerHTML = '<p class="hint">' + esc(d.error) + '</p>'; return; }
-    OVERVIEW = d;
-    var rows = d.sources || [];
-    var byKey = {};
-    rows.forEach(function(r){ byKey[r.source] = r; });
-    // tick the tabs so you can see at a glance which sources are done
-    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
-      var r = byKey[b.dataset.src];
-      if (!r) return;
-      var marks = (r.promote_done ? ' \u25CF' : (r.promoted || r.linked ? ' \u25D0' : '')) + (r.times_done ? ' \u23F1' : '');
-      b.textContent = b.textContent + marks;
-      b.title = (r.promote_done ? 'All ready mosques are live' : (r.promoted ? r.ready + ' still waiting to go live' : 'Nothing put live yet')) +
-                (r.times_sent ? ' · times sent for ' + r.times_sent : '');
+  /* ------------------------------------------- source cards: fixes */
+  var OPEN_SRC = null;          // which card is expanded
+  var CARD_MSG = {};            // last result message per source: {text, kind}
+  var CARD_CC = {};             // chosen country per source for "put live"
+  var SUMMARY_SOURCES = [];     // from refresh(), for country lists
+
+  function srcLabel(src){ return (SOURCE_CONFIG[src] && SOURCE_CONFIG[src].label) || src; }
+
+  // What's wrong with this source, what we suggest, and which button fixes it.
+  function issuesFor(r){
+    var n = function(x){ return Number(x) || 0; };
+    var ready = n(r.ready), geo = n(r.needs_geocode), tWait = n(r.times_waiting), tNone = n(r.times_none);
+    var linked = n(r.linked), total = n(r.total);
+    var other = Math.max(0, total - n(r.promoted) - linked - ready - geo);
+    var out = [];
+    if (ready) out.push({ key:'promote', color:'#E8A24A', n:ready, title:ready.toLocaleString('en-GB') + ' ready to go live',
+      fix:'These have a name and a map location but aren’t on the site yet. <b>Suggested fix:</b> put them live in batches. Anything that matches a mosque already on the site is linked to it instead of duplicated. Live within the hour after the next cache rebuild.',
+      act:'promote' });
+    if (geo) out.push({ key:'geocode', color:'#E36B5A', n:geo, title:geo.toLocaleString('en-GB') + ' need coordinates',
+      fix:'No map location, so they can’t go live. <b>Suggested fix:</b> look the addresses up on OpenStreetMap (about 1 a second, so it’s slow — keep this tab open). Ones it can’t find stay here for a manual edit.',
+      act:'geocode' });
+    if (tWait) out.push({ key:'times', color:'#E8A24A', n:tWait, title:tWait.toLocaleString('en-GB') + ' waiting for prayer times to be prepared',
+      fix:'Their times are collected but not yet on the live pages. <b>Suggested fix:</b> prepare each mosque’s monthly timetable (runs across every source, ~120 at a time).' + (ready ? ' Put the ready mosques live first so their times are prepared in the same pass.' : ''),
+      act:'times' });
+    if (tNone) out.push({ key:'none', color:'#D8CDC4', n:tNone, title:tNone.toLocaleString('en-GB') + ' have no times in the source',
+      fix:'The source itself publishes no jama’ah times for these. They still appear on the site as “No live prayer time”. <b>Suggested fix:</b> nothing to press here — another source may fill them (run matching), or turn on the calculated-Maghrib fallback.',
+      act:'tab', actLabel:'Open ' + srcLabel(r.source) + ' tab' });
+    if (other) out.push({ key:'other', color:'#D8CDC4', n:other, title:other.toLocaleString('en-GB') + ' unusable',
+      fix:'No name or location, or deliberately excluded (e.g. Imamia Mission London). <b>Suggested fix:</b> none needed — they’re left out on purpose.', act:null, info:true });
+    if (linked) out.push({ key:'linked', color:'#7DBF9F', n:linked, title:linked.toLocaleString('en-GB') + ' linked to an existing mosque',
+      fix:'Same mosque as one already on the site, so this source’s times attach to that listing automatically. Nothing to do.', act:null, info:true });
+    return out;
+  }
+
+  function panelFor(r){
+    var src = r.source;
+    var issues = issuesFor(r);
+    var actionable = issues.filter(function(i){ return i.act; });
+    var busy = promoteBusy;
+    var msg = CARD_MSG[src];
+    var html = '<div class="pg-panel">';
+    if (msg) html += '<div class="pg-msg ' + msg.kind + '">' + esc(msg.text) + '</div>';
+    if (!actionable.length) {
+      html += '<div class="pg-issue fine"><div class="txt"><div class="ttl" style="--c:#2E7D5B">Nothing needs fixing</div>' +
+              '<div class="fix">Every usable mosque from this source is live and its times are prepared.</div></div></div>';
+    }
+    issues.forEach(function(i){
+      var act = '';
+      if (i.act === 'promote') {
+        var entry = SUMMARY_SOURCES.filter(function(x){ return x.source === src; })[0];
+        var cs = (entry && entry.countries) || [];
+        var cc = CARD_CC[src] != null ? CARD_CC[src] : (src === 'mawaqit' ? 'GB' : '');
+        if (cs.length > 1) {
+          act += '<select data-cc="' + esc(src) + '"' + (busy ? ' disabled' : '') + '><option value="">All countries</option>' +
+            cs.map(function(c){ return '<option value="' + esc(c.country) + '"' + (c.country === cc ? ' selected' : '') + '>' + esc(c.country) + ' (' + esc(c.total) + ')</option>'; }).join('') + '</select>';
+        }
+        act += '<button data-do="promote" data-src="' + esc(src) + '"' + (busy ? ' disabled' : '') + '>Put live</button>';
+      } else if (i.act === 'geocode') {
+        act = '<button data-do="geocode" data-src="' + esc(src) + '"' + (busy ? ' disabled' : '') + '>Find coordinates</button>';
+      } else if (i.act === 'times') {
+        act = '<button data-do="times" data-src="' + esc(src) + '"' + (busy ? ' disabled' : '') + '>Prepare times</button>';
+      } else if (i.act === 'tab') {
+        act = '<button class="ghost" data-do="tab" data-src="' + esc(src) + '">' + esc(i.actLabel) + '</button>';
+      }
+      html += '<div class="pg-issue' + (i.info ? ' info' : '') + '" style="--c:' + i.color + '"><div class="txt"><div class="ttl">' + esc(i.title) + '</div><div class="fix">' + i.fix + '</div></div>' +
+              (act ? '<div class="act">' + act + '</div>' : '') + '</div>';
     });
+    html += '<div class="pg-foot"><span class="pg-when">' + (busy ? 'Working… keep this tab open.' : '') + '</span>' +
+            (r.promoted ? '<button data-do="undo" data-src="' + esc(src) + '"' + (busy ? ' disabled' : '') + '>Undo last batch</button>' : '') + '</div>';
+    return html + '</div>';
+  }
+
+  function cardSay(src, text, kind){
+    CARD_MSG[src] = { text: text, kind: kind || 'ok' };
+    renderProgress();
+  }
+
+  async function cardPromote(src){
+    var cc = CARD_CC[src] != null ? CARD_CC[src] : (src === 'mawaqit' ? 'GB' : '');
+    if (!cc && src === 'mawaqit' && !confirm('No country picked — this puts EVERY Mawaqit mosque worldwide live, which can push the site past its free limits. Continue anyway?')) return;
+    if (!confirm('Put every ready ' + srcLabel(src) + ' mosque' + (cc ? ' in ' + cc : '') + ' on the live site?')) return;
+    promoteBusy = true;
+    var created = 0, linked = 0, skipped = 0, failed = null;
+    for (var round = 0; round < 60; round++) {
+      cardSay(src, 'Putting mosques live… ' + created + ' added · ' + linked + ' linked so far.', 'run');
+      var d = await postPromote({ action: 'promote', source: src, limit: 150, country: cc || null });
+      if (d.error || d.ok === false) { failed = d.error || (d.errors || []).join(' | ') || 'Failed.'; break; }
+      if (!d.processed) break;
+      created += d.created || 0; linked += d.linked || 0; skipped += d.excluded || 0;
+      await wait(7000); // admin API allows 10 requests/min
+    }
+    promoteBusy = false;
+    CARD_MSG[src] = failed ? { text: failed + ' (' + created + ' added before it stopped)', kind: 'err' }
+      : { text: 'Done — ' + created + ' new live mosques · ' + linked + ' linked to existing' + (skipped ? ' · ' + skipped + ' skipped' : '') + '. Map updates after the next cache rebuild. Prepare their times next.', kind: 'ok' };
+    refresh();
+  }
+
+  async function cardGeocode(src){
+    promoteBusy = true;
+    var exact = 0, approx = 0, missed = 0, blockedRuns = 0, failed = null;
+    for (var round = 0; round < 80; round++) {
+      cardSay(src, 'Finding coordinates… ' + (exact + approx) + ' found · ' + missed + ' not found. Keep this tab open.', 'run');
+      var d = await postPromote({ action: 'geocode', source: src, limit: 20 });
+      if (d.error) { failed = d.error; break; }
+      exact += d.exact || 0; approx += d.approx || 0; missed += d.notFound || 0;
+      if (!d.attempted && !d.stoppedEarly) break;
+      if (d.stoppedEarly && !d.attempted) { if (++blockedRuns >= 3) { failed = 'The address lookup service is refusing requests right now — try again later.'; break; } }
+      else blockedRuns = 0;
+      await wait(d.stoppedEarly ? 30000 : 7000);
+    }
+    promoteBusy = false;
+    CARD_MSG[src] = failed ? { text: failed, kind: 'err' }
+      : { text: 'Coordinates done — ' + exact + ' exact · ' + approx + ' postcode-level · ' + missed + ' not found. Press Put live to add them.', kind: 'ok' };
+    refresh();
+  }
+
+  async function cardTimes(src){
+    promoteBusy = true;
+    var withTimes = 0, without = 0, failed = null;
+    for (var round = 0; round < 80; round++) {
+      cardSay(src, 'Preparing prayer times… ' + withTimes + ' mosques done so far.', 'run');
+      var d = await postPromote({ action: 'prepare_times', limit: 120 });
+      if (d.error) { failed = d.error; break; }
+      withTimes += d.withTimes || 0; without += d.without || 0;
+      if (!d.checked || !d.stillToPrepare) break;
+      await wait(7000);
+    }
+    promoteBusy = false;
+    CARD_MSG[src] = failed ? { text: failed, kind: 'err' }
+      : { text: 'Ready — ' + withTimes + ' mosques now serve their own jama’ah times' + (without ? ' · ' + without + ' had no reliable times (shown as “No live prayer time”)' : '') + '. Live within the hour.', kind: 'ok' };
+    refresh();
+  }
+
+  async function cardUndo(src){
+    if (!confirm('Undo the last ' + srcLabel(src) + ' batch? Mosques it added are removed from the live list.')) return;
+    promoteBusy = true; renderProgress();
+    var d = await postPromote({ action: 'undo', source: src });
+    promoteBusy = false;
+    CARD_MSG[src] = d.error ? { text: d.error, kind: 'err' }
+      : { text: d.rows ? 'Undone — ' + d.removed + ' mosques removed, ' + d.rows + ' rows back in the holding pen.' : (d.message || 'Nothing to undo.'), kind: 'ok' };
+    refresh();
+  }
+
+  (function wireCards(){
+    var box = $('progressCards');
+    function toggle(el){
+      var src = el.dataset.src;
+      OPEN_SRC = OPEN_SRC === src ? null : src;
+      renderProgress();
+    }
+    box.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-do]');
+      if (btn) {
+        if (btn.disabled) return;
+        var src = btn.dataset.src, what = btn.dataset.do;
+        if (what === 'tab') { SOURCE = src; refresh(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        if (promoteBusy) return;
+        if (what === 'promote') cardPromote(src);
+        else if (what === 'geocode') cardGeocode(src);
+        else if (what === 'times') cardTimes(src);
+        else if (what === 'undo') cardUndo(src);
+        return;
+      }
+      if (e.target.closest('select')) return;
+      var head = e.target.closest('.pg-click');
+      if (head) toggle(head);
+    });
+    box.addEventListener('keydown', function(e){
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('pg-click')) { e.preventDefault(); toggle(e.target); }
+    });
+    box.addEventListener('change', function(e){
+      var sel = e.target.closest('select[data-cc]');
+      if (sel) CARD_CC[sel.dataset.cc] = sel.value;
+    });
+  })();
+
+  function renderProgress(){
+    var d = OVERVIEW; if (!d) return;
+    var rows = d.sources || [];
     var site = d.site || {};
     var n0 = function(x){ return Number(x) || 0; };
     var fmt = function(x){ return n0(x).toLocaleString('en-GB'); };
@@ -1391,6 +1580,7 @@
       var promoted = n0(r.promoted), linked = n0(r.linked), ready = n0(r.ready), geo = n0(r.needs_geocode);
       var total = n0(r.total);
       var other = Math.max(0, total - promoted - linked - ready - geo);
+      var isOpen = OPEN_SRC === r.source;
       var done = r.promote_done, started = promoted + linked > 0;
       var badge = (done && geo) ? '<span class="pg-badge mid">' + fmt(geo) + ' need coordinates</span>'
                 : done ? '<span class="pg-badge">All live ✓</span>'
@@ -1405,18 +1595,38 @@
             key([['times sent', tSent, COL.g], ['waiting to prepare', tWait, COL.a], ['no times in source', tNone, COL.n]]) + '</div>'
         : '<div class="pg-row"><div class="pg-lab"><span>Prayer times</span><b>none from this source</b></div></div>';
 
-      return '<div class="pg-card' + (r.source === SOURCE ? ' cur' : '') + '">' +
-        '<div class="pg-head"><span class="pg-name">' + esc(label) + '</span>' + badge +
-          '<span class="pg-when">Last action: ' + (r.last_promoted_at ? relTime(r.last_promoted_at) : 'never') + '</span></div>' +
+      return '<div class="pg-card' + (r.source === SOURCE ? ' cur' : '') + (isOpen ? ' open' : '') + '" data-card="' + esc(r.source) + '">' +
+        '<div class="pg-head pg-click" data-src="' + esc(r.source) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"><span class="pg-name">' + esc(label) + '<span class="pg-chev">\u25BC</span></span>' + badge +
+          '<span class="pg-when">' + (isOpen ? '' : '<span class="pg-tap">' + (issuesFor(r).some(function(i){ return i.act; }) ? 'Tap to fix' : 'Tap for details') + '</span> \u00B7 ') + 'Last action: ' + (r.last_promoted_at ? relTime(r.last_promoted_at) : 'never') + '</span></div>' +
         '<div class="pg-row"><div class="pg-lab"><span>Mosques live</span><b>' + fmt(promoted + linked) + ' of ' + fmt(total) + ' (' + listPct + '%)</b></div>' +
           '<div class="pg-bar">' + seg('g', promoted, total, 'New mosques live') + seg('l', linked, total, 'Linked to an existing mosque') +
             seg('a', ready, total, 'Ready, waiting to go live') + seg('r', geo, total, 'Need coordinates') + seg('n', other, total, 'Unusable / excluded') + '</div>' +
           key([['live', promoted, COL.g], ['linked to existing', linked, COL.l], ['ready to go live', ready, COL.a], ['need coordinates', geo, COL.r], ['unusable', other, COL.n]]) + '</div>' +
-        timesBlock + '</div>';
+        timesBlock + (isOpen ? panelFor(r) : '') + '</div>';
     });
     $('progressCards').innerHTML = top + '<div class="pg-list">' + cards.join('') + '</div>';
     $('siteLine').textContent = (site.live_from_sources || 0).toLocaleString('en-GB') + ' of the live mosques came from this Sources page' +
       (site.set_aside ? ' · ' + site.set_aside + ' old mosques set aside' : '') + '. Tab marks: ● all live · ⏱ times sent.';
+  }
+
+  async function loadOverview(){
+    var d = await api('/api/admin/promote?action=overview');
+    if (d.error) { $('progressCards').innerHTML = '<p class="hint">' + esc(d.error) + '</p>'; return; }
+    OVERVIEW = d;
+    var rows = d.sources || [];
+    var byKey = {};
+    rows.forEach(function(r){ byKey[r.source] = r; });
+    // tick the tabs so you can see at a glance which sources are done
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
+      var r = byKey[b.dataset.src];
+      if (!r) return;
+      var marks = (r.promote_done ? ' \u25CF' : (r.promoted || r.linked ? ' \u25D0' : '')) + (r.times_done ? ' \u23F1' : '');
+      b.textContent = b.textContent + marks;
+      b.title = (r.promote_done ? 'All ready mosques are live' : (r.promoted ? r.ready + ' still waiting to go live' : 'Nothing put live yet')) +
+                (r.times_sent ? ' · times sent for ' + r.times_sent : '');
+    });
+    renderProgress();
+    var site = d.site || {};
     $('restoreBtn').style.display = site.set_aside ? '' : 'none';
   }
 
