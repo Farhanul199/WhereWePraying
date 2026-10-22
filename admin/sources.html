@@ -253,6 +253,7 @@
         <button class="ghost" id="undoPromoteBtn">Undo last batch</button>
         <button class="ghost" id="sidelineBtn">Set old mosques aside</button>
         <button class="ghost" id="restoreBtn">Bring old mosques back</button>
+        <button class="ghost" id="fixNamesBtn">Fix event-style names</button>
       </div>
       <p class="hint">
         <b>Promote all ready</b> — the first half of Step 2 on its own (listings, no times).<br>
@@ -1894,6 +1895,23 @@
     if (d.error) { say($('rebuildStatus'), d.error, true); return; }
     say($('rebuildStatus'), d.hidden + ' old mosques set aside — ' + d.stillLive + ' live now. Areas refresh within the hour.');
     loadOverview();
+  });
+
+  $('fixNamesBtn').addEventListener('click', async function(){
+    $('fixNamesBtn').disabled = true;
+    var p = await postPromote({ action: 'fix_generic_names', dryRun: true });
+    if (p.error) { $('fixNamesBtn').disabled = false; say($('rebuildStatus'), p.error, true); return; }
+    if (!p.changes.length) {
+      $('fixNamesBtn').disabled = false;
+      say($('rebuildStatus'), 'No event-style names to fix.' + (p.skipped.length ? ' ' + p.skipped.length + ' need a manual edit: ' + p.skipped.map(function(x){ return x.name + ' (' + x.slug + ')'; }).join(', ') : ''));
+      return;
+    }
+    var list = p.changes.map(function(c){ return c.from + '  →  ' + c.to; }).join('\n');
+    if (!confirm('Rename ' + p.changes.length + ' mosque(s)?\n\n' + list)) { $('fixNamesBtn').disabled = false; return; }
+    var d = await postPromote({ action: 'fix_generic_names' });
+    $('fixNamesBtn').disabled = false;
+    if (d.error) { say($('rebuildStatus'), d.error, true); return; }
+    say($('rebuildStatus'), d.renamed + ' renamed.' + (d.skipped.length ? ' ' + d.skipped.length + ' need a manual edit: ' + d.skipped.map(function(x){ return x.name + ' (' + x.slug + ')'; }).join(', ') : ''));
   });
 
   $('restoreBtn').addEventListener('click', async function(){
