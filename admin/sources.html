@@ -196,6 +196,14 @@
   .pg-msg.run{background:#FFF6EE;color:var(--text);border:1px solid #E8A24A;}
   .pg-foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;}
   .pg-foot button{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0;}
+  details.help{margin:6px 0 0;}
+  details.help > summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--coral);list-style:none;display:inline-block;}
+  details.help > summary::-webkit-details-marker{display:none;}
+  details.help > summary::before{content:'\24D8\00a0';}
+  details.help[open] > summary{margin-bottom:2px;}
+  details.help > p.hint{margin-top:4px;}
+  #moreTools > summary{background:#FBF6F1;}
+  #moreTools[open] > summary{margin-bottom:6px;}
 </style>
 </head>
 <body>
@@ -294,6 +302,8 @@
       <div id="progressCards"></div>
       <p class="hint" id="siteLine"></p>
 
+      <details class="collapse" id="moreTools">
+        <summary>More tools — fixing, matching locations, duplicates</summary>
       <p class="step-label">Fixing things</p>
       <div class="actions">
         <button class="ghost" id="promoteBtn">Promote all ready</button>
@@ -344,11 +354,16 @@
       <div class="status" id="dupStatus"></div>
       <table id="dupTable" class="hidden"><tbody></tbody></table>
 
+      </details>
+
       <p class="hint">Pressing a go-live button is your sign-off. Each mosque is either added as a new listing, or linked to a live mosque it duplicates (same spot, or same name + postcode) so its times attach there instead. Each mosque serves its own stored timetable — nothing is copied per day, and any area a visitor opens gets itself ready automatically. New listings appear as each area refreshes, within the hour.</p>
     </div>
 
     <h2 class="sec sec--orange"><span class="tag">Config</span>By country</h2>
-    <table id="countryTable"><tbody></tbody></table>
+    <details class="collapse" id="countryWrap">
+      <summary id="countrySummary">Show countries</summary>
+      <table id="countryTable"><tbody></tbody></table>
+    </details>
 
     <div class="row" id="calcMaghribRow" style="align-items:center;gap:10px;margin-top:14px;">
       <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
@@ -588,6 +603,23 @@
     return data;
   }
 
+  /* ---- keep the page short: long explanations hide behind a small toggle ---- */
+  (function tidyHints(){
+    var skip = { promoteNote:1, discoverHint:1, coverageNote:1, workerHint:1, manualAllHint:1, siteLine:1 };
+    Array.prototype.forEach.call(document.querySelectorAll('p.hint'), function(p){
+      if (p.id && skip[p.id]) return;
+      if (p.closest('details.help')) return;
+      if ((p.textContent || '').length < 150) return;
+      var d = document.createElement('details');
+      d.className = 'help';
+      var sm = document.createElement('summary');
+      sm.textContent = 'What\u2019s this?';
+      p.parentNode.insertBefore(d, p);
+      d.appendChild(sm);
+      d.appendChild(p);
+    });
+  })();
+
   /* ---------------------------------------------------------- unlock */
   $('unlockBtn').addEventListener('click', function(){
     var v = $('secretInput').value.trim();
@@ -814,6 +846,9 @@
     $('failedStatus').textContent = '';
 
     var countries = s.countries || [];
+    $('countrySummary').textContent = countries.length
+      ? countries.length + (countries.length === 1 ? ' country' : ' countries') + ' \u00B7 ' + countries.reduce(function(a, c){ return a + (Number(c.total) || 0); }, 0).toLocaleString('en-GB') + ' mosques \u2014 tap to show'
+      : 'No countries yet';
     $('countryTable').querySelector('tbody').innerHTML =
       '<tr><th>Country</th><th>Mosques</th><th>With times</th></tr>' +
       (countries.length
