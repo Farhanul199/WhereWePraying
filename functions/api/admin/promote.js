@@ -32,6 +32,10 @@
 //        -> hides every mosque that did NOT come from the Sources page, so
 //           the live site shows source-page data only. Reversible.
 //   POST { action:'restore' }  -> brings those back.
+//   POST { action:'fix_generic_names', dryRun? }
+//        -> renames live mosques named after a prayer event ("Jumu'ah
+//           Salaah") to the venue in their address, e.g. "Jack Cornwell
+//           Community Centre (Jumu'ah only)". Skips locked names.
 //   POST { action:'undo', source }
 //        -> removes the mosques created by this source's LAST batch and
 //           puts those rows back in the holding pen. Only touches rows
@@ -160,6 +164,43 @@ function titleCase(s) {
 
 const UK_PC = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
 
+// Some sources list a prayer EVENT as if it were the venue - e.g. a
+// community centre hosting Friday prayer appears as "Jumu'ah Salaah".
+// A name made only of these words says nothing about the place, so the
+// venue is taken from the address instead.
+const EVENT_WORDS = new Set([
+  'jumuah', 'jumua', 'jummah', 'jumah', 'juma', 'jumma', 'jumaa', 'jumaah', 'jumu', 'friday',
+  'salaah', 'salah', 'salat', 'salaat', 'prayer', 'prayers', 'namaz', 'namaaz',
+  'congregation', 'congregational', 'khutbah', 'khutba', 'service', 'eid', 'taraweeh', 'tarawih',
+  'jamaah', 'jamat', 'jamaat', 'daily', 'weekly', 'only', 'and', 'the',
+]);
+const FRIDAY_WORDS = /^(jumu?'?a+h?|jumm?ah?|jumma|jumaa?h?|jumu|friday|khutbah?)$/;
+
+function eventWords(name) {
+  return fold(name).toLowerCase().replace(/['’`]/g, '').replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+}
+function isEventName(name) {
+  const w = eventWords(name);
+  return w.length > 0 && w.every((x) => EVENT_WORDS.has(x));
+}
+function venueFromAddress(address) {
+  const parts = String(address || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const first = parts[0];
+  if (UK_PC.test(first) && parts.length === 1) return null;
+  // "12 High Street" is a street, not a venue name
+  if (/^\d/.test(first)) return `Prayer space, ${first}`;
+  return first;
+}
+// Returns a better name, or null when the name is fine / nothing better is known.
+function venueName(name, address) {
+  if (!isEventName(name)) return null;
+  const venue = venueFromAddress(address);
+  if (!venue) return null;
+  const friday = eventWords(name).some((x) => FRIDAY_WORDS.test(x));
+  return friday ? `${venue} (Jumu'ah only)` : venue;
+}
+
 // Map one holding-pen row to live mosque fields. raw_json fills gaps
 // (DITIB keeps city/postcode/website there; MuslimsInBritain keeps the
 // postcode inside the address).
@@ -171,8 +212,9 @@ function mapRow(r) {
   if (!postcode && address) { const m = address.toUpperCase().match(UK_PC); if (m) postcode = m[1] + ' ' + m[2]; }
   const city = titleCase(r.city || raw.city || raw.town || '') || null;
   const website = r.site || raw.website || raw.site || null;
+  const rawName = String(r.name || '').replace(/\s{2,}/g, ' ').trim();
   return {
-    name: String(r.name || '').replace(/\s{2,}/g, ' ').trim(),
+    name: venueName(rawName, address) || rawName,
     address, postcode: postcode ? String(postcode).trim() : null,
     city, country: (r.country || raw.country_code || '').toUpperCase() || null,
     website: website ? String(website).trim().replace(/\/+$/, '') : null,
@@ -378,6 +420,29 @@ async function status(db, source) {
   ).bind(source, londonTodayIso().slice(0, 7)).first();
   if (DAILY_SYNC_SOURCE[source]) row.times_due = await dailySourceTimesDue(db, DAILY_SYNC_SOURCE[source]);
   return { source, blocked: BLOCKED_SOURCES[source] || null, ...row };
+}
+
+/* ------------------------------------------------------- generic names */
+
+// Renames live mosques whose name is only a prayer event ("Jumu'ah Salaah")
+// to the venue from their address. Never touches a name Farhanul locked.
+async function fixGenericNames(db, dryRun) {
+  const { results } = await db.prepare(
+    `SELECT slug, name, address, locked_fields FROM mosques WHERE merged_into IS NULL`
+  ).all();
+  const changes = [];
+  const skipped = [];
+  for (const m of results || []) {
+    if (!isEventName(m.name)) continue;
+    const locked = String(m.locked_fields || '').split(',').map((x) => x.trim()).includes('name');
+    const better = venueName(m.name, m.address);
+    if (locked || !better) { skipped.push({ slug: m.slug, name: m.name, address: m.address, why: locked ? 'name locked' : 'no venue in address' }); continue; }
+    changes.push({ slug: m.slug, from: m.name, to: better });
+  }
+  if (!dryRun && changes.length) {
+    await db.batch(changes.map((c) => db.prepare(`UPDATE mosques SET name=?1 WHERE slug=?2`).bind(c.to, c.slug)));
+  }
+  return { ok: true, dryRun: !!dryRun, renamed: dryRun ? 0 : changes.length, changes, skipped };
 }
 
 /* --------------------------------------------------------------- promote */
@@ -624,7 +689,15 @@ export async function onRequestGet(context) {
         return json({ ok: false, failure: String(e).slice(0, 500) });
       }
     }
-    if (!source) return json({ error: 'source is required' }, 400);
+    if (body.action === 'fix_generic_names') {
+    try {
+      await ensureSchema(db);
+      const r = await fixGenericNames(db, body.dryRun === true);
+      if (r.renamed) r.areasCleared = await clearTodaysAreas(context.env);
+      return json(r);
+    } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
+  }
+  if (!source) return json({ error: 'source is required' }, 400);
     if (action === 'preview') {
       const limit = Math.min(parseInt(p.get('limit') || '50', 10) || 50, MAX_PROMOTE);
       const [rows, live] = await Promise.all([nextRows(db, source, p.get('country'), limit), loadLive(db)]);
