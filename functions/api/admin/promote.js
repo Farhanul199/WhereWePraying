@@ -689,15 +689,7 @@ export async function onRequestGet(context) {
         return json({ ok: false, failure: String(e).slice(0, 500) });
       }
     }
-    if (body.action === 'fix_generic_names') {
-    try {
-      await ensureSchema(db);
-      const r = await fixGenericNames(db, body.dryRun === true);
-      if (r.renamed) r.areasCleared = await clearTodaysAreas(context.env);
-      return json(r);
-    } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
-  }
-  if (!source) return json({ error: 'source is required' }, 400);
+    if (!source) return json({ error: 'source is required' }, 400);
     if (action === 'preview') {
       const limit = Math.min(parseInt(p.get('limit') || '50', 10) || 50, MAX_PROMOTE);
       const [rows, live] = await Promise.all([nextRows(db, source, p.get('country'), limit), loadLive(db)]);
@@ -756,6 +748,14 @@ export async function onRequestPost(context) {
     try {
       await ensureSchema(db);
       return json(body.action === 'sideline' ? await sideline(db, body.keepThm !== false) : await restore(db));
+    } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
+  }
+  if (body.action === 'fix_generic_names') {
+    try {
+      await ensureSchema(db);
+      const r = await fixGenericNames(db, body.dryRun === true);
+      if (r.renamed) r.areasCleared = await clearTodaysAreas(context.env);
+      return json(r);
     } catch (e) { return json({ error: 'db_error', message: String(e) }, 500); }
   }
   if (!source) return json({ error: 'source is required' }, 400);
