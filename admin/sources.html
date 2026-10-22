@@ -1392,7 +1392,8 @@
       var total = n0(r.total);
       var other = Math.max(0, total - promoted - linked - ready - geo);
       var done = r.promote_done, started = promoted + linked > 0;
-      var badge = done ? '<span class="pg-badge">All live ✓</span>'
+      var badge = (done && geo) ? '<span class="pg-badge mid">' + fmt(geo) + ' need coordinates</span>'
+                : done ? '<span class="pg-badge">All live ✓</span>'
                 : (started ? '<span class="pg-badge mid">' + fmt(ready) + ' to go</span>' : '<span class="pg-badge idle">Not started</span>');
       var listPct = pct(promoted + linked, total).toFixed(0);
 
