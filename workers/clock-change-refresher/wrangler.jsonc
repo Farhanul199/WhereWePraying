@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clock-change-refresher",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "keep_vars": true,
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "wherewepraying-db", "database_id": "d38751de-0d94-4ccb-9c15-e3b1f94de6ee" }
+  ],
+  "vars": { "SITE_URL": "https://wherewepraying.com" },
+  "triggers": { "crons": ["*/10 * * * *"] }
+}

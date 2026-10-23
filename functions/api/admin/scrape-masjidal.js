@@ -32,6 +32,7 @@
 //   per-mosque endpoint, 200ms spacing (5 req/sec, gentle on an
 //   unverified-at-scale source same as Takbeer Time).
 
+import { KEEP_GOOD, ensureDueColumn, pickDue, clearDue } from '../../_lib/clock-refresh.js';
 import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
 
 const SOURCE = 'masjidal';
@@ -138,7 +139,7 @@ async function fetchOneTimes(env, ref) {
       // same split Takbeer Time uses for effectiveTimings: null.
       await env.DB.prepare(
         `UPDATE source_discoveries SET times_status='no_data', error=?, raw_json=?, times_updated_at=?, last_seen=?
-          WHERE source=? AND source_ref=?`
+          WHERE source=? AND source_ref=?${KEEP_GOOD}`
       ).bind(
         (Array.isArray(body.message) ? body.message.join('; ') : String(body.message || '')).slice(0, 300) || null,
         JSON.stringify(body), now, now, SOURCE, ref
@@ -152,7 +153,7 @@ async function fetchOneTimes(env, ref) {
     if (!salah && !iqamah) {
       await env.DB.prepare(
         `UPDATE source_discoveries SET times_status='no_data', error=NULL, raw_json=?, times_updated_at=?, last_seen=?
-          WHERE source=? AND source_ref=?`
+          WHERE source=? AND source_ref=?${KEEP_GOOD}`
       ).bind(JSON.stringify(body), now, now, SOURCE, ref).run();
       return 'no_data';
     }
@@ -177,13 +178,25 @@ async function fetchOneTimes(env, ref) {
   } catch (e) {
     await env.DB.prepare(
       `UPDATE source_discoveries SET times_status='failed', error=?, last_seen=?
-        WHERE source=? AND source_ref=?`
+        WHERE source=? AND source_ref=?${KEEP_GOOD}`
     ).bind(String(e).slice(0, 300), now, SOURCE, ref).run();
     return 'failed';
   }
 }
 
-async function times(env, limit, retry) {
+async function times(env, limit, retry, due) {
+  await ensureDueColumn(env.DB);
+  if (due) {
+    // Clock-change re-check: only mosques flagged by the refresher.
+    const refs = await pickDue(env.DB, SOURCE, Math.min(limit, TIMES_BUDGET));
+    let succeeded = 0, failed = 0, noData = 0;
+    for (const ref of refs) {
+      const r = await fetchOneTimes(env, ref);
+      if (r === 'ok') succeeded++; else if (r === 'no_data') noData++; else failed++;
+    }
+    await clearDue(env.DB, SOURCE, refs);
+    return json({ ok: true, due: true, attempted: refs.length, succeeded, failed, noData });
+  }
   const wanted = retry ? "('pending','failed')" : "('pending')";
   const rows = (await env.DB.prepare(
     `SELECT source_ref FROM source_discoveries
@@ -218,7 +231,7 @@ export async function onRequestGet(context) {
   const mode = p.get('mode');
 
   try {
-    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10, p.get('retry') === '1');
+    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10, p.get('retry') === '1', p.get('due') === '1');
     return json({ error: 'unknown mode for GET, use mode=times (discovery is mode=discover via POST)' }, 400);
   } catch (e) {
     return json({ error: String(e).slice(0, 300) }, 500);

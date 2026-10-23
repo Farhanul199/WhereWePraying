@@ -23,6 +23,7 @@
 //   mode=discover&country=PK   - one country, all pages, location only
 //   mode=times&limit=N         - fetch per-mosque detail for N pending rows
 
+import { KEEP_GOOD, ensureDueColumn, pickDue, clearDue } from '../../_lib/clock-refresh.js';
 import { isAdminRequest, isSyncRequest } from '../../_lib/auth.js';
 
 const SOURCE = 'takbeertime';
@@ -168,7 +169,7 @@ async function fetchOneTimes(env, ref) {
                 phone=COALESCE(?, phone),
                 email=COALESCE(?, email),
                 raw_json=?, times_updated_at=?, last_seen=?
-          WHERE source=? AND source_ref=?`
+          WHERE source=? AND source_ref=?${KEEP_GOOD}`
       ).bind(
         detail.website || null, detail.phoneNumber || null, detail.email || null,
         JSON.stringify(detail), now, now, SOURCE, ref
@@ -204,13 +205,25 @@ async function fetchOneTimes(env, ref) {
   } catch (e) {
     await env.DB.prepare(
       `UPDATE source_discoveries SET times_status='failed', error=?, last_seen=?
-        WHERE source=? AND source_ref=?`
+        WHERE source=? AND source_ref=?${KEEP_GOOD}`
     ).bind(String(e).slice(0, 300), now, SOURCE, ref).run();
     return 'failed';
   }
 }
 
-async function times(env, limit, retry) {
+async function times(env, limit, retry, due) {
+  await ensureDueColumn(env.DB);
+  if (due) {
+    // Clock-change re-check: only mosques flagged by the refresher.
+    const refs = await pickDue(env.DB, SOURCE, Math.min(limit, TIMES_BUDGET));
+    let succeeded = 0, failed = 0, noData = 0;
+    for (const ref of refs) {
+      const r = await fetchOneTimes(env, ref);
+      if (r === 'ok') succeeded++; else if (r === 'no_data') noData++; else failed++;
+    }
+    await clearDue(env.DB, SOURCE, refs);
+    return json({ ok: true, due: true, attempted: refs.length, succeeded, failed, noData });
+  }
   const wanted = retry ? "('pending','failed')" : "('pending')";
   const rows = (await env.DB.prepare(
     `SELECT source_ref FROM source_discoveries
@@ -248,7 +261,7 @@ export async function onRequestGet(context) {
 
   try {
     if (mode === 'discover') return await discover(env, (p.get('country') || '').toUpperCase());
-    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10, p.get('retry') === '1');
+    if (mode === 'times') return await times(env, parseInt(p.get('limit') || '10', 10) || 10, p.get('retry') === '1', p.get('due') === '1');
     return json({ error: 'unknown mode, use mode=discover or mode=times' }, 400);
   } catch (e) {
     return json({ error: String(e).slice(0, 300) }, 500);

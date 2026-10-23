@@ -94,7 +94,7 @@ export class MawaqitRunner extends DurableObject {
       return new Response('ok');
     }
     const c = cfg(this.env);
-    return json({ limits: c, season: seasonInfo(new Date(), c), queue: { intake: this.q.intake.length, refresh: this.q.refresh.length }, state: this.s });
+    return json({ limits: c, season: seasonInfo(new Date(), c, this.s), queue: { intake: this.q.intake.length, refresh: this.q.refresh.length }, state: this.s });
   }
 
   async alarm() {
@@ -108,7 +108,7 @@ export class MawaqitRunner extends DurableObject {
   async slice() {
     const env = this.env, s = this.s, c = cfg(env);
     const now = new Date(), nowMs = now.getTime(), nowIso = now.toISOString(), today = nowIso.slice(0, 10);
-    const season = seasonInfo(now, c);
+    const season = seasonInfo(now, c, s);
 
     if ((s.schema_v || 0) < SCHEMA_V) { await migrate(env); s.schema_v = SCHEMA_V; }
     if (s.day !== today) { s.day = today; s.day_fetches = 0; s.day_refresh_fetches = 0; }
@@ -124,6 +124,16 @@ export class MawaqitRunner extends DurableObject {
       if (n) { s.last_note = 'Dedup: ' + n + ' duplicates skipped.'; this.q.intake = []; }
     }
     if (s.backfill_day !== today) { await backfillMeta(env); s.backfill_day = today; }
+    // Clock changes (any country) are planned by the clock-change-refresher
+    // Worker, which moves next_refresh_at into its window; here we only lift
+    // the daily refresh cap while any window is open.
+    if (s.clock_day !== today || nowMs - (s.clock_checked_at || 0) > 3600000) {
+      try {
+        const r = await env.DB.prepare('SELECT MAX(window_end) AS until FROM clock_change_log WHERE window_start <= ?1').bind(nowIso).first();
+        s.clock_until = (r && r.until) || ''; s.clock_known = true;
+      } catch (e) { s.clock_known = false; }
+      s.clock_day = today; s.clock_checked_at = nowMs;
+    }
     const y = now.getUTCFullYear(), waveStart = Date.UTC(y, 0, c.WAVE_START_DAY);
     if (!s.wave_year) s.wave_year = nowMs < waveStart ? y - 1 : y;
     if (s.wave_year < y && nowMs >= waveStart - DAY) {
@@ -808,7 +818,7 @@ function ramadanOffset(now) {
   }
 }
 
-function seasonInfo(now, c) {
+function seasonInfo(now, c, s) {
   const off = ramadanOffset(now);
   if (off !== null) {
     if (off <= 1) return { busy: true, prioDays: 1, otherDays: 2, reason: off > 0 ? 'Ramadan tomorrow' : 'Ramadan start watch' };
@@ -816,7 +826,9 @@ function seasonInfo(now, c) {
     if (off <= 30) return { busy: true, prioDays: 7, otherDays: 7, reason: 'Ramadan in ' + off + ' days' };
   }
   const y = now.getUTCFullYear();
-  for (const m of [2, 9]) {
+  if (s && s.clock_known) {
+    if (s.clock_until && s.clock_until > now.toISOString()) return { busy: true, prioDays: 0, otherDays: 0, reason: 'clock change' };
+  } else for (const m of [2, 9]) {
     const last = new Date(Date.UTC(y, m + 1, 0));
     last.setUTCDate(last.getUTCDate() - last.getUTCDay());
     const diff = last - now;

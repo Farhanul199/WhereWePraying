@@ -39,6 +39,7 @@
 //
 // Auth: X-Sync-Key (worker) or X-Broadcast-Key (admin page).
 
+import { KEEP_GOOD, ensureDueColumn, pickDue, clearDue } from '../../_lib/clock-refresh.js';
 import { isSyncRequest, isAdminRequest } from '../../_lib/auth.js';
 import { logSyncRun } from '../../_lib/synclog.js';
 import { MASJIDBOX_MOSQUES } from '../../_lib/masjidbox-mosques.js';
@@ -244,7 +245,8 @@ function extract(data) {
   };
 }
 
-async function times(env, limit, retry) {
+async function times(env, limit, retry, due) {
+  await ensureDueColumn(env.DB);
   const startedAt = new Date().toISOString();
   const nowIso = startedAt;
   const staleBefore = new Date(Date.now() - REFRESH_AFTER_DAYS * 86400000).toISOString();
@@ -253,7 +255,7 @@ async function times(env, limit, retry) {
   // retry=1 also picks up previously-failed rows (excluded by default so
   // a normal pass doesn't keep hammering something that's actually broken).
   const wanted = retry ? "('pending','failed')" : "('pending')";
-  const { results } = await env.DB.prepare(
+  const { results } = due ? { results: (await pickDue(env.DB, SOURCE, limit)).map((r) => ({ source_ref: r })) } : await env.DB.prepare(
     `SELECT source_ref FROM source_discoveries
       WHERE source = ?
         AND (times_status IN ${wanted}
@@ -287,7 +289,7 @@ async function times(env, limit, retry) {
   const updateFail = `
     UPDATE source_discoveries
        SET times_status = 'failed', error = ?, last_seen = ?
-     WHERE source = ? AND source_ref = ?
+     WHERE source = ? AND source_ref = ?${KEEP_GOOD}
   `;
 
   const stmts = [];
@@ -324,6 +326,7 @@ async function times(env, limit, retry) {
   }
 
   if (stmts.length) await env.DB.batch(stmts);
+  if (due) await clearDue(env.DB, SOURCE, fetched.filter((r) => !r.skipped).map((r) => r.slug));
 
   const prog = await env.DB.prepare(
     `SELECT COUNT(*) AS total,
@@ -373,7 +376,7 @@ export async function onRequestGet(context) {
     if (mode === 'times') {
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '12', 10) || 12, MAX_LIMIT);
       const retry = url.searchParams.get('retry') === '1';
-      return await times(env, limit, retry);
+      return await times(env, limit, retry, url.searchParams.get('due') === '1');
     }
     return json({ ok: false, error: 'mode must be "discover" or "times"' }, 400);
   } catch (e) {
