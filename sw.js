@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wwp-v38';
+const CACHE_NAME = 'wwp-v39';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
@@ -39,7 +39,7 @@ const CORE_ASSETS = [
   '/assets/css/base.css?v=3',
   '/assets/css/features/glass-mode.css?v=1',
   '/assets/css/features/seasonal-themes.css?v=3',
-  '/assets/css/layout.css?v=2',
+  '/assets/css/layout.css?v=3',
   '/assets/css/features/popups.css?v=2',
   '/assets/css/responsive-mobile.css?v=1',
   '/assets/css/features/auth.css?v=1',

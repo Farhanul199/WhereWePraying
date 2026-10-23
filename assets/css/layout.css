@@ -32,6 +32,8 @@ body{padding-top:78px;}
 .footer-brand .brand-mark img{width:28px;height:28px;}
 .footer-brand-text strong{font-size:14px;font-weight:800;display:block;}
 .footer-brand-text p{font-size:12px;color:var(--text-dim);margin-top:1px;line-height:1.4;}
+.footer-mission-link{display:inline-block;margin-top:3px;font-size:12px;font-weight:700;color:var(--coral);}
+.footer-mission-link:hover{text-decoration:underline;}
 .footer-about{max-width:none;}
 .footer-about h4{font-size:11.5px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
 .footer-about p{font-size:12.5px;color:var(--text-dim);line-height:1.65;}
