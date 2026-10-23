@@ -49,6 +49,16 @@
   body[data-event-theme="ramadan"] { --coral:#A671A3; --coral-rgb:166,113,163; --coral-dark:#7E5182; --coral-soft:#EBDCEA; }
   [data-theme="dark"][data-event-theme="jummah"], [data-theme="amoled"][data-event-theme="jummah"] { --coral-dark:#A3C29E; --coral-soft:#1F2A1E; }
   [data-theme="dark"][data-event-theme="ramadan"], [data-theme="amoled"][data-event-theme="ramadan"] { --coral-dark:#C79BC4; --coral-soft:#2C1E2C; }
+  /* Ornaments (arch, lanterns, stars, pattern) follow the mode too:
+     normal = warm gold, Friday = sage, Ramadan = plum */
+  body[data-event-theme="jummah"]  { --gold:#8FA97F; --gold-soft:#D3DFC6; --gold-rgb:143,169,127; }
+  body[data-event-theme="ramadan"] { --gold:#A988B6; --gold-soft:#E2D3E8; --gold-rgb:169,136,182; }
+  [data-theme="sepia"][data-event-theme="jummah"]  { --gold:#7F9A6E; --gold-soft:#C9D4B2; }
+  [data-theme="sepia"][data-event-theme="ramadan"] { --gold:#97769F; --gold-soft:#D9C6D6; }
+  [data-theme="dark"][data-event-theme="jummah"]   { --gold:#7C9670; --gold-soft:#2C3A28; --gold-rgb:124,150,112; }
+  [data-theme="dark"][data-event-theme="ramadan"]  { --gold:#9479A0; --gold-soft:#3A2C3F; --gold-rgb:148,121,160; }
+  [data-theme="amoled"][data-event-theme="jummah"]  { --gold:#6E8763; --gold-soft:#1F2A1C; --gold-rgb:110,135,99; }
+  [data-theme="amoled"][data-event-theme="ramadan"] { --gold:#836A8E; --gold-soft:#2A1F2E; --gold-rgb:131,106,142; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -184,9 +194,20 @@
     if(ram) document.body.setAttribute('data-event-theme','ramadan');
     else if(d.getDay() === 5) document.body.setAttribute('data-event-theme','jummah');
   }catch(e){}
+  /* Status bar colour: same palette as the main site (boot/early.js) */
   try{
-    var bg = getComputedStyle(document.body).getPropertyValue('--bg').trim();
-    var m = document.querySelector('meta[name="theme-color"]'); if(m && bg) m.setAttribute('content', bg);
+    var A = {
+      light:  {normal:'#F5956A', jummah:'#A8C68F', ramadan:'#C4A0D9'},
+      dark:   {normal:'#D85A38', jummah:'#5C7A59', ramadan:'#7E5182'},
+      darkTheme:   {normal:'#6B4423', jummah:'#4D5C38', ramadan:'#6B4A5C'},
+      amoledTheme: {normal:'#3D2818', jummah:'#2D3E20', ramadan:'#4A2E52'}
+    };
+    var base = document.body.getAttribute('data-theme') || 'light';
+    var ev = document.body.getAttribute('data-event-theme');
+    var k = ev === 'ramadan' ? 'ramadan' : (ev === 'jummah' ? 'jummah' : 'normal');
+    var pal = base === 'amoled' ? A.amoledTheme : base === 'dark' ? A.darkTheme
+            : ((localStorage.getItem('wwp:themeColorMode') || 'light') === 'dark' ? A.dark : A.light);
+    var m = document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute('content', pal[k]);
   }catch(e){}
 })();
 </script>
