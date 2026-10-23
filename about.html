@@ -10,67 +10,193 @@
 <link rel="preload" href="/assets/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css?v=1">
 <style>
-  :root { --coral:#F4714E; --cream:#FBF3EC; --ink:#2B241F; }
+  :root {
+    --coral:#F4714E; --coral-dark:#D9562F; --coral-soft:#FCE3D8;
+    --cream:#FBF3EC; --ink:#2B241F; --dim:#6f6359; --faint:#9a8d81;
+    --border:#eadfd3; --gold:#C9A66B;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--cream);
     color: var(--ink);
     font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    line-height: 1.6;
+    line-height: 1.65;
+    background-color: var(--cream);
+    background-image:
+      linear-gradient(rgba(251,243,236,.86), rgba(251,243,236,.86)),
+      url('/assets/home/jummah-bg.webp');
+    background-size: cover;
+    background-position: center top;
+    background-attachment: fixed;
+    min-height: 100vh;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
-  h1 { font-size: 28px; margin-bottom: 8px; }
-  .tagline { color: #8a7f74; font-size: 15px; margin-bottom: 32px; }
-  h2 { font-size: 19px; margin-top: 32px; color: var(--coral); }
-  p, li { font-size: 15.5px; }
-  ul { padding-left: 20px; }
-  li { margin-bottom: 8px; }
-  a { color: var(--coral); }
-  .back { display:inline-block; margin-bottom:24px; font-size:14px; text-decoration:none; color:var(--coral); }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 28px 20px 72px; }
+
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13.5px; font-weight: 700; text-decoration: none; color: var(--coral);
+    background: rgba(255,255,255,.75); border: 1px solid var(--border);
+    padding: 7px 14px; border-radius: 999px; margin-bottom: 18px;
+  }
+  .back:hover { background: #fff; }
+
+  .hero {
+    position: relative; border-radius: 28px; overflow: hidden;
+    box-shadow: 0 18px 40px rgba(110,72,40,.14);
+    border: 1px solid rgba(255,255,255,.7);
+  }
+  .hero img { display: block; width: 100%; height: 300px; object-fit: cover; object-position: center 35%; }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(251,243,236,0) 35%, rgba(251,243,236,.92) 88%, var(--cream) 100%);
+  }
+  .hero-text { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; z-index: 1; padding: 0 20px; }
+  .eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-size: 34px; line-height: 1.15; margin: 4px 0 4px; font-weight: 800; }
+  .tagline { color: var(--dim); font-size: 14.5px; margin: 0; }
+
   .card {
-    background: #fff;
-    border: 1px solid #e8ddd2;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-top: 12px;
+    position: relative;
+    background: rgba(255,255,255,.92);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 22px;
+    padding: 30px 34px;
+    margin-top: 22px;
+    box-shadow: 0 10px 30px rgba(110,72,40,.08);
   }
-  .shot { margin: 20px auto; max-width: 280px; text-align: center; }
-  .shot img { width: 100%; height: auto; border-radius: 18px; box-shadow: 0 8px 24px rgba(43,36,31,.15); display: block; }
-  .shot figcaption { font-size: 13px; color: #8a7f74; margin-top: 10px; }
+
+  h2 {
+    font-size: 20px; margin: 0 0 12px; color: var(--ink); font-weight: 800;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::before {
+    content: ""; width: 10px; height: 10px; flex: none;
+    background: var(--coral); transform: rotate(45deg); border-radius: 2px;
+    box-shadow: 0 0 0 4px var(--coral-soft);
+  }
+  p { font-size: 15.5px; margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--coral); font-weight: 700; }
+
+  .divider { display: flex; align-items: center; gap: 12px; margin: 26px 0; color: var(--gold); }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: .55; }
+  .divider span { font-size: 14px; letter-spacing: 6px; }
+
+  .shot { margin: 22px auto; max-width: 260px; text-align: center; }
+  .shot img {
+    width: 100%; height: auto; display: block; border-radius: 26px;
+    border: 6px solid #fff; box-shadow: 0 14px 34px rgba(43,36,31,.18), 0 0 0 1px var(--border);
+  }
+  .shot figcaption { font-size: 13px; color: var(--faint); margin-top: 12px; font-style: italic; }
+
+  .signoff { font-weight: 800; font-size: 16.5px; color: var(--coral-dark); }
+
+  .values { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 6px; }
+  .value {
+    background: linear-gradient(180deg, #fff, #fdf7f1);
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 12px 16px 16px; text-align: center;
+  }
+  .value img { width: 100%; max-width: 170px; height: 104px; object-fit: contain; display: block; margin: 0 auto 6px; }
+  .value strong { display: block; font-size: 15px; margin-bottom: 3px; }
+  .value span { font-size: 13.5px; color: var(--dim); line-height: 1.55; display: block; }
+
+  .banner { margin: 4px 0 16px; border-radius: 18px; overflow: hidden; border: 1px solid var(--border); }
+  .banner img { display: block; width: 100%; height: 190px; object-fit: cover; object-position: center 60%; }
+
+  .shape { display: flex; gap: 20px; align-items: center; }
+  .shape img { width: 150px; height: auto; flex: none; }
+  .mail-btn {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 4px;
+    background: var(--coral); color: #fff; text-decoration: none;
+    padding: 10px 18px; border-radius: 12px; font-size: 14px; font-weight: 700;
+  }
+  .mail-btn:hover { background: var(--coral-dark); }
+
+  .more { text-align: center; margin-top: 24px; font-size: 14px; color: var(--faint); }
+  .more a { font-weight: 600; }
+
+  @media (max-width: 600px) {
+    .wrap { padding: 16px 16px 56px; }
+    .hero img { height: 220px; }
+    h1 { font-size: 28px; }
+    .card { padding: 22px 20px; border-radius: 18px; }
+    .values { grid-template-columns: 1fr; }
+    .shape { flex-direction: column; text-align: center; }
+    .shape img { width: 130px; }
+    .banner img { height: 140px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="back" href="/">&larr; Back to WhereWePraying?</a>
-  <h1>The Mission</h1>
-  <p class="tagline">Find out. Get there. Catch the Jama'ah.</p>
 
-  <h2>Why this was made</h2>
-  <p>Honestly? I got fed up. This is what my phone looked like: a whole folder of Islamic apps. One for mosque times, another for the Qur'an, another for du'a, one for tasbih, one to track my salah, and a few more I'd forgotten I even had.</p>
-  <figure class="shot">
-    <img src="/assets/about/apps-folder.jpg" alt="A phone folder called Islamic with sixteen separate Islamic apps" width="717" height="1280" loading="lazy">
-    <figcaption>My "Islamic" folder. Sixteen apps, and that's just the first page.</figcaption>
-  </figure>
-  <p>Every app did one thing, and switching between them got old fast. So I decided to build the one app I actually wanted: somewhere to find a mosque nearby, read Qur'an, keep up with dhikr, track my prayers and learn the basics, all in one place.</p>
-  <p>That's WhereWePraying?.</p>
+  <header class="hero">
+    <img src="/assets/home/hero-arch.webp" alt="" width="1400" height="933">
+    <div class="hero-text">
+      <div class="eyebrow">WhereWePraying?</div>
+      <h1>The Mission</h1>
+      <p class="tagline">Find out. Get there. Catch the Jama'ah.</p>
+    </div>
+  </header>
 
-  <h2>What matters to me</h2>
-  <ul>
-    <li><strong>One app, not ten.</strong> If it helps your day-to-day deen, it belongs here.</li>
-    <li><strong>Free, with no ads.</strong> The core app stays free. No ads, no trackers, no selling your data.</li>
-    <li><strong>Your privacy.</strong> Location is only used to find mosques near you, and most of the app works without an account.</li>
-    <li><strong>Get you to the masjid.</strong> Know which mosque is closest, when the next Jama'ah is, and whether you can still make it.</li>
-  </ul>
+  <main class="card">
+    <h2>Why this was made</h2>
+    <p>Honestly? I got fed up. This is what my phone looked like: a whole folder of Islamic apps. One for mosque times, another for the Qur'an, another for du'a, one for tasbih, one to track my salah, and a few more I'd forgotten I even had.</p>
+    <figure class="shot">
+      <img src="/assets/about/apps-folder.jpg" alt="A phone folder called Islamic with sixteen separate Islamic apps" width="717" height="1280" loading="lazy">
+      <figcaption>My "Islamic" folder. Sixteen apps, and that's just the first page.</figcaption>
+    </figure>
+    <p>Every app did one thing, and switching between them got old fast. So I decided to build the one app I actually wanted: somewhere to find a mosque nearby, read Qur'an, keep up with dhikr, track my prayers and learn the basics, all in one place.</p>
+    <p class="signoff">That's WhereWePraying?.</p>
 
-  <h2>Where we're going</h2>
-  <p>Most of Europe is already on the app, and we're slowly adding more countries and more mosques as we go. It's being built section by section, so expect things to keep improving.</p>
+    <div class="divider"><span>✦ ✦ ✦</span></div>
 
-  <h2>Help shape it</h2>
-  <p>This app gets better with every message I get. Run a mosque and want your details and times shown properly? Got an idea, a feature you'd love, or something that bugs you? Either way, my inbox is open: <a href="mailto:support@wherewepraying.com">support@wherewepraying.com</a>.</p>
+    <h2>What matters to me</h2>
+    <div class="values">
+      <div class="value">
+        <img src="/assets/home/quran.webp" alt="" loading="lazy">
+        <strong>One app, not ten.</strong>
+        <span>If it helps your day-to-day deen, it belongs here.</span>
+      </div>
+      <div class="value">
+        <img src="/assets/home/dua-dhikr.webp" alt="" loading="lazy">
+        <strong>Free, with no ads.</strong>
+        <span>The core app stays free. No ads, no trackers, no selling your data.</span>
+      </div>
+      <div class="value">
+        <img src="/assets/home/journal.webp" alt="" loading="lazy">
+        <strong>Your privacy.</strong>
+        <span>Location is only used to find mosques near you, and most of the app works without an account.</span>
+      </div>
+      <div class="value">
+        <img src="/assets/home/find-a-mosque.webp" alt="" loading="lazy">
+        <strong>Get you to the masjid.</strong>
+        <span>Know which mosque is closest, when the next Jama'ah is, and whether you can still make it.</span>
+      </div>
+    </div>
 
-  <h2>More</h2>
-  <p><a href="/support.html">Support</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a></p>
+    <div class="divider"><span>✦ ✦ ✦</span></div>
+
+    <h2>Where we're going</h2>
+    <div class="banner"><img src="/assets/hero/community-hero.webp" alt="" loading="lazy"></div>
+    <p>Most of Europe is already on the app, and we're slowly adding more countries and more mosques as we go. It's being built section by section, so expect things to keep improving.</p>
+
+    <div class="divider"><span>✦ ✦ ✦</span></div>
+
+    <h2>Help shape it</h2>
+    <div class="shape">
+      <img src="/assets/home/guides.webp" alt="" loading="lazy">
+      <div>
+        <p>This app gets better with every message I get. Run a mosque and want your details and times shown properly? Got an idea, a feature you'd love, or something that bugs you? Either way, my inbox is open.</p>
+        <a class="mail-btn" href="mailto:support@wherewepraying.com">✉ support@wherewepraying.com</a>
+      </div>
+    </div>
+  </main>
+
+  <p class="more"><a href="/support.html">Support</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a></p>
 </div>
 </body>
 </html>
