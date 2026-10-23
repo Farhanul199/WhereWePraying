@@ -61,6 +61,12 @@
     <priority>0.2</priority>
   </url>
   <url>
+    <loc>https://wherewepraying.com/about.html</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
     <loc>https://wherewepraying.com/support.html</loc>
     <lastmod>2026-09-25</lastmod>
     <changefreq>yearly</changefreq>
