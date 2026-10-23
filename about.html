@@ -164,8 +164,8 @@
 
   /* Revision-style notes: pencil-ish ink, highlighter swipe, double underline */
   .rev { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 600; font-size: 23px; line-height: 1.15; color: var(--text-dim); }
-  .rev .hl { white-space: nowrap; background: linear-gradient(transparent 55%, rgba(var(--gold-rgb), .35) 55%, rgba(var(--gold-rgb), .35) 92%, transparent 92%); padding: 0 3px; }
-  .rev-l { position: absolute; right: 10px; bottom: 60px; text-align: right; transform: rotate(-3deg); max-width: 220px; }
+  .rev .hl { background: linear-gradient(transparent 55%, rgba(var(--gold-rgb), .35) 55%, rgba(var(--gold-rgb), .35) 92%, transparent 92%); padding: 0 3px; }
+  .rev-l { position: absolute; right: 10px; bottom: 60px; text-align: right; transform: rotate(-3deg); max-width: 175px; }
   .rev-l .uline { display: block; width: 100%; height: 14px; margin-top: 2px; color: var(--gold); }
   .rev-l .uline path { stroke-width: 1.8; }
   .rev-r { position: absolute; left: 12px; top: 14px; transform: rotate(2deg); display: flex; gap: 6px; align-items: flex-start; max-width: 200px; }
@@ -183,6 +183,7 @@
     .rev-l { transform: rotate(-2deg); }
     .rev-r { transform: rotate(2deg); justify-content: center; }
     .rev-r .star { display: none; }
+    .rev-r .hl { white-space: nowrap; }
   }
   .shot { margin: 24px auto; max-width: 260px; text-align: center; }
   .shot img {
@@ -340,7 +341,6 @@
           <span>All of these in just one single app!</span>
         </div>
       </div>
-    </div>
     </div>
     <p>Each app did one thing well, but moving between them quickly became tiring. So I set out to build the one app I actually wanted: somewhere to find a mosque nearby, read Qur'an, keep up with dhikr, track my prayers and learn the basics, all in one place.</p>
     <p class="signoff">That's WhereWePraying?.</p>
