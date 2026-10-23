@@ -9,36 +9,78 @@
 <link rel="canonical" href="https://wherewepraying.com/about.html">
 <link rel="preload" href="/assets/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css?v=1">
+<meta name="theme-color" content="#FBF3E6">
 <style>
-  :root {
-    --coral:#F4714E; --coral-dark:#D9562F; --coral-soft:#FCE3D8;
-    --cream:#FBF3EC; --ink:#2B241F; --dim:#6f6359; --faint:#9a8d81;
-    --border:#eadfd3; --gold:#C9A66B; --gold-soft:#EBDCC0;
+  /* Same theme tokens as the main site (base.css + seasonal-themes.css) */
+  :root, [data-theme="light"] {
+    --bg:#FBF3E6; --surface:#FFFFFF; --surface-alt:#FFF9F0;
+    --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#D85A38; --coral-soft:#FCE1D2;
+    --text:#241C15; --text-dim:#8A7E70; --text-faint:#B4A896; --border:#EFE1CC;
+    --gold:#C9A66B; --gold-soft:#EBDCC0; --gold-rgb:201,166,107;
+    --card-bg:rgba(255,255,255,.94); --chip-bg:rgba(255,255,255,.8);
+    --shadow:0 14px 36px rgba(110,72,40,.09); --shot-ring:#fff;
   }
+  [data-theme="sepia"] {
+    --bg:#EFE3C6; --surface:#F8EFD9; --surface-alt:#F1E4C4;
+    --coral:#E76A46; --coral-rgb:231,106,70; --coral-dark:#C55632; --coral-soft:#E9D2AA;
+    --text:#3A2C18; --text-dim:#7C6A48; --text-faint:#9C8A66; --border:#DFCB9C;
+    --gold:#B8914F; --gold-soft:#DCC593; --gold-rgb:184,145,79;
+    --card-bg:rgba(248,239,217,.95); --chip-bg:rgba(248,239,217,.85);
+    --shadow:0 14px 34px rgba(58,44,24,.12); --shot-ring:#F8EFD9;
+  }
+  [data-theme="dark"] {
+    --bg:#121010; --surface:#1B1816; --surface-alt:#211D1A;
+    --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#3A2620;
+    --text:#F3EAE0; --text-dim:#A79A8C; --text-faint:#726657; --border:#332C26;
+    --gold:#B39062; --gold-soft:#4A3D2C; --gold-rgb:179,144,98;
+    --card-bg:rgba(27,24,22,.94); --chip-bg:rgba(27,24,22,.85);
+    --shadow:0 14px 36px rgba(0,0,0,.4); --shot-ring:#2A2522;
+  }
+  [data-theme="amoled"] {
+    --bg:#000000; --surface:#0A0A0A; --surface-alt:#121212;
+    --coral:#F4714E; --coral-rgb:244,113,78; --coral-dark:#FF8B69; --coral-soft:#2B1712;
+    --text:#EDEAE5; --text-dim:#948A7D; --text-faint:#5E564B; --border:#1E1E1E;
+    --gold:#A2825A; --gold-soft:#2E261C; --gold-rgb:162,130,90;
+    --card-bg:rgba(10,10,10,.96); --chip-bg:rgba(18,18,18,.9);
+    --shadow:0 14px 36px rgba(0,0,0,.7); --shot-ring:#1A1A1A;
+  }
+  /* Event accents, same as the main site */
+  body[data-event-theme="jummah"]  { --coral:#7E9C79; --coral-rgb:126,156,121; --coral-dark:#5C7A59; --coral-soft:#E1E9DA; }
+  body[data-event-theme="ramadan"] { --coral:#A671A3; --coral-rgb:166,113,163; --coral-dark:#7E5182; --coral-soft:#EBDCEA; }
+  [data-theme="dark"][data-event-theme="jummah"], [data-theme="amoled"][data-event-theme="jummah"] { --coral-dark:#A3C29E; --coral-soft:#1F2A1E; }
+  [data-theme="dark"][data-event-theme="ramadan"], [data-theme="amoled"][data-event-theme="ramadan"] { --coral-dark:#C79BC4; --coral-soft:#2C1E2C; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    color: var(--ink);
+    color: var(--text);
     font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1.65;
-    background-color: var(--cream);
-    /* soft watercolour-like washes + a faint 8-point star lattice */
+    background-color: var(--bg);
     background-image:
-      radial-gradient(ellipse 60% 40% at 0% 0%, rgba(244,113,78,.10), transparent 70%),
-      radial-gradient(ellipse 50% 45% at 100% 30%, rgba(201,166,107,.14), transparent 70%),
-      radial-gradient(ellipse 60% 40% at 10% 100%, rgba(201,166,107,.12), transparent 70%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23C9A66B' stroke-opacity='.16' stroke-width='1'%3E%3Cpath d='M36 14l6.4 15.6L58 36l-15.6 6.4L36 58l-6.4-15.6L14 36l15.6-6.4z'/%3E%3Crect x='22' y='22' width='28' height='28' transform='rotate(45 36 36)'/%3E%3Crect x='22' y='22' width='28' height='28'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E");
+      radial-gradient(ellipse 60% 40% at 0% 0%, rgba(var(--coral-rgb),.10), transparent 70%),
+      radial-gradient(ellipse 50% 45% at 100% 30%, rgba(var(--gold-rgb),.14), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 10% 100%, rgba(var(--gold-rgb),.12), transparent 70%);
     min-height: 100vh;
+    position: relative;
+    transition: background-color .25s ease, color .25s ease;
   }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 72px; position: relative; }
+  /* faint 8-point star lattice, tinted by the theme's gold */
+  body::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-color: var(--gold); opacity: .18;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23000' stroke-width='1'%3E%3Cpath d='M36 14l6.4 15.6L58 36l-15.6 6.4L36 58l-6.4-15.6L14 36l15.6-6.4z'/%3E%3Crect x='22' y='22' width='28' height='28' transform='rotate(45 36 36)'/%3E%3Crect x='22' y='22' width='28' height='28'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 72px 72px;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23000' stroke-width='1'%3E%3Cpath d='M36 14l6.4 15.6L58 36l-15.6 6.4L36 58l-6.4-15.6L14 36l15.6-6.4z'/%3E%3Crect x='22' y='22' width='28' height='28' transform='rotate(45 36 36)'/%3E%3Crect x='22' y='22' width='28' height='28'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 72px 72px;
+  }
+  [data-theme="dark"] body::before, body[data-theme="dark"]::before, body[data-theme="amoled"]::before { opacity: .12; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 72px; position: relative; z-index: 1; }
 
   .back {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 13.5px; font-weight: 700; text-decoration: none; color: var(--coral);
-    background: rgba(255,255,255,.8); border: 1px solid var(--border);
+    background: var(--chip-bg); border: 1px solid var(--border);
     padding: 7px 14px; border-radius: 999px;
   }
-  .back:hover { background: #fff; }
+  .back:hover { background: var(--surface); }
 
   /* Hero: mihrab arch outline with hanging lanterns */
   .hero { position: relative; text-align: center; padding: 26px 0 8px; }
@@ -46,7 +88,7 @@
   .hero-text { position: absolute; left: 0; right: 0; top: 52%; transform: translateY(-30%); padding: 0 20px; }
   .eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--coral); }
   h1 { font-size: 36px; line-height: 1.1; margin: 6px 0 6px; font-weight: 800; }
-  .tagline { color: var(--dim); font-size: 14.5px; margin: 0; }
+  .tagline { color: var(--text-dim); font-size: 14.5px; margin: 0; }
   .lantern { position: absolute; top: 0; width: 46px; height: auto; }
   .lantern.l { left: 8%; } .lantern.r { right: 8%; }
   .lantern.r { width: 38px; }
@@ -54,12 +96,12 @@
   /* Main card — arched top, gold inner rule */
   .card {
     position: relative;
-    background: rgba(255,255,255,.94);
+    background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 200px 200px 24px 24px / 70px 70px 24px 24px;
     padding: 64px 40px 36px;
     margin-top: 10px;
-    box-shadow: 0 14px 36px rgba(110,72,40,.09);
+    box-shadow: var(--shadow);
   }
   .card::before {
     content: ""; position: absolute; inset: 8px;
@@ -70,7 +112,7 @@
   .card-crest { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); width: 44px; height: 44px; }
 
   h2 {
-    font-size: 20px; margin: 0 0 12px; color: var(--ink); font-weight: 800;
+    font-size: 20px; margin: 0 0 12px; color: var(--text); font-weight: 800;
     display: flex; align-items: center; gap: 10px;
   }
   h2 svg { width: 18px; height: 18px; flex: none; }
@@ -85,22 +127,24 @@
   .shot { margin: 24px auto; max-width: 260px; text-align: center; }
   .shot img {
     width: 100%; height: auto; display: block; border-radius: 26px;
-    border: 6px solid #fff; box-shadow: 0 14px 34px rgba(43,36,31,.18), 0 0 0 1px var(--border);
+    border: 6px solid var(--shot-ring); box-shadow: var(--shadow), 0 0 0 1px var(--border);
   }
-  .shot figcaption { font-size: 13px; color: var(--faint); margin-top: 12px; font-style: italic; }
+  .shot figcaption { font-size: 13px; color: var(--text-faint); margin-top: 12px; font-style: italic; }
 
   .signoff { font-weight: 800; font-size: 16.5px; color: var(--coral-dark); }
 
   .values { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 6px; }
   .value {
     position: relative; overflow: hidden;
-    background: linear-gradient(180deg, #fff, #fdf7f1);
+    background: linear-gradient(180deg, var(--surface), var(--surface-alt));
     border: 1px solid var(--border); border-radius: 18px;
     padding: 18px 18px 18px;
   }
   .value::after { /* faint star in the corner */
-    content: ""; position: absolute; right: -18px; bottom: -18px; width: 80px; height: 80px; opacity: .5;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23EBDCC0' stroke-width='1.2'%3E%3Crect x='8' y='8' width='24' height='24'/%3E%3Crect x='8' y='8' width='24' height='24' transform='rotate(45 20 20)'/%3E%3C/g%3E%3C/svg%3E") no-repeat center/contain;
+    content: ""; position: absolute; right: -18px; bottom: -18px; width: 80px; height: 80px; opacity: .6;
+    background: var(--gold-soft);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.2'%3E%3Crect x='8' y='8' width='24' height='24'/%3E%3Crect x='8' y='8' width='24' height='24' transform='rotate(45 20 20)'/%3E%3C/g%3E%3C/svg%3E") no-repeat center/contain;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.2'%3E%3Crect x='8' y='8' width='24' height='24'/%3E%3Crect x='8' y='8' width='24' height='24' transform='rotate(45 20 20)'/%3E%3C/g%3E%3C/svg%3E") no-repeat center/contain;
   }
   .value .ic {
     width: 44px; height: 44px; border-radius: 14px; background: var(--coral-soft);
@@ -108,24 +152,11 @@
   }
   .value .ic svg { width: 24px; height: 24px; }
   .value strong { display: block; font-size: 15px; margin-bottom: 3px; }
-  .value span { font-size: 13.5px; color: var(--dim); line-height: 1.55; display: block; }
+  .value span { font-size: 13.5px; color: var(--text-dim); line-height: 1.55; display: block; }
 
   .journey { display: block; width: 100%; height: auto; margin: 4px 0 14px; }
 
-  .shape {
-    display: flex; gap: 18px; align-items: center;
-    background: linear-gradient(135deg, var(--coral-soft), #fff 70%);
-    border: 1px solid var(--border); border-radius: 18px; padding: 20px;
-  }
-  .shape svg { width: 72px; height: 72px; flex: none; }
-  .mail-btn {
-    display: inline-flex; align-items: center; gap: 8px; margin-top: 4px;
-    background: var(--coral); color: #fff; text-decoration: none;
-    padding: 10px 18px; border-radius: 12px; font-size: 14px; font-weight: 700;
-  }
-  .mail-btn:hover { background: var(--coral-dark); }
-
-  .more { text-align: center; margin-top: 24px; font-size: 14px; color: var(--faint); }
+  .more { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-faint); }
   .more a { font-weight: 600; }
 
   @media (max-width: 600px) {
@@ -135,22 +166,41 @@
     .card { padding: 52px 22px 26px; border-radius: 160px 160px 18px 18px / 50px 50px 18px 18px; }
     .card::before { border-radius: 154px 154px 12px 12px / 44px 44px 12px 12px; }
     .values { grid-template-columns: 1fr; }
-    .shape { flex-direction: column; text-align: center; }
   }
 </style>
 </head>
-<body>
+<body data-theme="light">
+<script>
+/* Use the same saved theme + Jummah/Ramadan accent as the main site */
+(function(){
+  try{
+    var t = localStorage.getItem('wwp:theme');
+    if(t && ['light','sepia','dark','amoled'].indexOf(t) !== -1) document.body.setAttribute('data-theme', t);
+  }catch(e){}
+  try{
+    var d = new Date(), key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(), ram = false;
+    var raw = localStorage.getItem('wwp:ramadan:hijriCheck');
+    if(raw){ var c = JSON.parse(raw); if(c && c.dateKey === key) ram = !!c.isRamadan; }
+    if(ram) document.body.setAttribute('data-event-theme','ramadan');
+    else if(d.getDay() === 5) document.body.setAttribute('data-event-theme','jummah');
+  }catch(e){}
+  try{
+    var bg = getComputedStyle(document.body).getPropertyValue('--bg').trim();
+    var m = document.querySelector('meta[name="theme-color"]'); if(m && bg) m.setAttribute('content', bg);
+  }catch(e){}
+})();
+</script>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="star8" viewBox="0 0 40 40">
-      <g fill="none" stroke="#C9A66B" stroke-width="1.4">
+      <g fill="none" style="stroke:var(--gold)" stroke-width="1.4">
         <rect x="9" y="9" width="22" height="22"/>
         <rect x="9" y="9" width="22" height="22" transform="rotate(45 20 20)"/>
       </g>
-      <circle cx="20" cy="20" r="3.2" fill="#F4714E"/>
+      <circle cx="20" cy="20" r="3.2" style="fill:var(--coral)"/>
     </symbol>
     <symbol id="lantern" viewBox="0 0 46 120">
-      <g fill="none" stroke="#C9A66B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" style="stroke:var(--gold)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 0v34"/>
         <circle cx="23" cy="37" r="3"/>
         <path d="M15 48c0-5 3.5-8 8-8s8 3 8 8z"/>
@@ -160,8 +210,8 @@
         <path d="M12 84h22l-4 6H16z"/>
         <path d="M19 90l4 10 4-10"/>
       </g>
-      <ellipse cx="23" cy="69" rx="5" ry="9" fill="#F4714E" opacity=".28"/>
-      <ellipse cx="23" cy="69" rx="2.4" ry="4.5" fill="#F4714E" opacity=".55"/>
+      <ellipse cx="23" cy="69" rx="5" ry="9" style="fill:var(--coral)" opacity=".28"/>
+      <ellipse cx="23" cy="69" rx="2.4" ry="4.5" style="fill:var(--coral)" opacity=".55"/>
     </symbol>
   </defs>
 </svg>
@@ -174,9 +224,9 @@
     <svg class="lantern r" viewBox="0 0 46 120"><use href="#lantern"/></svg>
     <svg class="arch" viewBox="0 0 420 260" aria-hidden="true">
       <g fill="none" stroke-linecap="round">
-        <path d="M40 258V130C40 60 130 14 210 4c80 10 170 56 170 126v128" stroke="#C9A66B" stroke-width="1.6"/>
-        <path d="M56 258V134C56 74 138 32 210 22c72 10 154 52 154 112v124" stroke="#EBDCC0" stroke-width="1.2"/>
-        <path d="M150 34l60-30 60 30" stroke="#EBDCC0" stroke-width="1" opacity="0"/>
+        <path d="M40 258V130C40 60 130 14 210 4c80 10 170 56 170 126v128" style="stroke:var(--gold)" stroke-width="1.6"/>
+        <path d="M56 258V134C56 74 138 32 210 22c72 10 154 52 154 112v124" style="stroke:var(--gold-soft)" stroke-width="1.2"/>
+        <path d="M150 34l60-30 60 30" style="stroke:var(--gold-soft)" stroke-width="1" opacity="0"/>
       </g>
       <use href="#star8" x="196" y="-6" width="28" height="28"/>
     </svg>
@@ -188,7 +238,7 @@
   </header>
 
   <main class="card">
-    <svg class="card-crest" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#fff" stroke="#EBDCC0"/><use href="#star8" x="4" y="4" width="32" height="32"/></svg>
+    <svg class="card-crest" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" style="fill:var(--surface);stroke:var(--gold-soft)"/><use href="#star8" x="4" y="4" width="32" height="32"/></svg>
 
     <h2><svg viewBox="0 0 40 40"><use href="#star8"/></svg>Why this was made</h2>
     <p>Honestly? I got fed up. This is what my phone looked like: a whole folder of Islamic apps. One for mosque times, another for the Qur'an, another for du'a, one for tasbih, one to track my salah, and a few more I'd forgotten I even had.</p>
@@ -204,22 +254,22 @@
     <h2><svg viewBox="0 0 40 40"><use href="#star8"/></svg>What matters to me</h2>
     <div class="values">
       <div class="value">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#D9562F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2" opacity=".35"/><rect x="4" y="13" width="7" height="7" rx="2" opacity=".35"/><rect x="13" y="13" width="7" height="7" rx="2" opacity=".35"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" style="stroke:var(--coral-dark)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2" opacity=".35"/><rect x="4" y="13" width="7" height="7" rx="2" opacity=".35"/><rect x="13" y="13" width="7" height="7" rx="2" opacity=".35"/></svg></div>
         <strong>One app, not ten.</strong>
         <span>If it helps your day-to-day deen, it belongs here.</span>
       </div>
       <div class="value">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#D9562F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-8-8 8-8z"/><path d="M8.5 8.5l7 7"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" style="stroke:var(--coral-dark)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-8-8 8-8z"/><path d="M8.5 8.5l7 7"/></svg></div>
         <strong>Free, with no ads.</strong>
         <span>The core app stays free. No ads, no trackers, no selling your data.</span>
       </div>
       <div class="value">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#D9562F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" style="stroke:var(--coral-dark)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
         <strong>Your privacy.</strong>
         <span>Location is only used to find mosques near you, and most of the app works without an account.</span>
       </div>
       <div class="value">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#D9562F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6a7 7 0 0 1 14 0v6"/><path d="M12 4v3"/><path d="M3 20h18"/><path d="M10 20v-3a2 2 0 0 1 4 0v3"/><path d="M20.5 20V9.5M20.5 8v-.5"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" style="stroke:var(--coral-dark)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6a7 7 0 0 1 14 0v6"/><path d="M12 4v3"/><path d="M3 20h18"/><path d="M10 20v-3a2 2 0 0 1 4 0v3"/><path d="M20.5 20V9.5M20.5 8v-.5"/></svg></div>
         <strong>Get you to the masjid.</strong>
         <span>Know which mosque is closest, when the next Jama'ah is, and whether you can still make it.</span>
       </div>
@@ -229,16 +279,16 @@
 
     <h2><svg viewBox="0 0 40 40"><use href="#star8"/></svg>Where we're going</h2>
     <svg class="journey" viewBox="0 0 680 110" aria-hidden="true">
-      <path d="M20 80C120 20 200 100 300 55S480 20 560 60s90 10 100 0" fill="none" stroke="#C9A66B" stroke-width="1.6" stroke-dasharray="2 7" stroke-linecap="round"/>
-      <g fill="#fff" stroke="#C9A66B" stroke-width="1.4">
-        <g transform="translate(20 80)"><circle r="9"/><circle r="3.5" fill="#F4714E" stroke="none"/></g>
-        <g transform="translate(160 62)"><circle r="9"/><circle r="3.5" fill="#F4714E" stroke="none"/></g>
-        <g transform="translate(300 55)"><circle r="9"/><circle r="3.5" fill="#F4714E" stroke="none"/></g>
-        <g transform="translate(440 38)"><circle r="9"/><circle r="3.5" fill="#F4714E" stroke="none"/></g>
+      <path d="M20 80C120 20 200 100 300 55S480 20 560 60s90 10 100 0" fill="none" style="stroke:var(--gold)" stroke-width="1.6" stroke-dasharray="2 7" stroke-linecap="round"/>
+      <g style="fill:var(--surface);stroke:var(--gold)" stroke-width="1.4">
+        <g transform="translate(20 80)"><circle r="9"/><circle r="3.5" style="fill:var(--coral)" stroke="none"/></g>
+        <g transform="translate(160 62)"><circle r="9"/><circle r="3.5" style="fill:var(--coral)" stroke="none"/></g>
+        <g transform="translate(300 55)"><circle r="9"/><circle r="3.5" style="fill:var(--coral)" stroke="none"/></g>
+        <g transform="translate(440 38)"><circle r="9"/><circle r="3.5" style="fill:var(--coral)" stroke="none"/></g>
       </g>
-      <g transform="translate(560 60)" fill="none" stroke="#C9A66B" stroke-width="1.4"><circle r="9" stroke-dasharray="3 3"/></g>
-      <g transform="translate(660 60)" fill="none" stroke="#C9A66B" stroke-width="1.2" opacity=".6"><circle r="9" stroke-dasharray="3 3"/></g>
-      <g font-family="Manrope, sans-serif" font-size="12" font-weight="700" fill="#9a8d81" text-anchor="middle">
+      <g transform="translate(560 60)" fill="none" style="stroke:var(--gold)" stroke-width="1.4"><circle r="9" stroke-dasharray="3 3"/></g>
+      <g transform="translate(660 60)" fill="none" style="stroke:var(--gold)" stroke-width="1.2" opacity=".6"><circle r="9" stroke-dasharray="3 3"/></g>
+      <g font-family="Manrope, sans-serif" font-size="12" font-weight="700" style="fill:var(--text-faint)" text-anchor="middle">
         <text x="300" y="88">Europe</text>
         <text x="610" y="96">more on the way</text>
       </g>
