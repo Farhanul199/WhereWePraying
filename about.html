@@ -150,25 +150,48 @@
   /* Handwritten notes around the screenshot */
   @font-face { font-family: 'Caveat'; font-style: normal; font-display: swap; font-weight: 400 700;
     src: url(/assets/fonts/caveat-latin-wght-normal.woff2) format('woff2'); }
-  .shot-wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; margin: 24px 0; }
-  .shot-wrap .shot { margin: 0; width: 260px; }
+  .shot-wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 10px; margin: 24px 0; }
+  .shot-wrap .shot { margin: 0; width: 250px; }
+  .side { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 30px 0 40px; }
   .note { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 700; color: var(--coral); line-height: 1.05; }
-  .note span { display: block; font-size: 30px; }
-  .note-l { text-align: right; transform: rotate(-6deg); align-self: start; margin-top: 70px; }
-  .note-l .arrow-l { width: 110px; height: auto; margin: 4px 0 0 auto; display: block; }
+  .note span { display: block; font-size: 29px; }
+  .note-l { text-align: right; transform: rotate(-5deg); }
+  .note-l .arrow-l { width: 104px; height: auto; margin: 2px 0 0 auto; display: block; }
   .note-r { display: flex; align-items: center; gap: 8px; color: var(--coral-dark); }
   .note-r span { transform: rotate(5deg); }
-  .note-r .brace { width: 26px; height: 230px; flex: none; }
+  .note-r .brace { width: 24px; height: 200px; flex: none; }
   .scribble path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Manga-style thought bubbles: inner voice, softer colour */
+  .thought {
+    position: relative; font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 500;
+    font-size: 21px; line-height: 1.1; color: var(--text-dim);
+    background: var(--surface-alt); border: 1.6px solid var(--text-faint);
+    border-radius: 48% 52% 45% 55% / 55% 48% 52% 45%;
+    padding: 16px 18px; text-align: center;
+  }
+  .thought i { position: absolute; border: 1.6px solid var(--text-faint); background: var(--surface-alt); border-radius: 50%; }
+  .thought-l { margin-right: 14px; transform: rotate(2deg); }
+  .thought-l i:nth-of-type(1) { width: 14px; height: 14px; right: 18px; top: -18px; }
+  .thought-l i:nth-of-type(2) { width: 8px; height: 8px; right: 6px; top: -30px; }
+  .thought-r { margin-left: 14px; transform: rotate(-2deg); }
+  .thought-r i:nth-of-type(1) { width: 14px; height: 14px; left: 22px; bottom: -18px; }
+  .thought-r i:nth-of-type(2) { width: 8px; height: 8px; left: 10px; bottom: -30px; }
+
   @media (max-width: 680px) {
-    .shot-wrap { grid-template-columns: 1fr; justify-items: center; gap: 2px; }
-    .shot-wrap .shot { width: 230px; }
-    .note-l { order: 0; margin-top: 0; text-align: center; transform: rotate(-3deg); }
-    .note-l .arrow-l { width: 70px; margin: 0 auto; transform: rotate(60deg); }
-    .note-r { order: 2; flex-direction: column; gap: 0; margin-top: 6px; }
-    .note-r .brace { width: 200px; height: 24px; transform: rotate(-90deg) scaleX(-1); display: none; }
+    .shot-wrap { grid-template-columns: 1fr; justify-items: center; gap: 4px; }
+    .shot-wrap .shot { width: 230px; margin: 10px 0; }
+    .side { padding: 0; gap: 14px; align-items: center; width: 100%; }
+    .note-l { text-align: center; transform: rotate(-3deg); }
+    .note-l .arrow-l { display: none; }
+    .note-r .brace { display: none; }
     .note-r span { transform: rotate(-3deg); text-align: center; }
     .note span { font-size: 27px; }
+    .side-l { flex-direction: column; }
+    .side-r { flex-direction: column; margin-top: 8px; }
+    .thought { max-width: 270px; margin: 6px auto; }
+    .thought i { display: none; }
+    .note-r span { font-size: 25px; }
   }
   .shot { margin: 24px auto; max-width: 260px; text-align: center; }
   .shot img {
@@ -308,18 +331,25 @@
     <h2><svg viewBox="0 0 40 40"><use href="#star8"/></svg>Why this was made</h2>
     <p>This is what my phone used to look like: an entire folder of Islamic apps. One for mosque times, another for the Qur'an, another for du'a, one for tasbih, one to track my salah, and a few more I'd forgotten I even had.</p>
     <div class="shot-wrap">
-      <div class="note note-l">
-        <span>Why so many apps?</span>
-        <svg class="scribble arrow-l" viewBox="0 0 120 70" aria-hidden="true"><path d="M8 18 C 20 58, 70 66, 108 38"/><path d="M92 30 L109 37 L99 52"/></svg>
+      <div class="side side-l">
+        <div class="note note-l">
+          <span>Why are so many apps needed?</span>
+          <svg class="scribble arrow-l" viewBox="0 0 120 70" aria-hidden="true"><path d="M8 18 C 20 58, 70 66, 108 38"/><path d="M92 30 L109 37 L99 52"/></svg>
+        </div>
+        <div class="thought thought-l"><span>There has to be a better way..!</span><i></i><i></i></div>
       </div>
       <figure class="shot">
         <img src="/assets/about/apps-folder.jpg" alt="A phone folder called Islamic with sixteen separate Islamic apps" width="717" height="1280" loading="lazy">
         <figcaption>My "Islamic" folder. Sixteen apps, and that's just the first page.</figcaption>
       </figure>
-      <div class="note note-r">
-        <svg class="scribble brace" viewBox="0 0 40 300" preserveAspectRatio="none" aria-hidden="true"><path d="M6 4 C 22 6, 18 60, 20 120 C 21 140, 26 148, 36 150 C 26 152, 21 160, 20 180 C 18 240, 22 294, 6 296"/></svg>
-        <span>All of this,<br>in just one app!</span>
+      <div class="side side-r">
+        <div class="thought thought-r"><span>Hmm&hellip; what if there was an app that brought all of these together?</span><i></i><i></i></div>
+        <div class="note note-r">
+          <svg class="scribble brace" viewBox="0 0 40 300" preserveAspectRatio="none" aria-hidden="true"><path d="M6 4 C 22 6, 18 60, 20 120 C 21 140, 26 148, 36 150 C 26 152, 21 160, 20 180 C 18 240, 22 294, 6 296"/></svg>
+          <span>All of these in just one single app!</span>
+        </div>
       </div>
+    </div>
     </div>
     <p>Each app did one thing well, but moving between them quickly became tiring. So I set out to build the one app I actually wanted: somewhere to find a mosque nearby, read Qur'an, keep up with dhikr, track my prayers and learn the basics, all in one place.</p>
     <p class="signoff">That's WhereWePraying?.</p>
