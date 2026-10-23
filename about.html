@@ -150,48 +150,39 @@
   /* Handwritten notes around the screenshot */
   @font-face { font-family: 'Caveat'; font-style: normal; font-display: swap; font-weight: 400 700;
     src: url(/assets/fonts/caveat-latin-wght-normal.woff2) format('woff2'); }
-  .shot-wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 10px; margin: 24px 0; }
+  .shot-wrap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; margin: 24px 0; }
   .shot-wrap .shot { margin: 0; width: 250px; }
-  .side { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 30px 0 40px; }
+  .side { position: relative; min-height: 100%; }
   .note { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 700; color: var(--coral); line-height: 1.05; }
   .note span { display: block; font-size: 29px; }
-  .note-l { text-align: right; transform: rotate(-5deg); }
+  .note-l { position: absolute; right: 0; top: 70px; text-align: right; transform: rotate(-5deg); }
   .note-l .arrow-l { width: 104px; height: auto; margin: 2px 0 0 auto; display: block; }
-  .note-r { display: flex; align-items: center; gap: 8px; color: var(--coral-dark); }
+  .note-r { position: absolute; left: 0; top: 46%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--coral-dark); }
   .note-r span { transform: rotate(5deg); }
-  .note-r .brace { width: 24px; height: 200px; flex: none; }
+  .note-r .brace { width: 26px; height: 230px; flex: none; }
   .scribble path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* Manga-style thought bubbles: inner voice, softer colour */
-  .thought {
-    position: relative; font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 500;
-    font-size: 21px; line-height: 1.1; color: var(--text-dim);
-    background: var(--surface-alt); border: 1.6px solid var(--text-faint);
-    border-radius: 48% 52% 45% 55% / 55% 48% 52% 45%;
-    padding: 16px 18px; text-align: center;
-  }
-  .thought i { position: absolute; border: 1.6px solid var(--text-faint); background: var(--surface-alt); border-radius: 50%; }
-  .thought-l { margin-right: 14px; transform: rotate(2deg); }
-  .thought-l i:nth-of-type(1) { width: 14px; height: 14px; right: 18px; top: -18px; }
-  .thought-l i:nth-of-type(2) { width: 8px; height: 8px; right: 6px; top: -30px; }
-  .thought-r { margin-left: 14px; transform: rotate(-2deg); }
-  .thought-r i:nth-of-type(1) { width: 14px; height: 14px; left: 22px; bottom: -18px; }
-  .thought-r i:nth-of-type(2) { width: 8px; height: 8px; left: 10px; bottom: -30px; }
+  /* Revision-style notes: pencil-ish ink, highlighter swipe, double underline */
+  .rev { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 600; font-size: 23px; line-height: 1.15; color: var(--text-dim); }
+  .rev .hl { white-space: nowrap; background: linear-gradient(transparent 55%, rgba(var(--gold-rgb), .35) 55%, rgba(var(--gold-rgb), .35) 92%, transparent 92%); padding: 0 3px; }
+  .rev-l { position: absolute; right: 10px; bottom: 60px; text-align: right; transform: rotate(-3deg); max-width: 220px; }
+  .rev-l .uline { display: block; width: 100%; height: 14px; margin-top: 2px; color: var(--gold); }
+  .rev-l .uline path { stroke-width: 1.8; }
+  .rev-r { position: absolute; left: 12px; top: 14px; transform: rotate(2deg); display: flex; gap: 6px; align-items: flex-start; max-width: 200px; }
+  .rev-r .star { width: 16px; height: 16px; flex: none; margin-top: 5px; fill: var(--gold); }
 
   @media (max-width: 680px) {
     .shot-wrap { grid-template-columns: 1fr; justify-items: center; gap: 4px; }
-    .shot-wrap .shot { width: 230px; margin: 10px 0; }
-    .side { padding: 0; gap: 14px; align-items: center; width: 100%; }
-    .note-l { text-align: center; transform: rotate(-3deg); }
-    .note-l .arrow-l { display: none; }
-    .note-r .brace { display: none; }
-    .note-r span { transform: rotate(-3deg); text-align: center; }
+    .shot-wrap .shot { width: 230px; margin: 12px 0; }
+    .side { min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+    .note-l, .note-r, .rev-l, .rev-r { position: static; transform: none; text-align: center; max-width: 280px; }
+    .note-l { transform: rotate(-3deg); }
+    .note-l .arrow-l, .note-r .brace { display: none; }
+    .note-r span { transform: rotate(-3deg); text-align: center; font-size: 25px; }
     .note span { font-size: 27px; }
-    .side-l { flex-direction: column; }
-    .side-r { flex-direction: column; margin-top: 8px; }
-    .thought { max-width: 270px; margin: 6px auto; }
-    .thought i { display: none; }
-    .note-r span { font-size: 25px; }
+    .rev-l { transform: rotate(-2deg); }
+    .rev-r { transform: rotate(2deg); justify-content: center; }
+    .rev-r .star { display: none; }
   }
   .shot { margin: 24px auto; max-width: 260px; text-align: center; }
   .shot img {
@@ -336,14 +327,14 @@
           <span>Why are so many apps needed?</span>
           <svg class="scribble arrow-l" viewBox="0 0 120 70" aria-hidden="true"><path d="M8 18 C 20 58, 70 66, 108 38"/><path d="M92 30 L109 37 L99 52"/></svg>
         </div>
-        <div class="thought thought-l"><span>There has to be a better way..!</span><i></i><i></i></div>
+        <div class="rev rev-l"><span class="hl">There has to be a better way..!</span><svg class="scribble uline" viewBox="0 0 200 18" preserveAspectRatio="none" aria-hidden="true"><path d="M3 7 C 50 3, 110 10, 196 5"/><path d="M14 14 C 70 10, 130 16, 186 12"/></svg></div>
       </div>
       <figure class="shot">
         <img src="/assets/about/apps-folder.jpg" alt="A phone folder called Islamic with sixteen separate Islamic apps" width="717" height="1280" loading="lazy">
         <figcaption>My "Islamic" folder. Sixteen apps, and that's just the first page.</figcaption>
       </figure>
       <div class="side side-r">
-        <div class="thought thought-r"><span>Hmm&hellip; what if there was an app that brought all of these together?</span><i></i><i></i></div>
+        <div class="rev rev-r"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10Z"/></svg><span>Hmm&hellip; what if it was all <span class="hl">one app?</span></span></div>
         <div class="note note-r">
           <svg class="scribble brace" viewBox="0 0 40 300" preserveAspectRatio="none" aria-hidden="true"><path d="M6 4 C 22 6, 18 60, 20 120 C 21 140, 26 148, 36 150 C 26 152, 21 160, 20 180 C 18 240, 22 294, 6 296"/></svg>
           <span>All of these in just one single app!</span>
