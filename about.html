@@ -157,11 +157,26 @@
   .note span { display: block; font-size: 29px; }
   .note-l { position: absolute; right: 0; top: 70px; text-align: right; transform: rotate(-5deg); }
   .note-l .arrow-l { width: 104px; height: auto; margin: 2px 0 0 auto; display: block; }
-  .note-r { position: absolute; left: 0; top: 46%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--coral-dark); }
+  .note-r { position: absolute; left: 0; top: 42%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--coral-dark); }
   .note-r span { transform: rotate(5deg); }
   .note-r .brace { width: 26px; height: 230px; flex: none; }
   .scribble path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
+  /* Final arrow to the WhereWePraying? icon, with revision-style sparkle */
+  .app-pop { position: absolute; left: 40px; bottom: 6px; display: flex; flex-direction: column; align-items: center; color: var(--coral-dark); }
+  .app-pop .arrow-down { width: 44px; height: auto; margin-left: 30px; }
+  .app-icon-wrap { position: relative; width: 74px; height: 74px; margin-top: -4px; }
+  .app-icon-wrap img { width: 100%; height: 100%; border-radius: 18px; display: block; box-shadow: 0 8px 20px rgba(var(--coral-rgb), .25), 0 0 0 2px var(--surface); transform: rotate(-4deg); }
+  .sparkles { position: absolute; inset: -33px; width: 140px; height: 140px; overflow: visible; }
+  .sparkles .spk { fill: var(--gold); }
+  .sparkles .s2, .sparkles .s4 { fill: var(--coral); }
+  .sparkles .dash path { fill: none; stroke: var(--gold); stroke-width: 2.2; stroke-linecap: round; }
+  .sparkles .dots circle { fill: var(--gold); }
+  @media (prefers-reduced-motion: no-preference) {
+    .sparkles .spk { transform-box: fill-box; transform-origin: center; animation: twinkle 2.6s ease-in-out infinite; }
+    .sparkles .s2 { animation-delay: .7s; } .sparkles .s3 { animation-delay: 1.3s; } .sparkles .s4 { animation-delay: 1.9s; }
+  }
+  @keyframes twinkle { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.55); opacity: .5; } }
   /* Revision-style notes: pencil-ish ink, highlighter swipe, double underline */
   .rev { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 600; font-size: 23px; line-height: 1.15; color: var(--text-dim); }
   .rev .hl { background: linear-gradient(transparent 55%, rgba(var(--gold-rgb), .35) 55%, rgba(var(--gold-rgb), .35) 92%, transparent 92%); padding: 0 3px; }
@@ -183,6 +198,8 @@
     .rev-l { transform: rotate(-2deg); }
     .rev-r { transform: rotate(2deg); justify-content: center; }
     .rev-r .star { display: none; }
+    .app-pop { position: static; margin-top: 4px; }
+    .app-pop .arrow-down { width: 34px; margin-left: 20px; }
     .rev-r .hl { white-space: nowrap; }
   }
   .shot { margin: 24px auto; max-width: 260px; text-align: center; }
@@ -339,6 +356,20 @@
         <div class="note note-r">
           <svg class="scribble brace" viewBox="0 0 40 300" preserveAspectRatio="none" aria-hidden="true"><path d="M6 4 C 22 6, 18 60, 20 120 C 21 140, 26 148, 36 150 C 26 152, 21 160, 20 180 C 18 240, 22 294, 6 296"/></svg>
           <span>All of these in just one single app!</span>
+        </div>
+        <div class="app-pop">
+          <svg class="scribble arrow-down" viewBox="0 0 70 90" aria-hidden="true"><path d="M30 4 C 58 18, 56 52, 30 76"/><path d="M26 60 L29 77 L45 72"/></svg>
+          <div class="app-icon-wrap">
+            <img src="/assets/icons/icon-192.png" alt="WhereWePraying? app icon" width="192" height="192" loading="lazy">
+            <svg class="sparkles" viewBox="0 0 140 140" aria-hidden="true">
+              <path class="spk s1" d="M18 16 Q18 26 28 26 Q18 26 18 36 Q18 26 8 26 Q18 26 18 16Z"/>
+              <path class="spk s2" d="M122 100 Q122 108 130 108 Q122 108 122 116 Q122 108 114 108 Q122 108 122 100Z"/>
+              <path class="spk s3" d="M124 18 Q124 23 129 23 Q124 23 124 28 Q124 23 119 23 Q124 23 124 18Z"/>
+              <path class="spk s4" d="M14 112 Q14 116 18 116 Q14 116 14 120 Q14 116 10 116 Q14 116 14 112Z"/>
+              <g class="dash"><path d="M30 34 L22 28"/><path d="M38 28 L34 20"/><path d="M110 34 L118 28"/><path d="M104 28 L108 20"/><path d="M108 108 L116 114"/><path d="M32 106 L24 112"/></g>
+              <g class="dots"><circle cx="40" cy="12" r="1.8"/><circle cx="132" cy="62" r="1.6"/><circle cx="8" cy="70" r="1.6"/><circle cx="96" cy="130" r="1.8"/><circle cx="62" cy="134" r="1.3"/></g>
+            </svg>
+          </div>
         </div>
       </div>
     </div>
