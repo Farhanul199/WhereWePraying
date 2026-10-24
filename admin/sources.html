@@ -248,6 +248,11 @@
     </div>
 
     <div id="sourcesView">
+    <p class="step-label" style="margin-top:6px;">Progress by source</p>
+    <div id="progressCards"></div>
+    <p class="hint" id="siteLine"></p>
+
+    <p class="step-label">Source tools</p>
     <div class="tabs" id="sourceTabs"></div>
 
     <div class="stats" id="stats"></div>
@@ -276,31 +281,16 @@
         </div>
       </div>
 
-      <p class="step-label">Step 1 — look first (optional)</p>
-      <div class="actions">
-        <button class="ghost" id="promotePreviewBtn">Preview next 50</button>
-        <button class="ghost" id="geocodeBtn">Find coordinates from addresses</button>
-      </div>
-      <p class="hint">Preview shows what the next 50 would do — new listing, or linked to one already live. Changes nothing. "Find coordinates" is only for sources whose mosques have an address but no map location; they can't go live without it.</p>
-
-      <p class="step-label">Step 2 — put them on the site</p>
       <div class="actions">
         <button id="doItAllBtn">Put live + send times</button>
-      </div>
-      <p class="hint">The main button. Puts every ready mosque from this tab on the live site and gets their prayer times ready to read. Takes a few minutes for a big source — leave the tab open.</p>
-
-      <p class="step-label">Step 3 — check it worked</p>
-      <div class="actions">
+        <button class="ghost" id="promotePreviewBtn">Preview next 50</button>
+        <button class="ghost" id="geocodeBtn">Find coordinates</button>
         <button class="ghost" id="diagBtn">Test Find a Mosque here</button>
       </div>
-      <p class="hint">Asks the live site what a visitor at your location would see right now: how many mosques, and how many have times today.</p>
+      <p class="hint"><b>Put live + send times</b> does the whole job for this tab — listings, then prayer times. Preview and Test change nothing. Use the source cards above to fix one issue at a time.</p>
 
       <div class="status" id="promoteStatus"></div>
       <table id="promoteTable" class="hidden"><tbody></tbody></table>
-
-      <p class="step-label">Progress by source</p>
-      <div id="progressCards"></div>
-      <p class="hint" id="siteLine"></p>
 
       <details class="collapse" id="moreTools">
         <summary>More tools — fixing, matching locations, duplicates</summary>
@@ -375,6 +365,8 @@
     <div class="status" id="calcMaghribStatus"></div>
 
     <h2 class="sec sec--blue"><span class="tag">Matching</span>Match sources to mosques</h2>
+    <details class="collapse" id="matchTools">
+      <summary>Run matching &amp; link unmatched codes</summary>
     <p class="hint">Every source (MasjidBox, mosques.london, ...) registers the mosques it finds under its own code first (the "translator sheet") - a code only feeds the live site once it's linked to one of your official mosque listings. "Run automatic matching" links anything with a confident match (same spot, or a clearly matching name) across <b>every</b> source at once. Whatever's left needs a manual link below - type the mosque's slug (from its page on the live site) and press Link.</p>
     <div class="actions">
       <button class="ghost" id="mbSyncNewBtn">Sync newest MasjidBox mosques</button>
@@ -390,7 +382,10 @@
       <table id="matchTable" class="hidden"><tbody></tbody></table>
     </details>
 
-    <p class="step-label">Look up one mosque</p>
+    </details>
+
+    <details class="collapse" id="lookupTools">
+      <summary>Look up one mosque</summary>
     <p class="hint">Search for a mosque already on the live site to see exactly what each of its linked sources has for today (useful when a prayer time looks wrong or missing — like Dhuhr showing blank), and to optionally pin it to one source instead of the automatic pick.</p>
     <div class="inspectRow">
       <input type="text" id="inspectSearch" placeholder="Search by name, slug or postcode…">
@@ -400,7 +395,11 @@
     <div class="status" id="inspectStatus"></div>
     <div class="inspectCard hidden" id="inspectCard"></div>
 
+    </details>
+
     <h2 class="sec sec--purple"><span class="tag">This source</span>Collect data</h2>
+    <details class="collapse" id="collectTools">
+      <summary>Find mosques &amp; import files</summary>
     <div class="row" id="countryRow">
       <div>
         <label for="ccInput">Country code</label>
@@ -477,6 +476,8 @@
     </div>
     <p class="hint">Runs "Find mosques" for every country in that continent, one after another — your own site allows 10 admin requests a minute, so each country takes about 7 seconds. Small ones (Oceania, South America) finish in under 2 minutes; Africa/Europe/Asia take 5–6 minutes; "every country" takes about 20 minutes. Keep the tab open and active (don't switch away on mobile — background tabs can pause the timer).</p>
     </div>
+
+    </details>
 
     <div class="progressLine" id="progressLine">Timetables: —</div>
     <div class="bar"><i id="bar"></i></div>
