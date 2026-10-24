@@ -157,14 +157,15 @@
   .note span { display: block; font-size: 29px; }
   .note-l { position: absolute; right: 0; top: 70px; text-align: right; transform: rotate(-5deg); }
   .note-l .arrow-l { width: 104px; height: auto; margin: 2px 0 0 auto; display: block; }
-  .note-r { position: absolute; left: 0; top: 42%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--coral-dark); }
+  .note-r { position: absolute; left: 0; top: 38%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--coral-dark); }
   .note-r span { transform: rotate(5deg); }
   .note-r .brace { width: 26px; height: 230px; flex: none; }
   .scribble path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
   /* Final arrow to the WhereWePraying? icon, with revision-style sparkle */
-  .app-pop { position: absolute; left: 40px; bottom: 6px; display: flex; flex-direction: column; align-items: center; color: var(--coral-dark); }
-  .app-pop .arrow-down { width: 44px; height: auto; margin-left: 30px; }
+  .note-text { position: relative; }
+  .app-pop { position: absolute; left: 14px; top: 100%; margin-top: 4px; display: flex; flex-direction: column; align-items: center; color: var(--coral-dark); }
+  .app-pop .arrow-down { width: 40px; height: auto; margin-left: 28px; }
   .app-icon-wrap { position: relative; width: 74px; height: 74px; margin-top: -4px; }
   .app-icon-wrap img { width: 100%; height: 100%; border-radius: 18px; display: block; box-shadow: 0 8px 20px rgba(var(--coral-rgb), .25), 0 0 0 2px var(--surface); transform: rotate(-4deg); }
   .sparkles { position: absolute; inset: -33px; width: 140px; height: 140px; overflow: visible; }
@@ -198,7 +199,8 @@
     .rev-l { transform: rotate(-2deg); }
     .rev-r { transform: rotate(2deg); justify-content: center; }
     .rev-r .star { display: none; }
-    .app-pop { position: static; margin-top: 4px; }
+    .note-text { text-align: center; }
+    .app-pop { position: static; margin: 4px auto 0; width: max-content; }
     .app-pop .arrow-down { width: 34px; margin-left: 20px; }
     .rev-r .hl { white-space: nowrap; }
   }
@@ -355,9 +357,7 @@
         <div class="rev rev-r"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10Z"/></svg><span>Hmm&hellip; what if it was all <span class="hl">one app?</span></span></div>
         <div class="note note-r">
           <svg class="scribble brace" viewBox="0 0 40 300" preserveAspectRatio="none" aria-hidden="true"><path d="M6 4 C 22 6, 18 60, 20 120 C 21 140, 26 148, 36 150 C 26 152, 21 160, 20 180 C 18 240, 22 294, 6 296"/></svg>
-          <span>All of these in just one single app!</span>
-        </div>
-        <div class="app-pop">
+          <div class="note-text"><span>All of these in just one single app!</span><div class="app-pop">
           <svg class="scribble arrow-down" viewBox="0 0 70 90" aria-hidden="true"><path d="M30 4 C 58 18, 56 52, 30 76"/><path d="M26 60 L29 77 L45 72"/></svg>
           <div class="app-icon-wrap">
             <img src="/assets/icons/icon-192.png" alt="WhereWePraying? app icon" width="192" height="192" loading="lazy">
@@ -370,6 +370,7 @@
               <g class="dots"><circle cx="40" cy="12" r="1.8"/><circle cx="132" cy="62" r="1.6"/><circle cx="8" cy="70" r="1.6"/><circle cx="96" cy="130" r="1.8"/><circle cx="62" cy="134" r="1.3"/></g>
             </svg>
           </div>
+        </div></div>
         </div>
       </div>
     </div>
