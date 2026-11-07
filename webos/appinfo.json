@@ -1,0 +1,14 @@
+{
+  "id": "com.wherewepraying.tv",
+  "version": "1.0.0",
+  "vendor": "WhereWePraying",
+  "type": "web",
+  "main": "index.html",
+  "title": "WhereWePraying",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0b1d1a",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}
