@@ -2840,6 +2840,29 @@ var qrcode = function() {
   }, true); // capture phase — must be added as capture to run first
 })();
 
+/* =========================================================
+   1d. LG webOS / Samsung Tizen BACK KEY
+      LG remotes send keyCode 461 for Back (Samsung: 10009), with no
+      useful e.key. Every overlay on this page already closes on
+      'Escape', so translate Back into Escape when a pop-up is open;
+      with nothing open, exit the app. Runs in the capture phase, after
+      the double-keydown guard above.
+   ========================================================= */
+(function(){
+  document.addEventListener('keydown', function(e){
+    if(e.keyCode !== 461 && e.keyCode !== 10009) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    if(window.XP1 && XP1.modalOpen){
+      document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', keyCode:27, bubbles:true, cancelable:true}));
+    } else {
+      try { if(window.webOS && webOS.platformBack){ webOS.platformBack(); return; } } catch(_){}
+      try { if(window.tizen && tizen.application){ tizen.application.getCurrentApplication().exit(); return; } } catch(_){}
+      window.close();
+    }
+  }, true);
+})();
+
 (function(){
   var ua = navigator.userAgent || '';
   var cores = navigator.hardwareConcurrency || 0;
