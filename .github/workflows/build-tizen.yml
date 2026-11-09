@@ -1,0 +1,26 @@
+name: Build Samsung Tizen app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package .wgt (unsigned)
+        run: |
+          mkdir -p out
+          cd tizen && zip -r ../out/WhereWePraying.wgt config.xml index.html icon.png
+          unzip -l ../out/WhereWePraying.wgt
+
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view tizen-app-latest >/dev/null 2>&1 || gh release create tizen-app-latest --title "Samsung Tizen app" --notes "Latest Samsung Tizen build (unsigned)"
+          gh release upload tizen-app-latest out/WhereWePraying.wgt --clobber

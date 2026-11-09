@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WhereWePraying</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1d1a;color:#e8f3ef;font-family:sans-serif;overflow:hidden}
+  #msg{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;font-size:42px;text-align:center}
+  #sub{font-size:26px;opacity:.7;margin-top:16px}
+</style>
+</head>
+<body>
+<div id="msg"><div id="t">Loading WhereWePraying…</div><div id="sub"></div></div>
+<script>
+(function () {
+  var URL = 'https://wherewepraying.com/xp1.html';
+  var t = document.getElementById('t');
+  var sub = document.getElementById('sub');
+  var tries = 0;
+
+  function go() { window.location.replace(URL); }
+
+  function check() {
+    tries++;
+    var done = false;
+    var timer = setTimeout(function () { if (!done) { done = true; fail(); } }, 6000);
+    fetch(URL, { method: 'GET', cache: 'no-store', mode: 'no-cors' })
+      .then(function () { if (!done) { done = true; clearTimeout(timer); go(); } })
+      .catch(function () { if (!done) { done = true; clearTimeout(timer); fail(); } });
+  }
+
+  function fail() {
+    t.textContent = 'No internet';
+    sub.textContent = 'Retrying… (attempt ' + tries + ')';
+    setTimeout(check, 5000);
+  }
+
+  // Back key on Samsung remote (keyCode 10009): exit app from this loading screen
+  document.addEventListener('keydown', function (e) {
+    if (e.keyCode === 10009 || e.keyCode === 461 || e.key === 'GoBack') { try{ tizen.application.getCurrentApplication().exit(); }catch(_){ window.close(); } }
+  });
+
+  window.addEventListener('online', check);
+  check();
+})();
+</script>
+</body>
+</html>
