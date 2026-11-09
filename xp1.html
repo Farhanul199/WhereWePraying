@@ -266,7 +266,7 @@
   .keypad.open{display:block;}
   .keypad-row{display:flex;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;}
   .key{width:3.25rem;height:3.25rem;border-radius:var(--r-sm);background:var(--surface-alt);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;}
-  .key.wide{width:9.375rem;font-size:0.8125rem;}
+  .key.wide{width:8.9rem;font-size:0.8125rem;}
   .key.accent{background:var(--coral-soft);color:var(--coral-dark);}
   .postcode-error{color:var(--red);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
   .postcode-loading{color:var(--text-dim);font-size:0.8125rem;font-weight:700;margin-top:0.75rem;min-height:1rem;}
@@ -4278,7 +4278,7 @@ window.XP1YouTube = (function(){
     ['1','2','3','4','5','6','7','8','9','0'],
     ['A','B','C','D','E','F','G','H','I','J','K','L','M'],
     ['N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
-    ['SPACE','BACK','CLEAR','DONE']
+    ['SPACE','BACK','CLEAR','DONE','CLOSE']
   ];
   var keypadEl = document.getElementById('keypad');
   KEY_ROWS.forEach(function(row, rIdx){
@@ -4286,8 +4286,8 @@ window.XP1YouTube = (function(){
     rowEl.className = 'keypad-row';
     row.forEach(function(k, cIdx){
       var btn = document.createElement('div');
-      btn.className = 'key focusable' + (['SPACE','BACK','CLEAR','DONE'].indexOf(k) > -1 ? ' wide accent' : '');
-      btn.textContent = k === 'SPACE' ? 'Space' : k === 'BACK' ? '⌫' : k === 'CLEAR' ? 'Clear' : k === 'DONE' ? 'Done ✓' : k;
+      btn.className = 'key focusable' + (['SPACE','BACK','CLEAR','DONE','CLOSE'].indexOf(k) > -1 ? ' wide accent' : '');
+      btn.textContent = k === 'SPACE' ? 'Space' : k === 'BACK' ? '⌫' : k === 'CLEAR' ? 'Clear' : k === 'DONE' ? 'Done ✓' : k === 'CLOSE' ? '✕ Close' : k;
       btn.tabIndex = -1;
       btn.dataset.row = rIdx; btn.dataset.col = cIdx;
       btn.addEventListener('click', function(){ pressKey(k); });
@@ -4305,6 +4305,7 @@ window.XP1YouTube = (function(){
     else if(k === 'BACK'){ typed = typed.slice(0, -1); }
     else if(k === 'CLEAR'){ typed = ''; }
     else if(k === 'DONE'){ submitPostcode(); return; }
+    else if(k === 'CLOSE'){ typed = ''; loadingEl.style.display = 'none'; closeOverlay(); return; }
     else if(typed.replace(/\s/g,'').length < 8){ typed += k; }
     renderDisplay();
   }
@@ -4383,8 +4384,8 @@ window.XP1YouTube = (function(){
       return;
     }
     // postcode/keypad step
-    if((e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') && xp1Get(LOC_KEY, null)){
-      closeOverlay(); e.preventDefault(); return; // cancel "Change location"
+    if(e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack'){
+      closeOverlay(); e.preventDefault(); return; // always allow closing (also on first run)
     }
     // Guard: one key event → one action. No double-typing.
     if(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.row !== undefined){
