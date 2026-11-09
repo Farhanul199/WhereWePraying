@@ -4204,7 +4204,7 @@ window.XP1YouTube = (function(){
   }
 
   async function geocodePostcode(compact){
-    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/postcodes/' + encodeURIComponent(compact), null, 6000);
+    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/postcodes/' + encodeURIComponent(compact), null, 10000);
     if(!res.ok) return null;
     var data = await res.json();
     var r = data && data.result;
@@ -4213,7 +4213,7 @@ window.XP1YouTube = (function(){
       label: [r.admin_ward, r.admin_district].filter(Boolean).join(', ') || r.postcode, source:'manual' };
   }
   async function geocodeOutcode(compact){
-    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/outcodes/' + encodeURIComponent(compact), null, 6000);
+    var res = await fetchWithTimeout(POSTCODES_IO_BASE + '/outcodes/' + encodeURIComponent(compact), null, 10000);
     if(!res.ok) return null;
     var data = await res.json();
     var r = data && data.result;
@@ -4309,22 +4309,40 @@ window.XP1YouTube = (function(){
     renderDisplay();
   }
 
+  // One lookup with a single retry (TV browsers on slow Wi-Fi often drop or
+  // time out the first request). Returns {result} or throws if both fail.
+  async function lookupWithRetry(fn, arg){
+    try{ return await fn(arg); }
+    catch(e){ return await fn(arg); }
+  }
+
   async function submitPostcode(){
     var compact = typed.replace(/\s+/g, '').toUpperCase();
     if(!compact){ errorEl.textContent = 'Enter a postcode first.'; return; }
     errorEl.textContent = '';
     loadingEl.style.display = 'block';
+    var result = null, failed = false;
     try{
-      var result = null;
-      if(FULL_POSTCODE_RE.test(compact)) result = await geocodePostcode(compact);
-      else if(OUTCODE_RE.test(compact)) result = await geocodeOutcode(compact);
+      if(FULL_POSTCODE_RE.test(compact)){
+        try{ result = await lookupWithRetry(geocodePostcode, compact); }
+        catch(e){ failed = true; }
+        // Full postcode not found (new/terminated) or lookup failed:
+        // fall back to the area (e.g. BD8) so the dashboard still works.
+        if(!result){
+          var out = compact.slice(0, -3);
+          try{ result = await lookupWithRetry(geocodeOutcode, out); if(result) failed = false; }
+          catch(e){ failed = true; }
+        }
+      } else if(OUTCODE_RE.test(compact)){
+        try{ result = await lookupWithRetry(geocodeOutcode, compact); }
+        catch(e){ failed = true; }
+      }
+    }finally{
       loadingEl.style.display = 'none';
-      if(result){ applyLocation(result); }
-      else{ errorEl.textContent = 'Postcode not found — check it and try again.'; }
-    }catch(e){
-      loadingEl.style.display = 'none';
-      errorEl.textContent = 'Network error — check your connection and try again.';
     }
+    if(result){ applyLocation(result); }
+    else if(failed){ errorEl.textContent = 'Network error — check your connection and try again.'; }
+    else{ errorEl.textContent = 'Postcode not found — check it and try again.'; }
   }
 
   // Dedicated 2D nav for the keypad grid, active only while the postcode
