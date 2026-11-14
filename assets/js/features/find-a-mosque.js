@@ -485,6 +485,49 @@
   const MAX_FAVS = 10;
   const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const PRAYER_KEYS = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+  // ---- Community-submitted times (fallback only; see user-times.js) ----
+  const UT_DEVICE_KEY = 'wwp_ut_device_v1';
+  const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const userTimesBySlug = new Map(); // slug -> { weekday, prayers: { fajr: { time, state } } }
+  let utFlash = null;                // one-off message shown after saving
+
+  function getDeviceId(){
+    let id = null;
+    try { id = window.LocalCache ? window.LocalCache.get(UT_DEVICE_KEY) : localStorage.getItem(UT_DEVICE_KEY); } catch (e) {}
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+      try { window.LocalCache ? window.LocalCache.set(UT_DEVICE_KEY, id) : localStorage.setItem(UT_DEVICE_KEY, id); } catch (e) {}
+    }
+    return id;
+  }
+
+  async function fetchUserTimes(slugs){
+    if (!slugs.length) return;
+    try {
+      const res = await fetch('/api/mosques/user-times?slugs=' + encodeURIComponent(slugs.join(',')));
+      if (!res.ok) return;
+      const data = await res.json();
+      Object.entries(data.mosques || {}).forEach(([slug, v]) => userTimesBySlug.set(slug, v));
+    } catch (e) { /* offline: just show official times */ }
+  }
+
+  function utFormHtml(slug, defaultWeekday){
+    const days = WEEKDAY_NAMES.map((n, i) => `<option value="${i}"${i === defaultWeekday ? ' selected' : ''}>${n}</option>`).join('');
+    const prayers = PRAYER_KEYS.map(k => `<option value="${k}">${PRAYER_LABELS[k]}</option>`).join('');
+    return `
+      <div class="mq-ut-form hidden">
+        <div class="mq-ut-form-title">Add a time for this mosque</div>
+        <div class="mq-ut-form-row">
+          <label>Day<select data-ut-day>${days}</select></label>
+          <label>Prayer<select data-ut-prayer>${prayers}</select></label>
+          <label>Time<input type="time" data-ut-time required></label>
+        </div>
+        <button type="button" class="mq-ut-save" data-ut-save="${escapeHtml(slug)}">Save time</button>
+        <div class="mq-ut-msg" aria-live="polite"></div>
+        <p class="mq-ut-help">Shown as "user submitted" until Sunday. Only use this when the mosque has no time of its own. One mosque per week, one edit an hour.</p>
+      </div>`;
+  }
   let searchPin = null;          // a mosque picked from search: {slug, name, lat, lon}
   let openAfterRender = null;    // slug whose card should open once drawn
   let lastPlan = null;
@@ -687,6 +730,9 @@
   // ---- Detail: today's Jama'ah + getting there ----
   function detailHtml(e){
     const today = e.today || {};
+    const ut = userTimesBySlug.get(e.slug);
+    const userPrayers = (ut && ut.prayers) || {};
+    const userKeys = PRAYER_KEYS.filter(k => !today[k] && userPrayers[k]);
     const hasAny = PRAYER_KEYS.some(k => today[k]);
     const nowMins = lastPlan ? lastPlan.generatedAtMinutes : null;
     const nextKey = (e.prayer && !e.isTomorrow) ? e.prayer : null;
@@ -695,7 +741,7 @@
       let h = +m[1]; if (k !== 'fajr' && h >= 1 && h <= 11) h += 12;
       return h * 60 + +m[2];
     };
-    const grid = hasAny ? `
+    const grid = (hasAny || userKeys.length) ? `
       <div class="mq-detail-times">
         ${PRAYER_KEYS.map(k => {
           const past = nowMins != null && today[k] && toMins(k, today[k]) < nowMins;
@@ -706,9 +752,21 @@
             ${k === 'maghrib' && today.maghribEstimated ? `<div class="mq-detail-estimated">Estimated for this area</div>` : ''}
           </div>`;
         }).join('')}
-      </div>
-      ${e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: <b>${escapeHtml(e.tomorrowFajr)}</b></div>` : ''}`
-      : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
+      </div>` : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
+    // Community times: smaller writing under the official grid, only where the mosque has no official time.
+    const userStrip = userKeys.length ? `
+      <div class="mq-ut-strip">
+        ${userKeys.map(k => {
+          const u = userPrayers[k];
+          const stale = u.state === 'previous';
+          return `<div class="mq-ut-item${stale ? ' is-stale' : ''}">
+            <span class="mq-ut-label">${PRAYER_LABELS[k]} · ${stale ? 'user submitted (last week)' : 'user submitted'}</span>
+            <span class="mq-ut-time">${escapeHtml(u.time)}</span>
+            ${stale ? `<span class="mq-ut-note">Time may be out of date, submit the current week's one</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>` : '';
+    const tomorrowNote = e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: <b>${escapeHtml(e.tomorrowFajr)}</b></div>` : '';
     const jummahBox = isFridayHere() ? jummahBoxHtml(e.slug) : '';
     const where = [e.address, e.postcode].filter(Boolean).join(', ');
     let actions = '';
@@ -723,17 +781,25 @@
     const isUsual = getUsualMosque() === e.slug;
     const aliasLine = e.aliases && e.aliases.length
       ? `<div class="mq-detail-aliases">Also known as ${escapeHtml(e.aliases.join(', '))}</div>` : '';
+    const flash = utFlash && utFlash.slug === e.slug ? utFlash.text : null;
+    utFlash = null;
+    const defaultDay = ut && Number.isInteger(ut.weekday) ? ut.weekday : new Date().getDay();
     return `
       <div class="mq-detail-title">Today's Jama'ah</div>
       ${aliasLine}
       ${grid}
+      ${userStrip}
+      ${tomorrowNote}
       ${jummahBox}
       ${where ? `<div class="mq-detail-address">📍 ${escapeHtml(where)}</div>` : ''}
       ${actions}
       <div class="mq-detail-links">
         <button type="button" class="mq-usual-btn${isUsual ? ' is-usual' : ''}" data-usual-slug="${escapeHtml(e.slug)}">${isUsual ? 'Saved as your usual mosque ✓' : 'Set as my usual mosque'}</button>
         <button type="button" class="mq-hide-btn" data-hide-slug="${escapeHtml(e.slug)}">Hide this mosque</button>
-      </div>`;
+        <button type="button" class="mq-ut-open" data-ut-open="${escapeHtml(e.slug)}">Add or update a time</button>
+      </div>
+      ${flash ? `<div class="mq-ut-flash">${escapeHtml(flash)}</div>` : ''}
+      ${utFormHtml(e.slug, defaultDay)}`;
   }
 
   function toggleDetail(row, forceOpen){
@@ -760,6 +826,58 @@
         if (!box || panel.classList.contains('hidden')) return;
         box.outerHTML = jummahBoxHtml(e.slug);
       });
+    }
+    // Community times arrive a moment later; redraw once, unless the person is typing in the form.
+    fetchUserTimes([e.slug]).then(() => {
+      if (panel.classList.contains('hidden') || panel.querySelector('.mq-ut-form:not(.hidden)')) return;
+      panel.innerHTML = detailHtml(e);
+    });
+  }
+
+  // Submit / open-form clicks inside a card's detail panel.
+  document.getElementById('mqList')?.addEventListener('click', async (ev) => {
+    const openBtn = ev.target.closest('.mq-ut-open');
+    if (openBtn) {
+      const form = openBtn.closest('.mq-detail').querySelector('.mq-ut-form');
+      if (form) form.classList.toggle('hidden');
+      return;
+    }
+    const saveBtn = ev.target.closest('.mq-ut-save');
+    if (saveBtn) await submitUserTime(saveBtn);
+  });
+
+  async function submitUserTime(btn){
+    const slug = btn.dataset.utSave;
+    const form = btn.closest('.mq-ut-form');
+    const msg = form.querySelector('.mq-ut-msg');
+    const weekday = +form.querySelector('[data-ut-day]').value;
+    const prayer = form.querySelector('[data-ut-prayer]').value;
+    const time = form.querySelector('[data-ut-time]').value;
+    if (!time) { msg.textContent = 'Pick a time first.'; return; }
+    btn.disabled = true;
+    msg.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/mosques/user-times', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mosque: slug, weekday, prayer, time, deviceId: getDeviceId() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        msg.textContent = data.retryMinutes
+          ? `You can edit again in about ${data.retryMinutes} min.`
+          : (data.error || 'Could not save that time.');
+        btn.disabled = false;
+        return;
+      }
+      utFlash = { slug, text: `Saved. ${PRAYER_LABELS[prayer]} on ${WEEKDAY_NAMES[weekday]} is now shown as user submitted.` };
+      await fetchUserTimes([slug]);
+      const e = entriesBySlug.get(slug);
+      const panel = form.closest('.mq-detail');
+      if (e && panel) panel.innerHTML = detailHtml(e);
+    } catch (err) {
+      msg.textContent = 'Network problem. Try again.';
+      btn.disabled = false;
     }
   }
 
