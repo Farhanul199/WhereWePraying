@@ -175,11 +175,19 @@ body #page-quran{
 #page-quran .vp-btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 0;font-size:12px;font-weight:600;cursor:pointer;}
 #page-quran .vp-btn:hover{background:var(--coral-soft);color:var(--coral);}
 #page-quran .vp-btn.active{background:var(--coral);border-color:var(--coral);color:#fff;}
-#page-quran .verse-jump{display:flex;align-items:center;gap:8px;margin-top:9px;}
-#page-quran .verse-jump select{
-  border:1px solid var(--border);border-radius:8px;background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);color:var(--text);
-  padding:6px 8px;font-size:12.5px;cursor:pointer;min-width:84px;
+#page-quran .surah-jump-row{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:9px;}
+#page-quran .surah-jump-row .surah-quick-jumps{margin-top:0;}
+#page-quran .verse-jump{
+  display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);backdrop-filter:var(--surface-blur,none);-webkit-backdrop-filter:var(--surface-blur,none);
+  font-size:12px;font-weight:700;color:var(--text-dim);
 }
+#page-quran .verse-jump label{cursor:pointer;white-space:nowrap;}
+#page-quran .verse-jump select{
+  border:none;background:transparent;color:var(--text);font:inherit;font-weight:700;
+  padding:3px 4px;cursor:pointer;outline:none;min-width:48px;
+}
+#page-quran .verse-jump:focus-within{border-color:var(--coral);}
 #page-quran .sqj-pill.sqj-kahf{
   background:linear-gradient(135deg, rgba(126,156,121,.16), rgba(126,156,121,.28));
   border-color:rgba(126,156,121,.55); color:#5C7A59;
