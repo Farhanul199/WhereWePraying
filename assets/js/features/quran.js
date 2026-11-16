@@ -651,6 +651,19 @@ function renderSurahList(filter){
       </div>`;
     li.addEventListener('click', ()=> selectSurah(s.num, 1));
     list.appendChild(li);
+
+    // Selected surah expands into a verse picker directly beneath it.
+    if(s.num===state.currentSurah){
+      const vli = document.createElement('li');
+      vli.className='surah-verse-li';
+      let btns='';
+      for(let a=1; a<=s.ayahs; a++){
+        btns += `<button type="button" class="vp-btn${a===state.currentAyah?' active':''}" data-verse="${a}">${a}</button>`;
+      }
+      vli.innerHTML = `<div class="s-verse-panel" aria-label="Verses of ${s.en}">${btns}</div>`;
+      $$('.vp-btn', vli).forEach(btn=> btn.addEventListener('click', ()=> jumpToVerse(s.num, +btn.dataset.verse)));
+      list.appendChild(vli);
+    }
   });
   if(f && list.children.length===0){
     list.innerHTML = '<div class="popover-empty">No surahs match "'+filter+'"</div>';
@@ -743,6 +756,39 @@ function renderReaderHeader(){
   const page = approxPage(state.currentSurah, state.currentAyah);
   $('#rHeaderMeta').textContent = `Juz ${juz} · Page ${page} · ${s.type} · ${s.ayahs} Ayahs`;
   renderSurahQuickJumps();
+  renderVerseSelect();
+}
+
+// Verse dropdown in the reading-settings toolbar — lists every ayah of
+// the current surah and stays in sync with the reading position.
+function renderVerseSelect(){
+  const sel = $('#verseSelect');
+  if(!sel) return;
+  const s = getSurah(state.currentSurah);
+  let html = '';
+  for(let a=1; a<=s.ayahs; a++) html += `<option value="${a}">${a}</option>`;
+  sel.innerHTML = html;
+  syncVerseUI();
+}
+
+// Keeps the header dropdown and the sidebar verse grid showing the
+// current ayah.
+function syncVerseUI(){
+  const sel = $('#verseSelect');
+  if(sel) sel.value = String(state.currentAyah);
+  $$('.vp-btn').forEach(b=> b.classList.toggle('active', +b.dataset.verse === state.currentAyah));
+}
+
+// Shared jump: used by the header dropdown and the sidebar verse grid.
+function jumpToVerse(num, ayah){
+  state.currentAyah = ayah;
+  Services.logHistory(num, ayah);
+  Services.saveLastRead(num, ayah);
+  Services.persist();
+  syncVerseUI();
+  if(!scrollToAyahCard(num, ayah)){
+    ensureSurahLoaded(num, ayah);
+  }
 }
 
 // Direct-jump pills for a small set of notable ayah ranges, shown
@@ -952,6 +998,7 @@ function setActiveReadAyah(surah, ayah){
   if(card) card.classList.add('active-read');
 
   state.currentAyah = ayah;
+  syncVerseUI();
   clearTimeout(activeReadSaveTimer);
   activeReadSaveTimer = setTimeout(()=>{
     Services.logHistory(surah, ayah);
@@ -1758,6 +1805,9 @@ async function init(){
     renderReader();
   });
   $$('#modePills button').forEach(b=> b.addEventListener('click', ()=> setTheme(b.dataset.mode)));
+  $('#verseSelect').addEventListener('change', e=>{
+    jumpToVerse(state.currentSurah, parseInt(e.target.value, 10));
+  });
   $('#translationSelect').addEventListener('change', e=>{
     state.translation = e.target.value;
     Services.persist();
