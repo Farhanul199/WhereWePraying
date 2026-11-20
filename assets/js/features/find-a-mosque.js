@@ -626,6 +626,64 @@
     }
   }
 
+  // ---- Friday Jummah box ----
+  // Only shown on Fridays (device time). Lists every Jummah slot the
+  // mosque runs (1st, 2nd, ...) from /api/mosques/jummah. One request per
+  // Friday, reused for every card tapped that day.
+  let jummahFor = null;       // 'YYYY-MM-DD' the cached answer belongs to
+  let jummahBySlug = null;    // Map slug -> [{slot, time}]
+  let jummahFailed = false;
+  let jummahLoading = null;
+
+  function localDateParts(){
+    const tz = deviceTimeZone() || 'Europe/London';
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'
+    }).formatToParts(new Date());
+    const get = (t) => (parts.find(p => p.type === t) || {}).value;
+    return { iso: get('year') + '-' + get('month') + '-' + get('day'), weekday: get('weekday') };
+  }
+  function isFridayHere(){ return localDateParts().weekday === 'Fri'; }
+
+  function loadJummah(){
+    const { iso } = localDateParts();
+    if (jummahFor === iso && (jummahBySlug || jummahLoading)) return jummahLoading || Promise.resolve(jummahBySlug);
+    jummahFor = iso;
+    jummahBySlug = null;
+    jummahFailed = false;
+    jummahLoading = fetch('/api/mosques/jummah?date=' + encodeURIComponent(iso))
+      .then(r => { if (!r.ok) throw new Error('jummah ' + r.status); return r.json(); })
+      .then(data => {
+        const map = new Map();
+        (data.locations || []).forEach(loc => map.set(loc.slug, loc.slots || []));
+        jummahBySlug = map;
+        return map;
+      })
+      .catch(() => { jummahFailed = true; return null; })
+      .finally(() => { jummahLoading = null; });
+    return jummahLoading;
+  }
+
+  function jummahBoxHtml(slug){
+    const ordinal = (n) => (['1st', '2nd', '3rd'][n - 1] || (n + 'th'));
+    const slots = jummahBySlug ? (jummahBySlug.get(slug) || []) : [];
+    let body;
+    if (slots.length) {
+      body = `<div class="mq-jummah-slots">${slots.map(s => `
+          <div class="mq-jummah-slot">
+            <div class="mq-jummah-label">${ordinal(s.slot)} Jummah</div>
+            <div class="mq-jummah-time">${escapeHtml(s.time)}</div>
+          </div>`).join('')}</div>`;
+    } else if (jummahFailed) {
+      body = `<div class="mq-jummah-empty">Jummah times couldn't load. Try again in a moment.</div>`;
+    } else if (!jummahBySlug) {
+      body = `<div class="mq-jummah-empty">Loading Jummah times…</div>`;
+    } else {
+      body = `<div class="mq-jummah-empty">No Jummah time on record for this mosque yet.</div>`;
+    }
+    return `<div class="mq-jummah-box"><div class="mq-jummah-title">🕌 Jummah today</div>${body}</div>`;
+  }
+
   // ---- Detail: today's Jama'ah + getting there ----
   function detailHtml(e){
     const today = e.today || {};
@@ -651,6 +709,7 @@
       </div>
       ${e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: <b>${escapeHtml(e.tomorrowFajr)}</b></div>` : ''}`
       : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
+    const jummahBox = isFridayHere() ? jummahBoxHtml(e.slug) : '';
     const where = [e.address, e.postcode].filter(Boolean).join(', ');
     let actions = '';
     if (e.latitude != null && e.longitude != null) {
@@ -668,6 +727,7 @@
       <div class="mq-detail-title">Today's Jama'ah</div>
       ${aliasLine}
       ${grid}
+      ${jummahBox}
       ${where ? `<div class="mq-detail-address">📍 ${escapeHtml(where)}</div>` : ''}
       ${actions}
       <div class="mq-detail-links">
@@ -693,6 +753,14 @@
     panel.classList.remove('hidden');
     row.setAttribute('aria-expanded', 'true');
     row.classList.add('is-open');
+    if (isFridayHere()) {
+      // Fill the Jummah box once the Friday list arrives (cached after first load).
+      loadJummah().then(() => {
+        const box = panel.querySelector('.mq-jummah-box');
+        if (!box || panel.classList.contains('hidden')) return;
+        box.outerHTML = jummahBoxHtml(e.slug);
+      });
+    }
   }
 
   document.getElementById('mqList')?.addEventListener('click', (ev) => {

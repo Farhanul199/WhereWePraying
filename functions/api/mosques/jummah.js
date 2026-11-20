@@ -72,7 +72,7 @@ export async function onRequestGet(context) {
   const baseIso = requestedDate || todayIso;
   const dateIso = weekdayOfIso(baseIso) === 5 ? baseIso : nextFridayIso(baseIso);
 
-  const kvKey = "mq_jummah_v1:" + dateIso;
+  const kvKey = "mq_jummah_v2:" + dateIso;
   if (env.RATE_LIMIT) {
     const kvHit = await env.RATE_LIMIT.get(kvKey);
     if (kvHit) {
@@ -111,6 +111,45 @@ export async function onRequestGet(context) {
       }
       const mins = parseTimeToMinutes(row.time);
       bySlug.get(row.slug).slots.push({ slot: row.slot, time: row.time, minutes: mins });
+    }
+
+    // Fallback: mosques whose Jummah comes from the bulk feeds (Mawaqit,
+    // mosques.london, MasjidBox, ...) rather than the Tower Hamlets /
+    // manual inbox. Those feeds store up to two Jummah times per month in
+    // mosque_month_times.jummah as {"1":"13:30","2":"14:30"}. Only used
+    // for mosques with no raw slots for this Friday, so the inbox still wins.
+    try {
+      const monthKey = dateIso.slice(0, 7);
+      const { results: monthRows } = await env.DB.prepare(
+        `SELECT m.slug, m.name, m.type, m.address, ph.r2_key AS photo_key, t.jummah
+         FROM mosque_month_times t
+         JOIN mosques m ON m.slug = t.mosque
+         LEFT JOIN mosque_photos ph ON ph.mosque = m.slug AND ph.status = 'approved'
+         WHERE t.month = ? AND t.jummah IS NOT NULL AND m.active = 1`
+      )
+        .bind(monthKey)
+        .all();
+      for (const row of monthRows || []) {
+        if (bySlug.has(row.slug)) continue;
+        let parsed = null;
+        try { parsed = JSON.parse(row.jummah); } catch (e) { parsed = null; }
+        if (!parsed || typeof parsed !== "object") continue;
+        const slots = Object.keys(parsed)
+          .sort((a, b) => Number(a) - Number(b))
+          .filter((k) => parsed[k])
+          .map((k) => ({ slot: Number(k), time: parsed[k], minutes: parseTimeToMinutes(parsed[k]) }));
+        if (!slots.length) continue;
+        bySlug.set(row.slug, {
+          slug: row.slug,
+          name: row.name,
+          type: row.type || "mosque",
+          address: row.address || null,
+          photoUrl: row.photo_key ? `/api/community/photo/${row.photo_key}` : null,
+          slots,
+        });
+      }
+    } catch (e) {
+      // mosque_month_times not built yet: serve inbox-only results.
     }
 
     const locations = Array.from(bySlug.values()).map((loc) => {
