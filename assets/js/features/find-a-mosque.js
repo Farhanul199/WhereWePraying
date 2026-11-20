@@ -651,7 +651,7 @@
     jummahFor = iso;
     jummahBySlug = null;
     jummahFailed = false;
-    jummahLoading = fetch('/api/mosques/jummah?date=' + encodeURIComponent(iso))
+    jummahLoading = fetch('/api/mosques/jummah?date=' + encodeURIComponent(iso), { headers: deviceHeaders() })
       .then(r => { if (!r.ok) throw new Error('jummah ' + r.status); return r.json(); })
       .then(data => {
         const map = new Map();
