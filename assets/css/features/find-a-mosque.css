@@ -350,3 +350,5 @@
 .mq-ut-msg{margin-top:6px;font-size:12px;color:var(--coral);min-height:1em;}
 .mq-ut-help{margin-top:6px;font-size:11px;color:var(--text-dim);line-height:1.4;}
 .mq-ut-flash{margin-top:8px;font-size:12px;color:#0f7f76;}
+.mq-ut-box{margin-top:12px;padding:10px;border:1px dashed rgba(43,181,168,.6);border-radius:14px;background:rgba(43,181,168,.06);}
+.mq-ut-box-title{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0f7f76;margin-bottom:6px;}

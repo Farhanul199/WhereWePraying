@@ -732,7 +732,7 @@
     const today = e.today || {};
     const ut = userTimesBySlug.get(e.slug);
     const userPrayers = (ut && ut.prayers) || {};
-    const userKeys = PRAYER_KEYS.filter(k => !today[k] && userPrayers[k]);
+    const userKeys = PRAYER_KEYS.filter(k => userPrayers[k]);
     const hasAny = PRAYER_KEYS.some(k => today[k]);
     const nowMins = lastPlan ? lastPlan.generatedAtMinutes : null;
     const nextKey = (e.prayer && !e.isTomorrow) ? e.prayer : null;
@@ -755,16 +755,21 @@
       </div>` : `<div class="mq-detail-note">No Jama'ah times on record for this mosque yet.</div>`;
     // Community times: smaller writing under the official grid, only where the mosque has no official time.
     const userStrip = userKeys.length ? `
+      <div class="mq-ut-box">
+        <div class="mq-ut-box-title">Community times</div>
       <div class="mq-ut-strip">
         ${userKeys.map(k => {
           const u = userPrayers[k];
           const stale = u.state === 'previous';
+          const suggested = !!today[k];
+          const kind = suggested ? 'user suggested' : 'user submitted';
           return `<div class="mq-ut-item${stale ? ' is-stale' : ''}">
-            <span class="mq-ut-label">${PRAYER_LABELS[k]} · ${stale ? 'user submitted (last week)' : 'user submitted'}</span>
+            <span class="mq-ut-label">${PRAYER_LABELS[k]} · ${stale ? kind + ' (last week)' : kind}</span>
             <span class="mq-ut-time">${escapeHtml(u.time)}</span>
             ${stale ? `<span class="mq-ut-note">Time may be out of date, submit the current week's one</span>` : ''}
           </div>`;
         }).join('')}
+      </div>
       </div>` : '';
     const tomorrowNote = e.tomorrowFajr ? `<div class="mq-detail-note">Tomorrow's Fajr: <b>${escapeHtml(e.tomorrowFajr)}</b></div>` : '';
     const jummahBox = isFridayHere() ? jummahBoxHtml(e.slug) : '';
