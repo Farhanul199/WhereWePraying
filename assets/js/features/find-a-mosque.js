@@ -399,7 +399,7 @@
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { return null; }
   }
 
-  async function fetchPlan(lat, lon){
+  async function fetchPlan(lat, lon, countOverride){
     // POST with coords in the body (not a GET query string) so they
     // never land in access logs, browser history, or a Referer header.
     const pins = getFavs().map(f => ({ slug: f.slug, lat: f.lat, lon: f.lon }));
@@ -407,7 +407,7 @@
     const res = await fetch('/api/mosques/plan', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, deviceHeaders()),
-      body: JSON.stringify({ lat, lon, count: getCount(), pins, exclude: getHidden().map(h => h.slug), tz: deviceTimeZone() })
+      body: JSON.stringify({ lat, lon, count: countOverride || getCount(), pins, exclude: getHidden().map(h => h.slug), tz: deviceTimeZone() })
     });
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
@@ -1070,6 +1070,7 @@
       if (seq !== planSeq) return; // a newer request superseded this one
       renderPlan(plan);
       writeCachedPlan(loc, plan);
+      loadMapPlan(loc);
     } catch (e) {
       if (seq !== planSeq) return;
       // A fetch failure for one source shouldn't nuke a result another
@@ -1078,6 +1079,17 @@
       if (!document.querySelector('#mqList .mq-plan-rows')) renderNoLocationYet();
     }
   }
+
+  // Live map feeds on the 10 nearest mosques, independent of the list's
+  // "Show n nearest" choice. Refreshed every 90s while the page is open.
+  async function loadMapPlan(loc){
+    if (!window.WWPMap || !loc) return;
+    try {
+      const plan = await fetchPlan(loc.lat, loc.lon, 10);
+      if (loc === mqLocation) window.WWPMap.render(plan, loc);
+    } catch (e) { /* map is optional */ }
+  }
+  setInterval(() => { if (!document.hidden && mqLocation) loadMapPlan(mqLocation); }, 90000);
 
   // Adopts a location result if it's more precise than what's already
   // showing (or `force` is set, for an explicit user action like the

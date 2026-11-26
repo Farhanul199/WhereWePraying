@@ -50,6 +50,8 @@
 <link rel="stylesheet" href="/assets/css/features/dua.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/guides.css?v=2">
 <link rel="stylesheet" href="/assets/css/features/find-a-mosque.css?v=6">
+<link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css?v=1.9.4">
+<link rel="stylesheet" href="/assets/css/features/find-a-mosque-map.css?v=1">
 <link rel="stylesheet" href="/assets/css/features/community.css?v=2">
 <link rel="stylesheet" href="/assets/css/features/travel-mode.css?v=5">
 </noscript>
@@ -1675,6 +1677,10 @@
       <button type="submit" class="mq-manual-location-submit">Go</button>
     </form>
     <div id="mqManualLocationStatus" class="mq-manual-location-status" aria-live="polite"></div>
+    <div class="mq-map-wrap hidden">
+      <div id="mqMap" class="mq-map" aria-label="Map of mosques near you"></div>
+      <div id="mqMapCard" class="hidden"></div>
+    </div>
     <div id="mqList" class="mq-list"></div>
     <button type="button" id="mqResetAllBtn" class="mq-reset-all-btn">Reset usual mosque &amp; favourites</button>
   </div>
