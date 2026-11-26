@@ -330,3 +330,25 @@
 .mq-search-place{display:block;margin:8px auto 0;}
 .mq-search-place-error{color:#B5451F;font-size:12px;margin-top:6px;text-align:center;}
 .mq-detail-aliases{font-size:12px;color:var(--text-dim);font-style:italic;margin:-4px 0 8px;}
+
+/* ---------- Community-submitted times (fallback, under the official grid) ---------- */
+.mq-ut-strip{margin:10px 0 2px;display:flex;flex-direction:column;gap:6px;}
+.mq-ut-item{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:12px;color:#0f7f76;background:rgba(43,181,168,.12);border:1px dashed rgba(43,181,168,.6);border-radius:10px;padding:6px 10px;}
+.mq-ut-item.is-stale{color:var(--text-dim);background:transparent;border-color:var(--border);opacity:.7;}
+.mq-ut-label{font-weight:600;}
+.mq-ut-time{font-weight:700;font-variant-numeric:tabular-nums;}
+.mq-ut-note{width:100%;font-size:11px;font-style:italic;}
+.mq-ut-open{display:inline-flex;align-items:center;margin-top:10px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-dim);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.mq-ut-open:hover{border-color:#2bb5a8;color:#0f7f76;}
+.mq-ut-form{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface-alt);}
+.mq-ut-form-title{font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text);}
+.mq-ut-form-row{display:flex;flex-wrap:wrap;gap:8px;}
+.mq-ut-form-row label{display:flex;flex-direction:column;font-size:11.5px;color:var(--text-dim);gap:4px;}
+.mq-ut-form select,.mq-ut-form input{font:inherit;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+.mq-ut-save{margin-top:10px;background:#2bb5a8;color:#fff;border:0;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.mq-ut-save:disabled{opacity:.6;cursor:default;}
+.mq-ut-msg{margin-top:6px;font-size:12px;color:var(--coral);min-height:1em;}
+.mq-ut-help{margin-top:6px;font-size:11px;color:var(--text-dim);line-height:1.4;}
+.mq-ut-flash{margin-top:8px;font-size:12px;color:#0f7f76;}
+.mq-ut-box{margin-top:12px;padding:10px;border:1px dashed rgba(43,181,168,.6);border-radius:14px;background:rgba(43,181,168,.06);}
+.mq-ut-box-title{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0f7f76;margin-bottom:6px;}
